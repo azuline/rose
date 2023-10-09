@@ -1,0 +1,65 @@
+[tool.black]
+line-length = 100
+force-exclude = '''
+(
+  /(
+      \.git          # exclude a few common directories in the
+    | \.mypy_cache   # root of the project
+    | \.ruff_cache
+    | \.tox
+    | \.venv
+    | _build
+    | build
+    | dist
+  )/
+)
+'''
+
+[tool.ruff]
+select = [
+  # pycodestyle
+  "E",
+  # pyflakes
+  "F",
+  # pep8-naming
+  "N",
+  # flake8-unused-arguments
+  "ARG",
+  # pyupgrade
+  "UP",
+  # flake-bugbear
+  "B",
+  # flake8-builtins
+  "A",
+  # isort
+  "I",
+  # flake8-comprehensions
+  "C4",
+  # flake8-import-conventions
+  "ICN",
+  # flake8-pytest-style
+  "PT",
+  # flake8-simplify
+  "SIM",
+  # pandas-vet
+  "PD",
+  # flake8-use-pathlib - in ruff/main but not yet in the nixified version
+  # "PTH",
+]
+ignore = [
+]
+line-length = 100
+exclude = [".venv"]
+src = ["."]
+
+[tool.mypy]
+strict = true
+strict_optional = true
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = "setuptools"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=. --cov-branch"

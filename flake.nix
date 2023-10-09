@@ -15,6 +15,19 @@
     let
       pkgs = import nixpkgs { inherit system; };
       python = pkgs.python311;
+      prod-deps = with python.pkgs; [
+        click
+        fuse
+        mutagen
+      ];
+      dev-deps = with python.pkgs; [
+        black
+        flake8
+        mypy
+        pytest
+        pytest-cov
+        setuptools
+      ];
     in
     {
       devShells.default = pkgs.mkShell {
@@ -37,14 +50,20 @@
           (pkgs.buildEnv {
             name = "rose-devshell";
             paths = with pkgs; [
-              (python.withPackages (p: [
-                p.mutagen
-                p.fuse
-              ]))
+              (python.withPackages (_: prod-deps ++ dev-deps))
+              ruff
             ];
           })
         ];
       };
-      packages = { };
+      packages = rec {
+        rose = python.pkgs.buildPythonPackage {
+          pname = "rose";
+          version = "0.0.0";
+          src = ./.;
+          propagatedBuildInputs = prod-deps;
+        };
+        default = rose;
+      };
     });
 }
