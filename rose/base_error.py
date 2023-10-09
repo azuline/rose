@@ -1,0 +1,2 @@
+class RoseError(Exception):
+    pass

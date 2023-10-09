@@ -13,5 +13,6 @@ setuptools.setup(
         "click",
         "fuse-python",
         "mutagen",
+        "yoyo-migrations",
     ],
 )

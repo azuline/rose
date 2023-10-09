@@ -4,3 +4,5 @@ __pycache__
 .mypy_cache
 .coverage
 result
+db.sqlite3
+htmlcov

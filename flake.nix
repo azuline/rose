@@ -19,6 +19,7 @@
         click
         fuse
         mutagen
+        yoyo-migrations
       ];
       dev-deps = with python.pkgs; [
         black
