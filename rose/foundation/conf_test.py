@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from rose.config import Config, ConfigNotFoundError, MissingConfigKeyError
+from .conf import Config, ConfigNotFoundError, MissingConfigKeyError
 
 
 def test_config() -> None:

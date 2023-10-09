@@ -29,6 +29,10 @@
         pytest-cov
         setuptools
       ];
+      dev-cli = pkgs.writeShellScriptBin "rose" ''
+        cd $ROSE_ROOT
+        python -m rose $@
+      '';
     in
     {
       devShells.default = pkgs.mkShell {
@@ -40,7 +44,7 @@
             done
             echo "$path"
           }
-          export ROSE_ROOT="$(find-up .root)"
+          export ROSE_ROOT="$(find-up flake.nix)"
 
           # We intentionally do not allow installing Python packages to the
           # global Python environment. Mutable Python installations should be
@@ -53,6 +57,7 @@
             paths = with pkgs; [
               (python.withPackages (_: prod-deps ++ dev-deps))
               ruff
+              dev-cli
             ];
           })
         ];
