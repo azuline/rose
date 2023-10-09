@@ -66,3 +66,4 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 addopts = "--cov=. --cov-branch"
+python_files = ["*_test.py", "__test__.py"]
