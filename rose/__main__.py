@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import click
 
 from rose.cache.database import migrate_database
+from rose.cache.update import update_cache_for_all_releases
 from rose.foundation.conf import Config
 
 
@@ -29,14 +30,22 @@ def cli(clickctx: click.Context, verbose: bool) -> None:
 
 
 @cli.group()
-@click.pass_obj
-def cache(_: Context) -> None:
+def cache() -> None:
     """Manage the cached metadata."""
 
 
 @cache.command()
-def reset() -> None:
-    """Reset the cache and empty the database."""
+@click.pass_obj
+def refresh(c: Context) -> None:
+    """Refresh the cached data from disk."""
+    update_cache_for_all_releases(c.config)
+
+
+@cache.command()
+@click.pass_obj
+def clear(c: Context) -> None:
+    """Clear the cache; empty the database."""
+    c.config.cache_database_path.unlink()
 
 
 if __name__ == "__main__":

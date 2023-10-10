@@ -153,3 +153,17 @@ def test_update_cache_for_all_releases(config: Config) -> None:
         assert cursor.fetchone()[0] == 2
         cursor = conn.execute("SELECT COUNT(*) FROM tracks")
         assert cursor.fetchone()[0] == 4
+
+
+def test_update_cache_with_dotted_dirname(config: Config) -> None:
+    # Regression test: If we use with_stem on a directory with a dot, then the directory will be
+    # renamed to like Put.ID.After.The {id=abc}.Dot" which we don't want.
+    release_dir = config.music_source_dir / "Put.ID.After.The.Dot"
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    updated_release_dir = update_cache_for_release(config, release_dir)
+    m = ID_REGEX.search(updated_release_dir.name)
+    assert m is not None
+
+    # Regression test 2: Don't create a new ID; read the existing ID.
+    updated_release_dir2 = update_cache_for_release(config, updated_release_dir)
+    assert updated_release_dir2 == updated_release_dir

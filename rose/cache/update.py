@@ -31,7 +31,7 @@ SUPPORTED_RELEASE_TYPES = [
     "unknown",
 ]
 
-ID_REGEX = re.compile(r"\{id=([^}]+)\}")
+ID_REGEX = re.compile(r"\{id=([^}]+)\}$")
 
 
 @dataclass
@@ -238,10 +238,14 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
 
 
 def _parse_uuid_from_path(path: Path) -> str | None:
-    if m := ID_REGEX.search(path.stem):
+    if m := ID_REGEX.search(path.name if path.is_dir() else path.stem):
         return m[1]
     return None
 
 
 def _rename_with_uuid(src: Path, uuid: str) -> Path:
-    return src.rename(src.with_stem(src.stem + f" {{id={uuid}}}"))
+    if src.is_dir():
+        dst = src.with_name(src.name + f" {{id={uuid}}}")
+    else:
+        dst = src.with_stem(src.stem + f" {{id={uuid}}}")
+    return src.rename(dst)
