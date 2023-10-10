@@ -5,12 +5,12 @@ from rose.cache.dataclasses import CachedArtist, CachedRelease
 from rose.cache.read import (
     artist_exists,
     genre_exists,
-    get_release,
     label_exists,
     list_artists,
     list_genres,
     list_labels,
     list_releases,
+    release_exists,
 )
 from rose.foundation.conf import Config
 
@@ -91,6 +91,60 @@ def test_list_releases(config: Config) -> None:
         ),
     ]
 
+    assert list(list_releases(config, sanitized_artist_filter="Techno Man")) == [
+        CachedRelease(
+            id="r1",
+            source_path=Path("/tmp/r1"),
+            virtual_dirname="r1",
+            title="Release 1",
+            release_type="album",
+            release_year=2023,
+            new=True,
+            genres=["Deep House", "Techno"],
+            labels=["Silk Music"],
+            artists=[
+                CachedArtist(name="Techno Man", role="main"),
+                CachedArtist(name="Bass Man", role="main"),
+            ],
+        ),
+    ]
+
+    assert list(list_releases(config, sanitized_genre_filter="Techno")) == [
+        CachedRelease(
+            id="r1",
+            source_path=Path("/tmp/r1"),
+            virtual_dirname="r1",
+            title="Release 1",
+            release_type="album",
+            release_year=2023,
+            new=True,
+            genres=["Deep House", "Techno"],
+            labels=["Silk Music"],
+            artists=[
+                CachedArtist(name="Techno Man", role="main"),
+                CachedArtist(name="Bass Man", role="main"),
+            ],
+        ),
+    ]
+
+    assert list(list_releases(config, sanitized_label_filter="Silk Music")) == [
+        CachedRelease(
+            id="r1",
+            source_path=Path("/tmp/r1"),
+            virtual_dirname="r1",
+            title="Release 1",
+            release_type="album",
+            release_year=2023,
+            new=True,
+            genres=["Deep House", "Techno"],
+            labels=["Silk Music"],
+            artists=[
+                CachedArtist(name="Techno Man", role="main"),
+                CachedArtist(name="Bass Man", role="main"),
+            ],
+        ),
+    ]
+
 
 def test_list_artists(config: Config) -> None:
     seed_data(config)
@@ -110,24 +164,10 @@ def test_list_labels(config: Config) -> None:
     assert set(labels) == {"Silk Music", "Native State"}
 
 
-def test_get_release(config: Config) -> None:
+def test_release_exists(config: Config) -> None:
     seed_data(config)
-    release = get_release(config, "r1")
-    assert release == CachedRelease(
-        id="r1",
-        source_path=Path("/tmp/r1"),
-        virtual_dirname="r1",
-        title="Release 1",
-        release_type="album",
-        release_year=2023,
-        new=True,
-        genres=["Deep House", "Techno"],
-        labels=["Silk Music"],
-        artists=[
-            CachedArtist(name="Techno Man", role="main"),
-            CachedArtist(name="Bass Man", role="main"),
-        ],
-    )
+    assert release_exists(config, "r1")
+    assert not release_exists(config, "lalala")
 
 
 def test_artist_exists(config: Config) -> None:
