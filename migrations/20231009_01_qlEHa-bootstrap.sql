@@ -33,6 +33,13 @@ CREATE TABLE releases_genres (
 );
 CREATE INDEX releases_genres_genre ON releases_genres(genre);
 
+CREATE TABLE releases_labels (
+    release_id TEXT,
+    label TEXT,
+    PRIMARY KEY (release_id, label)
+);
+CREATE INDEX releases_labels_label ON releases_labels(label);
+
 CREATE TABLE tracks (
     id TEXT PRIMARY KEY,
     source_path TEXT NOT NULL UNIQUE,

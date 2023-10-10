@@ -31,6 +31,8 @@ SUPPORTED_RELEASE_TYPES = [
     "unknown",
 ]
 
+ID_REGEX = re.compile(r"\{id=([^}]+)\}")
+
 
 @dataclass
 class CachedRelease:
@@ -71,9 +73,9 @@ def update_cache_for_all_releases(c: Config) -> None:
         conn.execute(
             f"""
             DELETE FROM releases
-            WHERE source_path NOT IN {",".join(["?"] * len(dirs))}
+            WHERE source_path NOT IN ({",".join(["?"] * len(dirs))})
             """,
-            dirs,
+            [str(d) for d in dirs],
         )
 
 
@@ -107,8 +109,9 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                     source_path=release_dir.resolve(),
                     title=tags.album or "Unknown Release",
                     release_type=(
-                        tags.release_type
-                        if tags.release_type in SUPPORTED_RELEASE_TYPES
+                        tags.release_type.lower()
+                        if tags.release_type
+                        and tags.release_type.lower() in SUPPORTED_RELEASE_TYPES
                         else "unknown"
                     ),
                     release_year=tags.year,
@@ -148,6 +151,14 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                         """,
                         (release.id, genre),
                     )
+                for label in tags.label:
+                    conn.execute(
+                        """
+                        INSERT INTO releases_labels (release_id, label) VALUES (?, ?)
+                        ON CONFLICT (release_id, label) DO NOTHING
+                        """,
+                        (release.id, label),
+                    )
                 for role, names in asdict(tags.album_artists).items():
                     for name in names:
                         conn.execute(
@@ -161,14 +172,18 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
 
             # Now process the track. Release is guaranteed to exist here.
             filepath = Path(f.path)
+            # Get the mtime before we may possibly rename the file.
+            source_mtime = int(f.stat().st_mtime)
+
             track_id = _parse_uuid_from_path(filepath)
             if not track_id:
                 track_id = str(uuid6.uuid7())
                 filepath = _rename_with_uuid(filepath, track_id)
+
             track = CachedTrack(
                 id=track_id,
                 source_path=filepath,
-                source_mtime=int(f.stat().st_mtime),
+                source_mtime=source_mtime,
                 title=tags.title or "Unknown Title",
                 release_id=release.id,
                 trackno=tags.track_number or "1",
@@ -223,13 +238,10 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
 
 
 def _parse_uuid_from_path(path: Path) -> str | None:
-    if m := re.search(r"\{id=([^\]]+)\}$", path.stem):
+    if m := ID_REGEX.search(path.stem):
         return m[1]
     return None
 
 
 def _rename_with_uuid(src: Path, uuid: str) -> Path:
-    new_stem = src.stem + f" {{id={uuid}}}"
-    dst = src.with_stem(new_stem)
-    src.rename(dst)
-    return dst
+    return src.rename(src.with_stem(src.stem + f" {{id={uuid}}}"))

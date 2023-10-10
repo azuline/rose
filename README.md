@@ -1,4 +1,4 @@
-# rose
+# Rosé
 
 _In Progress_
 

@@ -5,9 +5,10 @@ from pathlib import Path
 
 import _pytest.pathlib
 import pytest
+import yoyo
 from click.testing import CliRunner
 
-from rose.foundation.conf import Config
+from rose.foundation.conf import MIGRATIONS_PATH, Config
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +21,20 @@ def isolated_dir() -> Iterator[Path]:
 
 @pytest.fixture()
 def config(isolated_dir: Path) -> Config:
-    (isolated_dir / "cache").mkdir()
+    cache_dir = isolated_dir / "cache"
+    cache_dir.mkdir()
+    cache_database_path = cache_dir / "cache.sqlite3"
+
+    db_backend = yoyo.get_backend(f"sqlite:///{cache_database_path}")
+    db_migrations = yoyo.read_migrations(str(MIGRATIONS_PATH))
+    with db_backend.lock():
+        db_backend.apply_migrations(db_backend.to_apply(db_migrations))
+
     return Config(
         music_source_dir=isolated_dir / "source",
         fuse_mount_dir=isolated_dir / "mount",
-        cache_dir=isolated_dir / "cache",
-        cache_database_path=isolated_dir / "cache" / "cache.sqlite3",
+        cache_dir=cache_dir,
+        cache_database_path=cache_database_path,
     )
 
 
