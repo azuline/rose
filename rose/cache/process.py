@@ -60,10 +60,29 @@ class CachedArtist:
     name: str
 
 
-def process_release(c: Config, release_dir: Path) -> None:
+def update_cache_for_all_releases(c: Config) -> None:
     """
-    Given a release's directory, update the cache entry based on the release's metadata.
-    If this is a new release or track, update the directory and file names to include the UUIDs.
+    Process and update the cache for all releases. Delete any nonexistent releases.
+    """
+    dirs = [Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()]
+    for i, d in enumerate(dirs):
+        dirs[i] = update_cache_for_release(c, d)
+    with connect(c) as conn:
+        conn.execute(
+            f"""
+            DELETE FROM releases
+            WHERE source_path NOT IN {",".join(["?"] * len(dirs))}
+            """,
+            dirs,
+        )
+
+
+def update_cache_for_release(c: Config, release_dir: Path) -> Path:
+    """
+    Given a release's directory, update the cache entry based on the release's metadata. If this is
+    a new release or track, update the directory and file names to include the UUIDs.
+
+    Returns the new release_dir if a rename occurred; otherwise, returns the same release_dir.
     """
     with connect(c) as conn:
         # The release will be updated based on the album tags of the first track.
@@ -85,7 +104,7 @@ def process_release(c: Config, release_dir: Path) -> None:
             if release is None:
                 release = CachedRelease(
                     id=release_id,
-                    source_path=release_dir,
+                    source_path=release_dir.resolve(),
                     title=tags.album or "Unknown Release",
                     release_type=(
                         tags.release_type
@@ -199,6 +218,8 @@ def process_release(c: Config, release_dir: Path) -> None:
                         """,
                         (track.id, name, role, role),
                     )
+
+    return release_dir
 
 
 def _parse_uuid_from_path(path: Path) -> str | None:
