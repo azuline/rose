@@ -38,47 +38,49 @@ class VirtualFS(fuse.Fuse):  # type: ignore
             if path == "/":
                 return "dir"
 
+            parts = path.split("/")
+
             if path.startswith("/albums"):
-                if path.count("/") == 1:
+                if len(parts) == 1:
                     return "dir"
-                if path.count("/") == 2:
-                    exists = release_exists(self.config, path.split("/")[2])
+                if len(parts) == 2:
+                    exists = release_exists(self.config, parts[2])
                     return "dir" if exists else "missing"
                 return "missing"
 
             if path.startswith("/artists"):
-                if path.count("/") == 1:
+                if len(parts) == 1:
                     return "dir"
-                if path.count("/") == 2:
-                    exists = artist_exists(self.config, path.split("/")[2])
+                if len(parts) == 2:
+                    exists = artist_exists(self.config, parts[2])
                     return "dir" if exists else "missing"
-                if path.count("/") == 3:
-                    exists = artist_exists(self.config, path.split("/")[2])
-                    exists = exists and release_exists(self.config, path.split("/")[3])
+                if len(parts) == 3:
+                    exists = artist_exists(self.config, parts[2])
+                    exists = exists and release_exists(self.config, parts[3])
                     return "dir" if exists else "missing"
                 return "missing"
 
             if path.startswith("/genres"):
-                if path.count("/") == 1:
+                if len(parts) == 1:
                     return "dir"
-                if path.count("/") == 2:
-                    exists = genre_exists(self.config, path.split("/")[2])
+                if len(parts) == 2:
+                    exists = genre_exists(self.config, parts[2])
                     return "dir" if exists else "missing"
-                if path.count("/") == 3:
-                    exists = genre_exists(self.config, path.split("/")[2])
-                    exists = exists and release_exists(self.config, path.split("/")[3])
+                if len(parts) == 3:
+                    exists = genre_exists(self.config, parts[2])
+                    exists = exists and release_exists(self.config, parts[3])
                     return "dir" if exists else "missing"
                 return "missing"
 
             if path.startswith("/labels"):
-                if path.count("/") == 1:
+                if len(parts) == 1:
                     return "dir"
-                if path.count("/") == 2:
-                    exists = label_exists(self.config, path.split("/")[2])
+                if len(parts) == 2:
+                    exists = label_exists(self.config, parts[2])
                     return "dir" if exists else "missing"
-                if path.count("/") == 3:
-                    exists = label_exists(self.config, path.split("/")[2])
-                    exists = exists and release_exists(self.config, path.split("/")[3])
+                if len(parts) == 3:
+                    exists = label_exists(self.config, parts[2])
+                    exists = exists and release_exists(self.config, parts[3])
                     return "dir" if exists else "missing"
                 return "missing"
 
@@ -108,8 +110,10 @@ class VirtualFS(fuse.Fuse):  # type: ignore
             ]
             return
 
+        parts = path.split("/")
+
         if path.startswith("/albums"):
-            if path.count("/") == 1:
+            if len(parts) == 1:
                 yield from [fuse.Direntry("."), fuse.Direntry("..")]
                 for album in list_releases(self.config):
                     yield fuse.Direntry(album.virtual_dirname)
@@ -117,40 +121,40 @@ class VirtualFS(fuse.Fuse):  # type: ignore
             return
 
         if path.startswith("/artists"):
-            if path.count("/") == 1:
+            if len(parts) == 1:
                 yield from [fuse.Direntry("."), fuse.Direntry("..")]
                 for artist in list_artists(self.config):
                     yield fuse.Direntry(sanitize_filename(artist))
                 return
-            if path.count("/") == 2:
+            if len(parts) == 2:
                 yield from [fuse.Direntry("."), fuse.Direntry("..")]
-                for album in list_releases(self.config, sanitized_artist_filter=path.split("/")[2]):
+                for album in list_releases(self.config, sanitized_artist_filter=parts[2]):
                     yield fuse.Direntry(album.virtual_dirname)
                 return
             return
 
         if path.startswith("/genres"):
-            if path.count("/") == 1:
+            if len(parts) == 1:
                 yield from [fuse.Direntry("."), fuse.Direntry("..")]
                 for genre in list_genres(self.config):
                     yield fuse.Direntry(sanitize_filename(genre))
                 return
-            if path.count("/") == 2:
+            if len(parts) == 2:
                 yield from [fuse.Direntry("."), fuse.Direntry("..")]
-                for album in list_releases(self.config, sanitized_genre_filter=path.split("/")[2]):
+                for album in list_releases(self.config, sanitized_genre_filter=parts[2]):
                     yield fuse.Direntry(album.virtual_dirname)
                 return
             return
 
         if path.startswith("/labels"):
-            if path.count("/") == 1:
+            if len(parts) == 1:
                 yield from [fuse.Direntry("."), fuse.Direntry("..")]
                 for label in list_labels(self.config):
                     yield fuse.Direntry(sanitize_filename(label))
                 return
-            if path.count("/") == 2:
+            if len(parts) == 2:
                 yield from [fuse.Direntry("."), fuse.Direntry("..")]
-                for album in list_releases(self.config, sanitized_label_filter=path.split("/")[2]):
+                for album in list_releases(self.config, sanitized_label_filter=parts[2]):
                     yield fuse.Direntry(album.virtual_dirname)
                 return
             return
