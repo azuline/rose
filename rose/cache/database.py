@@ -1,5 +1,8 @@
+import binascii
 import logging
+import random
 import sqlite3
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -17,6 +20,39 @@ def connect(c: Config) -> Iterator[sqlite3.Connection]:
         yield conn
     finally:
         conn.close()
+
+
+@contextmanager
+def transaction(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
+    """
+    A simple context wrapper for a database transaction. If connection is null,
+    a new connection is created.
+    """
+    tx_log_id = binascii.b2a_hex(random.randbytes(8)).decode()
+    start_time = time.time()
+
+    # If we're already in a transaction, don't create a nested transaction.
+    if conn.in_transaction:
+        logger.debug(f"Transaction {tx_log_id}. Starting nested transaction, NoOp.")
+        yield conn
+        logger.debug(
+            f"Transaction {tx_log_id}. End of nested transaction. "
+            f"Duration: {time.time() - start_time}."
+        )
+        return
+
+    logger.debug(f"Transaction {tx_log_id}. Starting transaction from conn.")
+    with conn:
+        # We BEGIN IMMEDIATE to avoid deadlocks, which pisses the hell out of me because no one's
+        # documenting this properly and SQLite just dies without respecting the timeout and without
+        # a reasonable error message. Absurd.
+        # - https://sqlite.org/forum/forumpost/a3db6dbff1cd1d5d
+        conn.execute("BEGIN IMMEDIATE")
+        yield conn
+        logger.debug(
+            f"Transaction {tx_log_id}. End of transaction from conn. "
+            f"Duration: {time.time() - start_time}."
+        )
 
 
 def connect_fn(c: Config) -> sqlite3.Connection:

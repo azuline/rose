@@ -5,7 +5,7 @@ from pathlib import Path
 
 import uuid6
 
-from rose.cache.database import connect
+from rose.cache.database import connect, transaction
 from rose.foundation.conf import Config
 from rose.tagger import AudioFile
 
@@ -84,7 +84,7 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
 
     Returns the new release_dir if a rename occurred; otherwise, returns the same release_dir.
     """
-    with connect(c) as conn:
+    with connect(c) as conn, transaction(conn) as conn:
         # The release will be updated based on the album tags of the first track.
         release: CachedRelease | None = None
         # But first, parse the release_id from the directory name. If the directory name does not
