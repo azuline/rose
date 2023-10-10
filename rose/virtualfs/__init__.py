@@ -1,39 +1,105 @@
 import errno
+import logging
 import os
 import stat
 import subprocess
+from collections.abc import Iterator
+from typing import Any, Literal
 
 import fuse
 
+from rose.cache.read import list_albums
 from rose.foundation.conf import Config
+
+logger = logging.getLogger(__name__)
 
 fuse.fuse_python_api = (0, 2)
 
 
 class VirtualFS(fuse.Fuse):  # type: ignore
-    def getattr(self, path: str) -> fuse.Stat | int:
-        if path[1:] == "some_dir" or path in ["..", "/"]:
-            st_mode = stat.S_IFDIR | 0o755
-        elif path[1:] == "some_file":
-            st_mode = stat.S_IFREG | 0o644
-        else:
-            return -errno.ENOENT
+    def __init__(self, config: Config):
+        self.config = config
+        super().__init__()
+
+    def getattr(self, path: str) -> fuse.Stat:
+        logger.debug(f"Received getattr for {path}")
+
+        def get_mode_type(path: str) -> Literal["dir", "file", "missing"]:
+            if path == "/":
+                return "dir"
+
+            if path.startswith("/albums"):
+                if path == "/albums":
+                    return "dir"
+                return "dir"
+
+            if path.startswith("/artists"):
+                if path == "/artists":
+                    return "dir"
+                return "missing"
+
+            if path.startswith("/genres"):
+                if path == "/genres":
+                    return "dir"
+                return "missing"
+
+            if path.startswith("/labels"):
+                if path == "/labels":
+                    return "dir"
+                return "missing"
+
+            return "missing"
+
+        mode_type = get_mode_type(path)
+        if mode_type == "missing":
+            raise fuse.FuseError(errno.ENOENT)
 
         return fuse.Stat(
             st_nlink=1,
-            st_mode=st_mode,
+            st_mode=(stat.S_IFDIR | 0o755) if mode_type == "dir" else (stat.S_IFREG | 0o644),
             st_uid=os.getuid(),
             st_gid=os.getgid(),
         )
 
-    def readdir(self, path: str, _):
+    def readdir(self, path: str, _: Any) -> Iterator[fuse.Direntry]:
+        logger.debug(f"Received readdir for {path}")
         if path == "/":
-            for name in [".", "..", "some_file", "some_dir"]:
-                yield fuse.Direntry(name)
+            yield from [
+                fuse.Direntry("."),
+                fuse.Direntry(".."),
+                fuse.Direntry("albums"),
+                fuse.Direntry("artists"),
+                fuse.Direntry("genres"),
+                fuse.Direntry("labels"),
+            ]
+            return
+
+        if path.startswith("/albums"):
+            if path == "/albums":
+                yield from [fuse.Direntry("."), fuse.Direntry("..")]
+                for album in list_albums(self.config):
+                    yield fuse.Direntry(album.virtual_dirname)
+                return
+            return
+
+        if path.startswith("/artists"):
+            if path == "/artists":
+                yield from [fuse.Direntry("."), fuse.Direntry("..")]
+            return
+
+        if path.startswith("/genres"):
+            if path == "/genres":
+                yield from [fuse.Direntry("."), fuse.Direntry("..")]
+            return
+
+        if path.startswith("/labels"):
+            if path == "/labels":
+                yield from [fuse.Direntry("."), fuse.Direntry("..")]
+            return
 
 
 def mount_virtualfs(c: Config) -> None:
-    server = VirtualFS()
+    server = VirtualFS(c)
     server.parse([str(c.fuse_mount_dir)])
     server.main()
 

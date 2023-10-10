@@ -18,6 +18,7 @@ INSERT INTO release_type_enum (value) VALUES
 CREATE TABLE releases (
     id TEXT PRIMARY KEY,
     source_path TEXT NOT NULL UNIQUE,
+    virtual_dirname TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
     release_type TEXT NOT NULL REFERENCES release_type_enum(value),
     release_year INTEGER,
@@ -43,11 +44,13 @@ CREATE INDEX releases_labels_label ON releases_labels(label);
 CREATE TABLE tracks (
     id TEXT PRIMARY KEY,
     source_path TEXT NOT NULL UNIQUE,
+    virtual_filename TEXT NOT NULL,
     title TEXT NOT NULL,
     release_id TEXT NOT NULL REFERENCES releases(id),
     track_number TEXT NOT NULL,
     disc_number TEXT NOT NULL,
-    duration_seconds INTEGER NOT NULL
+    duration_seconds INTEGER NOT NULL,
+    UNIQUE (release_id, virtual_filename)
 );
 CREATE INDEX tracks_source_path ON tracks(source_path);
 CREATE INDEX tracks_release_id ON tracks(release_id);

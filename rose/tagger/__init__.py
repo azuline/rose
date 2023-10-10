@@ -80,7 +80,7 @@ def _convert_mutagen(m: Any, p: Path) -> AudioFile:
             album=_get_tag(m.tags, ["TALB"]),
             genre=_split_tag(_get_tag(m.tags, ["TCON"])),
             label=_split_tag(_get_tag(m.tags, ["TPUB"])),
-            release_type=_get_tag(m.tags, ["TXXX:RELEASETYPE"]),
+            release_type=_get_tag(m.tags, ["TXXX:RELEASETYPE"], first=True),
             album_artists=_parse_artists(main=_get_tag(m.tags, ["TPE2"])),
             artists=_parse_artists(
                 main=_get_tag(m.tags, ["TPE1"]),
@@ -101,7 +101,7 @@ def _convert_mutagen(m: Any, p: Path) -> AudioFile:
             album=_get_tag(m.tags, ["\xa9alb"]),
             genre=_split_tag(_get_tag(m.tags, ["\xa9gen"])),
             label=_split_tag(_get_tag(m.tags, ["----:com.apple.iTunes:LABEL"])),
-            release_type=_get_tag(m.tags, ["----:com.apple.iTunes:RELEASETYPE"]),
+            release_type=_get_tag(m.tags, ["----:com.apple.iTunes:RELEASETYPE"], first=True),
             album_artists=_parse_artists(main=_get_tag(m.tags, ["aART"])),
             artists=_parse_artists(
                 main=_get_tag(m.tags, ["\xa9ART"]),
@@ -122,7 +122,7 @@ def _convert_mutagen(m: Any, p: Path) -> AudioFile:
             album=_get_tag(m.tags, ["album"]),
             genre=_split_tag(_get_tag(m.tags, ["genre"])),
             label=_split_tag(_get_tag(m.tags, ["organization", "label", "recordlabel"])),
-            release_type=_get_tag(m.tags, ["releasetype"]),
+            release_type=_get_tag(m.tags, ["releasetype"], first=True),
             album_artists=_parse_artists(main=_get_tag(m.tags, ["albumartist"])),
             artists=_parse_artists(
                 main=_get_tag(m.tags, ["artist"]),
