@@ -141,8 +141,8 @@ def test_update_cache_for_all_releases(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases (id, source_path, title, release_type)
-            VALUES ('aaaaaa', '/nonexistent', 'aa', 'unknown')
+            INSERT INTO releases (id, source_path, virtual_dirname, title, release_type)
+            VALUES ('aaaaaa', '/nonexistent', 'nonexistent', 'aa', 'unknown')
             """
         )
 

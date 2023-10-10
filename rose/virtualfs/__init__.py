@@ -13,10 +13,10 @@ from rose.cache.read import (
     genre_exists,
     get_release,
     label_exists,
-    list_albums,
     list_artists,
     list_genres,
     list_labels,
+    list_releases,
 )
 from rose.foundation.conf import Config
 from rose.virtualfs.sanitize import sanitize_filename
@@ -99,7 +99,7 @@ class VirtualFS(fuse.Fuse):  # type: ignore
         if path.startswith("/albums"):
             if path == "/albums":
                 yield from [fuse.Direntry("."), fuse.Direntry("..")]
-                for album in list_albums(self.config):
+                for album in list_releases(self.config):
                     yield fuse.Direntry(album.virtual_dirname)
                 return
             return

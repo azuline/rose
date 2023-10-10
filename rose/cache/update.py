@@ -87,6 +87,7 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
             if release is None:
                 logger.debug("Upserting release from first track's tags")
 
+                # Compute the album's visual directory name.
                 virtual_dirname = _format_artists(tags.album_artists) + " - "
                 if tags.year:
                     virtual_dirname += str(tags.year) + ". "
@@ -102,6 +103,23 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                 if tags.label:
                     virtual_dirname += " {" + ";".join(tags.label) + "}"
                 virtual_dirname = sanitize_filename(virtual_dirname)
+                # And in case of a name collision, add an extra number at the end. Iterate to find
+                # the first unused number.
+                original_virtual_dirname = virtual_dirname
+                collision_no = 1
+                while True:
+                    collision_no += 1
+                    cursor = conn.execute(
+                        """
+                        SELECT EXISTS(
+                            SELECT * FROM releases WHERE virtual_dirname = ? AND id <> ?
+                        )
+                        """,
+                        (virtual_dirname, release_id),
+                    )
+                    if not cursor.fetchone()[0]:
+                        break
+                    virtual_dirname = f"{original_virtual_dirname} [{collision_no}]"
 
                 release = CachedRelease(
                     id=release_id,
@@ -200,6 +218,23 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
             if tags.artists != tags.album_artists:
                 virtual_filename += " (by " + _format_artists(tags.artists) + ")"
             virtual_filename = sanitize_filename(virtual_filename)
+            # And in case of a name collision, add an extra number at the end. Iterate to find
+            # the first unused number.
+            original_virtual_filename = virtual_filename
+            collision_no = 1
+            while True:
+                collision_no += 1
+                cursor = conn.execute(
+                    """
+                    SELECT EXISTS(
+                        SELECT * FROM tracks WHERE virtual_filename = ? AND id <> ?
+                    )
+                    """,
+                    (virtual_filename, track_id),
+                )
+                if not cursor.fetchone()[0]:
+                    break
+                virtual_filename = f"{original_virtual_filename} [{collision_no}]"
 
             track = CachedTrack(
                 id=track_id,

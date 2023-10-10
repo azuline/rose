@@ -6,7 +6,7 @@ from rose.cache.dataclasses import CachedArtist, CachedRelease
 from rose.foundation.conf import Config
 
 
-def list_albums(c: Config) -> Iterator[CachedRelease]:
+def list_releases(c: Config) -> Iterator[CachedRelease]:
     with connect(c) as conn:
         cursor = conn.execute(
             r"""

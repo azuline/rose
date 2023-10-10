@@ -2,7 +2,16 @@ from pathlib import Path
 
 from rose.cache.database import connect
 from rose.cache.dataclasses import CachedArtist, CachedRelease
-from rose.cache.read import list_albums, list_artists, list_genres, list_labels
+from rose.cache.read import (
+    artist_exists,
+    genre_exists,
+    get_release,
+    label_exists,
+    list_artists,
+    list_genres,
+    list_labels,
+    list_releases,
+)
 from rose.foundation.conf import Config
 
 
@@ -14,14 +23,14 @@ INSERT INTO releases (id, source_path, virtual_dirname, title, release_type, rel
 VALUES ('r1', '/tmp/r1', 'r1', 'Release 1', 'album', 2023, true)
      , ('r2', '/tmp/r2', 'r2', 'Release 2', 'album', 2021, false);
 
-INSERT INTO releases_genres (release_id, genre)
-VALUES ('r1', 'Techno')
-     , ('r1', 'Deep House')
-     , ('r2', 'Classical');
+INSERT INTO releases_genres (release_id, genre, genre_sanitized)
+VALUES ('r1', 'Techno', 'Techno')
+     , ('r1', 'Deep House', 'Deep House')
+     , ('r2', 'Classical', 'Classical');
 
-INSERT INTO releases_labels (release_id, label)
-VALUES ('r1', 'Silk Music')
-     , ('r2', 'Native State');
+INSERT INTO releases_labels (release_id, label, label_sanitized)
+VALUES ('r1', 'Silk Music', 'Silk Music')
+     , ('r2', 'Native State', 'Native State');
 
 INSERT INTO tracks
 (id, source_path, virtual_filename, title, release_id, track_number, disc_number, duration_seconds)
@@ -29,26 +38,26 @@ VALUES ('t1', '/tmp/r1/01.m4a', '01.m4a', 'Track 1', 'r1', '01', '01', 120)
      , ('t2', '/tmp/r1/02.m4a', '02.m4a', 'Track 2', 'r1', '02', '01', 240)
      , ('t3', '/tmp/r2/01.m4a', '01.m4a', 'Track 1', 'r2', '01', '01', 120);
 
-INSERT INTO releases_artists (release_id, artist, role)
-VALUES ('r1', 'Techno Man', 'main')
-     , ('r1', 'Bass Man', 'main')
-     , ('r2', 'Violin Woman', 'main')
-     , ('r2', 'Conductor Woman', 'guest');
+INSERT INTO releases_artists (release_id, artist, artist_sanitized, role)
+VALUES ('r1', 'Techno Man', 'Techno Man', 'main')
+     , ('r1', 'Bass Man', 'Bass Man', 'main')
+     , ('r2', 'Violin Woman', 'Violin Woman', 'main')
+     , ('r2', 'Conductor Woman', 'Conductor Woman', 'guest');
 
-INSERT INTO tracks_artists (track_id, artist, role)
-VALUES ('t1', 'Techno Man', 'main')
-     , ('t1', 'Bass Man', 'main')
-     , ('t2', 'Techno Man', 'main')
-     , ('t2', 'Bass Man', 'main')
-     , ('t3', 'Violin Woman', 'main')
-     , ('t3', 'Conductor Woman', 'guest');
+INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role)
+VALUES ('t1', 'Techno Man', 'Techno Man', 'main')
+     , ('t1', 'Bass Man', 'Bass Man', 'main')
+     , ('t2', 'Techno Man', 'Techno Man', 'main')
+     , ('t2', 'Bass Man', 'Bass Man', 'main')
+     , ('t3', 'Violin Woman', 'Violin Woman', 'main')
+     , ('t3', 'Conductor Woman', 'Conductor Woman', 'guest');
         """
         )
 
 
-def test_list_albums(config: Config) -> None:
+def test_list_releases(config: Config) -> None:
     seed_data(config)
-    albums = list(list_albums(config))
+    albums = list(list_releases(config))
     assert albums == [
         CachedRelease(
             id="r1",
@@ -99,3 +108,41 @@ def test_list_labels(config: Config) -> None:
     seed_data(config)
     labels = list(list_labels(config))
     assert set(labels) == {"Silk Music", "Native State"}
+
+
+def test_get_release(config: Config) -> None:
+    seed_data(config)
+    release = get_release(config, "r1")
+    assert release == CachedRelease(
+        id="r1",
+        source_path=Path("/tmp/r1"),
+        virtual_dirname="r1",
+        title="Release 1",
+        release_type="album",
+        release_year=2023,
+        new=True,
+        genres=["Deep House", "Techno"],
+        labels=["Silk Music"],
+        artists=[
+            CachedArtist(name="Techno Man", role="main"),
+            CachedArtist(name="Bass Man", role="main"),
+        ],
+    )
+
+
+def test_artist_exists(config: Config) -> None:
+    seed_data(config)
+    assert artist_exists(config, "Bass Man")
+    assert not artist_exists(config, "lalala")
+
+
+def test_genre_exists(config: Config) -> None:
+    seed_data(config)
+    assert genre_exists(config, "Deep House")
+    assert not genre_exists(config, "lalala")
+
+
+def test_label_exists(config: Config) -> None:
+    seed_data(config)
+    assert label_exists(config, "Silk Music")
+    assert not label_exists(config, "Cotton Music")
