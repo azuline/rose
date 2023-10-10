@@ -30,16 +30,20 @@ CREATE INDEX releases_release_year ON releases(release_year);
 CREATE TABLE releases_genres (
     release_id TEXT,
     genre TEXT,
+    genre_sanitized TEXT NOT NULL,
     PRIMARY KEY (release_id, genre)
 );
 CREATE INDEX releases_genres_genre ON releases_genres(genre);
+CREATE INDEX releases_genres_genre_sanitized ON releases_genres(genre_sanitized);
 
 CREATE TABLE releases_labels (
     release_id TEXT,
     label TEXT,
+    label_sanitized TEXT NOT NULL,
     PRIMARY KEY (release_id, label)
 );
 CREATE INDEX releases_labels_label ON releases_labels(label);
+CREATE INDEX releases_labels_label_sanitized ON releases_labels(label_sanitized);
 
 CREATE TABLE tracks (
     id TEXT PRIMARY KEY,
@@ -68,20 +72,24 @@ INSERT INTO artist_role_enum (value) VALUES
 CREATE TABLE releases_artists (
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
     artist TEXT,
-    role TEXT REFERENCES artist_role_enum(value),
+    artist_sanitized TEXT NOT NULL,
+    role TEXT REFERENCES artist_role_enum(value) NOT NULL,
     PRIMARY KEY (release_id, artist)
 );
 CREATE INDEX releases_artists_release_id ON releases_artists(release_id);
 CREATE INDEX releases_artists_artist ON releases_artists(artist);
+CREATE INDEX releases_artists_artist_sanitized ON releases_artists(artist_sanitized);
 
 CREATE TABLE tracks_artists (
     track_id TEXT REFERENCES tracks(id) ON DELETE CASCADE,
     artist TEXT,
-    role TEXT REFERENCES artist_role_enum(value),
+    artist_sanitized TEXT NOT NULL,
+    role TEXT REFERENCES artist_role_enum(value) NOT NULL,
     PRIMARY KEY (track_id, artist)
 );
 CREATE INDEX tracks_artists_track_id ON tracks_artists(track_id);
 CREATE INDEX tracks_artists_artist ON tracks_artists(artist);
+CREATE INDEX tracks_artists_artist_sanitized ON tracks_artists(artist_sanitized);
 
 CREATE TABLE collections (
     id TEXT PRIMARY KEY,

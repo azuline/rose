@@ -8,7 +8,16 @@ from typing import Any, Literal
 
 import fuse
 
-from rose.cache.read import list_albums, list_artists, list_genres, list_labels
+from rose.cache.read import (
+    artist_exists,
+    genre_exists,
+    get_release,
+    label_exists,
+    list_albums,
+    list_artists,
+    list_genres,
+    list_labels,
+)
 from rose.foundation.conf import Config
 from rose.virtualfs.sanitize import sanitize_filename
 
@@ -30,23 +39,35 @@ class VirtualFS(fuse.Fuse):  # type: ignore
                 return "dir"
 
             if path.startswith("/albums"):
-                if path == "/albums":
+                if path.count("/") == 1:
                     return "dir"
-                return "dir"
+                if path.count("/") == 2:
+                    release = get_release(self.config, path.split("/")[2])
+                    return "dir" if release else "missing"
+                return "missing"
 
             if path.startswith("/artists"):
-                if path == "/artists":
+                if path.count("/") == 1:
                     return "dir"
+                if path.count("/") == 2:
+                    exists = artist_exists(self.config, path.split("/")[2])
+                    return "dir" if exists else "missing"
                 return "missing"
 
             if path.startswith("/genres"):
-                if path == "/genres":
+                if path.count("/") == 1:
                     return "dir"
+                if path.count("/") == 2:
+                    exists = genre_exists(self.config, path.split("/")[2])
+                    return "dir" if exists else "missing"
                 return "missing"
 
             if path.startswith("/labels"):
-                if path == "/labels":
+                if path.count("/") == 1:
                     return "dir"
+                if path.count("/") == 2:
+                    exists = label_exists(self.config, path.split("/")[2])
+                    return "dir" if exists else "missing"
                 return "missing"
 
             return "missing"

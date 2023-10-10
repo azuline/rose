@@ -156,27 +156,29 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                 for genre in release.genres:
                     conn.execute(
                         """
-                        INSERT INTO releases_genres (release_id, genre) VALUES (?, ?)
+                        INSERT INTO releases_genres (release_id, genre, genre_sanitized)
+                        VALUES (?, ?, ?)
                         ON CONFLICT (release_id, genre) DO NOTHING
                         """,
-                        (release.id, genre),
+                        (release.id, genre, sanitize_filename(genre)),
                     )
                 for label in release.labels:
                     conn.execute(
                         """
-                        INSERT INTO releases_labels (release_id, label) VALUES (?, ?)
+                        INSERT INTO releases_labels (release_id, label, label_sanitized)
+                        VALUES (?, ?, ?)
                         ON CONFLICT (release_id, label) DO NOTHING
                         """,
-                        (release.id, label),
+                        (release.id, label, sanitize_filename(label)),
                     )
                 for art in release.artists:
                     conn.execute(
                         """
-                        INSERT INTO releases_artists (release_id, artist, role)
-                        VALUES (?, ?, ?)
+                        INSERT INTO releases_artists (release_id, artist, artist_sanitized, role)
+                        VALUES (?, ?, ?, ?)
                         ON CONFLICT (release_id, artist) DO UPDATE SET role = ?
                         """,
-                        (release.id, art.name, art.role, art.role),
+                        (release.id, art.name, sanitize_filename(art.name), art.role, art.role),
                     )
 
             # Now process the track. Release is guaranteed to exist here.
@@ -249,10 +251,11 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
             for art in track.artists:
                 conn.execute(
                     """
-                    INSERT INTO tracks_artists (track_id, artist, role) VALUES (?, ?, ?)
+                    INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role)
+                    VALUES (?, ?, ?, ?)
                     ON CONFLICT (track_id, artist) DO UPDATE SET role = ?
                     """,
-                    (track.id, art.name, art.role, art.role),
+                    (track.id, art.name, sanitize_filename(art.name), art.role, art.role),
                 )
 
     return release_dir
