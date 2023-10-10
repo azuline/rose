@@ -6,6 +6,7 @@ import click
 from rose.cache.database import migrate_database
 from rose.cache.update import update_cache_for_all_releases
 from rose.foundation.conf import Config
+from rose.virtualfs import start_virtualfs
 
 
 @dataclass
@@ -46,6 +47,18 @@ def refresh(c: Context) -> None:
 def clear(c: Context) -> None:
     """Clear the cache; empty the database."""
     c.config.cache_database_path.unlink()
+
+
+@cli.group()
+def fs() -> None:
+    """Manage the virtual library."""
+
+
+@cli.command()
+@click.pass_obj
+def mount(c: Context) -> None:
+    """Mount the virtual library."""
+    start_virtualfs(c.config)
 
 
 if __name__ == "__main__":
