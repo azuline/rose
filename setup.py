@@ -13,6 +13,7 @@ setuptools.setup(
         "click",
         "fuse-python",
         "mutagen",
+        "uuid6-python",
         "yoyo-migrations",
     ],
 )

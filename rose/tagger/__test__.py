@@ -8,16 +8,16 @@ FAKE_ALBUM_DIR = Path(__file__).resolve().parent / "testdata"
 
 
 @pytest.mark.parametrize(
-    ("filepath", "track_num"),
+    ("filepath", "track_num", "duration"),
     [
-        ("track1.flac", "1"),
-        ("track2.m4a", "2"),
-        ("track3.mp3", "3"),
-        ("track4.vorbis.ogg", "4"),
-        ("track5.opus.ogg", "5"),
+        ("track1.flac", "1", 2),
+        ("track2.m4a", "2", 2),
+        ("track3.mp3", "3", 1),
+        ("track4.vorbis.ogg", "4", 1),
+        ("track5.opus.ogg", "5", 1),
     ],
 )
-def test_getters(filepath: str, track_num: str) -> None:
+def test_getters(filepath: str, track_num: str, duration: int) -> None:
     tf = AudioFile.from_file(FAKE_ALBUM_DIR / filepath)
     assert tf.track_number == track_num
     assert tf.title == f"Track {track_num}"
@@ -38,6 +38,7 @@ def test_getters(filepath: str, track_num: str) -> None:
         composer=["Artist EF", "Artist FG"],
         djmixer=["Artist IJ", "Artist JK"],
     )
+    assert tf.duration_sec == duration
 
 
 def test_split_tag() -> None:

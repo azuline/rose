@@ -15,10 +15,22 @@
     let
       pkgs = import nixpkgs { inherit system; };
       python = pkgs.python311;
+      uuid6-python = python.pkgs.buildPythonPackage {
+        pname = "uuid6-python";
+        version = "2023.5.2";
+        src = pkgs.fetchFromGitHub {
+          owner = "oittaa";
+          repo = "uuid6-python";
+          rev = "d65fff8bbfcd0bca78577b3d07cb3c9979cd69e7";
+          hash = "sha256-Typif9Ags1Eaz2WMCh+MnsbTqJdTPgYpCCReQY8pVqI=";
+        };
+        doCheck = false;
+      };
       prod-deps = with python.pkgs; [
         click
         fuse
         mutagen
+        uuid6-python
         yoyo-migrations
       ];
       dev-deps = with python.pkgs; [
@@ -58,6 +70,7 @@
               (python.withPackages (_: prod-deps ++ dev-deps))
               ruff
               dev-cli
+              nodePackages.pyright
             ];
           })
         ];

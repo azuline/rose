@@ -48,6 +48,8 @@ class AudioFile:
     album_artists: ArtistTags
     artists: ArtistTags
 
+    duration_sec: int
+
     @classmethod
     def from_file(cls, p: Path) -> AudioFile:
         return _convert_mutagen(mutagen.File(p), p)  # type: ignore
@@ -88,6 +90,7 @@ def _convert_mutagen(m: Any, p: Path) -> AudioFile:
                 producer=_get_paired_frame("producer"),
                 dj=_get_paired_frame("DJ-mix"),
             ),
+            duration_sec=round(m.info.length),
         )
     if isinstance(m, mutagen.mp4.MP4):
         return AudioFile(
@@ -108,6 +111,7 @@ def _convert_mutagen(m: Any, p: Path) -> AudioFile:
                 conductor=_get_tag(m.tags, ["----:com.apple.iTunes:CONDUCTOR"]),
                 dj=_get_tag(m.tags, ["----:com.apple.iTunes:DJMIXER"]),
             ),
+            duration_sec=round(m.info.length),  # type: ignore
         )
     if isinstance(m, (mutagen.flac.FLAC, mutagen.oggvorbis.OggVorbis, mutagen.oggopus.OggOpus)):
         return AudioFile(
@@ -128,6 +132,7 @@ def _convert_mutagen(m: Any, p: Path) -> AudioFile:
                 conductor=_get_tag(m.tags, ["conductor"]),
                 dj=_get_tag(m.tags, ["djmixer"]),
             ),
+            duration_sec=round(m.info.length),  # type: ignore
         )
     raise UnsupportedFiletypeError(f"{p} is not a supported audio file.")
 

@@ -47,6 +47,8 @@ select = [
   # "PTH",
 ]
 ignore = [
+  # Allow shadowing builtins on attributes.
+  "A003",
 ]
 line-length = 100
 exclude = [".venv"]
