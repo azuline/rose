@@ -8,8 +8,9 @@ from typing import Any, Literal
 
 import fuse
 
-from rose.cache.read import list_albums
+from rose.cache.read import list_albums, list_artists, list_genres, list_labels
 from rose.foundation.conf import Config
+from rose.virtualfs.sanitize import sanitize_filename
 
 logger = logging.getLogger(__name__)
 
@@ -85,16 +86,25 @@ class VirtualFS(fuse.Fuse):  # type: ignore
         if path.startswith("/artists"):
             if path == "/artists":
                 yield from [fuse.Direntry("."), fuse.Direntry("..")]
+                for artist in list_artists(self.config):
+                    yield fuse.Direntry(sanitize_filename(artist))
+                return
             return
 
         if path.startswith("/genres"):
             if path == "/genres":
                 yield from [fuse.Direntry("."), fuse.Direntry("..")]
+                for genre in list_genres(self.config):
+                    yield fuse.Direntry(sanitize_filename(genre))
+                return
             return
 
         if path.startswith("/labels"):
             if path == "/labels":
                 yield from [fuse.Direntry("."), fuse.Direntry("..")]
+                for label in list_labels(self.config):
+                    yield fuse.Direntry(sanitize_filename(label))
+                return
             return
 
 

@@ -10,6 +10,7 @@ from rose.cache.database import connect, transaction
 from rose.cache.dataclasses import CachedArtist, CachedRelease, CachedTrack
 from rose.foundation.conf import Config
 from rose.tagger import ArtistTags, AudioFile
+from rose.virtualfs.sanitize import sanitize_filename
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +37,6 @@ SUPPORTED_RELEASE_TYPES = [
 ]
 
 ID_REGEX = re.compile(r"\{id=([^\}]+)\}$")
-
-ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]')
 
 
 def update_cache_for_all_releases(c: Config) -> None:
@@ -102,7 +101,7 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                     virtual_dirname += " [" + ";".join(tags.genre) + "]"
                 if tags.label:
                     virtual_dirname += " {" + ";".join(tags.label) + "}"
-                virtual_dirname = ILLEGAL_FS_CHARS_REGEX.sub("_", virtual_dirname)
+                virtual_dirname = sanitize_filename(virtual_dirname)
 
                 release = CachedRelease(
                     id=release_id,
@@ -198,7 +197,7 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
             virtual_filename += f" [{tags.duration_sec // 60}：{tags.duration_sec % 60:02d}]"
             if tags.artists != tags.album_artists:
                 virtual_filename += " (by " + _format_artists(tags.artists) + ")"
-            virtual_filename = ILLEGAL_FS_CHARS_REGEX.sub("_", virtual_filename)
+            virtual_filename = sanitize_filename(virtual_filename)
 
             track = CachedTrack(
                 id=track_id,

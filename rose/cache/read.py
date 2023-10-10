@@ -60,7 +60,28 @@ def list_albums(c: Config) -> Iterator[CachedRelease]:
                 release_type=row["release_type"],
                 release_year=row["release_year"],
                 new=bool(row["new"]),
-                genres=sorted(row["genres"].split(r" \\ ")),
-                labels=sorted(row["labels"].split(r" \\ ")),
+                genres=row["genres"].split(r" \\ "),
+                labels=row["labels"].split(r" \\ "),
                 artists=artists,
             )
+
+
+def list_artists(c: Config) -> Iterator[str]:
+    with connect(c) as conn:
+        cursor = conn.execute("SELECT DISTINCT artist FROM releases_artists")
+        for row in cursor:
+            yield row["artist"]
+
+
+def list_genres(c: Config) -> Iterator[str]:
+    with connect(c) as conn:
+        cursor = conn.execute("SELECT DISTINCT genre FROM releases_genres")
+        for row in cursor:
+            yield row["genre"]
+
+
+def list_labels(c: Config) -> Iterator[str]:
+    with connect(c) as conn:
+        cursor = conn.execute("SELECT DISTINCT label FROM releases_labels")
+        for row in cursor:
+            yield row["label"]
