@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 from dataclasses import asdict, dataclass
@@ -8,6 +9,8 @@ import uuid6
 from rose.cache.database import connect, transaction
 from rose.foundation.conf import Config
 from rose.tagger import AudioFile
+
+logger = logging.getLogger(__name__)
 
 SUPPORTED_EXTENSIONS = [
     ".mp3",
@@ -31,7 +34,7 @@ SUPPORTED_RELEASE_TYPES = [
     "unknown",
 ]
 
-ID_REGEX = re.compile(r"\{id=([^}]+)\}$")
+ID_REGEX = re.compile(r"\{id=([^\}]+)\}$")
 
 
 @dataclass
@@ -48,7 +51,6 @@ class CachedRelease:
 class CachedTrack:
     id: str
     source_path: Path
-    source_mtime: int
     title: str
     release_id: str
     trackno: str
@@ -67,8 +69,10 @@ def update_cache_for_all_releases(c: Config) -> None:
     Process and update the cache for all releases. Delete any nonexistent releases.
     """
     dirs = [Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()]
+    logger.info(f"Found {len(dirs)} releases to update")
     for i, d in enumerate(dirs):
         dirs[i] = update_cache_for_release(c, d)
+    logger.info("Deleting cached releases that are not on disk")
     with connect(c) as conn:
         conn.execute(
             f"""
@@ -86,6 +90,7 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
 
     Returns the new release_dir if a rename occurred; otherwise, returns the same release_dir.
     """
+    logger.info(f"Refreshing cached data for {release_dir.name}")
     with connect(c) as conn, transaction(conn) as conn:
         # The release will be updated based on the album tags of the first track.
         release: CachedRelease | None = None
@@ -94,6 +99,7 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
         release_id = _parse_uuid_from_path(release_dir)
         if not release_id:
             release_id = str(uuid6.uuid7())
+            logger.debug(f"Assigning id={release_id} to release {release_dir.name}")
             release_dir = _rename_with_uuid(release_dir, release_id)
 
         for f in os.scandir(release_dir):
@@ -104,6 +110,7 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
             tags = AudioFile.from_file(Path(f.path))
             # If this is the first track, upsert the release.
             if release is None:
+                logger.debug("Upserting release from first track's tags")
                 release = CachedRelease(
                     id=release_id,
                     source_path=release_dir.resolve(),
@@ -172,18 +179,16 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
 
             # Now process the track. Release is guaranteed to exist here.
             filepath = Path(f.path)
-            # Get the mtime before we may possibly rename the file.
-            source_mtime = int(f.stat().st_mtime)
 
             track_id = _parse_uuid_from_path(filepath)
             if not track_id:
                 track_id = str(uuid6.uuid7())
+                logger.debug(f"Assigning id={release_id} to track {filepath.name}")
                 filepath = _rename_with_uuid(filepath, track_id)
 
             track = CachedTrack(
                 id=track_id,
                 source_path=filepath,
-                source_mtime=source_mtime,
                 title=tags.title or "Unknown Title",
                 release_id=release.id,
                 trackno=tags.track_number or "1",
@@ -193,12 +198,11 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
             conn.execute(
                 """
                 INSERT INTO tracks
-                (id, source_path, source_mtime, title, release_id, track_number, disc_number,
+                (id, source_path, title, release_id, track_number, disc_number,
                  duration_seconds)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (id) DO UPDATE SET
                     source_path = ?,
-                    source_mtime = ?,
                     title = ?,
                     release_id = ?,
                     track_number = ?,
@@ -208,14 +212,12 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                 (
                     track.id,
                     str(track.source_path),
-                    track.source_mtime,
                     track.title,
                     track.release_id,
                     track.trackno,
                     track.discno,
                     track.duration_sec,
                     str(track.source_path),
-                    track.source_mtime,
                     track.title,
                     track.release_id,
                     track.trackno,

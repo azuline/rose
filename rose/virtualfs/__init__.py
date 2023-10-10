@@ -7,7 +7,7 @@ from rose.foundation.conf import Config
 fuse.fuse_python_api = (0, 2)
 
 
-class VirtualFS(fuse.Fuse):
+class VirtualFS(fuse.Fuse):  # type: ignore
     pass
 
 

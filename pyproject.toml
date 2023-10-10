@@ -63,6 +63,9 @@ explicit_package_bases = true
 module = "yoyo"
 ignore_missing_imports = true
 [[tool.mypy.overrides]]
+module = "fuse"
+ignore_missing_imports = true
+[[tool.mypy.overrides]]
 module = "setuptools"
 ignore_missing_imports = true
 

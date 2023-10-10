@@ -65,7 +65,7 @@ def test_update_cache_for_release(config: Config) -> None:
                 continue
 
             # Check that the track file was given a UUID.
-            m = ID_REGEX.search(f.name)
+            m = ID_REGEX.search(f.stem)
             assert m is not None
             track_id = m[1]
 
@@ -126,7 +126,7 @@ def test_update_cache_with_existing_id(config: Config) -> None:
                 continue
 
             # Check that the track file was given a UUID.
-            m = ID_REGEX.search(f.name)
+            m = ID_REGEX.search(f.stem)
             assert m is not None
             track_id = m[1]
             cursor = conn.execute("SELECT EXISTS(SELECT * FROM tracks WHERE id = ?)", (track_id,))

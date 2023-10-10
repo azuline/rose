@@ -43,7 +43,6 @@ CREATE INDEX releases_labels_label ON releases_labels(label);
 CREATE TABLE tracks (
     id TEXT PRIMARY KEY,
     source_path TEXT NOT NULL UNIQUE,
-    source_mtime TIMESTAMP NOT NULL,
     title TEXT NOT NULL,
     release_id TEXT NOT NULL REFERENCES releases(id),
     track_number TEXT NOT NULL,
@@ -84,8 +83,7 @@ CREATE INDEX tracks_artists_artist ON tracks_artists(artist);
 CREATE TABLE collections (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    source_path TEXT UNIQUE NOT NULL,
-    source_mtime TIMESTAMP NOT NULL
+    source_path TEXT UNIQUE NOT NULL
 );
 CREATE INDEX collections_source_path ON collections(source_path);
 
@@ -101,8 +99,7 @@ CREATE UNIQUE INDEX collections_releases_collection_position ON collections_rele
 CREATE TABLE playlists (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    source_path TEXT UNIQUE NOT NULL,
-    source_mtime TIMESTAMP NOT NULL
+    source_path TEXT UNIQUE NOT NULL
 );
 CREATE INDEX playlists_source_path ON playlists(source_path);
 
