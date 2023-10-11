@@ -23,3 +23,6 @@ jobs:
       - name: Lint
         if: success() || failure()
         run: nix develop --command make lintcheck
+      - name: Build
+        if: success() || failure()
+        run: nix build .#rose

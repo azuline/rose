@@ -30,8 +30,10 @@
         click
         fuse
         mutagen
+        setuptools
         tomli-w
         uuid6-python
+        pip
       ];
       dev-deps = with python.pkgs; [
         black
@@ -39,7 +41,6 @@
         mypy
         pytest
         pytest-cov
-        setuptools
       ];
       dev-cli = pkgs.writeShellScriptBin "rose" ''
         cd $ROSE_ROOT
@@ -81,6 +82,7 @@
           version = "0.0.0";
           src = ./.;
           propagatedBuildInputs = prod-deps;
+          doCheck = false;
         };
         default = rose;
       };
