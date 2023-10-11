@@ -1,17 +1,17 @@
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")
 
 
 @dataclass
 class Artists:
-    main: list[str]
-    guest: list[str]
-    remixer: list[str]
-    producer: list[str]
-    composer: list[str]
-    djmixer: list[str]
+    main: list[str] = field(default_factory=list)
+    guest: list[str] = field(default_factory=list)
+    remixer: list[str] = field(default_factory=list)
+    producer: list[str] = field(default_factory=list)
+    composer: list[str] = field(default_factory=list)
+    djmixer: list[str] = field(default_factory=list)
 
 
 def parse_artist_string(
@@ -39,7 +39,7 @@ def parse_artist_string(
         dj, main = re.split(r" ?pres. ", main, maxsplit=1)
         li_dj.extend(_split_tag(dj))
     if main and " performed by " in main:
-        composer, main = re.split(r" ?performed by. ", main, maxsplit=1)
+        composer, main = re.split(r" ?performed by ", main, maxsplit=1)
         li_composer.extend(_split_tag(composer))
     if main:
         li_main.extend(_split_tag(main))
@@ -57,7 +57,7 @@ def parse_artist_string(
 def format_artist_string(a: Artists, genres: list[str]) -> str:
     r = ";".join(a.producer + a.main + a.remixer)
     if a.composer and "Classical" in genres:
-        r = ";".join(a.composer) + " performed by. " + r
+        r = ";".join(a.composer) + " performed by " + r
     if a.djmixer:
         r = ";".join(a.djmixer) + " pres. " + r
     if a.guest:
