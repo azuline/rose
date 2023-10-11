@@ -80,9 +80,11 @@ Rosé constructs the virtual filesystem from the audio tags. However, audio tags
 are frequently missing or incorrect. Thus, Rosé also provides a set of tools to
 improve the audio tag metadata.
 
-Note that the metadata manager _modifies_ the 
+Note that the metadata manager _modifies_ the source files. If you do not want
+to modify the source files, you should `chmod 444` and not use the metadata
+manager!
 
-Which I have yet to write. Please check back later!
+I have yet to write this part of the tool. Please check back later!
 
 # Installation
 
