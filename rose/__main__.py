@@ -54,11 +54,12 @@ def fs() -> None:
     """Manage the virtual library."""
 
 
-@fs.command()
+@fs.command(context_settings={"ignore_unknown_options": True})
+@click.argument("mount_args", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
-def mount(ctx: Context) -> None:
+def mount(ctx: Context, mount_args: list[str]) -> None:
     """Mount the virtual library."""
-    mount_virtualfs(ctx.config)
+    mount_virtualfs(ctx.config, mount_args)
 
 
 @fs.command()

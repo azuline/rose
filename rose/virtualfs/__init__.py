@@ -5,7 +5,7 @@ import stat
 import subprocess
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Literal
+from typing import IO, Any, Literal
 
 import fuse
 
@@ -55,59 +55,59 @@ class VirtualFS(fuse.Fuse):  # type: ignore
             if len(parts) == 1:
                 return mkstat("dir")
             if not release_exists(self.config, parts[1]):
-                raise fuse.FuseError(errno.ENOENT)
+                raise OSError(errno.ENOENT, "No such file or directory")
             if len(parts) == 2:
                 return mkstat("dir")
             if len(parts) == 3 and (tp := track_exists(self.config, parts[1], parts[2])):
                 return mkstat("file", tp.stat().st_size)
-            raise fuse.FuseError(errno.ENOENT)
+            raise OSError(errno.ENOENT, "No such file or directory")
 
         if parts[0] == "artists":
             if len(parts) == 1:
                 return mkstat("dir")
             if not artist_exists(self.config, parts[1]):
-                raise fuse.FuseError(errno.ENOENT)
+                raise OSError(errno.ENOENT, "No such file or directory")
             if len(parts) == 2:
                 return mkstat("dir")
             if not release_exists(self.config, parts[2]):
-                raise fuse.FuseError(errno.ENOENT)
+                raise OSError(errno.ENOENT, "No such file or directory")
             if len(parts) == 3:
                 return mkstat("dir")
             if len(parts) == 4 and (tp := track_exists(self.config, parts[2], parts[3])):
                 return mkstat("file", tp.stat().st_size)
-            raise fuse.FuseError(errno.ENOENT)
+            raise OSError(errno.ENOENT, "No such file or directory")
 
         if parts[0] == "genres":
             if len(parts) == 1:
                 return mkstat("dir")
             if not genre_exists(self.config, parts[1]):
-                raise fuse.FuseError(errno.ENOENT)
+                raise OSError(errno.ENOENT, "No such file or directory")
             if len(parts) == 2:
                 return mkstat("dir")
             if not release_exists(self.config, parts[2]):
-                raise fuse.FuseError(errno.ENOENT)
+                raise OSError(errno.ENOENT, "No such file or directory")
             if len(parts) == 3:
                 return mkstat("dir")
             if len(parts) == 4 and (tp := track_exists(self.config, parts[2], parts[3])):
                 return mkstat("file", tp.stat().st_size)
-            raise fuse.FuseError(errno.ENOENT)
+            raise OSError(errno.ENOENT, "No such file or directory")
 
         if parts[0] == "labels":
             if len(parts) == 1:
                 return mkstat("dir")
             if not label_exists(self.config, parts[1]):
-                raise fuse.FuseError(errno.ENOENT)
+                raise OSError(errno.ENOENT, "No such file or directory")
             if len(parts) == 2:
                 return mkstat("dir")
             if not release_exists(self.config, parts[2]):
-                raise fuse.FuseError(errno.ENOENT)
+                raise OSError(errno.ENOENT, "No such file or directory")
             if len(parts) == 3:
                 return mkstat("dir")
             if len(parts) == 4 and (tp := track_exists(self.config, parts[2], parts[3])):
                 return mkstat("file", tp.stat().st_size)
-            raise fuse.FuseError(errno.ENOENT)
+            raise OSError(errno.ENOENT, "No such file or directory")
 
-        raise fuse.FuseError(errno.ENOENT)
+        raise OSError(errno.ENOENT, "No such file or directory")
 
     def readdir(self, path: str, _: Any) -> Iterator[fuse.Direntry]:
         logger.debug(f"Received readdir for {path}")
@@ -191,7 +191,7 @@ class VirtualFS(fuse.Fuse):  # type: ignore
                 return
             return
 
-        raise fuse.FuseError(errno.ENOENT)
+        raise OSError(errno.ENOENT, "No such file or directory")
 
     def read(self, path: str, size: int, offset: int) -> bytes:
         logger.debug(f"Received read for {path}")
@@ -205,24 +205,45 @@ class VirtualFS(fuse.Fuse):  # type: ignore
 
         if parts[0] == "albums":
             if len(parts) != 3:
-                raise fuse.FuseError(errno.ENOENT)
+                raise OSError(errno.ENOENT, "No such file or directory")
             for track in list_tracks(self.config, parts[1]):
                 if track.virtual_filename == parts[2]:
                     return read_bytes(track.source_path)
-            raise fuse.FuseError(errno.ENOENT)
+            raise OSError(errno.ENOENT, "No such file or directory")
         if parts[0] in ["artists", "genres", "labels"]:
             if len(parts) != 4:
-                raise fuse.FuseError(errno.ENOENT)
+                raise OSError(errno.ENOENT, "No such file or directory")
             for track in list_tracks(self.config, parts[2]):
                 if track.virtual_filename == parts[3]:
                     return read_bytes(track.source_path)
-            raise fuse.FuseError(errno.ENOENT)
-        raise fuse.FuseError(errno.ENOENT)
+            raise OSError(errno.ENOENT, "No such file or directory")
+        raise OSError(errno.ENOENT, "No such file or directory")
+
+    def open(self, path: str, flags: str) -> IO[Any]:
+        logger.debug(f"Received open for {path}")
+
+        parts = path.split("/")[1:]  # First part is always empty string.
+
+        if parts[0] == "albums":
+            if len(parts) != 3:
+                raise OSError(errno.ENOENT, "No such file or directory")
+            for track in list_tracks(self.config, parts[1]):
+                if track.virtual_filename == parts[2]:
+                    return track.source_path.open(flags)
+            raise OSError(errno.ENOENT, "No such file or directory")
+        if parts[0] in ["artists", "genres", "labels"]:
+            if len(parts) != 4:
+                raise OSError(errno.ENOENT, "No such file or directory")
+            for track in list_tracks(self.config, parts[2]):
+                if track.virtual_filename == parts[3]:
+                    return track.source_path.open(flags)
+            raise OSError(errno.ENOENT, "No such file or directory")
+        raise OSError(errno.ENOENT, "No such file or directory")
 
 
-def mount_virtualfs(c: Config) -> None:
+def mount_virtualfs(c: Config, mount_args: list[str]) -> None:
     server = VirtualFS(c)
-    server.parse([str(c.fuse_mount_dir)])
+    server.parse([str(c.fuse_mount_dir), *mount_args])
     server.main()
 
 
