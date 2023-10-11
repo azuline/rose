@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 
 import click
 
@@ -14,13 +15,16 @@ class Context:
     config: Config
 
 
+# fmt: off
 @click.group()
-@click.option("--verbose", "-v", is_flag=True)
+@click.option("--verbose", "-v", is_flag=True, help="Emit verbose logging.")
+@click.option("--config", "-c", type=click.Path(path_type=Path), help="Override the config file location.")  # noqa: E501
 @click.pass_context
-def cli(cc: click.Context, verbose: bool) -> None:
+# fmt: on
+def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
     """A filesystem-driven music library manager."""
     cc.obj = Context(
-        config=Config.read(),
+        config=Config.read(config_path_override=config),
     )
 
     if verbose:

@@ -25,20 +25,22 @@ CREATE INDEX releases_source_path ON releases(source_path);
 CREATE INDEX releases_release_year ON releases(release_year);
 
 CREATE TABLE releases_genres (
-    release_id TEXT,
+    release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
     genre TEXT,
     genre_sanitized TEXT NOT NULL,
     PRIMARY KEY (release_id, genre)
 );
+CREATE INDEX releases_genres_release_id ON releases_genres(release_id);
 CREATE INDEX releases_genres_genre ON releases_genres(genre);
 CREATE INDEX releases_genres_genre_sanitized ON releases_genres(genre_sanitized);
 
 CREATE TABLE releases_labels (
-    release_id TEXT,
+    release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
     label TEXT,
     label_sanitized TEXT NOT NULL,
     PRIMARY KEY (release_id, label)
 );
+CREATE INDEX releases_labels_release_id ON releases_labels(release_id);
 CREATE INDEX releases_labels_label ON releases_labels(label);
 CREATE INDEX releases_labels_label_sanitized ON releases_labels(label_sanitized);
 
@@ -47,7 +49,7 @@ CREATE TABLE tracks (
     source_path TEXT NOT NULL UNIQUE,
     virtual_filename TEXT NOT NULL,
     title TEXT NOT NULL,
-    release_id TEXT NOT NULL REFERENCES releases(id),
+    release_id TEXT NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
     track_number TEXT NOT NULL,
     disc_number TEXT NOT NULL,
     duration_seconds INTEGER NOT NULL,
