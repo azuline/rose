@@ -49,6 +49,8 @@ select = [
 ignore = [
   # Allow shadowing builtins on attributes.
   "A003",
+  # Fixtures that do not return anything do not need leading underscore.
+  "PT004",
 ]
 line-length = 100
 exclude = [".venv"]

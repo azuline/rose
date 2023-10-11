@@ -13,6 +13,11 @@ from rose.foundation.conf import SCHEMA_PATH, Config
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(autouse=True)
+def debug_logging() -> None:
+    logging.getLogger().setLevel(logging.DEBUG)
+
+
 @pytest.fixture()
 def isolated_dir() -> Iterator[Path]:
     with CliRunner().isolated_filesystem():
@@ -48,7 +53,7 @@ def config(isolated_dir: Path) -> Config:
 
 
 @pytest.fixture()
-def seeded_cache(config: Config) -> Iterator[None]:
+def seeded_cache(config: Config) -> None:
     dirpaths = [
         config.music_source_dir / "r1",
         config.music_source_dir / "r2",
@@ -103,9 +108,6 @@ VALUES ('t1', 'Techno Man', 'Techno Man', 'main')
         d.mkdir()
     for f in musicpaths + imagepaths:
         f.touch()
-
-    yield
-    return None
 
 
 def freeze_database_time(conn: sqlite3.Connection) -> None:

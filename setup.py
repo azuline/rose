@@ -13,6 +13,7 @@ setuptools.setup(
         "click",
         "fuse-python",
         "mutagen",
+        "tomli-w",
         "uuid6-python",
     ],
 )

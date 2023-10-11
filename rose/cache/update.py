@@ -1,9 +1,10 @@
 import logging
 import os
-import re
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
+import tomli_w
+import tomllib
 import uuid6
 
 from rose.artiststr import format_artist_string
@@ -41,8 +42,6 @@ SUPPORTED_RELEASE_TYPES = [
     "unknown",
 ]
 
-ID_REGEX = re.compile(r"\{id=([^\}]+)\}$")
-
 
 def update_cache_for_all_releases(c: Config) -> None:
     """
@@ -50,8 +49,8 @@ def update_cache_for_all_releases(c: Config) -> None:
     """
     dirs = [Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()]
     logger.info(f"Found {len(dirs)} releases to update")
-    for i, d in enumerate(dirs):
-        dirs[i] = update_cache_for_release(c, d)
+    for d in dirs:
+        update_cache_for_release(c, d)
     logger.info("Deleting cached releases that are not on disk")
     with connect(c) as conn:
         conn.execute(
@@ -63,7 +62,7 @@ def update_cache_for_all_releases(c: Config) -> None:
         )
 
 
-def update_cache_for_release(c: Config, release_dir: Path) -> Path:
+def update_cache_for_release(c: Config, release_dir: Path) -> None:
     """
     Given a release's directory, update the cache entry based on the release's metadata. If this is
     a new release or track, update the directory and file names to include the UUIDs.
@@ -76,11 +75,9 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
         release: CachedRelease | None = None
         # But first, parse the release_id from the directory name. If the directory name does not
         # contain a release_id, generate one and rename the directory.
-        release_id = _parse_uuid_from_path(release_dir)
-        if not release_id:
-            release_id = str(uuid6.uuid7())
-            logger.debug(f"Assigning id={release_id} to release {release_dir.name}")
-            release_dir = _rename_with_uuid(release_dir, release_id)
+        stored_release_data = _read_stored_data_file(release_dir)
+        if not stored_release_data:
+            stored_release_data = _create_stored_data_file(release_dir)
 
         # Fetch all track tags from disk.
         track_tags: list[tuple[os.DirEntry[str], AudioFile]] = []
@@ -126,7 +123,7 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                             SELECT * FROM releases WHERE virtual_dirname = ? AND id <> ?
                         )
                         """,
-                        (virtual_dirname, release_id),
+                        (virtual_dirname, stored_release_data.uuid),
                     )
                     if not cursor.fetchone()[0]:
                         break
@@ -142,7 +139,7 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
 
                 # Construct the cached release.
                 release = CachedRelease(
-                    id=release_id,
+                    id=stored_release_data.uuid,
                     source_path=release_dir.resolve(),
                     cover_image_path=cover_image_path,
                     virtual_dirname=virtual_dirname,
@@ -228,11 +225,8 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
             # Now process the track. Release is guaranteed to exist here.
             filepath = Path(f.path)
 
-            track_id = _parse_uuid_from_path(filepath)
-            if not track_id:
-                track_id = str(uuid6.uuid7())
-                logger.debug(f"Assigning id={release_id} to track {filepath.name}")
-                filepath = _rename_with_uuid(filepath, track_id)
+            # Track ID is transient with the cache; we don't put it in any persistent stores.
+            track_id = str(uuid6.uuid7())
 
             virtual_filename = ""
             if multidisc and tags.disc_number:
@@ -319,18 +313,41 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                     (track.id, art.name, sanitize_filename(art.name), art.role, art.role),
                 )
 
-    return release_dir
+
+STORED_DATA_FILE_NAME = ".rose.toml"
 
 
-def _parse_uuid_from_path(path: Path) -> str | None:
-    if m := ID_REGEX.search(path.name if path.is_dir() else path.stem):
-        return m[1]
+@dataclass
+class StoredDataFile:
+    uuid: str
+    new: bool
+
+
+def _read_stored_data_file(path: Path) -> StoredDataFile | None:
+    for f in path.iterdir():
+        if f.name == STORED_DATA_FILE_NAME:
+            logger.debug(f"Found stored data file for {path}")
+            with f.open("rb") as fp:
+                diskdata = tomllib.load(fp)
+            datafile = StoredDataFile(
+                uuid=diskdata.get("uuid", str(uuid6.uuid7())),
+                new=diskdata.get("new", True),
+            )
+            resolveddata = asdict(datafile)
+            if resolveddata != diskdata:
+                logger.debug(f"Setting new default values in stored data file for {path}")
+                with f.open("wb") as fp:
+                    tomli_w.dump(resolveddata, fp)
+            return datafile
     return None
 
 
-def _rename_with_uuid(src: Path, uuid: str) -> Path:
-    if src.is_dir():
-        dst = src.with_name(src.name + f" {{id={uuid}}}")
-    else:
-        dst = src.with_stem(src.stem + f" {{id={uuid}}}")
-    return src.rename(dst)
+def _create_stored_data_file(path: Path) -> StoredDataFile:
+    logger.debug(f"Creating stored data file for {path}")
+    data = StoredDataFile(
+        uuid=str(uuid6.uuid7()),
+        new=True,
+    )
+    with (path / ".rose.toml").open("wb") as fp:
+        tomli_w.dump(asdict(data), fp)
+    return data

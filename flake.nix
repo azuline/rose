@@ -30,6 +30,7 @@
         click
         fuse
         mutagen
+        tomli-w
         uuid6-python
       ];
       dev-deps = with python.pkgs; [
