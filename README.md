@@ -84,6 +84,16 @@ Note that the metadata manager _modifies_ the
 
 Which I have yet to write. Please check back later!
 
+# Installation
+
+Install with Nix Flakes:
+
+```bash
+$ nix profile install github:azuline/rose#rose
+```
+ 
+More accessible installation methods TBD.
+
 # Usage
 
 ```
