@@ -1,4 +1,5 @@
 import binascii
+import hashlib
 import logging
 import random
 import sqlite3
@@ -6,9 +7,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-import yoyo
-
-from rose.foundation.conf import MIGRATIONS_PATH, Config
+from rose.foundation.conf import SCHEMA_PATH, Config
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +71,34 @@ def connect_fn(c: Config) -> sqlite3.Connection:
 
 
 def migrate_database(c: Config) -> None:
-    db_backend = yoyo.get_backend(f"sqlite:///{c.cache_database_path}")
-    db_migrations = yoyo.read_migrations(str(MIGRATIONS_PATH))
+    """
+    "Migrate" the database. If the schema in the database does not match that on disk, then nuke the
+    database and recreate it from scratch. Otherwise, no op.
 
-    logger.debug("Applying database migrations")
-    with db_backend.lock():
-        db_backend.apply_migrations(db_backend.to_apply(db_migrations))
+    We can do this because the database is just a read cache. It is not source-of-truth for any of
+    its own data.
+    """
+    with SCHEMA_PATH.open("rb") as fp:
+        latest_schema_hash = hashlib.sha256(fp.read()).hexdigest()
+
+    with connect(c) as conn:
+        cursor = conn.execute(
+            """
+            SELECT EXISTS(
+                SELECT * FROM sqlite_master
+                WHERE type = 'table' AND name = '_schema_hash'
+            )
+            """
+        )
+        if cursor.fetchone()[0]:
+            cursor = conn.execute("SELECT value FROM _schema_hash")
+            if (row := cursor.fetchone()) and row[0] == latest_schema_hash:
+                # Everything matches! Exit!
+                return
+
+    c.cache_database_path.unlink(missing_ok=True)
+    with connect(c) as conn:
+        with SCHEMA_PATH.open("r") as fp:
+            conn.executescript(fp.read())
+        conn.execute("CREATE TABLE _schema_hash (value TEXT PRIMARY KEY)")
+        conn.execute("INSERT INTO _schema_hash (value) VALUES (?)", (latest_schema_hash,))

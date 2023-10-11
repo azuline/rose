@@ -1,6 +1,3 @@
--- bootstrap
--- depends: 
-
 CREATE TABLE release_type_enum (value TEXT PRIMARY KEY);
 INSERT INTO release_type_enum (value) VALUES
     ('album'),

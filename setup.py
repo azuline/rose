@@ -14,6 +14,5 @@ setuptools.setup(
         "fuse-python",
         "mutagen",
         "uuid6-python",
-        "yoyo-migrations",
     ],
 )

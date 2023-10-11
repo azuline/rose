@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import sqlite3
 from collections.abc import Iterator
@@ -5,10 +6,9 @@ from pathlib import Path
 
 import _pytest.pathlib
 import pytest
-import yoyo
 from click.testing import CliRunner
 
-from rose.foundation.conf import MIGRATIONS_PATH, Config
+from rose.foundation.conf import SCHEMA_PATH, Config
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +25,13 @@ def config(isolated_dir: Path) -> Config:
     cache_dir.mkdir()
     cache_database_path = cache_dir / "cache.sqlite3"
 
-    db_backend = yoyo.get_backend(f"sqlite:///{cache_database_path}")
-    db_migrations = yoyo.read_migrations(str(MIGRATIONS_PATH))
-    with db_backend.lock():
-        db_backend.apply_migrations(db_backend.to_apply(db_migrations))
+    with sqlite3.connect(cache_database_path) as conn:
+        with SCHEMA_PATH.open("r") as fp:
+            conn.executescript(fp.read())
+        conn.execute("CREATE TABLE _schema_hash (value TEXT PRIMARY KEY)")
+        with SCHEMA_PATH.open("rb") as fp:
+            latest_schema_hash = hashlib.sha256(fp.read()).hexdigest()
+        conn.execute("INSERT INTO _schema_hash (value) VALUES (?)", (latest_schema_hash,))
 
     return Config(
         music_source_dir=isolated_dir / "source",

@@ -31,7 +31,6 @@
         fuse
         mutagen
         uuid6-python
-        yoyo-migrations
       ];
       dev-deps = with python.pkgs; [
         black

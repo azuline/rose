@@ -1,34 +1,31 @@
-import sqlite3
-from pathlib import Path
+import hashlib
 
-import yoyo
-
-from conftest import freeze_database_time
-from rose.cache.database import migrate_database
-from rose.foundation.conf import MIGRATIONS_PATH, Config
+from rose.cache.database import connect, migrate_database
+from rose.foundation.conf import SCHEMA_PATH, Config
 
 
-def test_run_database_migrations(config: Config) -> None:
+def test_schema(config: Config) -> None:
+    # Test that the schema successfully bootstraps.
+    with SCHEMA_PATH.open("rb") as fp:
+        latest_schema_hash = hashlib.sha256(fp.read()).hexdigest()
     migrate_database(config)
-    assert config.cache_database_path.exists()
-
-    with sqlite3.connect(str(config.cache_database_path)) as conn:
-        freeze_database_time(conn)
-        cursor = conn.execute("SELECT 1 FROM _yoyo_version")
-        assert len(cursor.fetchall()) > 0
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT value FROM _schema_hash")
+        assert cursor.fetchone()[0] == latest_schema_hash
 
 
-def test_migrations(isolated_dir: Path) -> None:
-    """
-    Test that, for each migration, the up -> down -> up path doesn't
-    cause an error. Basically, ladder our way up through the migration
-    chain.
-    """
-    backend = yoyo.get_backend(f"sqlite:///{isolated_dir / 'db.sqlite3'}")
-    migrations = yoyo.read_migrations(str(MIGRATIONS_PATH))
+def test_migration(config: Config) -> None:
+    # Test that "migrating" the database correctly migrates it.
+    config.cache_database_path.unlink()
+    with connect(config) as conn:
+        conn.execute("CREATE TABLE _schema_hash (value TEXT PRIMARY KEY)")
+        conn.execute("INSERT INTO _schema_hash (value) VALUES ('haha')")
 
-    assert len(migrations) > 0
-    for mig in migrations:
-        backend.apply_one(mig)
-        backend.rollback_one(mig)
-        backend.apply_one(mig)
+    with SCHEMA_PATH.open("rb") as fp:
+        latest_schema_hash = hashlib.sha256(fp.read()).hexdigest()
+    migrate_database(config)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT value FROM _schema_hash")
+        assert cursor.fetchone()[0] == latest_schema_hash
+        cursor = conn.execute("SELECT COUNT(*) FROM _schema_hash")
+        assert cursor.fetchone()[0] == 1
