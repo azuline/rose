@@ -35,38 +35,40 @@ The virtual filesystem constructed from the above source directory is:
 │   ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
 │   ├── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
 │   ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
-│   ├── LOOΠΔ - 2020. [#] [K-Pop]
-│   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop]
-│   └── YUZION - 2019. Young Trapper [Hip Hop]
+│   ├── LOOΠΔ - 2020. [#] [K-Pop] {BlockBerry Creative}
+│   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
+│   └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
 ├── artists
 │   ├── BLACKPINK
 │   │   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
 │   │   └── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
 │   ├── LOOΠΔ
 │   │   ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
-│   │   └── LOOΠΔ - 2020. [#] [K-Pop]
+│   │   └── LOOΠΔ - 2020. [#] [K-Pop] {BlockBerry Creative}
 │   ├── LOOΠΔ 1_3
 │   │   └── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
 │   ├── LOOΠΔ ODD EYE CIRCLE
-│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop]
+│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
 │   └── YUZION
-│       └── YUZION - 2019. Young Trapper [Hip Hop]
+│       └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
 ├── genres
 │   ├── Hip-Hop
-│   │   └── YUZION - 2019. Young Trapper [Hip Hop]
+│   │   └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
 │   └── K-Pop
 │       ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
 │       ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
 │       ├── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
 │       ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
-│       ├── LOOΠΔ - 2020. [#] [K-Pop]
-│       └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop]
+│       ├── LOOΠΔ - 2020. [#] [K-Pop] {BlockBerry Creative}
+│       └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
 └── labels
     ├── BlockBerry Creative
     │   ├── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
     │   ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
     │   ├── LOOΠΔ - 2021. [&] [K-Pop] {BlockBerry Creative}
-    │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop]
+    │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
+    ├── No Label
+    │   └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
     └── YG Entertainment
         ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
         └── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
