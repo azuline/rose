@@ -221,10 +221,6 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
             if tags.track_number:
                 virtual_filename += f"{tags.track_number:0>2}. "
             virtual_filename += tags.title or "Unknown Title"
-            if tags.duration_sec >= 60:
-                virtual_filename += f" [{tags.duration_sec // 60}m{tags.duration_sec % 60:02d}s]"
-            else:
-                virtual_filename += f" [0m{tags.duration_sec % 60:02d}s]"
             if tags.release_type in ["compilation", "soundtrack", "remix", "djmix", "mixtape"]:
                 virtual_filename += " (by " + format_artist_string(tags.artists, tags.genre) + ")"
             virtual_filename += filepath.suffix
