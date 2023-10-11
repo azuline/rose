@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
@@ -37,6 +38,7 @@ def list_releases(
             SELECT
                 r.id
               , r.source_path
+              , r.cover_image_path
               , r.virtual_dirname
               , r.title
               , r.release_type
@@ -86,6 +88,7 @@ def list_releases(
             yield CachedRelease(
                 id=row["id"],
                 source_path=Path(row["source_path"]),
+                cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
                 virtual_dirname=row["virtual_dirname"],
                 title=row["title"],
                 release_type=row["release_type"],
@@ -97,7 +100,15 @@ def list_releases(
             )
 
 
-def list_tracks(c: Config, release_virtual_dirname: str) -> Iterator[CachedTrack]:
+@dataclass
+class ReleaseFiles:
+    tracks: list[CachedTrack]
+    cover: Path | None
+
+
+def get_release_files(c: Config, release_virtual_dirname: str) -> ReleaseFiles:
+    rf = ReleaseFiles(tracks=[], cover=None)
+
     with connect(c) as conn:
         cursor = conn.execute(
             r"""
@@ -131,17 +142,28 @@ def list_tracks(c: Config, release_virtual_dirname: str) -> Iterator[CachedTrack
             artists: list[CachedArtist] = []
             for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
                 artists.append(CachedArtist(name=n, role=r))
-            yield CachedTrack(
-                id=row["id"],
-                source_path=Path(row["source_path"]),
-                virtual_filename=row["virtual_filename"],
-                title=row["title"],
-                release_id=row["release_id"],
-                track_number=row["track_number"],
-                disc_number=row["disc_number"],
-                duration_seconds=row["duration_seconds"],
-                artists=artists,
+            rf.tracks.append(
+                CachedTrack(
+                    id=row["id"],
+                    source_path=Path(row["source_path"]),
+                    virtual_filename=row["virtual_filename"],
+                    title=row["title"],
+                    release_id=row["release_id"],
+                    track_number=row["track_number"],
+                    disc_number=row["disc_number"],
+                    duration_seconds=row["duration_seconds"],
+                    artists=artists,
+                )
             )
+
+        cursor = conn.execute(
+            "SELECT cover_image_path FROM releases WHERE virtual_dirname = ?",
+            (release_virtual_dirname,),
+        )
+        if (row := cursor.fetchone()) and row["cover_image_path"]:
+            rf.cover = Path(row["cover_image_path"])
+
+    return rf
 
 
 def list_artists(c: Config) -> Iterator[str]:
@@ -194,6 +216,19 @@ def track_exists(
         )
         if row := cursor.fetchone():
             return Path(row["source_path"])
+        return None
+
+
+def cover_exists(c: Config, release_virtual_dirname: str, cover_name: str) -> Path | None:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT cover_image_path FROM releases r WHERE r.virtual_dirname = ?",
+            (release_virtual_dirname,),
+        )
+        if (row := cursor.fetchone()) and row["cover_image_path"]:
+            p = Path(row["cover_image_path"])
+            if p.name == cover_name:
+                return p
         return None
 
 

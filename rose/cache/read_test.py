@@ -5,13 +5,14 @@ import pytest
 from rose.cache.dataclasses import CachedArtist, CachedRelease, CachedTrack
 from rose.cache.read import (
     artist_exists,
+    cover_exists,
     genre_exists,
+    get_release_files,
     label_exists,
     list_artists,
     list_genres,
     list_labels,
     list_releases,
-    list_tracks,
     release_exists,
     track_exists,
 )
@@ -25,6 +26,7 @@ def test_list_releases(config: Config) -> None:
         CachedRelease(
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
+            cover_image_path=None,
             virtual_dirname="r1",
             title="Release 1",
             release_type="album",
@@ -40,6 +42,7 @@ def test_list_releases(config: Config) -> None:
         CachedRelease(
             id="r2",
             source_path=Path(config.music_source_dir / "r2"),
+            cover_image_path=Path(config.music_source_dir / "r2" / "cover.jpg"),
             virtual_dirname="r2",
             title="Release 2",
             release_type="album",
@@ -58,6 +61,7 @@ def test_list_releases(config: Config) -> None:
         CachedRelease(
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
+            cover_image_path=None,
             virtual_dirname="r1",
             title="Release 1",
             release_type="album",
@@ -76,6 +80,7 @@ def test_list_releases(config: Config) -> None:
         CachedRelease(
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
+            cover_image_path=None,
             virtual_dirname="r1",
             title="Release 1",
             release_type="album",
@@ -94,6 +99,7 @@ def test_list_releases(config: Config) -> None:
         CachedRelease(
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
+            cover_image_path=None,
             virtual_dirname="r1",
             title="Release 1",
             release_type="album",
@@ -110,9 +116,9 @@ def test_list_releases(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_list_tracks(config: Config) -> None:
-    tracks = list(list_tracks(config, "r1"))
-    assert tracks == [
+def test_get_release_files(config: Config) -> None:
+    rf = get_release_files(config, "r1")
+    assert rf.tracks == [
         CachedTrack(
             id="t1",
             source_path=Path(config.music_source_dir / "r1" / "01.m4a"),
@@ -142,6 +148,10 @@ def test_list_tracks(config: Config) -> None:
             ],
         ),
     ]
+    assert rf.cover is None
+
+    rf = get_release_files(config, "r2")
+    assert rf.cover == config.music_source_dir / "r2" / "cover.jpg"
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -173,6 +183,13 @@ def test_track_exists(config: Config) -> None:
     assert track_exists(config, "r1", "01.m4a")
     assert not track_exists(config, "lalala", "lalala")
     assert not track_exists(config, "r1", "lalala")
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_cover_exists(config: Config) -> None:
+    assert cover_exists(config, "r2", "cover.jpg")
+    assert not cover_exists(config, "r2", "cover.png")
+    assert not cover_exists(config, "r1", "cover.jpg")
 
 
 @pytest.mark.usefixtures("seeded_cache")

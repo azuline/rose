@@ -15,6 +15,7 @@ INSERT INTO release_type_enum (value) VALUES
 CREATE TABLE releases (
     id TEXT PRIMARY KEY,
     source_path TEXT NOT NULL UNIQUE,
+    cover_image_path TEXT,
     virtual_dirname TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
     release_type TEXT NOT NULL REFERENCES release_type_enum(value),

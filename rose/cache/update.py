@@ -15,6 +15,10 @@ from rose.virtualfs.sanitize import sanitize_filename
 
 logger = logging.getLogger(__name__)
 
+VALID_COVER_FILENAMES = [
+    stem + ext for stem in ["cover", "folder", "art"] for ext in [".jpg", ".jpeg", ".png"]
+]
+
 SUPPORTED_EXTENSIONS = [
     ".mp3",
     ".m4a",
@@ -128,9 +132,19 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                         break
                     virtual_dirname = f"{original_virtual_dirname} [{collision_no}]"
 
+                # Search for cover art.
+                cover_image_path = None
+                for cn in VALID_COVER_FILENAMES:
+                    p = release_dir / cn
+                    if p.is_file():
+                        cover_image_path = p.resolve()
+                        break
+
+                # Construct the cached release.
                 release = CachedRelease(
                     id=release_id,
                     source_path=release_dir.resolve(),
+                    cover_image_path=cover_image_path,
                     virtual_dirname=virtual_dirname,
                     title=tags.album or "Unknown Release",
                     release_type=(
@@ -149,13 +163,16 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                     for name in names:
                         release.artists.append(CachedArtist(name=name, role=role))
 
+                # Upsert the release.
                 conn.execute(
                     """
                     INSERT INTO releases
-                    (id, source_path, virtual_dirname, title, release_type, release_year, new)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (id, source_path, cover_image_path, virtual_dirname, title, release_type,
+                     release_year, new)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT (id) DO UPDATE SET
                         source_path = ?,
+                        cover_image_path = ?,
                         virtual_dirname = ?,
                         title = ?,
                         release_type = ?,
@@ -165,12 +182,14 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                     (
                         release.id,
                         str(release.source_path),
+                        str(release.cover_image_path),
                         release.virtual_dirname,
                         release.title,
                         release.release_type,
                         release.release_year,
                         release.new,
                         str(release.source_path),
+                        str(release.cover_image_path),
                         release.virtual_dirname,
                         release.title,
                         release.release_type,

@@ -53,18 +53,21 @@ def seeded_cache(config: Config) -> Iterator[None]:
         config.music_source_dir / "r1",
         config.music_source_dir / "r2",
     ]
-    filepaths = [
+    musicpaths = [
         config.music_source_dir / "r1" / "01.m4a",
         config.music_source_dir / "r1" / "02.m4a",
         config.music_source_dir / "r2" / "01.m4a",
+    ]
+    imagepaths = [
+        config.music_source_dir / "r2" / "cover.jpg",
     ]
 
     with sqlite3.connect(config.cache_database_path) as conn:
         conn.executescript(
             f"""\
-INSERT INTO releases (id, source_path, virtual_dirname, title, release_type, release_year, new)
-VALUES ('r1', '{dirpaths[0]}', 'r1', 'Release 1', 'album', 2023, true)
-     , ('r2', '{dirpaths[1]}', 'r2', 'Release 2', 'album', 2021, false);
+INSERT INTO releases (id, source_path, cover_image_path, virtual_dirname, title, release_type, release_year, new)
+VALUES ('r1', '{dirpaths[0]}', null, 'r1', 'Release 1', 'album', 2023, true)
+     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', 'r2', 'Release 2', 'album', 2021, false);
 
 INSERT INTO releases_genres (release_id, genre, genre_sanitized)
 VALUES ('r1', 'Techno', 'Techno')
@@ -75,11 +78,10 @@ INSERT INTO releases_labels (release_id, label, label_sanitized)
 VALUES ('r1', 'Silk Music', 'Silk Music')
      , ('r2', 'Native State', 'Native State');
 
-INSERT INTO tracks
-(id, source_path, virtual_filename, title, release_id, track_number, disc_number, duration_seconds)
-VALUES ('t1', '{filepaths[0]}', '01.m4a', 'Track 1', 'r1', '01', '01', 120)
-     , ('t2', '{filepaths[1]}', '02.m4a', 'Track 2', 'r1', '02', '01', 240)
-     , ('t3', '{filepaths[2]}', '01.m4a', 'Track 1', 'r2', '01', '01', 120);
+INSERT INTO tracks (id, source_path, virtual_filename, title, release_id, track_number, disc_number, duration_seconds)
+VALUES ('t1', '{musicpaths[0]}', '01.m4a', 'Track 1', 'r1', '01', '01', 120)
+     , ('t2', '{musicpaths[1]}', '02.m4a', 'Track 2', 'r1', '02', '01', 240)
+     , ('t3', '{musicpaths[2]}', '01.m4a', 'Track 1', 'r2', '01', '01', 120);
 
 INSERT INTO releases_artists (release_id, artist, artist_sanitized, role)
 VALUES ('r1', 'Techno Man', 'Techno Man', 'main')
@@ -94,12 +96,12 @@ VALUES ('t1', 'Techno Man', 'Techno Man', 'main')
      , ('t2', 'Bass Man', 'Bass Man', 'main')
      , ('t3', 'Violin Woman', 'Violin Woman', 'main')
      , ('t3', 'Conductor Woman', 'Conductor Woman', 'guest');
-            """
+            """  # noqa: E501
         )
 
     for d in dirpaths:
         d.mkdir()
-    for f in filepaths:
+    for f in musicpaths + imagepaths:
         f.touch()
 
     yield

@@ -148,10 +148,13 @@ Every directory should follow the format: `$music_source_dir/$album_name/$track.
 
 So for example: `$music_source_dir/BLACKPINK - 2016. SQUARE ONE/*.mp3`.
 
-## Supported Filetypes
+## Filetypes
 
-Rosé supports MP3, M4A, OGG, OPUS, and FLAC audio files and JPG and PNG image
-files.
+Rosé supports MP3, M4A, OGG, OPUS, and FLAC audio files.
+
+Rosé also supports JPEG and PNG cover art. The supported cover art file stems
+are `cover`, `folder`, and `art`. The supported cover art file extensions are
+`.jpg`, `.jpeg`, and `.png`.
 
 ## Tagging
 

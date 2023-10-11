@@ -12,13 +12,14 @@ import fuse
 
 from rose.cache.read import (
     artist_exists,
+    cover_exists,
     genre_exists,
+    get_release_files,
     label_exists,
     list_artists,
     list_genres,
     list_labels,
     list_releases,
-    list_tracks,
     release_exists,
     track_exists,
 )
@@ -42,9 +43,11 @@ class VirtualFS(fuse.Fuse):  # type: ignore
 
         if p.view == "root":
             return mkstat("dir")
-        elif p.album and p.track:
-            if tp := track_exists(self.config, p.album, p.track):
+        elif p.album and p.file:
+            if tp := track_exists(self.config, p.album, p.file):
                 return mkstat("file", tp)
+            if cp := cover_exists(self.config, p.album, p.file):
+                return mkstat("file", cp)
         elif p.album:
             if rp := release_exists(self.config, p.album):
                 return mkstat("dir", rp)
@@ -77,8 +80,11 @@ class VirtualFS(fuse.Fuse):  # type: ignore
                 fuse.Direntry("labels"),
             ]
         elif p.album:
-            for track in list_tracks(self.config, p.album):
+            rf = get_release_files(self.config, p.album)
+            for track in rf.tracks:
                 yield fuse.Direntry(track.virtual_filename)
+            if rf.cover:
+                yield fuse.Direntry(rf.cover.name)
         elif p.artist or p.genre or p.label or p.view == "albums":
             for album in list_releases(
                 self.config,
@@ -104,9 +110,14 @@ class VirtualFS(fuse.Fuse):  # type: ignore
         p = parse_virtual_path(path)
         logger.debug(f"Parsed read path as {p}")
 
-        if p.album and p.track:
-            for track in list_tracks(self.config, p.album):
-                if track.virtual_filename == p.track:
+        if p.album and p.file:
+            rf = get_release_files(self.config, p.album)
+            if rf.cover and p.file == rf.cover.name:
+                with rf.cover.open("rb") as fp:
+                    fp.seek(offset)
+                    return fp.read(size)
+            for track in rf.tracks:
+                if track.virtual_filename == p.file:
                     with track.source_path.open("rb") as fp:
                         fp.seek(offset)
                         return fp.read(size)
@@ -134,7 +145,7 @@ class ParsedPath:
     genre: str | None = None
     label: str | None = None
     album: str | None = None
-    track: str | None = None
+    file: str | None = None
 
 
 def parse_virtual_path(path: str) -> ParsedPath:
@@ -149,7 +160,7 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2:
             return ParsedPath(view="albums", album=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="albums", album=parts[1], track=parts[2])
+            return ParsedPath(view="albums", album=parts[1], file=parts[2])
         raise OSError(errno.ENOENT, "No such file or directory")
 
     if parts[0] == "artists":
@@ -160,7 +171,7 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 3:
             return ParsedPath(view="artists", artist=parts[1], album=parts[2])
         if len(parts) == 4:
-            return ParsedPath(view="artists", artist=parts[1], album=parts[2], track=parts[3])
+            return ParsedPath(view="artists", artist=parts[1], album=parts[2], file=parts[3])
         raise OSError(errno.ENOENT, "No such file or directory")
 
     if parts[0] == "genres":
@@ -171,7 +182,7 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 3:
             return ParsedPath(view="genres", genre=parts[1], album=parts[2])
         if len(parts) == 4:
-            return ParsedPath(view="genres", genre=parts[1], album=parts[2], track=parts[3])
+            return ParsedPath(view="genres", genre=parts[1], album=parts[2], file=parts[3])
         raise OSError(errno.ENOENT, "No such file or directory")
 
     if parts[0] == "labels":
@@ -182,7 +193,7 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 3:
             return ParsedPath(view="labels", label=parts[1], album=parts[2])
         if len(parts) == 4:
-            return ParsedPath(view="labels", label=parts[1], album=parts[2], track=parts[3])
+            return ParsedPath(view="labels", label=parts[1], album=parts[2], file=parts[3])
         raise OSError(errno.ENOENT, "No such file or directory")
 
     raise OSError(errno.ENOENT, "No such file or directory")

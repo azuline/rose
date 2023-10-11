@@ -39,6 +39,11 @@ def test_virtual_filesystem(config: Config) -> None:
         assert not (root / "albums" / "r1" / "lala.m4a").exists()
         assert can_read(root / "albums" / "r1" / "01.m4a")
 
+        assert (root / "albums" / "r2" / "cover.jpg").is_file()
+        assert can_read(root / "albums" / "r2" / "cover.jpg")
+        assert not (root / "albums" / "r1" / "cover.jpg").exists()
+        assert not (root / "albums" / "r2" / "cover.png").exists()
+
         assert (root / "artists").is_dir()
         assert (root / "artists" / "Bass Man").is_dir()
         assert not (root / "artists" / "lalala").exists()

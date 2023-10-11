@@ -12,6 +12,7 @@ class CachedArtist:
 class CachedRelease:
     id: str
     source_path: Path
+    cover_image_path: Path | None
     virtual_dirname: str
     title: str
     release_type: str
