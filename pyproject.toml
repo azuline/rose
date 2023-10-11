@@ -63,6 +63,9 @@ explicit_package_bases = true
 module = "fuse"
 ignore_missing_imports = true
 [[tool.mypy.overrides]]
+module = "pytest_cov.embed"
+ignore_missing_imports = true
+[[tool.mypy.overrides]]
 module = "setuptools"
 ignore_missing_imports = true
 
