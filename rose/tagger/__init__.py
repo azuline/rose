@@ -13,7 +13,12 @@ import mutagen.mp4
 import mutagen.oggopus
 import mutagen.oggvorbis
 
+from rose.artiststr import Artists, parse_artist_string
 from rose.foundation.errors import RoseError
+
+TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")
+YEAR_REGEX = re.compile(r"\d{4}$")
+DATE_REGEX = re.compile(r"(\d{4})-\d{2}-\d{2}")
 
 
 class UnsupportedFiletypeError(RoseError):
@@ -22,16 +27,6 @@ class UnsupportedFiletypeError(RoseError):
 
 class UnsupportedTagValueTypeError(RoseError):
     pass
-
-
-@dataclass
-class ArtistTags:
-    main: list[str]
-    guest: list[str]
-    remixer: list[str]
-    producer: list[str]
-    composer: list[str]
-    djmixer: list[str]
 
 
 @dataclass
@@ -45,8 +40,8 @@ class AudioFile:
     label: list[str]
     release_type: str | None
 
-    album_artists: ArtistTags
-    artists: ArtistTags
+    album_artists: Artists
+    artists: Artists
 
     duration_sec: int
 
@@ -81,8 +76,8 @@ def _convert_mutagen(m: Any, p: Path) -> AudioFile:
             genre=_split_tag(_get_tag(m.tags, ["TCON"])),
             label=_split_tag(_get_tag(m.tags, ["TPUB"])),
             release_type=_get_tag(m.tags, ["TXXX:RELEASETYPE"], first=True),
-            album_artists=_parse_artists(main=_get_tag(m.tags, ["TPE2"])),
-            artists=_parse_artists(
+            album_artists=parse_artist_string(main=_get_tag(m.tags, ["TPE2"])),
+            artists=parse_artist_string(
                 main=_get_tag(m.tags, ["TPE1"]),
                 remixer=_get_tag(m.tags, ["TPE4"]),
                 composer=_get_tag(m.tags, ["TCOM"]),
@@ -102,8 +97,8 @@ def _convert_mutagen(m: Any, p: Path) -> AudioFile:
             genre=_split_tag(_get_tag(m.tags, ["\xa9gen"])),
             label=_split_tag(_get_tag(m.tags, ["----:com.apple.iTunes:LABEL"])),
             release_type=_get_tag(m.tags, ["----:com.apple.iTunes:RELEASETYPE"], first=True),
-            album_artists=_parse_artists(main=_get_tag(m.tags, ["aART"])),
-            artists=_parse_artists(
+            album_artists=parse_artist_string(main=_get_tag(m.tags, ["aART"])),
+            artists=parse_artist_string(
                 main=_get_tag(m.tags, ["\xa9ART"]),
                 remixer=_get_tag(m.tags, ["----:com.apple.iTunes:REMIXER"]),
                 producer=_get_tag(m.tags, ["----:com.apple.iTunes:PRODUCER"]),
@@ -123,8 +118,8 @@ def _convert_mutagen(m: Any, p: Path) -> AudioFile:
             genre=_split_tag(_get_tag(m.tags, ["genre"])),
             label=_split_tag(_get_tag(m.tags, ["organization", "label", "recordlabel"])),
             release_type=_get_tag(m.tags, ["releasetype"], first=True),
-            album_artists=_parse_artists(main=_get_tag(m.tags, ["albumartist"])),
-            artists=_parse_artists(
+            album_artists=parse_artist_string(main=_get_tag(m.tags, ["albumartist"])),
+            artists=parse_artist_string(
                 main=_get_tag(m.tags, ["artist"]),
                 remixer=_get_tag(m.tags, ["remixer"]),
                 producer=_get_tag(m.tags, ["producer"]),
@@ -135,6 +130,10 @@ def _convert_mutagen(m: Any, p: Path) -> AudioFile:
             duration_sec=round(m.info.length),  # type: ignore
         )
     raise UnsupportedFiletypeError(f"{p} is not a supported audio file.")
+
+
+def _split_tag(t: str | None) -> list[str]:
+    return TAG_SPLITTER_REGEX.split(t) if t else []
 
 
 def _get_tag(t: Any, keys: list[str], *, first: bool = False) -> str | None:
@@ -166,54 +165,12 @@ def _get_tag(t: Any, keys: list[str], *, first: bool = False) -> str | None:
     return None
 
 
-def _split_tag(t: str | None) -> list[str]:
-    return re.split(r" \\\\ | / |; ?| vs\. ", t) if t else []
-
-
-def _parse_artists(
-    *,
-    main: str | None,
-    remixer: str | None = None,
-    composer: str | None = None,
-    conductor: str | None = None,
-    producer: str | None = None,
-    dj: str | None = None,
-) -> ArtistTags:
-    li_main = _split_tag(conductor)
-    li_guests = []
-    li_remixer = _split_tag(remixer)
-    li_composer = _split_tag(composer)
-    li_producer = _split_tag(producer)
-    li_dj = _split_tag(dj)
-    if main and "feat. " in main:
-        main, guests = re.split(r" ?feat. ", main, maxsplit=1)
-        li_guests.extend(_split_tag(guests))
-    if main and " pres. " in main:
-        dj, main = re.split(r" ?pres. ", main, maxsplit=1)
-        li_dj.extend(_split_tag(dj))
-    if main and " performed by " in main:
-        composer, main = re.split(r" ?performed by. ", main, maxsplit=1)
-        li_composer.extend(_split_tag(composer))
-    if main:
-        li_main.extend(_split_tag(main))
-
-    return ArtistTags(
-        main=li_main,
-        guest=li_guests,
-        remixer=li_remixer,
-        composer=li_composer,
-        producer=li_producer,
-        djmixer=li_dj,
-    )
-
-
 def _parse_year(value: str | None) -> int | None:
     if not value:
         return None
-    value = str(value)  # ID3TimeStamp object sometimes comes through.
-    if re.match(r"\d{4}$", value):
+    if YEAR_REGEX.match(value):
         return int(value)
     # There may be a time value after the date... allow that and other crap.
-    if m := re.match(r"(\d{4})-\d{2}-\d{2}", value):
+    if m := DATE_REGEX.match(value):
         return int(m[1])
     return None

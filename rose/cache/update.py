@@ -6,10 +6,11 @@ from pathlib import Path
 
 import uuid6
 
+from rose.artiststr import format_artist_string
 from rose.cache.database import connect, transaction
 from rose.cache.dataclasses import CachedArtist, CachedRelease, CachedTrack
 from rose.foundation.conf import Config
-from rose.tagger import ArtistTags, AudioFile
+from rose.tagger import AudioFile
 from rose.virtualfs.sanitize import sanitize_filename
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                 logger.debug("Upserting release from first track's tags")
 
                 # Compute the album's visual directory name.
-                virtual_dirname = _format_artists(tags.album_artists, tags.genre) + " - "
+                virtual_dirname = format_artist_string(tags.album_artists, tags.genre) + " - "
                 if tags.year:
                     virtual_dirname += str(tags.year) + ". "
                 virtual_dirname += tags.album or "Unknown Release"
@@ -219,7 +220,7 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
             else:
                 virtual_filename += f" [0m{tags.duration_sec % 60:02d}s]"
             if tags.release_type in ["compilation", "soundtrack", "remix", "djmix", "mixtape"]:
-                virtual_filename += " (by " + _format_artists(tags.artists, tags.genre) + ")"
+                virtual_filename += " (by " + format_artist_string(tags.artists, tags.genre) + ")"
             virtual_filename += filepath.suffix
             virtual_filename = sanitize_filename(virtual_filename)
             # And in case of a name collision, add an extra number at the end. Iterate to find
@@ -312,14 +313,3 @@ def _rename_with_uuid(src: Path, uuid: str) -> Path:
     else:
         dst = src.with_stem(src.stem + f" {{id={uuid}}}")
     return src.rename(dst)
-
-
-def _format_artists(a: ArtistTags, genres: list[str]) -> str:
-    r = ";".join(a.producer + a.main + a.remixer)
-    if a.composer and "Classical" in genres:
-        r = ";".join(a.composer) + " performed by. " + r
-    if a.djmixer:
-        r = ";".join(a.djmixer) + " pres. " + r
-    if a.guest:
-        r += " feat. " + ";".join(a.guest)
-    return r

@@ -2,7 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from rose.tagger import ArtistTags, AudioFile, _split_tag
+from rose.artiststr import Artists
+from rose.tagger import AudioFile, _split_tag
 
 FAKE_ALBUM_DIR = Path(__file__).resolve().parent / "testdata"
 
@@ -30,7 +31,7 @@ def test_getters(filepath: str, track_num: str, duration: int) -> None:
     assert tf.label == ["A Cool Label"]
 
     assert tf.album_artists.main == ["Artist A", "Artist B"]
-    assert tf.artists == ArtistTags(
+    assert tf.artists == Artists(
         main=["Artist GH", "Artist HI"],
         guest=["Artist C", "Artist A"],
         remixer=["Artist AB", "Artist BC"],
