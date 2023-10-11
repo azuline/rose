@@ -1,5 +1,12 @@
+import binascii
+import hashlib
 import logging
 import os
+import random
+import sqlite3
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -8,13 +15,134 @@ import tomllib
 import uuid6
 
 from rose.artiststr import format_artist_string
-from rose.cache.database import connect, transaction
-from rose.cache.dataclasses import CachedArtist, CachedRelease, CachedTrack
-from rose.foundation.conf import Config
+from rose.config import Config
+from rose.sanitize import sanitize_filename
 from rose.tagger import AudioFile
-from rose.virtualfs.sanitize import sanitize_filename
 
 logger = logging.getLogger(__name__)
+
+CACHE_SCHEMA_PATH = Path(__file__).resolve().parent / "cache.sql"
+
+
+@contextmanager
+def connect(c: Config) -> Iterator[sqlite3.Connection]:
+    conn = sqlite3.connect(
+        c.cache_database_path,
+        detect_types=sqlite3.PARSE_DECLTYPES,
+        isolation_level=None,
+        timeout=15.0,
+    )
+    try:
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute("PRAGMA journal_mode=WAL")
+        yield conn
+    finally:
+        if conn:
+            conn.close()
+
+
+@contextmanager
+def transaction(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
+    """
+    A simple context wrapper for a database transaction. If connection is null,
+    a new connection is created.
+    """
+    tx_log_id = binascii.b2a_hex(random.randbytes(8)).decode()
+    start_time = time.time()
+
+    # If we're already in a transaction, don't create a nested transaction.
+    if conn.in_transaction:
+        logger.debug(f"Transaction {tx_log_id}. Starting nested transaction, NoOp.")
+        yield conn
+        logger.debug(
+            f"Transaction {tx_log_id}. End of nested transaction. "
+            f"Duration: {time.time() - start_time}."
+        )
+        return
+
+    logger.debug(f"Transaction {tx_log_id}. Starting transaction from conn.")
+    with conn:
+        # We BEGIN IMMEDIATE to avoid deadlocks, which pisses the hell out of me because no one's
+        # documenting this properly and SQLite just dies without respecting the timeout and without
+        # a reasonable error message. Absurd.
+        # - https://sqlite.org/forum/forumpost/a3db6dbff1cd1d5d
+        conn.execute("BEGIN IMMEDIATE")
+        yield conn
+        logger.debug(
+            f"Transaction {tx_log_id}. End of transaction from conn. "
+            f"Duration: {time.time() - start_time}."
+        )
+
+
+def migrate_database(c: Config) -> None:
+    """
+    "Migrate" the database. If the schema in the database does not match that on disk, then nuke the
+    database and recreate it from scratch. Otherwise, no op.
+
+    We can do this because the database is just a read cache. It is not source-of-truth for any of
+    its own data.
+    """
+    with CACHE_SCHEMA_PATH.open("rb") as fp:
+        latest_schema_hash = hashlib.sha256(fp.read()).hexdigest()
+
+    with connect(c) as conn:
+        cursor = conn.execute(
+            """
+            SELECT EXISTS(
+                SELECT * FROM sqlite_master
+                WHERE type = 'table' AND name = '_schema_hash'
+            )
+            """
+        )
+        if cursor.fetchone()[0]:
+            cursor = conn.execute("SELECT value FROM _schema_hash")
+            if (row := cursor.fetchone()) and row[0] == latest_schema_hash:
+                # Everything matches! Exit!
+                return
+
+    c.cache_database_path.unlink(missing_ok=True)
+    with connect(c) as conn:
+        with CACHE_SCHEMA_PATH.open("r") as fp:
+            conn.executescript(fp.read())
+        conn.execute("CREATE TABLE _schema_hash (value TEXT PRIMARY KEY)")
+        conn.execute("INSERT INTO _schema_hash (value) VALUES (?)", (latest_schema_hash,))
+
+
+@dataclass
+class CachedArtist:
+    name: str
+    role: str
+
+
+@dataclass
+class CachedRelease:
+    id: str
+    source_path: Path
+    cover_image_path: Path | None
+    virtual_dirname: str
+    title: str
+    release_type: str
+    release_year: int | None
+    new: bool
+    genres: list[str]
+    labels: list[str]
+    artists: list[CachedArtist]
+
+
+@dataclass
+class CachedTrack:
+    id: str
+    source_path: Path
+    virtual_filename: str
+    title: str
+    release_id: str
+    track_number: str
+    disc_number: str
+    duration_seconds: int
+
+    artists: list[CachedArtist]
+
 
 VALID_COVER_FILENAMES = [
     stem + ext for stem in ["cover", "folder", "art"] for ext in [".jpg", ".jpeg", ".png"]
@@ -351,3 +479,255 @@ def _create_stored_data_file(path: Path) -> StoredDataFile:
     with (path / ".rose.toml").open("wb") as fp:
         tomli_w.dump(asdict(data), fp)
     return data
+
+
+def list_releases(
+    c: Config,
+    sanitized_artist_filter: str | None = None,
+    sanitized_genre_filter: str | None = None,
+    sanitized_label_filter: str | None = None,
+) -> Iterator[CachedRelease]:
+    with connect(c) as conn:
+        query = r"""
+            WITH genres AS (
+                SELECT
+                    release_id,
+                    GROUP_CONCAT(genre, ' \\ ') AS genres
+                FROM releases_genres
+                GROUP BY release_id
+            ), labels AS (
+                SELECT
+                    release_id,
+                    GROUP_CONCAT(label, ' \\ ') AS labels
+                FROM releases_labels
+                GROUP BY release_id
+            ), artists AS (
+                SELECT
+                    release_id,
+                    GROUP_CONCAT(artist, ' \\ ') AS names,
+                    GROUP_CONCAT(role, ' \\ ') AS roles
+                FROM releases_artists
+                GROUP BY release_id
+            )
+            SELECT
+                r.id
+              , r.source_path
+              , r.cover_image_path
+              , r.virtual_dirname
+              , r.title
+              , r.release_type
+              , r.release_year
+              , r.new
+              , COALESCE(g.genres, '') AS genres
+              , COALESCE(l.labels, '') AS labels
+              , COALESCE(a.names, '') AS artist_names
+              , COALESCE(a.roles, '') AS artist_roles
+            FROM releases r
+            LEFT JOIN genres g ON g.release_id = r.id
+            LEFT JOIN labels l ON l.release_id = r.id
+            LEFT JOIN artists a ON a.release_id = r.id
+            WHERE 1=1
+        """
+        args: list[str] = []
+        if sanitized_artist_filter:
+            query += """
+                AND EXISTS (
+                    SELECT * FROM releases_artists
+                    WHERE release_id = r.id AND artist_sanitized = ?
+                )
+            """
+            args.append(sanitized_artist_filter)
+        if sanitized_genre_filter:
+            query += """
+                AND EXISTS (
+                    SELECT * FROM releases_genres
+                    WHERE release_id = r.id AND genre_sanitized = ?
+                )
+            """
+            args.append(sanitized_genre_filter)
+        if sanitized_label_filter:
+            query += """
+                AND EXISTS (
+                    SELECT * FROM releases_labels
+                    WHERE release_id = r.id AND label_sanitized = ?
+                )
+            """
+            args.append(sanitized_label_filter)
+
+        cursor = conn.execute(query, args)
+        for row in cursor:
+            artists: list[CachedArtist] = []
+            for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
+                artists.append(CachedArtist(name=n, role=r))
+            yield CachedRelease(
+                id=row["id"],
+                source_path=Path(row["source_path"]),
+                cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
+                virtual_dirname=row["virtual_dirname"],
+                title=row["title"],
+                release_type=row["release_type"],
+                release_year=row["release_year"],
+                new=bool(row["new"]),
+                genres=row["genres"].split(r" \\ "),
+                labels=row["labels"].split(r" \\ "),
+                artists=artists,
+            )
+
+
+@dataclass
+class ReleaseFiles:
+    tracks: list[CachedTrack]
+    cover: Path | None
+
+
+def get_release_files(c: Config, release_virtual_dirname: str) -> ReleaseFiles:
+    rf = ReleaseFiles(tracks=[], cover=None)
+
+    with connect(c) as conn:
+        cursor = conn.execute(
+            r"""
+            WITH artists AS (
+                SELECT
+                    track_id,
+                    GROUP_CONCAT(artist, ' \\ ') AS names,
+                    GROUP_CONCAT(role, ' \\ ') AS roles
+                FROM tracks_artists
+                GROUP BY track_id
+            )
+            SELECT
+                t.id
+              , t.source_path
+              , t.virtual_filename
+              , t.title
+              , t.release_id
+              , t.track_number
+              , t.disc_number
+              , t.duration_seconds
+              , COALESCE(a.names, '') AS artist_names
+              , COALESCE(a.roles, '') AS artist_roles
+            FROM tracks t
+            JOIN releases r ON r.id = t.release_id
+            LEFT JOIN artists a ON a.track_id = t.id
+            WHERE r.virtual_dirname = ?
+            """,
+            (release_virtual_dirname,),
+        )
+        for row in cursor:
+            artists: list[CachedArtist] = []
+            for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
+                artists.append(CachedArtist(name=n, role=r))
+            rf.tracks.append(
+                CachedTrack(
+                    id=row["id"],
+                    source_path=Path(row["source_path"]),
+                    virtual_filename=row["virtual_filename"],
+                    title=row["title"],
+                    release_id=row["release_id"],
+                    track_number=row["track_number"],
+                    disc_number=row["disc_number"],
+                    duration_seconds=row["duration_seconds"],
+                    artists=artists,
+                )
+            )
+
+        cursor = conn.execute(
+            "SELECT cover_image_path FROM releases WHERE virtual_dirname = ?",
+            (release_virtual_dirname,),
+        )
+        if (row := cursor.fetchone()) and row["cover_image_path"]:
+            rf.cover = Path(row["cover_image_path"])
+
+    return rf
+
+
+def list_artists(c: Config) -> Iterator[str]:
+    with connect(c) as conn:
+        cursor = conn.execute("SELECT DISTINCT artist FROM releases_artists")
+        for row in cursor:
+            yield row["artist"]
+
+
+def list_genres(c: Config) -> Iterator[str]:
+    with connect(c) as conn:
+        cursor = conn.execute("SELECT DISTINCT genre FROM releases_genres")
+        for row in cursor:
+            yield row["genre"]
+
+
+def list_labels(c: Config) -> Iterator[str]:
+    with connect(c) as conn:
+        cursor = conn.execute("SELECT DISTINCT label FROM releases_labels")
+        for row in cursor:
+            yield row["label"]
+
+
+def release_exists(c: Config, virtual_dirname: str) -> Path | None:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT source_path FROM releases WHERE virtual_dirname = ?",
+            (virtual_dirname,),
+        )
+        if row := cursor.fetchone():
+            return Path(row["source_path"])
+        return None
+
+
+def track_exists(
+    c: Config, release_virtual_dirname: str, track_virtual_filename: str
+) -> Path | None:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            """
+            SELECT t.source_path
+            FROM tracks t
+            JOIN releases r ON t.release_id = r.id
+            WHERE r.virtual_dirname = ? AND t.virtual_filename = ?
+            """,
+            (
+                release_virtual_dirname,
+                track_virtual_filename,
+            ),
+        )
+        if row := cursor.fetchone():
+            return Path(row["source_path"])
+        return None
+
+
+def cover_exists(c: Config, release_virtual_dirname: str, cover_name: str) -> Path | None:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT cover_image_path FROM releases r WHERE r.virtual_dirname = ?",
+            (release_virtual_dirname,),
+        )
+        if (row := cursor.fetchone()) and row["cover_image_path"]:
+            p = Path(row["cover_image_path"])
+            if p.name == cover_name:
+                return p
+        return None
+
+
+def artist_exists(c: Config, artist_sanitized: str) -> bool:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT EXISTS(SELECT * FROM releases_artists WHERE artist_sanitized = ?)",
+            (artist_sanitized,),
+        )
+        return bool(cursor.fetchone()[0])
+
+
+def genre_exists(c: Config, genre_sanitized: str) -> bool:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT EXISTS(SELECT * FROM releases_genres WHERE genre_sanitized = ?)",
+            (genre_sanitized,),
+        )
+        return bool(cursor.fetchone()[0])
+
+
+def label_exists(c: Config, label_sanitized: str) -> bool:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT EXISTS(SELECT * FROM releases_labels WHERE label_sanitized = ?)",
+            (label_sanitized,),
+        )
+        return bool(cursor.fetchone()[0])

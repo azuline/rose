@@ -6,14 +6,12 @@ from pathlib import Path
 
 import tomllib
 
-from rose.foundation.errors import RoseError
+from rose.errors import RoseError
 
 XDG_CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME", os.environ["HOME"] + "/.config"))
 CONFIG_PATH = XDG_CONFIG_HOME / "rose" / "config.toml"
 XDG_CACHE_HOME = Path(os.environ.get("XDG_CACHE_HOME", os.environ["HOME"] + "/.cache"))
 CACHE_PATH = XDG_CACHE_HOME / "rose"
-
-SCHEMA_PATH = Path(__file__).resolve().parent.parent / "cache" / "schema.sql"
 
 
 class ConfigNotFoundError(RoseError):

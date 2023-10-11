@@ -8,7 +8,8 @@ import _pytest.pathlib
 import pytest
 from click.testing import CliRunner
 
-from rose.foundation.conf import SCHEMA_PATH, Config
+from rose.cache import CACHE_SCHEMA_PATH
+from rose.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +32,10 @@ def config(isolated_dir: Path) -> Config:
 
     cache_database_path = cache_dir / "cache.sqlite3"
     with sqlite3.connect(cache_database_path) as conn:
-        with SCHEMA_PATH.open("r") as fp:
+        with CACHE_SCHEMA_PATH.open("r") as fp:
             conn.executescript(fp.read())
         conn.execute("CREATE TABLE _schema_hash (value TEXT PRIMARY KEY)")
-        with SCHEMA_PATH.open("rb") as fp:
+        with CACHE_SCHEMA_PATH.open("rb") as fp:
             latest_schema_hash = hashlib.sha256(fp.read()).hexdigest()
         conn.execute("INSERT INTO _schema_hash (value) VALUES (?)", (latest_schema_hash,))
 

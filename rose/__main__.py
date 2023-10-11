@@ -4,9 +4,8 @@ from pathlib import Path
 
 import click
 
-from rose.cache.database import migrate_database
-from rose.cache.update import update_cache_for_all_releases
-from rose.foundation.conf import Config
+from rose.cache import migrate_database, update_cache_for_all_releases
+from rose.config import Config
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
 

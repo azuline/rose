@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 import fuse
 
-from rose.cache.read import (
+from rose.cache import (
     artist_exists,
     cover_exists,
     genre_exists,
@@ -23,8 +23,8 @@ from rose.cache.read import (
     release_exists,
     track_exists,
 )
-from rose.foundation.conf import Config
-from rose.virtualfs.sanitize import sanitize_filename
+from rose.config import Config
+from rose.sanitize import sanitize_filename
 
 logger = logging.getLogger(__name__)
 

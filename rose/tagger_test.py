@@ -5,7 +5,7 @@ import pytest
 from rose.artiststr import Artists
 from rose.tagger import AudioFile, _split_tag
 
-FAKE_ALBUM_DIR = Path(__file__).resolve().parent / "testdata"
+TESTDATA = Path(__file__).resolve().parent.parent / "testdata" / "tagger"
 
 
 @pytest.mark.parametrize(
@@ -19,7 +19,7 @@ FAKE_ALBUM_DIR = Path(__file__).resolve().parent / "testdata"
     ],
 )
 def test_getters(filepath: str, track_num: str, duration: int) -> None:
-    tf = AudioFile.from_file(FAKE_ALBUM_DIR / filepath)
+    tf = AudioFile.from_file(TESTDATA / filepath)
     assert tf.track_number == track_num
     assert tf.title == f"Track {track_num}"
 

@@ -1,12 +1,12 @@
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from multiprocessing import Process
 from pathlib import Path
-from typing import Iterator
 
 import pytest
 
-from rose.foundation.conf import Config
+from rose.config import Config
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
 
