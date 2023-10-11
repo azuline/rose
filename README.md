@@ -6,7 +6,7 @@ A virtual filesystem music library and a music metadata manager.
 
 Rosé reads a source directory of albums like this:
 
-```
+```tree
 .
 ├── BLACKPINK - 2016. SQUARE ONE
 ├── BLACKPINK - 2016. SQUARE TWO
@@ -28,7 +28,7 @@ systems.
 
 The virtual filesystem constructed from the above source directory is:
 
-```
+```tree
 .
 ├── albums
 │   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
@@ -78,6 +78,8 @@ Rosé constructs the virtual filesystem from the audio tags. However, audio tags
 are frequently missing or incorrect. Thus, Rosé also provides a set of tools to
 improve the audio tag metadata.
 
+Note that the metadata manager _modifies_ the 
+
 Which I have yet to write. Please check back later!
 
 # Configuration
@@ -98,25 +100,64 @@ cache_dir = "~/.cache/rose"
 
 The `--config/-c` flag overrides the config location.
 
-## Library Conventions & Expectations
+# Data Conventions
 
-### Directory Structure
+The `music_source_dir` must be a flat directory of albums, meaning all albums
+must be top-level directories inside `music_source_dir`. Each album should also
+be a single directory in `music_source_dir`.
 
-`$music_source_dir/albums/track.ogg`
+Every directory should follow the format: `$music_source_dir/$album_name/$track.mp3`.
 
-### Supported Extensions
+So for example: `$music_source_dir/BLACKPINK - 2016. SQUARE ONE/*.mp3`.
 
-### Tag Structure
+## Supported Filetypes
 
-WIP
+Rosé supports MP3, M4A, OGG, OPUS, and FLAC audio files and JPG and PNG image
+files.
 
-artist1;artist2 feat. artist3
+## Tagging
 
-BNF TODO
+Rosé is somewhat lenient in the tags it ingests, but applies certain
+conventions in the tags it writes.
+
+Rosé uses the `;` character as a tag delimiter. For any tags where there are
+multiple values, Rosé will write a single tag as a `;`-delimited string. For
+example, `genre=Deep House;Techno`.
+
+Rosé also writes the artists with a specific convention designed to indicate
+the artist's role in a release. Rosé will write artist tags with the
+delimiters: `;`, ` feat. `, ` pres.`, ` performed by `, and `remixed by` to
+indicate the artist's role. So for example,
+`artist=Pyotr Ilyich Tchaikovsky performed by André Previn;London Symphony Orchestra feat. Barack Obama`.
+
+An ambiguous BNF for the artist tag is:
+
+```
+artist-tag ::= composer dj main guest remixer
+composer   ::= name ' performed by '
+dj         ::= name ' pres. '
+main       ::= name
+guest      ::= ' feat. ' name
+remixer    ::= ' remixed by ' name
+name       ::= name ';' | string
+```
 
 # Architecture
 
-todo
+Rosé has a simple uni-directional architecture. The source audio files are the
+single source of truth. The read cache is transient and is solely populated by
+changes made to the source audio files. The virtual filesystem is read-only and
+uses the read cache for performance.
 
-- db is read cache, not source of truth
-- filetags and files are source of truth
+```mermaid
+flowchart BT
+    A[Metadata Manager] -->|Maintains| B
+    B[Source Audio Files] -->|Populates| C
+    C[Read Cache] -->|Renders| D[Virtual Filesystem]
+```
+
+Rosé writes `.rose.{uuid}.toml` files into each album's directory as a way to
+preserve state and keep release UUIDs consistent across cache rebuilds.
+
+Tracks are uniquely identified by the `(release_uuid, tracknumber, discnumber)`
+tuple. If there is a 3-tuple collision, the track title is used to disambiguate.
