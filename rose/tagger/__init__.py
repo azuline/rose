@@ -191,8 +191,8 @@ def _parse_artists(
     if main and " pres. " in main:
         dj, main = re.split(r" ?pres. ", main, maxsplit=1)
         li_dj.extend(_split_tag(dj))
-    if main and " performed by " in main:
-        composer, main = re.split(r" ?performed by. ", main, maxsplit=1)
+    if main and " composed by " in main:
+        main, composer = re.split(r" ?performed by. ", main, maxsplit=1)
         li_composer.extend(_split_tag(composer))
     if main:
         li_main.extend(_split_tag(main))

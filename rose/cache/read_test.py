@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from rose.cache.database import connect
-from rose.cache.dataclasses import CachedArtist, CachedRelease
+from rose.cache.dataclasses import CachedArtist, CachedRelease, CachedTrack
 from rose.cache.read import (
     artist_exists,
     genre_exists,
@@ -10,7 +10,9 @@ from rose.cache.read import (
     list_genres,
     list_labels,
     list_releases,
+    list_tracks,
     release_exists,
+    track_exists,
 )
 from rose.foundation.conf import Config
 
@@ -146,6 +148,41 @@ def test_list_releases(config: Config) -> None:
     ]
 
 
+def test_list_tracks(config: Config) -> None:
+    seed_data(config)
+    tracks = list(list_tracks(config, "r1"))
+    assert tracks == [
+        CachedTrack(
+            id="t1",
+            source_path=Path("/tmp/r1/01.m4a"),
+            virtual_filename="01.m4a",
+            title="Track 1",
+            release_id="r1",
+            track_number="01",
+            disc_number="01",
+            duration_seconds=120,
+            artists=[
+                CachedArtist(name="Techno Man", role="main"),
+                CachedArtist(name="Bass Man", role="main"),
+            ],
+        ),
+        CachedTrack(
+            id="t2",
+            source_path=Path("/tmp/r1/02.m4a"),
+            virtual_filename="02.m4a",
+            title="Track 2",
+            release_id="r1",
+            track_number="02",
+            disc_number="01",
+            duration_seconds=240,
+            artists=[
+                CachedArtist(name="Techno Man", role="main"),
+                CachedArtist(name="Bass Man", role="main"),
+            ],
+        ),
+    ]
+
+
 def test_list_artists(config: Config) -> None:
     seed_data(config)
     artists = list(list_artists(config))
@@ -168,6 +205,13 @@ def test_release_exists(config: Config) -> None:
     seed_data(config)
     assert release_exists(config, "r1")
     assert not release_exists(config, "lalala")
+
+
+def test_track_exists(config: Config) -> None:
+    seed_data(config)
+    assert track_exists(config, "r1", "01.m4a")
+    assert not track_exists(config, "lalala", "lalala")
+    assert not track_exists(config, "r1", "lalala")
 
 
 def test_artist_exists(config: Config) -> None:

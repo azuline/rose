@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Iterator
 
 from rose.cache.database import connect
-from rose.cache.dataclasses import CachedArtist, CachedRelease
+from rose.cache.dataclasses import CachedArtist, CachedRelease, CachedTrack
 from rose.foundation.conf import Config
 
 
@@ -97,6 +97,53 @@ def list_releases(
             )
 
 
+def list_tracks(c: Config, release_virtual_dirname: str) -> Iterator[CachedTrack]:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            r"""
+            WITH artists AS (
+                SELECT
+                    track_id,
+                    GROUP_CONCAT(artist, ' \\ ') AS names,
+                    GROUP_CONCAT(role, ' \\ ') AS roles
+                FROM tracks_artists
+                GROUP BY track_id
+            )
+            SELECT
+                t.id
+              , t.source_path
+              , t.virtual_filename
+              , t.title
+              , t.release_id
+              , t.track_number
+              , t.disc_number
+              , t.duration_seconds
+              , COALESCE(a.names, '') AS artist_names
+              , COALESCE(a.roles, '') AS artist_roles
+            FROM tracks t
+            JOIN releases r ON r.id = t.release_id
+            LEFT JOIN artists a ON a.track_id = t.id
+            WHERE r.virtual_dirname = ?
+            """,
+            (release_virtual_dirname,),
+        )
+        for row in cursor:
+            artists: list[CachedArtist] = []
+            for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
+                artists.append(CachedArtist(name=n, role=r))
+            yield CachedTrack(
+                id=row["id"],
+                source_path=Path(row["source_path"]),
+                virtual_filename=row["virtual_filename"],
+                title=row["title"],
+                release_id=row["release_id"],
+                track_number=row["track_number"],
+                disc_number=row["disc_number"],
+                duration_seconds=row["duration_seconds"],
+                artists=artists,
+            )
+
+
 def list_artists(c: Config) -> Iterator[str]:
     with connect(c) as conn:
         cursor = conn.execute("SELECT DISTINCT artist FROM releases_artists")
@@ -123,6 +170,25 @@ def release_exists(c: Config, virtual_dirname: str) -> bool:
         cursor = conn.execute(
             "SELECT EXISTS(SELECT * FROM releases WHERE virtual_dirname = ?)",
             (virtual_dirname,),
+        )
+        return bool(cursor.fetchone()[0])
+
+
+def track_exists(c: Config, release_virtual_dirname: str, track_virtual_filename: str) -> bool:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            """
+            SELECT EXISTS(
+                SELECT *
+                FROM releases r
+                JOIN tracks t ON t.release_id = r.id
+                WHERE r.virtual_dirname = ? AND t.virtual_filename = ?
+            )
+            """,
+            (
+                release_virtual_dirname,
+                track_virtual_filename,
+            ),
         )
         return bool(cursor.fetchone()[0])
 

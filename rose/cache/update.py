@@ -214,9 +214,12 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
             if tags.track_number:
                 virtual_filename += f"{tags.track_number:0>2}. "
             virtual_filename += tags.title or "Unknown Title"
-            virtual_filename += f" [{tags.duration_sec // 60}：{tags.duration_sec % 60:02d}]"
+            if tags.duration_sec >= 60:
+                virtual_filename += f" {{{tags.duration_sec // 60}m{tags.duration_sec % 60:02d}s}}"
+            else:
+                virtual_filename += f" {{{tags.duration_sec % 60:02d}s}}"
             if tags.artists != tags.album_artists:
-                virtual_filename += " (by " + _format_artists(tags.artists) + ")"
+                virtual_filename += " [by " + _format_artists(tags.artists) + "]"
             virtual_filename = sanitize_filename(virtual_filename)
             # And in case of a name collision, add an extra number at the end. Iterate to find
             # the first unused number.
@@ -242,9 +245,9 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                 virtual_filename=virtual_filename,
                 title=tags.title or "Unknown Title",
                 release_id=release.id,
-                trackno=tags.track_number or "1",
-                discno=tags.disc_number or "1",
-                duration_sec=tags.duration_sec,
+                track_number=tags.track_number or "1",
+                disc_number=tags.disc_number or "1",
+                duration_seconds=tags.duration_sec,
                 artists=[],
             )
             for role, names in asdict(tags.artists).items():
@@ -271,16 +274,16 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                     track.virtual_filename,
                     track.title,
                     track.release_id,
-                    track.trackno,
-                    track.discno,
-                    track.duration_sec,
+                    track.track_number,
+                    track.disc_number,
+                    track.duration_seconds,
                     str(track.source_path),
                     track.virtual_filename,
                     track.title,
                     track.release_id,
-                    track.trackno,
-                    track.discno,
-                    track.duration_sec,
+                    track.track_number,
+                    track.disc_number,
+                    track.duration_seconds,
                 ),
             )
             for art in track.artists:
@@ -313,7 +316,7 @@ def _rename_with_uuid(src: Path, uuid: str) -> Path:
 def _format_artists(a: ArtistTags) -> str:
     r = ";".join(a.producer + a.main + a.remixer)
     if a.composer:
-        r = ";".join(a.composer) + " performed by. " + r
+        r += " composed by " + ";".join(a.composer)
     if a.djmixer:
         r = ";".join(a.djmixer) + " pres. " + r
     if a.guest:

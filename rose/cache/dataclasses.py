@@ -29,8 +29,8 @@ class CachedTrack:
     virtual_filename: str
     title: str
     release_id: str
-    trackno: str
-    discno: str
-    duration_sec: int
+    track_number: str
+    disc_number: str
+    duration_seconds: int
 
     artists: list[CachedArtist]
