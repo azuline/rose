@@ -41,12 +41,27 @@ class VirtualFS(fuse.Fuse):  # type: ignore
         logger.debug(f"Parsed getattr path as {p}")
 
         def mkstat(mode: Literal["dir", "file"], file: Path | None = None) -> fuse.Stat:
+            st_size = 4096
+            st_atime = 0.0
+            st_mtime = 0.0
+            st_ctime = 0.0
+
+            if file:
+                s = file.stat()
+                st_size = s.st_size
+                st_atime = s.st_atime
+                st_mtime = s.st_mtime
+                st_ctime = s.st_ctime
+
             return fuse.Stat(
                 st_nlink=1,
-                st_mode=(stat.S_IFDIR | 0o755) if mode == "dir" else (stat.S_IFREG | 0o644),
-                st_size=file.stat().st_size if file else 4096,
+                st_mode=(stat.S_IFDIR | 0o555) if mode == "dir" else (stat.S_IFREG | 0o444),
+                st_size=st_size,
                 st_uid=os.getuid(),
                 st_gid=os.getgid(),
+                st_atime=st_atime,
+                st_mtime=st_mtime,
+                st_ctime=st_ctime,
             )
 
         if p.view == "root":
