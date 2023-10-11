@@ -88,7 +88,7 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                 logger.debug("Upserting release from first track's tags")
 
                 # Compute the album's visual directory name.
-                virtual_dirname = _format_artists(tags.album_artists) + " - "
+                virtual_dirname = _format_artists(tags.album_artists, tags.genre) + " - "
                 if tags.year:
                     virtual_dirname += str(tags.year) + ". "
                 virtual_dirname += tags.album or "Unknown Release"
@@ -215,11 +215,12 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                 virtual_filename += f"{tags.track_number:0>2}. "
             virtual_filename += tags.title or "Unknown Title"
             if tags.duration_sec >= 60:
-                virtual_filename += f" {{{tags.duration_sec // 60}m{tags.duration_sec % 60:02d}s}}"
+                virtual_filename += f" [{tags.duration_sec // 60}m{tags.duration_sec % 60:02d}s]"
             else:
-                virtual_filename += f" {{{tags.duration_sec % 60:02d}s}}"
-            if tags.artists != tags.album_artists:
-                virtual_filename += " [by " + _format_artists(tags.artists) + "]"
+                virtual_filename += f" [0m{tags.duration_sec % 60:02d}s]"
+            if tags.release_type in ["compilation", "soundtrack", "remix", "djmix", "mixtape"]:
+                virtual_filename += " (by " + _format_artists(tags.artists, tags.genre) + ")"
+            virtual_filename += filepath.suffix
             virtual_filename = sanitize_filename(virtual_filename)
             # And in case of a name collision, add an extra number at the end. Iterate to find
             # the first unused number.
@@ -313,10 +314,10 @@ def _rename_with_uuid(src: Path, uuid: str) -> Path:
     return src.rename(dst)
 
 
-def _format_artists(a: ArtistTags) -> str:
+def _format_artists(a: ArtistTags, genres: list[str]) -> str:
     r = ";".join(a.producer + a.main + a.remixer)
-    if a.composer:
-        r += " composed by " + ";".join(a.composer)
+    if a.composer and "Classical" in genres:
+        r = ";".join(a.composer) + " performed by. " + r
     if a.djmixer:
         r = ";".join(a.djmixer) + " pres. " + r
     if a.guest:

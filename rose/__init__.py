@@ -14,6 +14,3 @@ if "pytest" not in sys.modules:  # pragma: no cover
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setFormatter(stream_formatter)
     logger.addHandler(stream_handler)
-    file_handler = logging.FileHandler("/home/blissful/rose.log")
-    file_handler.setFormatter(stream_formatter)
-    logger.addHandler(file_handler)

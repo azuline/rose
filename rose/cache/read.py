@@ -165,32 +165,36 @@ def list_labels(c: Config) -> Iterator[str]:
             yield row["label"]
 
 
-def release_exists(c: Config, virtual_dirname: str) -> bool:
+def release_exists(c: Config, virtual_dirname: str) -> Path | None:
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT EXISTS(SELECT * FROM releases WHERE virtual_dirname = ?)",
+            "SELECT source_path FROM releases WHERE virtual_dirname = ?",
             (virtual_dirname,),
         )
-        return bool(cursor.fetchone()[0])
+        if row := cursor.fetchone():
+            return Path(row["source_path"])
+        return None
 
 
-def track_exists(c: Config, release_virtual_dirname: str, track_virtual_filename: str) -> bool:
+def track_exists(
+    c: Config, release_virtual_dirname: str, track_virtual_filename: str
+) -> Path | None:
     with connect(c) as conn:
         cursor = conn.execute(
             """
-            SELECT EXISTS(
-                SELECT *
-                FROM releases r
-                JOIN tracks t ON t.release_id = r.id
-                WHERE r.virtual_dirname = ? AND t.virtual_filename = ?
-            )
+            SELECT t.source_path
+            FROM tracks t
+            JOIN releases r ON t.release_id = r.id
+            WHERE r.virtual_dirname = ? AND t.virtual_filename = ?
             """,
             (
                 release_virtual_dirname,
                 track_virtual_filename,
             ),
         )
-        return bool(cursor.fetchone()[0])
+        if row := cursor.fetchone():
+            return Path(row["source_path"])
+        return None
 
 
 def artist_exists(c: Config, artist_sanitized: str) -> bool:

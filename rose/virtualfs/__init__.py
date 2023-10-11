@@ -4,6 +4,7 @@ import os
 import stat
 import subprocess
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any, Literal
 
 import fuse
@@ -36,87 +37,77 @@ class VirtualFS(fuse.Fuse):  # type: ignore
     def getattr(self, path: str) -> fuse.Stat:
         logger.debug(f"Received getattr for {path}")
 
-        def get_mode_type(path: str) -> Literal["dir", "file", "missing"]:
-            if path == "/":
-                return "dir"
+        def mkstat(mode: Literal["dir", "file"], fsize: int = 4096) -> fuse.Stat:
+            return fuse.Stat(
+                st_nlink=1,
+                st_mode=(stat.S_IFDIR | 0o755) if mode == "dir" else (stat.S_IFREG | 0o644),
+                st_size=fsize,
+                st_uid=os.getuid(),
+                st_gid=os.getgid(),
+            )
 
-            parts = path.split("/")[1:]  # First part is always empty string.
+        if path == "/":
+            return mkstat("dir")
 
-            if parts[0] == "albums":
-                if len(parts) == 1:
-                    return "dir"
-                if len(parts) == 2:
-                    exists = release_exists(self.config, parts[1])
-                    return "dir" if exists else "missing"
-                if len(parts) == 3:
-                    exists = release_exists(self.config, parts[1])
-                    exists = exists and track_exists(self.config, parts[1], parts[2])
-                    return "file" if exists else "missing"
-                return "missing"
+        parts = path.split("/")[1:]  # First part is always empty string.
 
-            if parts[0] == "artists":
-                if len(parts) == 1:
-                    return "dir"
-                if len(parts) == 2:
-                    exists = artist_exists(self.config, parts[1])
-                    return "dir" if exists else "missing"
-                if len(parts) == 3:
-                    exists = artist_exists(self.config, parts[1])
-                    exists = exists and release_exists(self.config, parts[2])
-                    return "dir" if exists else "missing"
-                if len(parts) == 4:
-                    exists = artist_exists(self.config, parts[1])
-                    exists = exists and release_exists(self.config, parts[2])
-                    exists = exists and track_exists(self.config, parts[1], parts[2])
-                    return "file" if exists else "missing"
-                return "missing"
-
-            if parts[0] == "genres":
-                if len(parts) == 1:
-                    return "dir"
-                if len(parts) == 2:
-                    exists = genre_exists(self.config, parts[1])
-                    return "dir" if exists else "missing"
-                if len(parts) == 3:
-                    exists = genre_exists(self.config, parts[1])
-                    exists = exists and release_exists(self.config, parts[2])
-                    return "dir" if exists else "missing"
-                if len(parts) == 4:
-                    exists = genre_exists(self.config, parts[1])
-                    exists = exists and release_exists(self.config, parts[2])
-                    exists = exists and track_exists(self.config, parts[1], parts[2])
-                    return "file" if exists else "missing"
-                return "missing"
-
-            if parts[0] == "labels":
-                if len(parts) == 1:
-                    return "dir"
-                if len(parts) == 2:
-                    exists = label_exists(self.config, parts[1])
-                    return "dir" if exists else "missing"
-                if len(parts) == 3:
-                    exists = label_exists(self.config, parts[1])
-                    exists = exists and release_exists(self.config, parts[2])
-                    return "dir" if exists else "missing"
-                if len(parts) == 4:
-                    exists = label_exists(self.config, parts[1])
-                    exists = exists and release_exists(self.config, parts[2])
-                    exists = exists and track_exists(self.config, parts[1], parts[2])
-                    return "file" if exists else "missing"
-                return "missing"
-
-            return "missing"
-
-        mode_type = get_mode_type(path)
-        if mode_type == "missing":
+        if parts[0] == "albums":
+            if len(parts) == 1:
+                return mkstat("dir")
+            if not release_exists(self.config, parts[1]):
+                raise fuse.FuseError(errno.ENOENT)
+            if len(parts) == 2:
+                return mkstat("dir")
+            if len(parts) == 3 and (tp := track_exists(self.config, parts[1], parts[2])):
+                return mkstat("file", tp.stat().st_size)
             raise fuse.FuseError(errno.ENOENT)
 
-        return fuse.Stat(
-            st_nlink=1,
-            st_mode=(stat.S_IFDIR | 0o755) if mode_type == "dir" else (stat.S_IFREG | 0o644),
-            st_uid=os.getuid(),
-            st_gid=os.getgid(),
-        )
+        if parts[0] == "artists":
+            if len(parts) == 1:
+                return mkstat("dir")
+            if not artist_exists(self.config, parts[1]):
+                raise fuse.FuseError(errno.ENOENT)
+            if len(parts) == 2:
+                return mkstat("dir")
+            if not release_exists(self.config, parts[2]):
+                raise fuse.FuseError(errno.ENOENT)
+            if len(parts) == 3:
+                return mkstat("dir")
+            if len(parts) == 4 and (tp := track_exists(self.config, parts[2], parts[3])):
+                return mkstat("file", tp.stat().st_size)
+            raise fuse.FuseError(errno.ENOENT)
+
+        if parts[0] == "genres":
+            if len(parts) == 1:
+                return mkstat("dir")
+            if not genre_exists(self.config, parts[1]):
+                raise fuse.FuseError(errno.ENOENT)
+            if len(parts) == 2:
+                return mkstat("dir")
+            if not release_exists(self.config, parts[2]):
+                raise fuse.FuseError(errno.ENOENT)
+            if len(parts) == 3:
+                return mkstat("dir")
+            if len(parts) == 4 and (tp := track_exists(self.config, parts[2], parts[3])):
+                return mkstat("file", tp.stat().st_size)
+            raise fuse.FuseError(errno.ENOENT)
+
+        if parts[0] == "labels":
+            if len(parts) == 1:
+                return mkstat("dir")
+            if not label_exists(self.config, parts[1]):
+                raise fuse.FuseError(errno.ENOENT)
+            if len(parts) == 2:
+                return mkstat("dir")
+            if not release_exists(self.config, parts[2]):
+                raise fuse.FuseError(errno.ENOENT)
+            if len(parts) == 3:
+                return mkstat("dir")
+            if len(parts) == 4 and (tp := track_exists(self.config, parts[2], parts[3])):
+                return mkstat("file", tp.stat().st_size)
+            raise fuse.FuseError(errno.ENOENT)
+
+        raise fuse.FuseError(errno.ENOENT)
 
     def readdir(self, path: str, _: Any) -> Iterator[fuse.Direntry]:
         logger.debug(f"Received readdir for {path}")
@@ -199,6 +190,34 @@ class VirtualFS(fuse.Fuse):  # type: ignore
                     yield fuse.Direntry(track.virtual_filename)
                 return
             return
+
+        raise fuse.FuseError(errno.ENOENT)
+
+    def read(self, path: str, size: int, offset: int) -> bytes:
+        logger.debug(f"Received read for {path}")
+
+        def read_bytes(p: Path) -> bytes:
+            with p.open("rb") as fp:
+                fp.seek(offset)
+                return fp.read(size)
+
+        parts = path.split("/")[1:]  # First part is always empty string.
+
+        if parts[0] == "albums":
+            if len(parts) != 3:
+                raise fuse.FuseError(errno.ENOENT)
+            for track in list_tracks(self.config, parts[1]):
+                if track.virtual_filename == parts[2]:
+                    return read_bytes(track.source_path)
+            raise fuse.FuseError(errno.ENOENT)
+        if parts[0] in ["artists", "genres", "labels"]:
+            if len(parts) != 4:
+                raise fuse.FuseError(errno.ENOENT)
+            for track in list_tracks(self.config, parts[2]):
+                if track.virtual_filename == parts[3]:
+                    return read_bytes(track.source_path)
+            raise fuse.FuseError(errno.ENOENT)
+        raise fuse.FuseError(errno.ENOENT)
 
 
 def mount_virtualfs(c: Config) -> None:
