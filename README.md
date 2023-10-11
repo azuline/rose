@@ -82,10 +82,34 @@ Note that the metadata manager _modifies_ the
 
 Which I have yet to write. Please check back later!
 
-# Configuration
+# Usage
 
-Rose is configured via a TOML file located at
-`${XDG_CONFIG_HOME:-$HOME/.config}/rose/config.toml`.
+```
+Usage: rose [OPTIONS] COMMAND [ARGS]...
+
+  A filesystem-driven music library manager.
+
+Options:
+  -v, --verbose      Emit verbose logging.
+  -c, --config PATH  Override the config file location.
+  --help             Show this message and exit.
+
+Commands:
+  cache  Manage the cached metadata.
+  fs     Manage the virtual library.
+```
+
+The virtual filesystem is mounted and unmounted by `rose fs mount` and
+`rose fs unmount` respectively.
+
+The read cache is force refreshed with `rose cache refresh`. The read cache can
+also be deleted with `rose cache clear`, though this should not be needed
+during normal operation.
+
+## Configuration
+
+Rosé must be configured prior to use. Rosé is configured via a TOML file
+located at `${XDG_CONFIG_HOME:-$HOME/.config}/rose/config.toml`.
 
 The configuration parameters, with examples, are:
 
