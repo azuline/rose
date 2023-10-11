@@ -78,12 +78,18 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
             logger.debug(f"Assigning id={release_id} to release {release_dir.name}")
             release_dir = _rename_with_uuid(release_dir, release_id)
 
+        # Fetch all track tags from disk.
+        track_tags: list[tuple[os.DirEntry[str], AudioFile]] = []
         for f in os.scandir(release_dir):
             # Skip non-music files.
-            if not any(f.name.endswith(ext) for ext in SUPPORTED_EXTENSIONS):
-                continue
+            if any(f.name.endswith(ext) for ext in SUPPORTED_EXTENSIONS):
+                track_tags.append((f, AudioFile.from_file(Path(f.path))))
 
-            tags = AudioFile.from_file(Path(f.path))
+        # Calculate whether this is a multidisc release or not. This will affect the virtual
+        # filename formatting.
+        multidisc = len({t.disc_number for _, t in track_tags}) > 1
+
+        for f, tags in track_tags:
             # If this is the first track, upsert the release.
             if release is None:
                 logger.debug("Upserting release from first track's tags")
@@ -210,7 +216,7 @@ def update_cache_for_release(c: Config, release_dir: Path) -> Path:
                 filepath = _rename_with_uuid(filepath, track_id)
 
             virtual_filename = ""
-            if tags.disc_number:
+            if multidisc and tags.disc_number:
                 virtual_filename += f"{tags.disc_number:0>2}-"
             if tags.track_number:
                 virtual_filename += f"{tags.track_number:0>2}. "
