@@ -79,7 +79,7 @@
       packages = rec {
         rose = python.pkgs.buildPythonPackage {
           pname = "rose";
-          version = "0.0.0";
+          version = builtins.readFile ./version;
           src = ./.;
           propagatedBuildInputs = prod-deps;
           doCheck = false;

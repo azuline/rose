@@ -1,8 +1,11 @@
 import setuptools
 
+with open("version") as f:
+    version = f.read()
+
 setuptools.setup(
     name="rose",
-    version="0.0.0",
+    version=version,
     python_requires=">=3.11.0",
     author="blissful",
     author_email="blissful@sunsetglow.net",
