@@ -22,7 +22,7 @@ class MissingConfigKeyError(RoseError):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Config:
     music_source_dir: Path
     fuse_mount_dir: Path

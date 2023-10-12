@@ -1,4 +1,5 @@
 import errno
+import functools
 import logging
 import os
 import stat
@@ -36,27 +37,35 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
     def getattr(self, path: str, _: int) -> dict[str, Any]:
         logger.debug(f"Received getattr for {path}")
+        return self._cached_getattr(self.config, path)
+
+    @staticmethod
+    @functools.lru_cache(maxsize=69696)
+    def _cached_getattr(config: Config, path: str) -> dict[str, Any]:
+        # We cache the getattr call with lru_cache because this is called _extremely_ often. Like
+        # for every node that we see in the output of `ls`.
+        logger.debug(f"Recomputing uncached getattr for {path}")
         p = parse_virtual_path(path)
         logger.debug(f"Parsed getattr path as {p}")
 
         if p.view == "root":
             return mkstat("dir")
         elif p.album and p.file:
-            if tp := track_exists(self.config, p.album, p.file):
+            if tp := track_exists(config, p.album, p.file):
                 return mkstat("file", tp)
-            if cp := cover_exists(self.config, p.album, p.file):
+            if cp := cover_exists(config, p.album, p.file):
                 return mkstat("file", cp)
         elif p.album:
-            if release_exists(self.config, p.album):
-                return mkstat("dir")
+            if rp := release_exists(config, p.album):
+                return mkstat("dir", rp)
         elif p.artist:
-            if artist_exists(self.config, p.artist):
+            if artist_exists(config, p.artist):
                 return mkstat("dir")
         elif p.genre:
-            if genre_exists(self.config, p.genre):
+            if genre_exists(config, p.genre):
                 return mkstat("dir")
         elif p.label:
-            if label_exists(self.config, p.label):
+            if label_exists(config, p.label):
                 return mkstat("dir")
         else:
             return mkstat("dir")
