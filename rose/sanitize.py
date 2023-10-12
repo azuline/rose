@@ -1,6 +1,6 @@
 import re
 
-ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]')
+ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]+')
 
 
 def sanitize_filename(x: str) -> str:
