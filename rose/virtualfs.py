@@ -49,8 +49,8 @@ class VirtualFS(fuse.Fuse):  # type: ignore
             if cp := cover_exists(self.config, p.album, p.file):
                 return mkstat("file", cp)
         elif p.album:
-            if rp := release_exists(self.config, p.album):
-                return mkstat("dir", rp)
+            if release_exists(self.config, p.album):
+                return mkstat("dir")
         elif p.artist:
             if artist_exists(self.config, p.artist):
                 return mkstat("dir")
