@@ -197,7 +197,7 @@ flowchart BT
     C[Read Cache] -->|Renders| D[Virtual Filesystem]
 ```
 
-Rosé writes `.rose.{uuid}.toml` files into each album's directory as a way to
+Rosé writes `.rose.toml` files into each album's directory as a way to
 preserve state and keep release UUIDs consistent across cache rebuilds.
 
 Tracks are uniquely identified by the `(release_uuid, tracknumber, discnumber)`
