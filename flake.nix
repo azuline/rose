@@ -28,7 +28,7 @@
       };
       prod-deps = with python.pkgs; [
         click
-        fuse
+        fusepy
         mutagen
         setuptools
         tomli-w

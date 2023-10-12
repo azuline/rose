@@ -58,11 +58,11 @@ def fs() -> None:
 
 
 @fs.command(context_settings={"ignore_unknown_options": True})
-@click.argument("mount_args", nargs=-1, type=click.UNPROCESSED)
+@click.option("--foreground", "-f", is_flag=True, help="Foreground the FUSE controller.")
 @click.pass_obj
-def mount(ctx: Context, mount_args: list[str]) -> None:
+def mount(ctx: Context, foreground: bool) -> None:
     """Mount the virtual library."""
-    mount_virtualfs(ctx.config, mount_args)
+    mount_virtualfs(ctx.config, foreground)
 
 
 @fs.command()

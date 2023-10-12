@@ -28,15 +28,13 @@ from rose.sanitize import sanitize_filename
 
 logger = logging.getLogger(__name__)
 
-fuse.fuse_python_api = (0, 2)
 
-
-class VirtualFS(fuse.Fuse):  # type: ignore
+class VirtualFS(fuse.Operations):  # type: ignore
     def __init__(self, config: Config):
         self.config = config
         super().__init__()
 
-    def getattr(self, path: str) -> fuse.Stat:
+    def getattr(self, path: str, _: int) -> dict[str, Any]:
         logger.debug(f"Received getattr for {path}")
         p = parse_virtual_path(path)
         logger.debug(f"Parsed getattr path as {p}")
@@ -63,28 +61,28 @@ class VirtualFS(fuse.Fuse):  # type: ignore
         else:
             return mkstat("dir")
 
-        raise OSError(errno.ENOENT, "No such file or directory")
+        raise fuse.FuseOSError(errno.ENOENT)
 
-    def readdir(self, path: str, _: Any) -> Iterator[fuse.Direntry]:
+    def readdir(self, path: str, _: int) -> Iterator[str]:
         logger.debug(f"Received readdir for {path}")
         p = parse_virtual_path(path)
         logger.debug(f"Parsed readdir path as {p}")
 
-        yield from [fuse.Direntry("."), fuse.Direntry("..")]
+        yield from [".", ".."]
 
         if p.view == "root":
             yield from [
-                fuse.Direntry("albums"),
-                fuse.Direntry("artists"),
-                fuse.Direntry("genres"),
-                fuse.Direntry("labels"),
+                "albums",
+                "artists",
+                "genres",
+                "labels",
             ]
         elif p.album:
             rf = get_release_files(self.config, p.album)
             for track in rf.tracks:
-                yield fuse.Direntry(track.virtual_filename)
+                yield track.virtual_filename
             if rf.cover:
-                yield fuse.Direntry(rf.cover.name)
+                yield rf.cover.name
         elif p.artist or p.genre or p.label or p.view == "albums":
             for album in list_releases(
                 self.config,
@@ -92,50 +90,45 @@ class VirtualFS(fuse.Fuse):  # type: ignore
                 sanitized_genre_filter=p.genre,
                 sanitized_label_filter=p.label,
             ):
-                yield fuse.Direntry(album.virtual_dirname)
+                yield album.virtual_dirname
         elif p.view == "artists":
             for artist in list_artists(self.config):
-                yield fuse.Direntry(sanitize_filename(artist))
+                yield sanitize_filename(artist)
         elif p.view == "genres":
             for genre in list_genres(self.config):
-                yield fuse.Direntry(sanitize_filename(genre))
+                yield sanitize_filename(genre)
         elif p.view == "labels":
             for label in list_labels(self.config):
-                yield fuse.Direntry(sanitize_filename(label))
+                yield sanitize_filename(label)
         else:
-            raise OSError(errno.ENOENT, "No such file or directory")
+            raise fuse.FuseOSError(errno.ENOENT)
 
-    def read(self, path: str, size: int, offset: int) -> bytes:
-        logger.debug(f"Received read for {path=} {size=} {offset=}")
+    def open(self, path: str, flags: int) -> int:
+        logger.debug(f"Received open for {path=} {flags=}")
+
+        # Enforce a read-only file system.
+        accmode = os.O_RDONLY | os.O_WRONLY | os.O_RDWR
+        if (flags & accmode) != os.O_RDONLY:
+            logger.debug("Raising EACCES due to a write-access open request")
+            raise fuse.FuseOSError(errno.EACCES)
+
         p = parse_virtual_path(path)
-        logger.debug(f"Parsed read path as {p}")
+        logger.debug(f"Parsed open path as {p}")
 
         if p.album and p.file:
             rf = get_release_files(self.config, p.album)
             if rf.cover and p.file == rf.cover.name:
-                with rf.cover.open("rb") as fp:
-                    fp.seek(offset)
-                    return fp.read(size)
+                return os.open(str(rf.cover), flags)
             for track in rf.tracks:
                 if track.virtual_filename == p.file:
-                    with track.source_path.open("rb") as fp:
-                        fp.seek(offset)
-                        return fp.read(size)
+                    return os.open(str(track.source_path), flags)
 
-        raise OSError(errno.ENOENT, "No such file or directory")
+        raise fuse.FuseOSError(errno.ENOENT)
 
-    def open(self, path: str, flags: int) -> None:
-        logger.debug(f"Received open for {path=} {flags=}")
-
-        # Raise an ENOENT if the file does not exist.
-        self.getattr(path)
-
-        # Read-only file system.
-        accmode = os.O_RDONLY | os.O_WRONLY | os.O_RDWR
-        if (flags & accmode) != os.O_RDONLY:
-            raise OSError(errno.EACCES, "Access denied")
-
-        return None
+    def read(self, path: str, length: int, offset: int, fh: int) -> bytes:
+        logger.debug(f"Received read for {path=} {length=} {offset=} {fh=}")
+        os.lseek(fh, offset, os.SEEK_SET)
+        return os.read(fh, length)
 
 
 @dataclass
@@ -161,7 +154,7 @@ def parse_virtual_path(path: str) -> ParsedPath:
             return ParsedPath(view="albums", album=parts[1])
         if len(parts) == 3:
             return ParsedPath(view="albums", album=parts[1], file=parts[2])
-        raise OSError(errno.ENOENT, "No such file or directory")
+        raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "artists":
         if len(parts) == 1:
@@ -172,7 +165,7 @@ def parse_virtual_path(path: str) -> ParsedPath:
             return ParsedPath(view="artists", artist=parts[1], album=parts[2])
         if len(parts) == 4:
             return ParsedPath(view="artists", artist=parts[1], album=parts[2], file=parts[3])
-        raise OSError(errno.ENOENT, "No such file or directory")
+        raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "genres":
         if len(parts) == 1:
@@ -183,7 +176,7 @@ def parse_virtual_path(path: str) -> ParsedPath:
             return ParsedPath(view="genres", genre=parts[1], album=parts[2])
         if len(parts) == 4:
             return ParsedPath(view="genres", genre=parts[1], album=parts[2], file=parts[3])
-        raise OSError(errno.ENOENT, "No such file or directory")
+        raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "labels":
         if len(parts) == 1:
@@ -194,12 +187,12 @@ def parse_virtual_path(path: str) -> ParsedPath:
             return ParsedPath(view="labels", label=parts[1], album=parts[2])
         if len(parts) == 4:
             return ParsedPath(view="labels", label=parts[1], album=parts[2], file=parts[3])
-        raise OSError(errno.ENOENT, "No such file or directory")
+        raise fuse.FuseOSError(errno.ENOENT)
 
-    raise OSError(errno.ENOENT, "No such file or directory")
+    raise fuse.FuseOSError(errno.ENOENT)
 
 
-def mkstat(mode: Literal["dir", "file"], file: Path | None = None) -> fuse.Stat:
+def mkstat(mode: Literal["dir", "file"], file: Path | None = None) -> dict[str, Any]:
     st_size = 4096
     st_atime = 0.0
     st_mtime = 0.0
@@ -212,22 +205,20 @@ def mkstat(mode: Literal["dir", "file"], file: Path | None = None) -> fuse.Stat:
         st_mtime = s.st_mtime
         st_ctime = s.st_ctime
 
-    return fuse.Stat(
-        st_nlink=4,
-        st_mode=(stat.S_IFDIR | 0o555) if mode == "dir" else (stat.S_IFREG | 0o444),
-        st_size=st_size,
-        st_uid=os.getuid(),
-        st_gid=os.getgid(),
-        st_atime=st_atime,
-        st_mtime=st_mtime,
-        st_ctime=st_ctime,
-    )
+    return {
+        "st_nlink": 4,
+        "st_mode": (stat.S_IFDIR | 0o555) if mode == "dir" else (stat.S_IFREG | 0o444),
+        "st_size": st_size,
+        "st_uid": os.getuid(),
+        "st_gid": os.getgid(),
+        "st_atime": st_atime,
+        "st_mtime": st_mtime,
+        "st_ctime": st_ctime,
+    }
 
 
-def mount_virtualfs(c: Config, mount_args: list[str]) -> None:
-    server = VirtualFS(c)
-    server.parse([str(c.fuse_mount_dir), *mount_args])
-    server.main()
+def mount_virtualfs(c: Config, foreground: bool = False) -> None:
+    fuse.FUSE(VirtualFS(c), str(c.fuse_mount_dir), foreground=foreground)
 
 
 def unmount_virtualfs(c: Config) -> None:
