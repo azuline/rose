@@ -238,6 +238,8 @@ def update_cache_for_release(c: Config, release_dir: Path) -> None:
                     virtual_dirname += " [" + ";".join(tags.genre) + "]"
                 if tags.label:
                     virtual_dirname += " {" + ";".join(tags.label) + "}"
+                if stored_release_data.new:
+                    virtual_dirname += " +NEW!+"
                 virtual_dirname = sanitize_filename(virtual_dirname)
                 # And in case of a name collision, add an extra number at the end. Iterate to find
                 # the first unused number.
@@ -354,7 +356,11 @@ def update_cache_for_release(c: Config, release_dir: Path) -> None:
             filepath = Path(f.path)
 
             # Track ID is transient with the cache; we don't put it in any persistent stores.
-            track_id = str(uuid6.uuid7())
+            cursor = conn.execute(
+                "SELECT id FROM tracks WHERE release_id = ? AND source_path = ?",
+                (release.id, str(filepath)),
+            )
+            track_id = row["id"] if (row := cursor.fetchone()) else str(uuid6.uuid7())
 
             virtual_filename = ""
             if multidisc and tags.disc_number:
@@ -375,10 +381,11 @@ def update_cache_for_release(c: Config, release_dir: Path) -> None:
                 cursor = conn.execute(
                     """
                     SELECT EXISTS(
-                        SELECT * FROM tracks WHERE virtual_filename = ? AND id <> ?
+                        SELECT * FROM tracks
+                        WHERE virtual_filename = ? AND release_id = ? AND id <> ?
                     )
                     """,
-                    (virtual_filename, track_id),
+                    (virtual_filename, release.id, track_id),
                 )
                 if not cursor.fetchone()[0]:
                     break

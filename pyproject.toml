@@ -76,6 +76,7 @@ addopts = [
   "--cov=.",
   "--cov-branch",
   "--import-mode=importlib",
+  "--ignore=result",
 ]
 pythonpath = "."
 python_files = ["*_test.py", "__test__.py"]

@@ -12,6 +12,7 @@ setuptools.setup(
     license="Apache-2.0",
     entry_points={"console_scripts": ["rose = rose.__main__:cli"]},
     packages=setuptools.find_namespace_packages(where="."),
+    package_data={"rose": ["*.sql"]},
     install_requires=[
         "click",
         "fuse-python",
