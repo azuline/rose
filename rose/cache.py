@@ -1,8 +1,6 @@
-import binascii
 import hashlib
 import logging
 import os
-import random
 import re
 import sqlite3
 import time
@@ -41,39 +39,6 @@ def connect(c: Config) -> Iterator[sqlite3.Connection]:
     finally:
         if conn:
             conn.close()
-
-
-@contextmanager
-def transaction(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
-    """
-    A simple context wrapper for a database transaction. If connection is null,
-    a new connection is created.
-    """
-    tx_log_id = binascii.b2a_hex(random.randbytes(8)).decode()
-    start_time = time.time()
-
-    # If we're already in a transaction, don't create a nested transaction.
-    if conn.in_transaction:
-        logger.debug(f"Transaction {tx_log_id}. Starting nested transaction, NoOp.")
-        yield conn
-        logger.debug(
-            f"Transaction {tx_log_id}. End of nested transaction. "
-            f"Duration: {time.time() - start_time}."
-        )
-        return
-
-    logger.debug(f"Transaction {tx_log_id}. Starting transaction from conn.")
-    with conn:
-        # We BEGIN IMMEDIATE to avoid deadlocks, which pisses the hell out of me because no one's
-        # documenting this properly and SQLite just dies without respecting the timeout and without
-        # a reasonable error message. Absurd.
-        # - https://sqlite.org/forum/forumpost/a3db6dbff1cd1d5d
-        conn.execute("BEGIN IMMEDIATE")
-        yield conn
-        logger.debug(
-            f"Transaction {tx_log_id}. End of transaction from conn. "
-            f"Duration: {time.time() - start_time}."
-        )
 
 
 def migrate_database(c: Config) -> None:
@@ -376,125 +341,130 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
 
     # Now iterate over all releases in the source directory. Leverage mtime from stat to determine
     # whether to even check the file tags or not. Only perform database updates if necessary.
-    for source_path, preexisting_release_id, files in dir_tree:
-        logger.debug(f"Updating release {source_path.name}")
-        # Check to see if we should even process the directory. If the directory does not have any
-        # tracks, skip it. And if it does not have any tracks, but is in the cache, remove it from
-        # the cache.
-        for f in files:
-            if any(f.name.endswith(ext) for ext in SUPPORTED_EXTENSIONS):
-                break
-        else:
-            logger.debug(f"Did not find any audio files in release {source_path}, skipping")
-            logger.debug(f"Running cache deletion for empty directory release {source_path}")
-            with connect(c) as conn:
+    loop_start = time.time()
+    with connect(c) as conn:
+        for source_path, preexisting_release_id, files in dir_tree:
+            logger.debug(f"Updating release {source_path.name}")
+            # Check to see if we should even process the directory. If the directory does not have
+            # any tracks, skip it. And if it does not have any tracks, but is in the cache, remove
+            # it from the cache.
+            for f in files:
+                if any(f.name.endswith(ext) for ext in SUPPORTED_EXTENSIONS):
+                    break
+            else:
+                logger.debug(f"Did not find any audio files in release {source_path}, skipping")
+                logger.debug(f"Running cache deletion for empty directory release {source_path}")
                 conn.execute("DELETE FROM releases where source_path = ?", (str(source_path),))
-            continue
+                continue
 
-        # This value is used to track whether to update the database for this release. If this is
-        # False at the end of this loop body, we can save a database update call.
-        release_dirty = False
+            # This value is used to track whether to update the database for this release. If this
+            # is False at the end of this loop body, we can save a database update call.
+            release_dirty = False
 
-        # Fetch the release from the cache. We will be updating this value on-the-fly, so
-        # instantiate to zero values if we do not have a default value.
-        try:
-            release, cached_tracks = cached_releases[preexisting_release_id or ""]
-        except KeyError:
-            logger.debug(
-                f"First-time unidentified release found at release {source_path}, "
-                "writing UUID and new"
-            )
-            release_dirty = True
-            release = CachedRelease(
-                id=preexisting_release_id or "",
-                source_path=source_path,
-                datafile_mtime="",
-                cover_image_path=None,
-                virtual_dirname="",
-                title="",
-                type="",
-                year=None,
-                new=True,
-                multidisc=False,
-                genres=[],
-                labels=[],
-                artists=[],
-                formatted_artists="",
-            )
-            cached_tracks = {}
-
-        # Handle source path change; if it's changed, update the release.
-        if source_path != release.source_path:
-            logger.debug(f"Source path change detected for release {source_path}, updating")
-            release.source_path = source_path
-            release_dirty = True
-
-        # The directory does not have a release ID, so create the stored data file.
-        if not preexisting_release_id:
-            logger.debug(f"Creating new stored data file for release {source_path}")
-            stored_release_data = StoredDataFile(new=True)
-            new_release_id = str(uuid6.uuid7())
-            datafile_path = source_path / f".rose.{new_release_id}.toml"
-            with datafile_path.open("wb") as fp:
-                tomli_w.dump(asdict(stored_release_data), fp)
-            release.id = new_release_id
-            release.new = stored_release_data.new
-            release.datafile_mtime = str(os.stat(datafile_path).st_mtime)
-            release_dirty = True
-        else:
-            # Otherwise, check to see if the mtime changed from what we know. If it has, read from
-            # the datafile.
-            datafile_path = source_path / f".rose.{preexisting_release_id}.toml"
-            datafile_mtime = str(os.stat(datafile_path).st_mtime)
-            if datafile_mtime != release.datafile_mtime:
-                logger.debug(f"Datafile mtime changed for release {source_path}, updating")
-                release.datafile_mtime = datafile_mtime
+            # Fetch the release from the cache. We will be updating this value on-the-fly, so
+            # instantiate to zero values if we do not have a default value.
+            try:
+                release, cached_tracks = cached_releases[preexisting_release_id or ""]
+            except KeyError:
+                logger.debug(
+                    f"First-time unidentified release found at release {source_path}, "
+                    "writing UUID and new"
+                )
                 release_dirty = True
-                with datafile_path.open("rb") as fp:
-                    diskdata = tomllib.load(fp)
-                datafile = StoredDataFile(new=diskdata.get("new", True))
-                release.new = datafile.new
-                # And then write the data back to disk if it changed. This allows us to update
-                # datafiles to contain newer default values.
-                new_resolved_data = asdict(datafile)
-                if new_resolved_data != diskdata:
-                    logger.debug(f"Updating values in stored data file for release {source_path}")
-                    with datafile_path.open("wb") as fp:
-                        tomli_w.dump(new_resolved_data, fp)
+                release = CachedRelease(
+                    id=preexisting_release_id or "",
+                    source_path=source_path,
+                    datafile_mtime="",
+                    cover_image_path=None,
+                    virtual_dirname="",
+                    title="",
+                    type="",
+                    year=None,
+                    new=True,
+                    multidisc=False,
+                    genres=[],
+                    labels=[],
+                    artists=[],
+                    formatted_artists="",
+                )
+                cached_tracks = {}
 
-        # Handle cover art change.
-        try:
-            cover = next(Path(f.path).resolve() for f in files if f.name in VALID_COVER_FILENAMES)
-        except StopIteration:  # No cover art in directory.
-            cover = None
-        if cover != release.cover_image_path:
-            logger.debug(f"Cover art file for release {source_path} updated to path {cover}")
-            release.cover_image_path = cover
-            release_dirty = True
+            # Handle source path change; if it's changed, update the release.
+            if source_path != release.source_path:
+                logger.debug(f"Source path change detected for release {source_path}, updating")
+                release.source_path = source_path
+                release_dirty = True
 
-        # Now we'll switch over to processing some of the tracks. We need track metadata in order to
-        # calculate some fields of the release, so we'll first compute the valid set of
-        # CachedTracks, and then we will finalize the release and execute any required database
-        # operations for the release and tracks.
+            # The directory does not have a release ID, so create the stored data file.
+            if not preexisting_release_id:
+                logger.debug(f"Creating new stored data file for release {source_path}")
+                stored_release_data = StoredDataFile(new=True)
+                new_release_id = str(uuid6.uuid7())
+                datafile_path = source_path / f".rose.{new_release_id}.toml"
+                with datafile_path.open("wb") as fp:
+                    tomli_w.dump(asdict(stored_release_data), fp)
+                release.id = new_release_id
+                release.new = stored_release_data.new
+                release.datafile_mtime = str(os.stat(datafile_path).st_mtime)
+                release_dirty = True
+            else:
+                # Otherwise, check to see if the mtime changed from what we know. If it has, read
+                # from the datafile.
+                datafile_path = source_path / f".rose.{preexisting_release_id}.toml"
+                datafile_mtime = str(os.stat(datafile_path).st_mtime)
+                if datafile_mtime != release.datafile_mtime:
+                    logger.debug(f"Datafile mtime changed for release {source_path}, updating")
+                    release.datafile_mtime = datafile_mtime
+                    release_dirty = True
+                    with datafile_path.open("rb") as fp:
+                        diskdata = tomllib.load(fp)
+                    datafile = StoredDataFile(new=diskdata.get("new", True))
+                    release.new = datafile.new
+                    # And then write the data back to disk if it changed. This allows us to update
+                    # datafiles to contain newer default values.
+                    new_resolved_data = asdict(datafile)
+                    if new_resolved_data != diskdata:
+                        logger.debug(
+                            f"Updating values in stored data file for release {source_path}"
+                        )
+                        with datafile_path.open("wb") as fp:
+                            tomli_w.dump(new_resolved_data, fp)
 
-        # We want to know which cached tracks are no longer on disk. By the end of the following
-        # loop, this set should only contain the such tracks, which will be deleted in the database
-        # execution handling step.
-        unknown_cached_tracks: set[str] = set(cached_tracks.keys())
-        # Next, we will construct the list of tracks that are on the release. We will also leverage
-        # mtimes and such to avoid unnecessary recomputations. If a release has changed and should
-        # be updated in the database, we add its ID to track_ids_to_insert, which will be used in
-        # the database execution step.
-        #
-        # Note that we do NOT calculate the virtual_filename in this loop, because we need to know
-        # whether the release is multidisc to do that. But we only know whether a release is
-        # multidisc after having all the track metadata. So we do virtual_dirname calculation in a
-        # follow-up loop.
-        tracks: list[CachedTrack] = []
-        track_ids_to_insert: set[str] = set()
-        # This value is set to true if we read an AudioFile and used it to confirm the release tags.
-        pulled_release_tags = False
-        with connect(c) as conn, transaction(conn) as conn:
+            # Handle cover art change.
+            try:
+                cover = next(
+                    Path(f.path).resolve() for f in files if f.name in VALID_COVER_FILENAMES
+                )
+            except StopIteration:  # No cover art in directory.
+                cover = None
+            if cover != release.cover_image_path:
+                logger.debug(f"Cover art file for release {source_path} updated to path {cover}")
+                release.cover_image_path = cover
+                release_dirty = True
+
+            # Now we'll switch over to processing some of the tracks. We need track metadata in
+            # order to calculate some fields of the release, so we'll first compute the valid set of
+            # CachedTracks, and then we will finalize the release and execute any required database
+            # operations for the release and tracks.
+
+            # We want to know which cached tracks are no longer on disk. By the end of the following
+            # loop, this set should only contain the such tracks, which will be deleted in the
+            # database execution handling step.
+            unknown_cached_tracks: set[str] = set(cached_tracks.keys())
+            # Next, we will construct the list of tracks that are on the release. We will also
+            # leverage mtimes and such to avoid unnecessary recomputations. If a release has changed
+            # and should be updated in the database, we add its ID to track_ids_to_insert, which
+            # will be used in the database execution step.
+            #
+            # Note that we do NOT calculate the virtual_filename in this loop, because we need to
+            # know whether the release is multidisc to do that. But we only know whether a release
+            # is multidisc after having all the track metadata. So we do virtual_dirname calculation
+            # in a follow-up loop.
+            tracks: list[CachedTrack] = []
+            track_ids_to_insert: set[str] = set()
+            # This value is set to true if we read an AudioFile and used it to confirm the release
+            # tags.
+            pulled_release_tags = False
             for f in files:
                 if not any(f.name.endswith(ext) for ext in SUPPORTED_EXTENSIONS):
                     continue
@@ -583,9 +553,8 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                     # And in case of a name collision, add an extra number at the end. Iterate to
                     # find the first unused number.
                     original_virtual_dirname = release_virtual_dirname
-                    collision_no = 1
+                    collision_no = 2
                     while True:
-                        collision_no += 1
                         cursor = conn.execute(
                             "SELECT EXISTS(SELECT * FROM releases WHERE virtual_dirname = ? AND id <> ?)",  # noqa: E501
                             (release_virtual_dirname, release.id),
@@ -593,6 +562,7 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                         if not cursor.fetchone()[0]:
                             break
                         release_virtual_dirname = f"{original_virtual_dirname} [{collision_no}]"
+                        collision_no += 1
 
                     if release_virtual_dirname != release.virtual_dirname:
                         logger.debug(
@@ -644,12 +614,12 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                 # And in case of a name collision, add an extra number at the end. Iterate to find
                 # the first unused number.
                 original_virtual_filename = virtual_filename
-                collision_no = 1
+                collision_no = 2
                 while True:
-                    collision_no += 1
                     if virtual_filename not in seen_track_names:
                         break
                     virtual_filename = f"{original_virtual_filename} [{collision_no}]"
+                    collision_no += 1
                 seen_track_names.add(virtual_filename)
                 if virtual_filename != t.virtual_filename:
                     logger.debug(
@@ -659,18 +629,19 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                     track_ids_to_insert.add(t.id)
 
             # Database executions.
-            logger.debug(f"Deleting {len(unknown_cached_tracks)} unknown tracks from cache")
-            conn.execute(
-                f"""
-                DELETE FROM tracks
-                WHERE release_id = ?
-                AND source_path IN ({','.join(['?']*len(unknown_cached_tracks))})
-                """,
-                [release.id, *unknown_cached_tracks],
-            )
-
-            if release_dirty or track_ids_to_insert:
+            if unknown_cached_tracks or release_dirty or track_ids_to_insert:
                 logger.info(f"Applying cache updates for release {source_path.name}")
+
+            if unknown_cached_tracks:
+                logger.debug(f"Deleting {len(unknown_cached_tracks)} unknown tracks from cache")
+                conn.execute(
+                    f"""
+                    DELETE FROM tracks
+                    WHERE release_id = ?
+                    AND source_path IN ({','.join(['?']*len(unknown_cached_tracks))})
+                    """,
+                    [release.id, *unknown_cached_tracks],
+                )
 
             if release_dirty:
                 logger.debug(f"Upserting dirty release in database: {source_path}")
@@ -811,6 +782,8 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                         """,
                         (track.id, art.name, sanitize_filename(art.name), art.role, art.role),
                     )
+
+    logger.debug(f"Update loop time {time.time() - loop_start=}")
 
 
 def list_releases(
