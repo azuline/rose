@@ -1,7 +1,7 @@
 # Rosé
 
 _Work in Progress. See [Issue #1](https://github.com/azuline/rose/issues/1) for
-the current state.
+the current state._
 
 A virtual filesystem music library and a music metadata manager.
 
@@ -33,7 +33,7 @@ The virtual filesystem constructed from the above source directory is:
 
 ```tree
 .
-├── albums
+├── Albums
 │   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
 │   ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
 │   ├── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
@@ -41,7 +41,7 @@ The virtual filesystem constructed from the above source directory is:
 │   ├── LOOΠΔ - 2020. [#] [K-Pop] {BlockBerry Creative}
 │   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
 │   └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
-├── artists
+├── Artists
 │   ├── BLACKPINK
 │   │   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
 │   │   └── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
@@ -54,7 +54,7 @@ The virtual filesystem constructed from the above source directory is:
 │   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
 │   └── YUZION
 │       └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
-├── genres
+├── Genres
 │   ├── Hip-Hop
 │   │   └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
 │   └── K-Pop
@@ -64,7 +64,7 @@ The virtual filesystem constructed from the above source directory is:
 │       ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
 │       ├── LOOΠΔ - 2020. [#] [K-Pop] {BlockBerry Creative}
 │       └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
-└── labels
+└── Labels
     ├── BlockBerry Creative
     │   ├── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
     │   ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
@@ -243,7 +243,6 @@ flowchart BT
     S[Source Files]        -->|Populates| C
     C[Read Cache]          -->|Renders| V
     V[Virtual Filesystem]  -->|Updates| S
-    W[Watchdog (Optional)] -->|Refreshes| C
 ```
 
 This architecture takes care to ensure that there is a single source of truth

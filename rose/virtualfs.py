@@ -48,7 +48,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
         p = parse_virtual_path(path)
         logger.debug(f"Parsed getattr path as {p}")
 
-        if p.view == "root":
+        if p.view == "Root":
             return mkstat("dir")
         elif p.album and p.file:
             if tp := track_exists(config, p.album, p.file):
@@ -79,12 +79,12 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
         yield from [".", ".."]
 
-        if p.view == "root":
+        if p.view == "Root":
             yield from [
-                "albums",
-                "artists",
-                "genres",
-                "labels",
+                "Albums",
+                "Artists",
+                "Genres",
+                "Labels",
             ]
         elif p.album:
             rf = get_release_files(self.config, p.album)
@@ -92,7 +92,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 yield track.virtual_filename
             if rf.cover:
                 yield rf.cover.name
-        elif p.artist or p.genre or p.label or p.view == "albums":
+        elif p.artist or p.genre or p.label or p.view == "Albums":
             for album in list_releases(
                 self.config,
                 sanitized_artist_filter=p.artist,
@@ -100,13 +100,13 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 sanitized_label_filter=p.label,
             ):
                 yield album.virtual_dirname
-        elif p.view == "artists":
+        elif p.view == "Artists":
             for artist in list_artists(self.config):
                 yield sanitize_filename(artist)
-        elif p.view == "genres":
+        elif p.view == "Genres":
             for genre in list_genres(self.config):
                 yield sanitize_filename(genre)
-        elif p.view == "labels":
+        elif p.view == "Labels":
             for label in list_labels(self.config):
                 yield sanitize_filename(label)
         else:
@@ -142,7 +142,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
 @dataclass
 class ParsedPath:
-    view: Literal["root", "albums", "artists", "genres", "labels"] | None
+    view: Literal["Root", "Albums", "Artists", "Genres", "Labels"] | None
     artist: str | None = None
     genre: str | None = None
     label: str | None = None
@@ -154,48 +154,48 @@ def parse_virtual_path(path: str) -> ParsedPath:
     parts = path.split("/")[1:]  # First part is always empty string.
 
     if len(parts) == 1 and parts[0] == "":
-        return ParsedPath(view="root")
+        return ParsedPath(view="Root")
 
-    if parts[0] == "albums":
+    if parts[0] == "Albums":
         if len(parts) == 1:
-            return ParsedPath(view="albums")
+            return ParsedPath(view="Albums")
         if len(parts) == 2:
-            return ParsedPath(view="albums", album=parts[1])
+            return ParsedPath(view="Albums", album=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="albums", album=parts[1], file=parts[2])
+            return ParsedPath(view="Albums", album=parts[1], file=parts[2])
         raise fuse.FuseOSError(errno.ENOENT)
 
-    if parts[0] == "artists":
+    if parts[0] == "Artists":
         if len(parts) == 1:
-            return ParsedPath(view="artists")
+            return ParsedPath(view="Artists")
         if len(parts) == 2:
-            return ParsedPath(view="artists", artist=parts[1])
+            return ParsedPath(view="Artists", artist=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="artists", artist=parts[1], album=parts[2])
+            return ParsedPath(view="Artists", artist=parts[1], album=parts[2])
         if len(parts) == 4:
-            return ParsedPath(view="artists", artist=parts[1], album=parts[2], file=parts[3])
+            return ParsedPath(view="Artists", artist=parts[1], album=parts[2], file=parts[3])
         raise fuse.FuseOSError(errno.ENOENT)
 
-    if parts[0] == "genres":
+    if parts[0] == "Genres":
         if len(parts) == 1:
-            return ParsedPath(view="genres")
+            return ParsedPath(view="Genres")
         if len(parts) == 2:
-            return ParsedPath(view="genres", genre=parts[1])
+            return ParsedPath(view="Genres", genre=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="genres", genre=parts[1], album=parts[2])
+            return ParsedPath(view="Genres", genre=parts[1], album=parts[2])
         if len(parts) == 4:
-            return ParsedPath(view="genres", genre=parts[1], album=parts[2], file=parts[3])
+            return ParsedPath(view="Genres", genre=parts[1], album=parts[2], file=parts[3])
         raise fuse.FuseOSError(errno.ENOENT)
 
-    if parts[0] == "labels":
+    if parts[0] == "Labels":
         if len(parts) == 1:
-            return ParsedPath(view="labels")
+            return ParsedPath(view="Labels")
         if len(parts) == 2:
-            return ParsedPath(view="labels", label=parts[1])
+            return ParsedPath(view="Labels", label=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="labels", label=parts[1], album=parts[2])
+            return ParsedPath(view="Labels", label=parts[1], album=parts[2])
         if len(parts) == 4:
-            return ParsedPath(view="labels", label=parts[1], album=parts[2], file=parts[3])
+            return ParsedPath(view="Labels", label=parts[1], album=parts[2], file=parts[3])
         raise fuse.FuseOSError(errno.ENOENT)
 
     raise fuse.FuseOSError(errno.ENOENT)
