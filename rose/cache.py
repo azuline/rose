@@ -190,7 +190,6 @@ def update_cache_for_all_releases(c: Config) -> None:
     any cached releases that are no longer present on disk.
     """
     dirs = [Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()]
-    logger.info(f"Found {len(dirs)} releases to update")
     update_cache_for_releases(c, dirs)
     update_cache_delete_nonexistent_releases(c)
 
@@ -224,7 +223,8 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
     With these optimizations, we make a lot of readdir and stat calls, but minimize file and
     database accesses to solely the files that have updated since the last cache run.
     """
-    logger.info(f"Refreshing cached data for {', '.join([r.name for r in release_dirs])}")
+    logger.info(f"Refreshing the read cache for {len(release_dirs)} releases")
+    logger.debug(f"Refreshing cached data for {', '.join([r.name for r in release_dirs])}")
 
     # First, call readdir on every release directory. We store the results in a map of
     # Path Basename -> (Release ID if exists, File DirEntries).
@@ -236,8 +236,7 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
         for f in os.scandir(str(rd)):
             if m := STORED_DATA_FILE_REGEX.match(f.name):
                 release_id = m[1]
-            elif any(f.name.endswith(ext) for ext in SUPPORTED_EXTENSIONS):
-                files.append(f)
+            files.append(f)
         dir_tree.append((rd.resolve(), release_id, files))
         if release_id is not None:
             release_uuids.append(release_id)
@@ -291,7 +290,7 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
             LEFT JOIN genres g ON g.release_id = r.id
             LEFT JOIN labels l ON l.release_id = r.id
             LEFT JOIN artists a ON a.release_id = r.id
-            WHERE r.id IN ({','.join(['?'*len(release_uuids)])})
+            WHERE r.id IN ({','.join(['?']*len(release_uuids))})
             """,
             release_uuids,
         )
@@ -343,13 +342,13 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
               , t.track_number
               , t.disc_number
               , t.duration_seconds
-              , r.formatted_artists
+              , t.formatted_artists
               , COALESCE(a.names, '') AS artist_names
               , COALESCE(a.roles, '') AS artist_roles
             FROM tracks t
             JOIN releases r ON r.id = t.release_id
             LEFT JOIN artists a ON a.track_id = t.id
-            WHERE r.id IN ({','.join(['?'*len(release_uuids)])})
+            WHERE r.id IN ({','.join(['?']*len(release_uuids))})
             """,
             release_uuids,
         )
@@ -378,10 +377,7 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
     # Now iterate over all releases in the source directory. Leverage mtime from stat to determine
     # whether to even check the file tags or not. Only perform database updates if necessary.
     for source_path, preexisting_release_id, files in dir_tree:
-        logger.debug(
-            f"Processing release {source_path} with {len(files)} "
-            f"files and preexisting id {preexisting_release_id}"
-        )
+        logger.debug(f"Updating release {source_path.name}")
         # Check to see if we should even process the directory. If the directory does not have any
         # tracks, skip it. And if it does not have any tracks, but is in the cache, remove it from
         # the cache.
@@ -495,9 +491,8 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
         # multidisc after having all the track metadata. So we do virtual_dirname calculation in a
         # follow-up loop.
         tracks: list[CachedTrack] = []
-        track_ids_to_upsert: set[str] = set()
+        track_ids_to_insert: set[str] = set()
         # This value is set to true if we read an AudioFile and used it to confirm the release tags.
-        # If this value is false after the following loop, we will use the cached values instead.
         pulled_release_tags = False
         with connect(c) as conn, transaction(conn) as conn:
             for f in files:
@@ -624,7 +619,7 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                 for role, names in asdict(tags.artists).items():
                     for name in names:
                         track.artists.append(CachedArtist(name=name, role=role))
-                track_ids_to_upsert.add(track.id)
+                track_ids_to_insert.add(track.id)
 
             # Now calculate whether this release is multidisc, and then assign virtual_filenames for
             # each track that lacks one.
@@ -657,8 +652,11 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                     virtual_filename = f"{original_virtual_filename} [{collision_no}]"
                 seen_track_names.add(virtual_filename)
                 if virtual_filename != t.virtual_filename:
+                    logger.debug(
+                        f"Track virtual filename change detected for {t.source_path}, updating"
+                    )
                     tracks[i].virtual_filename = virtual_filename
-                    track_ids_to_upsert.add(t.id)
+                    track_ids_to_insert.add(t.id)
 
             # Database executions.
             logger.debug(f"Deleting {len(unknown_cached_tracks)} unknown tracks from cache")
@@ -670,6 +668,9 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                 """,
                 [release.id, *unknown_cached_tracks],
             )
+
+            if release_dirty or track_ids_to_insert:
+                logger.info(f"Applying cache updates for release {source_path.name}")
 
             if release_dirty:
                 logger.debug(f"Upserting dirty release in database: {source_path}")
@@ -703,7 +704,7 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                     (
                         release.id,
                         str(release.source_path),
-                        str(release.cover_image_path),
+                        str(release.cover_image_path) if release.cover_image_path else None,
                         release.datafile_mtime,
                         release.virtual_dirname,
                         release.title,
@@ -713,7 +714,7 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                         release.new,
                         release.formatted_artists,
                         str(release.source_path),
-                        str(release.cover_image_path),
+                        str(release.cover_image_path) if release.cover_image_path else None,
                         release.datafile_mtime,
                         release.virtual_dirname,
                         release.title,
@@ -750,13 +751,10 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                     )
 
             for track in tracks:
-                if track.id not in track_ids_to_upsert:
+                if track.id not in track_ids_to_insert:
                     continue
 
-                # There should never be an upsert case, because when a track goes bad, we delete it
-                # from the database. We don't update it in place. This is because we lack stable IDs
-                # for tracks across refreshes.
-                logger.debug(f"Inserting dirty track in database: {track.source_path}")
+                logger.debug(f"Upserting dirty track in database: {track.source_path}")
                 conn.execute(
                     """
                     INSERT INTO tracks (
@@ -772,9 +770,28 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                       , formatted_artists
                     )
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT (id) DO UPDATE SET
+                        source_path = ?
+                      , source_mtime = ?
+                      , virtual_filename = ?
+                      , title = ?
+                      , release_id = ?
+                      , track_number = ?
+                      , disc_number = ?
+                      , duration_seconds = ?
+                      , formatted_artists = ?
                     """,
                     (
                         track.id,
+                        str(track.source_path),
+                        track.source_mtime,
+                        track.virtual_filename,
+                        track.title,
+                        track.release_id,
+                        track.track_number,
+                        track.disc_number,
+                        track.duration_seconds,
+                        track.formatted_artists,
                         str(track.source_path),
                         track.source_mtime,
                         track.virtual_filename,
