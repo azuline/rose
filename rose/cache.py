@@ -537,7 +537,7 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path], force: bool =
                         release_dirty = True
 
                     # Calculate the release's virtual dirname.
-                    release_virtual_dirname = release.formatted_artists + "-"
+                    release_virtual_dirname = release.formatted_artists + " - "
                     if release.year:
                         release_virtual_dirname += str(release.year) + ". "
                     release_virtual_dirname += release.title
