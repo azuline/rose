@@ -145,12 +145,15 @@ must be top-level directories inside `music_source_dir`. Each album should also
 be a single directory in `music_source_dir`.
 
 Every directory should follow the format: `$music_source_dir/$album_name/$track.mp3`.
+Additional nested directories are not currently supported.
 
 So for example: `$music_source_dir/BLACKPINK - 2016. SQUARE ONE/*.mp3`.
 
+Currently, 
+
 ## Filetypes
 
-Rosé supports MP3, M4A, OGG, OPUS, and FLAC audio files.
+Rosé supports `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` audio files.
 
 Rosé also supports JPEG and PNG cover art. The supported cover art file stems
 are `cover`, `folder`, and `art`. The supported cover art file extensions are

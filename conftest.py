@@ -71,37 +71,43 @@ def seeded_cache(config: Config) -> None:
     with sqlite3.connect(config.cache_database_path) as conn:
         conn.executescript(
             f"""\
-INSERT INTO releases (id, source_path, cover_image_path, virtual_dirname, title, release_type, release_year, new)
-VALUES ('r1', '{dirpaths[0]}', null, 'r1', 'Release 1', 'album', 2023, true)
-     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', 'r2', 'Release 2', 'album', 2021, false);
+INSERT INTO releases
+       (id  , source_path    , cover_image_path , datafile_mtime, virtual_dirname, title      , release_type, release_year, multidisc, new  , formatted_artists)
+VALUES ('r1', '{dirpaths[0]}', null             , '999'         , 'r1'           , 'Release 1', 'album'     , 2023        , false    , true , 'Techno Man;Bass Man')
+     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '999'         , 'r2'           , 'Release 2', 'album'     , 2021        , false    , false, 'Violin Woman feat. Conductor Woman');
 
-INSERT INTO releases_genres (release_id, genre, genre_sanitized)
-VALUES ('r1', 'Techno', 'Techno')
-     , ('r1', 'Deep House', 'Deep House')
-     , ('r2', 'Classical', 'Classical');
+INSERT INTO releases_genres
+       (release_id, genre       , genre_sanitized)
+VALUES ('r1'      , 'Techno'    , 'Techno')
+     , ('r1'      , 'Deep House', 'Deep House')
+     , ('r2'      , 'Classical' , 'Classical');
 
-INSERT INTO releases_labels (release_id, label, label_sanitized)
-VALUES ('r1', 'Silk Music', 'Silk Music')
-     , ('r2', 'Native State', 'Native State');
+INSERT INTO releases_labels
+       (release_id, label         , label_sanitized)
+VALUES ('r1'      , 'Silk Music'  , 'Silk Music')
+     , ('r2'      , 'Native State', 'Native State');
 
-INSERT INTO tracks (id, source_path, virtual_filename, title, release_id, track_number, disc_number, duration_seconds)
-VALUES ('t1', '{musicpaths[0]}', '01.m4a', 'Track 1', 'r1', '01', '01', 120)
-     , ('t2', '{musicpaths[1]}', '02.m4a', 'Track 2', 'r1', '02', '01', 240)
-     , ('t3', '{musicpaths[2]}', '01.m4a', 'Track 1', 'r2', '01', '01', 120);
+INSERT INTO tracks
+       (id  , source_path      , source_mtime, virtual_filename, title    , release_id, track_number, disc_number, duration_seconds, formatted_artists)
+VALUES ('t1', '{musicpaths[0]}', '999'       , '01.m4a'        , 'Track 1', 'r1'      , '01'        , '01'       , 120             , 'Techno Man;Bass Man')
+     , ('t2', '{musicpaths[1]}', '999'       , '02.m4a'        , 'Track 2', 'r1'      , '02'        , '01'       , 240             , 'Techno Man;Bass Man')
+     , ('t3', '{musicpaths[2]}', '999'       , '01.m4a'        , 'Track 1', 'r2'      , '01'        , '01'       , 120             , 'Violin Woman feat. Conductor Woman');
 
-INSERT INTO releases_artists (release_id, artist, artist_sanitized, role)
-VALUES ('r1', 'Techno Man', 'Techno Man', 'main')
-     , ('r1', 'Bass Man', 'Bass Man', 'main')
-     , ('r2', 'Violin Woman', 'Violin Woman', 'main')
-     , ('r2', 'Conductor Woman', 'Conductor Woman', 'guest');
+INSERT INTO releases_artists
+       (release_id, artist           , artist_sanitized , role)
+VALUES ('r1'      , 'Techno Man'     , 'Techno Man'     , 'main')
+     , ('r1'      , 'Bass Man'       , 'Bass Man'       , 'main')
+     , ('r2'      , 'Violin Woman'   , 'Violin Woman'   , 'main')
+     , ('r2'      , 'Conductor Woman', 'Conductor Woman', 'guest');
 
-INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role)
-VALUES ('t1', 'Techno Man', 'Techno Man', 'main')
-     , ('t1', 'Bass Man', 'Bass Man', 'main')
-     , ('t2', 'Techno Man', 'Techno Man', 'main')
-     , ('t2', 'Bass Man', 'Bass Man', 'main')
-     , ('t3', 'Violin Woman', 'Violin Woman', 'main')
-     , ('t3', 'Conductor Woman', 'Conductor Woman', 'guest');
+INSERT INTO tracks_artists
+       (track_id, artist           , artist_sanitized , role)
+VALUES ('t1'    , 'Techno Man'     , 'Techno Man'     , 'main')
+     , ('t1'    , 'Bass Man'       , 'Bass Man'       , 'main')
+     , ('t2'    , 'Techno Man'     , 'Techno Man'     , 'main')
+     , ('t2'    , 'Bass Man'       , 'Bass Man'       , 'main')
+     , ('t3'    , 'Violin Woman'   , 'Violin Woman'   , 'main')
+     , ('t3'    , 'Conductor Woman', 'Conductor Woman', 'guest');
             """  # noqa: E501
         )
 

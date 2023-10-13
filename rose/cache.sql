@@ -16,11 +16,16 @@ CREATE TABLE releases (
     id TEXT PRIMARY KEY,
     source_path TEXT NOT NULL UNIQUE,
     cover_image_path TEXT,
+    datafile_mtime TEXT NOT NULL,
     virtual_dirname TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
     release_type TEXT NOT NULL REFERENCES release_type_enum(value),
     release_year INTEGER,
-    new BOOLEAN NOT NULL DEFAULT true
+    multidisc BOOLEAN NOT NULL,
+    new BOOLEAN NOT NULL DEFAULT true,
+    -- This is its own state because ordering matters--we preserve the ordering in the tags.
+    -- However, the one-to-many table does not have ordering.
+    formatted_artists TEXT NOT NULL
 );
 CREATE INDEX releases_source_path ON releases(source_path);
 CREATE INDEX releases_release_year ON releases(release_year);
@@ -48,12 +53,16 @@ CREATE INDEX releases_labels_label_sanitized ON releases_labels(label_sanitized)
 CREATE TABLE tracks (
     id TEXT PRIMARY KEY,
     source_path TEXT NOT NULL UNIQUE,
+    source_mtime TEXT NOT NULL,
     virtual_filename TEXT NOT NULL,
     title TEXT NOT NULL,
     release_id TEXT NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
     track_number TEXT NOT NULL,
     disc_number TEXT NOT NULL,
     duration_seconds INTEGER NOT NULL,
+    -- This is its own state because ordering matters--we preserve the ordering in the tags.
+    -- However, the one-to-many table does not have ordering.
+    formatted_artists TEXT NOT NULL,
     UNIQUE (release_id, virtual_filename)
 );
 CREATE INDEX tracks_source_path ON tracks(source_path);
@@ -94,7 +103,8 @@ CREATE INDEX tracks_artists_artist_sanitized ON tracks_artists(artist_sanitized)
 CREATE TABLE collections (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    source_path TEXT UNIQUE NOT NULL
+    source_path TEXT UNIQUE NOT NULL,
+    source_mtime TEXT NOT NULL
 );
 CREATE INDEX collections_source_path ON collections(source_path);
 
@@ -110,7 +120,8 @@ CREATE UNIQUE INDEX collections_releases_collection_position ON collections_rele
 CREATE TABLE playlists (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    source_path TEXT UNIQUE NOT NULL
+    source_path TEXT UNIQUE NOT NULL,
+    source_mtime TEXT NOT NULL
 );
 CREATE INDEX playlists_source_path ON playlists(source_path);
 

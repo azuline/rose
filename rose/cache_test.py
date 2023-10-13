@@ -3,11 +3,10 @@ import shutil
 from pathlib import Path
 
 import pytest
-import tomllib
 
 from rose.cache import (
     CACHE_SCHEMA_PATH,
-    STORED_DATA_FILE_NAME,
+    STORED_DATA_FILE_REGEX,
     CachedArtist,
     CachedRelease,
     CachedTrack,
@@ -24,8 +23,9 @@ from rose.cache import (
     migrate_database,
     release_exists,
     track_exists,
+    update_cache_delete_nonexistent_releases,
     update_cache_for_all_releases,
-    update_cache_for_release,
+    update_cache_for_releases,
 )
 from rose.config import Config
 
@@ -65,14 +65,13 @@ TEST_RELEASE_2 = TESTDATA / "Test Release 2"
 def test_update_cache_for_release(config: Config) -> None:
     release_dir = config.music_source_dir / TEST_RELEASE_1.name
     shutil.copytree(TEST_RELEASE_1, release_dir)
-    update_cache_for_release(config, release_dir)
+    update_cache_for_releases(config, [release_dir])
 
     # Check that the release directory was given a UUID.
     release_id: str | None = None
     for f in release_dir.iterdir():
-        if f.name == STORED_DATA_FILE_NAME:
-            with f.open("rb") as fp:
-                release_id = tomllib.load(fp)["uuid"]
+        if m := STORED_DATA_FILE_REGEX.match(f.name):
+            release_id = m[1]
     assert release_id is not None
 
     # Assert that the release metadata was read correctly.
@@ -157,22 +156,138 @@ def test_update_cache_for_release(config: Config) -> None:
             }
 
 
-def test_update_cache_with_existing_id(config: Config) -> None:
+def test_update_cache_uncached_release_with_existing_id(config: Config) -> None:
     """Test that IDs in filenames are read and preserved."""
     release_dir = config.music_source_dir / TEST_RELEASE_2.name
     shutil.copytree(TEST_RELEASE_2, release_dir)
-    update_cache_for_release(config, release_dir)
+    update_cache_for_releases(config, [release_dir])
 
     # Check that the release directory was given a UUID.
     release_id: str | None = None
     for f in release_dir.iterdir():
-        if f.name == STORED_DATA_FILE_NAME:
-            with f.open("rb") as fp:
-                release_id = tomllib.load(fp)["uuid"]
+        if m := STORED_DATA_FILE_REGEX.match(f.name):
+            release_id = m[1]
     assert release_id == "ilovecarly"  # Hardcoded ID for testing.
 
 
+def test_update_cache_already_fully_cached_release(config: Config) -> None:
+    """Test that a fully cached release No Ops when updated again."""
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    update_cache_for_releases(config, [release_dir])
+    update_cache_for_releases(config, [release_dir])
+
+    # Assert that the release metadata was read correctly.
+    with connect(config) as conn:
+        cursor = conn.execute(
+            "SELECT id, source_path, title, release_type, release_year, new FROM releases",
+        )
+        row = cursor.fetchone()
+        assert row["source_path"] == str(release_dir)
+        assert row["title"] == "A Cool Album"
+        assert row["release_type"] == "album"
+        assert row["release_year"] == 1990
+        assert row["new"]
+
+
+def test_update_cache_disk_update_to_cached_release(config: Config) -> None:
+    """Test that a cached release is updated after a track updates."""
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    update_cache_for_releases(config, [release_dir])
+    # I'm too lazy to mutagen update the files, so instead we're going to update the database. And
+    # then touch a file to signify that "we modified it."
+    with connect(config) as conn:
+        conn.execute("UPDATE releases SET title = 'An Uncool Album'")
+        (release_dir / "01.m4a").touch()
+    update_cache_for_releases(config, [release_dir])
+
+    # Assert that the release metadata was re-read and updated correctly.
+    with connect(config) as conn:
+        cursor = conn.execute(
+            "SELECT id, source_path, title, release_type, release_year, new FROM releases",
+        )
+        row = cursor.fetchone()
+        assert row["source_path"] == str(release_dir)
+        assert row["title"] == "A Cool Album"
+        assert row["release_type"] == "album"
+        assert row["release_year"] == 1990
+        assert row["new"]
+
+
+def test_update_cache_disk_update_to_datafile(config: Config) -> None:
+    """Test that a cached release is updated after a datafile updates."""
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    update_cache_for_releases(config, [release_dir])
+    with connect(config) as conn:
+        conn.execute("UPDATE releases SET datafile_mtime = '0' AND new = false")
+    update_cache_for_releases(config, [release_dir])
+
+    # Assert that the release metadata was re-read and updated correctly.
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT new FROM releases")
+        row = cursor.fetchone()
+        assert row["new"]
+
+
+def test_update_cache_disk_upgrade_old_datafile(config: Config) -> None:
+    """Test that a legacy invalid datafile is upgraded on index."""
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    datafile = release_dir / ".rose.lalala.toml"
+    datafile.touch()
+    update_cache_for_releases(config, [release_dir])
+
+    # Assert that the release metadata was re-read and updated correctly.
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT id, new FROM releases")
+        row = cursor.fetchone()
+        assert row["id"] == "lalala"
+        assert row["new"]
+    with datafile.open("r") as fp:
+        assert "new = true" in fp.read()
+
+
+def test_update_cache_disk_directory_renamed(config: Config) -> None:
+    """Test that a cached release is updated after a directory rename."""
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    update_cache_for_releases(config, [release_dir])
+    moved_release_dir = config.music_source_dir / "moved lol"
+    release_dir.rename(moved_release_dir)
+    update_cache_for_releases(config, [moved_release_dir])
+
+    # Assert that the release metadata was re-read and updated correctly.
+    with connect(config) as conn:
+        cursor = conn.execute(
+            "SELECT id, source_path, title, release_type, release_year, new FROM releases",
+        )
+        row = cursor.fetchone()
+        assert row["source_path"] == str(moved_release_dir)
+        assert row["title"] == "A Cool Album"
+        assert row["release_type"] == "album"
+        assert row["release_year"] == 1990
+        assert row["new"]
+
+
+def test_update_cache_delete_nonexistent_releases(config: Config) -> None:
+    """Test that deleted releases that are no longer on disk are cleared from cache."""
+    with connect(config) as conn:
+        conn.execute(
+            """
+            INSERT INTO releases (id, source_path, virtual_dirname, datafile_mtime, title, release_type, multidisc, formatted_artists)
+            VALUES ('aaaaaa', '/nonexistent', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
+            """  # noqa: E501
+        )
+    update_cache_delete_nonexistent_releases(config)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        assert cursor.fetchone()[0] == 0
+
+
 def test_update_cache_for_all_releases(config: Config) -> None:
+    """Test that the update all function works."""
     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
 
@@ -180,9 +295,9 @@ def test_update_cache_for_all_releases(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases (id, source_path, virtual_dirname, title, release_type)
-            VALUES ('aaaaaa', '/nonexistent', 'nonexistent', 'aa', 'unknown')
-            """
+            INSERT INTO releases (id, source_path, virtual_dirname, datafile_mtime, title, release_type, multidisc, formatted_artists)
+            VALUES ('aaaaaa', '/nonexistent', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
+            """  # noqa: E501
         )
 
     update_cache_for_all_releases(config)
@@ -194,18 +309,44 @@ def test_update_cache_for_all_releases(config: Config) -> None:
         assert cursor.fetchone()[0] == 4
 
 
+def test_update_cache_skips_empty_directory(config: Config) -> None:
+    """Test that an directory with no audio files is skipped."""
+    rd = config.music_source_dir / "lalala"
+    rd.mkdir()
+    (rd / "ignoreme.file").touch()
+    update_cache_for_releases(config, [rd])
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        assert cursor.fetchone()[0] == 0
+
+
+def test_update_cache_uncaches_empty_directory(config: Config) -> None:
+    """Test that a previously-cached directory with no audio files now is cleared from cache."""
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    update_cache_for_releases(config, [release_dir])
+    shutil.rmtree(release_dir)
+    release_dir.mkdir()
+    update_cache_for_releases(config, [release_dir])
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        assert cursor.fetchone()[0] == 0
+
+
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_releases(config: Config) -> None:
     albums = list(list_releases(config))
     assert albums == [
         CachedRelease(
+            datafile_mtime=albums[0].datafile_mtime,  # IGNORE THIS FIELD.
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             virtual_dirname="r1",
             title="Release 1",
-            release_type="album",
-            release_year=2023,
+            type="album",
+            year=2023,
+            multidisc=False,
             new=True,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
@@ -213,15 +354,18 @@ def test_list_releases(config: Config) -> None:
                 CachedArtist(name="Techno Man", role="main"),
                 CachedArtist(name="Bass Man", role="main"),
             ],
+            formatted_artists="Techno Man;Bass Man",
         ),
         CachedRelease(
+            datafile_mtime=albums[1].datafile_mtime,  # IGNORE THIS FIELD.
             id="r2",
             source_path=Path(config.music_source_dir / "r2"),
             cover_image_path=Path(config.music_source_dir / "r2" / "cover.jpg"),
             virtual_dirname="r2",
             title="Release 2",
-            release_type="album",
-            release_year=2021,
+            type="album",
+            year=2021,
+            multidisc=False,
             new=False,
             genres=["Classical"],
             labels=["Native State"],
@@ -229,18 +373,22 @@ def test_list_releases(config: Config) -> None:
                 CachedArtist(name="Violin Woman", role="main"),
                 CachedArtist(name="Conductor Woman", role="guest"),
             ],
+            formatted_artists="Violin Woman feat. Conductor Woman",
         ),
     ]
 
-    assert list(list_releases(config, sanitized_artist_filter="Techno Man")) == [
+    albums = list(list_releases(config, sanitized_artist_filter="Techno Man"))
+    assert albums == [
         CachedRelease(
+            datafile_mtime=albums[0].datafile_mtime,  # IGNORE THIS FIELD.
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             virtual_dirname="r1",
             title="Release 1",
-            release_type="album",
-            release_year=2023,
+            type="album",
+            year=2023,
+            multidisc=False,
             new=True,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
@@ -248,18 +396,22 @@ def test_list_releases(config: Config) -> None:
                 CachedArtist(name="Techno Man", role="main"),
                 CachedArtist(name="Bass Man", role="main"),
             ],
+            formatted_artists="Techno Man;Bass Man",
         ),
     ]
 
-    assert list(list_releases(config, sanitized_genre_filter="Techno")) == [
+    albums = list(list_releases(config, sanitized_genre_filter="Techno"))
+    assert albums == [
         CachedRelease(
+            datafile_mtime=albums[0].datafile_mtime,  # IGNORE THIS FIELD.
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             virtual_dirname="r1",
             title="Release 1",
-            release_type="album",
-            release_year=2023,
+            type="album",
+            year=2023,
+            multidisc=False,
             new=True,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
@@ -267,18 +419,22 @@ def test_list_releases(config: Config) -> None:
                 CachedArtist(name="Techno Man", role="main"),
                 CachedArtist(name="Bass Man", role="main"),
             ],
+            formatted_artists="Techno Man;Bass Man",
         ),
     ]
 
-    assert list(list_releases(config, sanitized_label_filter="Silk Music")) == [
+    albums = list(list_releases(config, sanitized_label_filter="Silk Music"))
+    assert albums == [
         CachedRelease(
+            datafile_mtime=albums[0].datafile_mtime,  # IGNORE THIS FIELD.
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             virtual_dirname="r1",
             title="Release 1",
-            release_type="album",
-            release_year=2023,
+            type="album",
+            year=2023,
+            multidisc=False,
             new=True,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
@@ -286,6 +442,7 @@ def test_list_releases(config: Config) -> None:
                 CachedArtist(name="Techno Man", role="main"),
                 CachedArtist(name="Bass Man", role="main"),
             ],
+            formatted_artists="Techno Man;Bass Man",
         ),
     ]
 
@@ -295,6 +452,7 @@ def test_get_release_files(config: Config) -> None:
     rf = get_release_files(config, "r1")
     assert rf.tracks == [
         CachedTrack(
+            source_mtime=rf.tracks[0].source_mtime,  # IGNORE THIS FIELD.
             id="t1",
             source_path=Path(config.music_source_dir / "r1" / "01.m4a"),
             virtual_filename="01.m4a",
@@ -307,8 +465,10 @@ def test_get_release_files(config: Config) -> None:
                 CachedArtist(name="Techno Man", role="main"),
                 CachedArtist(name="Bass Man", role="main"),
             ],
+            formatted_artists="Techno Man;Bass Man",
         ),
         CachedTrack(
+            source_mtime=rf.tracks[1].source_mtime,  # IGNORE THIS FIELD.
             id="t2",
             source_path=Path(config.music_source_dir / "r1" / "02.m4a"),
             virtual_filename="02.m4a",
@@ -321,6 +481,7 @@ def test_get_release_files(config: Config) -> None:
                 CachedArtist(name="Techno Man", role="main"),
                 CachedArtist(name="Bass Man", role="main"),
             ],
+            formatted_artists="Techno Man;Bass Man",
         ),
     ]
     assert rf.cover is None
