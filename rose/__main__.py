@@ -22,7 +22,7 @@ class Context:
 @click.pass_context
 # fmt: on
 def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
-    """A virtual filesystem music library and a music metadata manager."""
+    """A virtual filesystem for music and metadata improvement tooling."""
     cc.obj = Context(
         config=Config.read(config_path_override=config),
     )

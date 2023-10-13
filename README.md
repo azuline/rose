@@ -3,9 +3,9 @@
 _Work in Progress. See [Issue #1](https://github.com/azuline/rose/issues/1) for
 the current state._
 
-A virtual filesystem music library and a music metadata manager.
+A virtual filesystem for music and metadata improvement tooling.
 
-## The Virtual Filesystem Library
+## The Virtual Filesystem
 
 Rosé reads a source directory of albums like this:
 
@@ -77,7 +77,7 @@ The virtual filesystem constructed from the above source directory is:
         └── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
 ```
 
-## The Metadata Manager
+## The Metadata Improvement Tooling
 
 Rosé constructs the virtual filesystem from the audio tags. However, audio tags
 are frequently missing or incorrect. Thus, Rosé also provides a set of tools to
@@ -105,7 +105,7 @@ You can install Nix and Nix Flakes with
 ```
 Usage: rose [OPTIONS] COMMAND [ARGS]...
 
-  A virtual filesystem music library and a music metadata manager.
+  A virtual filesystem for music and metadata improvement tooling.
 
 Options:
   -v, --verbose      Emit verbose logging.
@@ -236,10 +236,12 @@ Rosé has a simple uni-directional looping architecture.
    files. It can always be deleted and fully recreated from source files.
 3. The virtual filesystem uses the read cache (for performance). Writes to the
    virtual filesystem update the source files and then refresh the read cache.
+4. The metadata manager writes to the source files directly, which in turn
+   refreshes the read cache.
 
 ```mermaid
 flowchart BT
-    M[Metadata Manager]    -->|Maintains| S
+    M[Metadata Tooling]    -->|Writes| S
     S[Source Files]        -->|Populates| C
     C[Read Cache]          -->|Renders| V
     V[Virtual Filesystem]  -->|Updates| S
