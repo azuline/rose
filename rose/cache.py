@@ -149,13 +149,13 @@ SUPPORTED_RELEASE_TYPES = [
 STORED_DATA_FILE_REGEX = re.compile(r"\.rose\.([^.]+)\.toml")
 
 
-def update_cache_for_all_releases(c: Config) -> None:
+def update_cache_for_all_releases(c: Config, force: bool = False) -> None:
     """
     Update the read cache to match the data for all releases in the music source directory. Delete
     any cached releases that are no longer present on disk.
     """
     dirs = [Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()]
-    update_cache_for_releases(c, dirs)
+    update_cache_for_releases(c, dirs, force)
     update_cache_delete_nonexistent_releases(c)
 
 
@@ -172,7 +172,7 @@ def update_cache_delete_nonexistent_releases(c: Config) -> None:
         )
 
 
-def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
+def update_cache_for_releases(c: Config, release_dirs: list[Path], force: bool = False) -> None:
     """
     Update the read cache to match the data for any passed-in releases. If a directory lacks a
     .rose.{uuid}.toml datafile, create the datafile for the release and set it to the initial state.
@@ -412,8 +412,8 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                 # from the datafile.
                 datafile_path = source_path / f".rose.{preexisting_release_id}.toml"
                 datafile_mtime = str(os.stat(datafile_path).st_mtime)
-                if datafile_mtime != release.datafile_mtime:
-                    logger.debug(f"Datafile mtime changed for release {source_path}, updating")
+                if datafile_mtime != release.datafile_mtime or force:
+                    logger.debug(f"Datafile changed for release {source_path}, updating")
                     release.datafile_mtime = datafile_mtime
                     release_dirty = True
                     with datafile_path.open("rb") as fp:
@@ -472,7 +472,7 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path]) -> None:
                 cached_track = cached_tracks.get(str(track_path), None)
                 track_mtime = str(os.stat(track_path).st_mtime)
                 # Skip re-read if we can reuse a cached entry.
-                if cached_track and track_mtime == cached_track.source_mtime:
+                if cached_track and track_mtime == cached_track.source_mtime and not force:
                     logger.debug(f"Track cache hit (mtime) for {f}, reusing cached data")
                     tracks.append(cached_track)
                     unknown_cached_tracks.remove(str(track_path))

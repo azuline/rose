@@ -1,5 +1,8 @@
 # Rosé
 
+_Work in Progress. See [Issue #1](https://github.com/azuline/rose/issues/1) for
+the current state.
+
 A virtual filesystem music library and a music metadata manager.
 
 ## The Virtual Filesystem Library
@@ -93,15 +96,16 @@ Install with Nix Flakes:
 ```bash
 $ nix profile install github:azuline/rose#rose
 ```
- 
-More accessible installation methods TBD.
+
+You can install Nix and Nix Flakes with
+[this installer](https://github.com/DeterminateSystems/nix-installer).
 
 # Usage
 
 ```
 Usage: rose [OPTIONS] COMMAND [ARGS]...
 
-  A filesystem-driven music library manager.
+  A virtual filesystem music library and a music metadata manager.
 
 Options:
   -v, --verbose      Emit verbose logging.
@@ -109,16 +113,12 @@ Options:
   --help             Show this message and exit.
 
 Commands:
-  cache  Manage the cached metadata.
+  cache  Manage the read cache.
   fs     Manage the virtual library.
 ```
 
 The virtual filesystem is mounted and unmounted by `rose fs mount` and
 `rose fs unmount` respectively.
-
-The read cache is force refreshed with `rose cache refresh`. The read cache can
-also be deleted with `rose cache clear`, though this should not be needed
-during normal operation.
 
 ## Configuration
 
@@ -129,16 +129,17 @@ The configuration parameters, with examples, are:
 
 ```toml
 # The directory containing the music to manage.
-music_source_dir = "~/.music-src"
+music_source_dir = "~/.music-source"
 # The directory to mount the library's virtual filesystem on.
 fuse_mount_dir = "~/music"
-# The directory to write the cache to. Defaults to `${XDG_CACHE_HOME:-$HOME/.cache}/rose`.
+# The directory to write the cache to. Defaults to
+# `${XDG_CACHE_HOME:-$HOME/.cache}/rose`.
 cache_dir = "~/.cache/rose"
 ```
 
 The `--config/-c` flag overrides the config location.
 
-# Data Conventions
+## Music Source Dir
 
 The `music_source_dir` must be a flat directory of albums, meaning all albums
 must be top-level directories inside `music_source_dir`. Each album should also
@@ -149,9 +150,11 @@ Additional nested directories are not currently supported.
 
 So for example: `$music_source_dir/BLACKPINK - 2016. SQUARE ONE/*.mp3`.
 
-Currently, 
+Rosé writes playlist and collage files to the `$music_source_dir/.playlists`
+and `$music_source_dir/.collages` directories. Each file is a human-readable
+TOML file.
 
-## Filetypes
+## Supported Filetypes
 
 Rosé supports `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` audio files.
 
@@ -159,22 +162,20 @@ Rosé also supports JPEG and PNG cover art. The supported cover art file stems
 are `cover`, `folder`, and `art`. The supported cover art file extensions are
 `.jpg`, `.jpeg`, and `.png`.
 
-## Tagging
+## Tagging Conventions
 
-Rosé is somewhat lenient in the tags it ingests, but applies certain
-conventions in the tags it writes.
+Rosé is lenient in the tags it ingests, but has opinionated conventions for the
+tags it writes.
 
-Rosé uses the `;` character as a tag delimiter. For any tags where there are
-multiple values, Rosé will write a single tag as a `;`-delimited string. For
-example, `genre=Deep House;Techno`.
+### Multi-Valued Tags
 
-Rosé also writes the artists with a specific convention designed to indicate
-the artist's role in a release. Rosé will write artist tags with the
-delimiters: `;`, ` feat. `, ` pres.`, ` performed by `, and `remixed by` to
-indicate the artist's role. So for example,
-`artist=Pyotr Ilyich Tchaikovsky performed by André Previn;London Symphony Orchestra feat. Barack Obama`.
+Rosé supports multiple values for the artists, genres, and labels tags. Rosé
+uses the `;` character as a tag delimiter. For example, `genre=Deep House;Techno`.
 
-An ambiguous BNF for the artist tag is:
+Rosé also preserves the artists' role in the artist tag by using specialized
+delimiters. for example, `artist=Pyotr Ilyich Tchaikovsky performed by André Previn;London Symphony Orchestra feat. Barack Obama`.
+
+The artist tag is described by the following grammar:
 
 ```
 artist-tag ::= composer dj main guest remixer
@@ -183,25 +184,81 @@ dj         ::= name ' pres. '
 main       ::= name
 guest      ::= ' feat. ' name
 remixer    ::= ' remixed by ' name
-name       ::= name ';' | string
+name       ::= string ';' name | string
 ```
+
+## New Releases
+
+TODO
+
+## Bookmarks
+
+TODO
+
+## The Read Cache
+
+For performance, Rosé processes every audio file in the `music_source_dir` and
+records all metadata in a SQLite read cache. This read cache does not accept
+writes, meaning it can always be fully recreated from the source audio files.
+
+The cache can be updated with the command `rose cache update`. By default, the
+cache updater will only recheck files that have changed since the last run. To
+override this behavior and always re-read file tags, run `rose cache update --force`.
+
+By default, the cache is updated on `mount` and on changes made through the
+virtual filesystem. However, changes made directly to the `music_source_dir`
+will not trigger a cache update. This can lead to cache drift.
+
+You can solve this by running `rose cache watch`. This starts a background
+watcher that listens to inotify and reactively updates the cache whenever a
+source file changes. This can be useful if you synchronize your music library
+between two computers, or use an external tool to directly modify the source
+files (instead of modifying through the virtual filesystem).
+
+## Systemd Unit Files
+
+TODO; example unit files to schedule Rosé with systemd.
+
+## Logging
+
+TODO
+
+## Metadata Management
+
+TODO
 
 # Architecture
 
-Rosé has a simple uni-directional architecture. The source audio files are the
-single source of truth. The read cache is transient and is solely populated by
-changes made to the source audio files. The virtual filesystem is read-only and
-uses the read cache for performance.
+Rosé has a simple uni-directional looping architecture.
+
+1. The source files: audio+playlists+collages, are the single source of truth.
+2. The read cache is transient and deterministically derived from source
+   files. It can always be deleted and fully recreated from source files.
+3. The virtual filesystem uses the read cache (for performance). Writes to the
+   virtual filesystem update the source files and then refresh the read cache.
 
 ```mermaid
 flowchart BT
-    A[Metadata Manager] -->|Maintains| B
-    B[Source Audio Files] -->|Populates| C
-    C[Read Cache] -->|Renders| D[Virtual Filesystem]
+    M[Metadata Manager]    -->|Maintains| S
+    S[Source Files]        -->|Populates| C
+    C[Read Cache]          -->|Renders| V
+    V[Virtual Filesystem]  -->|Updates| S
+    W[Watchdog (Optional)] -->|Refreshes| C
 ```
 
-Rosé writes `.rose.toml` files into each album's directory as a way to
-preserve state and keep release UUIDs consistent across cache rebuilds.
+This architecture takes care to ensure that there is a single source of truth
+and uni-directional mutations. This has a few benefits:
 
-Tracks are uniquely identified by the `(release_uuid, tracknumber, discnumber)`
-tuple. If there is a 3-tuple collision, the track title is used to disambiguate.
+- Rosé and the source files always have the same metadata. If they drift, `rose
+  cache update` will rebuild the cache such that it fully matches the source
+  files. And if the watchdog is running, there should not be any drift.
+- Rosé is easily synchronized across machines. As long as the source
+  files are synchronized, Rosé will rebuild the exact same cache regardless of
+  machine.
+
+Rosé writes `.rose.{uuid}.toml` files into each album's directory as a way to
+preserve release-level state and keep release UUIDs consistent across full
+cache rebuilds.
+
+Tracks are uniquely identified by the `(release_uuid, discnumber, tracknumber)`
+tuple, which are also consistent across rebuilds.

@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from multiprocessing import Process
 from pathlib import Path
 
 import click
@@ -21,7 +22,7 @@ class Context:
 @click.pass_context
 # fmt: on
 def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
-    """A filesystem-driven music library manager."""
+    """A virtual filesystem music library and a music metadata manager."""
     cc.obj = Context(
         config=Config.read(config_path_override=config),
     )
@@ -35,21 +36,17 @@ def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
 
 @cli.group()
 def cache() -> None:
-    """Manage the cached metadata."""
+    """Manage the read cache."""
 
 
+# fmt: off
 @cache.command()
+@click.option("--force", "-f", is_flag=True, help="Force re-read all data from disk, even for unchanged files.")  # noqa: E501
 @click.pass_obj
-def refresh(ctx: Context) -> None:
-    """Refresh the cached data from disk."""
-    update_cache_for_all_releases(ctx.config)
-
-
-@cache.command()
-@click.pass_obj
-def clear(ctx: Context) -> None:
-    """Clear the cache; empty the database."""
-    ctx.config.cache_database_path.unlink()
+# fmt: on
+def update(ctx: Context, force: bool) -> None:
+    """Update the read cache from disk data."""
+    update_cache_for_all_releases(ctx.config, force)
 
 
 @cli.group()
@@ -62,7 +59,13 @@ def fs() -> None:
 @click.pass_obj
 def mount(ctx: Context, foreground: bool) -> None:
     """Mount the virtual library."""
-    mount_virtualfs(ctx.config, foreground)
+    # Trigger a cache refresh in the background when we first mount the filesystem.
+    p = Process(target=update_cache_for_all_releases, args=[ctx.config, False])
+    try:
+        p.start()
+        mount_virtualfs(ctx.config, foreground)
+    finally:
+        p.join(timeout=1)
 
 
 @fs.command()
