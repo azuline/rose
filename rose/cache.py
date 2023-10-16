@@ -160,16 +160,19 @@ def update_cache_for_all_releases(c: Config, force: bool = False) -> None:
 
 
 def update_cache_delete_nonexistent_releases(c: Config) -> None:
-    logger.info("Deleting cached releases that are not on disk")
+    logger.info("Evicting cached releases that are not on disk")
     dirs = [Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()]
     with connect(c) as conn:
-        conn.execute(
+        cursor = conn.execute(
             f"""
             DELETE FROM releases
             WHERE source_path NOT IN ({",".join(["?"] * len(dirs))})
+            RETURNING source_path
             """,
             [str(d) for d in dirs],
         )
+        for row in cursor:
+            logger.info(f"Evicted release {row['source_path']} from cache")
 
 
 def update_cache_for_releases(c: Config, release_dirs: list[Path], force: bool = False) -> None:
