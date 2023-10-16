@@ -7,6 +7,7 @@ import click
 
 from rose.cache import migrate_database, update_cache_for_all_releases
 from rose.config import Config
+from rose.print import print_releases
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
 
@@ -73,6 +74,18 @@ def mount(ctx: Context, foreground: bool) -> None:
 def unmount(ctx: Context) -> None:
     """Unmount the virtual library."""
     unmount_virtualfs(ctx.config)
+
+
+@cli.group()
+def print() -> None:
+    """Print cached library data (JSON-encoded)."""
+
+
+@print.command()
+@click.pass_obj
+def albums(ctx: Context) -> None:
+    """Print albums."""
+    print_releases(ctx.config)
 
 
 if __name__ == "__main__":

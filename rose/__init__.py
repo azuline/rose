@@ -17,7 +17,7 @@ if "pytest" not in sys.modules:  # pragma: no cover
         "[%(asctime)s] %(levelname)s: %(message)s",
         datefmt="%H:%M:%S",
     )
-    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler = logging.StreamHandler(sys.stderr)
     stream_handler.setFormatter(stream_formatter)
     logger.addHandler(stream_handler)
 

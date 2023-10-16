@@ -865,6 +865,7 @@ def list_releases(
                 )
             """
             args.append(sanitized_label_filter)
+        query += " ORDER BY r.source_path"
 
         cursor = conn.execute(query, args)
         for row in cursor:

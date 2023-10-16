@@ -115,10 +115,8 @@ Options:
 Commands:
   cache  Manage the read cache.
   fs     Manage the virtual library.
+  print  Print cached library data (JSON-encoded).
 ```
-
-The virtual filesystem is mounted and unmounted by `rose fs mount` and
-`rose fs unmount` respectively.
 
 ## Configuration
 
@@ -162,6 +160,24 @@ Rosé also supports JPEG and PNG cover art. The supported cover art file stems
 are `cover`, `folder`, and `art`. The supported cover art file extensions are
 `.jpg`, `.jpeg`, and `.png`.
 
+## Virtual Filesystem
+
+The virtual filesystem is mounted and unmounted by `rose fs mount` and
+`rose fs unmount` respectively.
+
+TODO
+
+## Metadata Management
+
+TODO
+
+## Data Querying
+
+The `rose print` family of commands (e.g. `rose print albums`) prints out data
+in the read cache in a JSON-encoded format. The output of this command can be
+piped into tools like `jq`, `fx`, and others in order to further process the
+output.
+
 ## Tagging Conventions
 
 Rosé is lenient in the tags it ingests, but has opinionated conventions for the
@@ -186,10 +202,6 @@ guest      ::= ' feat. ' name
 remixer    ::= ' remixed by ' name
 name       ::= string ';' name | string
 ```
-
-## Metadata Management
-
-TODO
 
 ## New Releases
 
@@ -225,7 +237,7 @@ TODO; example unit files to schedule Rosé with systemd.
 
 ## Logging
 
-Logs are written to stdout and to `${XDG_STATE_HOME:-$HOME/.local/state}/rose/rose.log`.
+Logs are written to stderr and to `${XDG_STATE_HOME:-$HOME/.local/state}/rose/rose.log`.
 
 # Architecture
 
