@@ -187,6 +187,10 @@ remixer    ::= ' remixed by ' name
 name       ::= string ';' name | string
 ```
 
+## Metadata Management
+
+TODO
+
 ## New Releases
 
 TODO
@@ -221,11 +225,7 @@ TODO; example unit files to schedule Rosé with systemd.
 
 ## Logging
 
-TODO
-
-## Metadata Management
-
-TODO
+Logs are written to stdout and to `${XDG_STATE_HOME:-$HOME/.local/state}/rose/rose.log`.
 
 # Architecture
 
