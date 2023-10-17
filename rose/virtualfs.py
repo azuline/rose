@@ -26,8 +26,8 @@ from rose.cache import (
     release_exists,
     track_exists,
 )
+from rose.common import sanitize_filename
 from rose.config import Config
-from rose.sanitize import sanitize_filename
 
 logger = logging.getLogger(__name__)
 
@@ -55,13 +55,13 @@ class VirtualFS(fuse.Operations):  # type: ignore
         p = parse_virtual_path(path)
         logger.debug(f"Parsed getattr path as {p}")
 
-        if p.album and p.file:
-            if tp := track_exists(self.config, p.album, p.file):
+        if p.release and p.file:
+            if tp := track_exists(self.config, p.release, p.file):
                 return mkstat("file", tp)
-            if cp := cover_exists(self.config, p.album, p.file):
+            if cp := cover_exists(self.config, p.release, p.file):
                 return mkstat("file", cp)
-        elif p.album:
-            if rp := release_exists(self.config, p.album):
+        elif p.release:
+            if rp := release_exists(self.config, p.release):
                 return mkstat("dir", rp)
         elif p.artist:
             if artist_exists(self.config, p.artist) and p.artist not in self.hide_artists_set:
@@ -89,32 +89,32 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
         if p.view == "Root":
             yield from [
-                "Albums",
                 "Artists",
+                "Collages",
                 "Genres",
                 "Labels",
-                "Collages",
+                "Releases",
             ]
-        elif p.album:
-            rf = get_release_files(self.config, p.album)
+        elif p.release:
+            rf = get_release_files(self.config, p.release)
             for track in rf.tracks:
                 yield track.virtual_filename
             if rf.cover:
                 yield rf.cover.name
-        elif p.artist or p.genre or p.label or p.view == "Albums":
+        elif p.artist or p.genre or p.label or p.view == "Releases":
             if (
                 (p.artist and p.artist in self.hide_artists_set)
                 or (p.genre and p.genre in self.hide_genres_set)
                 or (p.label and p.label in self.hide_labels_set)
             ):
                 raise fuse.FuseOSError(errno.ENOENT)
-            for album in list_releases(
+            for release in list_releases(
                 self.config,
                 sanitized_artist_filter=p.artist,
                 sanitized_genre_filter=p.genre,
                 sanitized_label_filter=p.label,
             ):
-                yield album.virtual_dirname
+                yield release.virtual_dirname
         elif p.view == "Artists":
             for artist in list_artists(self.config):
                 if artist in self.hide_artists_set:
@@ -153,8 +153,8 @@ class VirtualFS(fuse.Operations):  # type: ignore
         p = parse_virtual_path(path)
         logger.debug(f"Parsed open path as {p}")
 
-        if p.album and p.file:
-            rf = get_release_files(self.config, p.album)
+        if p.release and p.file:
+            rf = get_release_files(self.config, p.release)
             if rf.cover and p.file == rf.cover.name:
                 return os.open(str(rf.cover), flags)
             for track in rf.tracks:
@@ -171,12 +171,12 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
 @dataclass
 class ParsedPath:
-    view: Literal["Root", "Albums", "Artists", "Genres", "Labels", "Collages"] | None
+    view: Literal["Root", "Releases", "Artists", "Genres", "Labels", "Collages"] | None
     artist: str | None = None
     genre: str | None = None
     label: str | None = None
     collage: str | None = None
-    album: str | None = None
+    release: str | None = None
     file: str | None = None
 
 
@@ -186,13 +186,13 @@ def parse_virtual_path(path: str) -> ParsedPath:
     if len(parts) == 1 and parts[0] == "":
         return ParsedPath(view="Root")
 
-    if parts[0] == "Albums":
+    if parts[0] == "Releases":
         if len(parts) == 1:
-            return ParsedPath(view="Albums")
+            return ParsedPath(view="Releases")
         if len(parts) == 2:
-            return ParsedPath(view="Albums", album=parts[1])
+            return ParsedPath(view="Releases", release=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="Albums", album=parts[1], file=parts[2])
+            return ParsedPath(view="Releases", release=parts[1], file=parts[2])
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "Artists":
@@ -201,9 +201,9 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2:
             return ParsedPath(view="Artists", artist=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="Artists", artist=parts[1], album=parts[2])
+            return ParsedPath(view="Artists", artist=parts[1], release=parts[2])
         if len(parts) == 4:
-            return ParsedPath(view="Artists", artist=parts[1], album=parts[2], file=parts[3])
+            return ParsedPath(view="Artists", artist=parts[1], release=parts[2], file=parts[3])
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "Genres":
@@ -212,9 +212,9 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2:
             return ParsedPath(view="Genres", genre=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="Genres", genre=parts[1], album=parts[2])
+            return ParsedPath(view="Genres", genre=parts[1], release=parts[2])
         if len(parts) == 4:
-            return ParsedPath(view="Genres", genre=parts[1], album=parts[2], file=parts[3])
+            return ParsedPath(view="Genres", genre=parts[1], release=parts[2], file=parts[3])
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "Labels":
@@ -223,9 +223,9 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2:
             return ParsedPath(view="Labels", label=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="Labels", label=parts[1], album=parts[2])
+            return ParsedPath(view="Labels", label=parts[1], release=parts[2])
         if len(parts) == 4:
-            return ParsedPath(view="Labels", label=parts[1], album=parts[2], file=parts[3])
+            return ParsedPath(view="Labels", label=parts[1], release=parts[2], file=parts[3])
         raise fuse.FuseOSError(errno.ENOENT)
 
     # In collages, we print directories with position of the release in the collage. When parsing,
@@ -240,7 +240,7 @@ def parse_virtual_path(path: str) -> ParsedPath:
                 return ParsedPath(
                     view="Collages",
                     collage=parts[1],
-                    album=parts[2].split(". ", maxsplit=1)[1],
+                    release=parts[2].split(". ", maxsplit=1)[1],
                 )
             except IndexError:
                 pass
@@ -249,7 +249,7 @@ def parse_virtual_path(path: str) -> ParsedPath:
                 return ParsedPath(
                     view="Collages",
                     collage=parts[1],
-                    album=parts[2].split(". ", maxsplit=1)[1],
+                    release=parts[2].split(". ", maxsplit=1)[1],
                     file=parts[3],
                 )
             except IndexError:

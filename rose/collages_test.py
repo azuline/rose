@@ -4,7 +4,7 @@ import tomllib
 
 from rose.cache import connect, update_cache
 from rose.cache_test import TEST_COLLAGE_1, TEST_RELEASE_2, TEST_RELEASE_3
-from rose.collage import (
+from rose.collages import (
     add_release_to_collage,
     create_collage,
     delete_collage,

@@ -371,10 +371,10 @@ def test_update_cache_collages_nonexistent_release_id(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_releases(config: Config) -> None:
-    albums = list(list_releases(config))
-    assert albums == [
+    releases = list(list_releases(config))
+    assert releases == [
         CachedRelease(
-            datafile_mtime=albums[0].datafile_mtime,  # IGNORE THIS FIELD.
+            datafile_mtime=releases[0].datafile_mtime,  # IGNORE THIS FIELD.
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
@@ -393,7 +393,7 @@ def test_list_releases(config: Config) -> None:
             formatted_artists="Techno Man;Bass Man",
         ),
         CachedRelease(
-            datafile_mtime=albums[1].datafile_mtime,  # IGNORE THIS FIELD.
+            datafile_mtime=releases[1].datafile_mtime,  # IGNORE THIS FIELD.
             id="r2",
             source_path=Path(config.music_source_dir / "r2"),
             cover_image_path=Path(config.music_source_dir / "r2" / "cover.jpg"),
@@ -413,10 +413,10 @@ def test_list_releases(config: Config) -> None:
         ),
     ]
 
-    albums = list(list_releases(config, sanitized_artist_filter="Techno Man"))
-    assert albums == [
+    releases = list(list_releases(config, sanitized_artist_filter="Techno Man"))
+    assert releases == [
         CachedRelease(
-            datafile_mtime=albums[0].datafile_mtime,  # IGNORE THIS FIELD.
+            datafile_mtime=releases[0].datafile_mtime,  # IGNORE THIS FIELD.
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
@@ -436,10 +436,10 @@ def test_list_releases(config: Config) -> None:
         ),
     ]
 
-    albums = list(list_releases(config, sanitized_genre_filter="Techno"))
-    assert albums == [
+    releases = list(list_releases(config, sanitized_genre_filter="Techno"))
+    assert releases == [
         CachedRelease(
-            datafile_mtime=albums[0].datafile_mtime,  # IGNORE THIS FIELD.
+            datafile_mtime=releases[0].datafile_mtime,  # IGNORE THIS FIELD.
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
@@ -459,10 +459,10 @@ def test_list_releases(config: Config) -> None:
         ),
     ]
 
-    albums = list(list_releases(config, sanitized_label_filter="Silk Music"))
-    assert albums == [
+    releases = list(list_releases(config, sanitized_label_filter="Silk Music"))
+    assert releases == [
         CachedRelease(
-            datafile_mtime=albums[0].datafile_mtime,  # IGNORE THIS FIELD.
+            datafile_mtime=releases[0].datafile_mtime,  # IGNORE THIS FIELD.
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,

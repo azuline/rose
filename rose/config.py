@@ -6,7 +6,7 @@ from pathlib import Path
 
 import tomllib
 
-from rose.errors import RoseError
+from rose.common import RoseError
 
 XDG_CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME", os.environ["HOME"] + "/.config"))
 CONFIG_PATH = XDG_CONFIG_HOME / "rose" / "config.toml"

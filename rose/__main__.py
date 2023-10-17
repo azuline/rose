@@ -6,8 +6,9 @@ from pathlib import Path
 import click
 
 from rose.cache import migrate_database, update_cache
+from rose.collages import print_collages
 from rose.config import Config
-from rose.print import print_releases
+from rose.releases import print_releases
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
 
@@ -76,16 +77,28 @@ def unmount(ctx: Context) -> None:
     unmount_virtualfs(ctx.config)
 
 
-@cli.group(name="print")
-def printg() -> None:
-    """Print cached library data (JSON-encoded)."""
+@cli.group()
+def releases() -> None:
+    """Manage releases."""
 
 
-@printg.command()
+@releases.command(name="print")
 @click.pass_obj
-def albums(ctx: Context) -> None:
-    """Print albums."""
+def print1(ctx: Context) -> None:
+    """Print JSON-encoded releases."""
     print_releases(ctx.config)
+
+
+@cli.group()
+def collages() -> None:
+    """Manage collages."""
+
+
+@collages.command(name="print")
+@click.pass_obj
+def print2(ctx: Context) -> None:
+    """Print JSON-encoded collages."""
+    print_collages(ctx.config)
 
 
 if __name__ == "__main__":

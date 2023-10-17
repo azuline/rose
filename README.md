@@ -7,7 +7,7 @@ A virtual filesystem for music and metadata improvement tooling.
 
 ## The Virtual Filesystem
 
-Rosé reads a source directory of albums like this:
+Rosé reads a source directory of releases like this:
 
 ```tree
 .
@@ -33,7 +33,7 @@ The virtual filesystem constructed from the above source directory is:
 
 ```tree
 .
-├── Albums
+├── Releases
 │   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
 │   ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
 │   ├── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
@@ -103,7 +103,7 @@ You can install Nix and Nix Flakes with
 # Usage
 
 ```
-Usage: rose [OPTIONS] COMMAND [ARGS]...
+Usage: python -m rose [OPTIONS] COMMAND [ARGS]...
 
   A virtual filesystem for music and metadata improvement tooling.
 
@@ -113,9 +113,10 @@ Options:
   --help             Show this message and exit.
 
 Commands:
-  cache  Manage the read cache.
-  fs     Manage the virtual library.
-  print  Print cached library data (JSON-encoded).
+  cache     Manage the read cache.
+  collages  Manage collages.
+  fs        Manage the virtual library.
+  releases  Manage releases.
 ```
 
 ## Configuration
@@ -148,11 +149,11 @@ The `--config/-c` flag overrides the config location.
 
 ## Music Source Dir
 
-The `music_source_dir` must be a flat directory of albums, meaning all albums
-must be top-level directories inside `music_source_dir`. Each album should also
+The `music_source_dir` must be a flat directory of releases, meaning all releases
+must be top-level directories inside `music_source_dir`. Each release should also
 be a single directory in `music_source_dir`.
 
-Every directory should follow the format: `$music_source_dir/$album_name/$track.mp3`.
+Every directory should follow the format: `$music_source_dir/$release_name/$track.mp3`.
 Additional nested directories are not currently supported.
 
 So for example: `$music_source_dir/BLACKPINK - 2016. SQUARE ONE/*.mp3`.
@@ -182,10 +183,9 @@ TODO
 
 ## Data Querying
 
-The `rose print` family of commands (e.g. `rose print albums`) prints out data
-in the read cache in a JSON-encoded format. The output of this command can be
-piped into tools like `jq`, `fx`, and others in order to further process the
-output.
+There are several commands that print out data from the read cache in a
+JSON-encoded format (e.g. `rose releases print` and `rose collages print`). The
+command output can be piped into tools like `jq`, `fx`, and others.
 
 ## Tagging Conventions
 
@@ -222,23 +222,25 @@ TODO
 
 ## The Read Cache
 
-For performance, Rosé processes every audio file in the `music_source_dir` and
-records all metadata in a SQLite read cache. This read cache does not accept
-writes, meaning it can always be fully recreated from the source audio files.
+For performance, Rosé stores a copy of every source file's metadata in a SQLite
+read cache. The read cache does not accept writes; thus it can always be fully
+recreated from the source files. It can be freely deleted and recreated without
+consequence.
 
 The cache can be updated with the command `rose cache update`. By default, the
 cache updater will only recheck files that have changed since the last run. To
-override this behavior and always re-read file tags, run `rose cache update --force`.
+override this behavior and always re-read file tags, run `rose cache update
+--force`.
 
-By default, the cache is updated on `mount` and on changes made through the
-virtual filesystem. However, changes made directly to the `music_source_dir`
-will not trigger a cache update. This can lead to cache drift.
+By default, the cache is updated on `rose fs mount` and when files are changed
+through the virtual filesystem. However, if the `music_source_dir` is changed
+directly, Rosé does not automatically update the cache, which can lead to cache
+drifts.
 
-You can solve this by running `rose cache watch`. This starts a background
-watcher that listens to inotify and reactively updates the cache whenever a
-source file changes. This can be useful if you synchronize your music library
-between two computers, or use an external tool to directly modify the source
-files (instead of modifying through the virtual filesystem).
+You can solve this problem by running `rose cache watch`. This starts a watcher
+that triggers a cache update whenever a source file changes. This can be useful
+if you synchronize your music library between two computers, or use another
+tool to directly modify the `music_source_dir`.
 
 ## Systemd Unit Files
 
@@ -252,19 +254,22 @@ Logs are written to stderr and to `${XDG_STATE_HOME:-$HOME/.local/state}/rose/ro
 
 Rosé has a simple uni-directional looping architecture.
 
-1. The source files: audio+playlists+collages, are the single source of truth.
+1. The source files: audio+playlists+collages, are the single source of truth
+   for your music library.
 2. The read cache is transient and deterministically derived from source
    files. It can always be deleted and fully recreated from source files.
 3. The virtual filesystem uses the read cache (for performance). Writes to the
    virtual filesystem update the source files and then refresh the read cache.
-4. The metadata manager writes to the source files directly, which in turn
-   refreshes the read cache.
+4. The metadata tooling writes to the source files directly, which in turn
+   refreshes the read cache. The metadata tooling reads from the read cache for
+   performance.
 
 ```mermaid
 flowchart BT
     M[Metadata Tooling]    -->|Writes| S
     S[Source Files]        -->|Populates| C
     C[Read Cache]          -->|Renders| V
+    C[Read Cache]          -->|Improves Performance| M
     V[Virtual Filesystem]  -->|Updates| S
 ```
 
@@ -273,12 +278,12 @@ and uni-directional mutations. This has a few benefits:
 
 - Rosé and the source files always have the same metadata. If they drift, `rose
   cache update` will rebuild the cache such that it fully matches the source
-  files. And if the watchdog is running, there should not be any drift.
+  files. And if `rose cache watch` is running, there should not be any drift.
 - Rosé is easily synchronized across machines. As long as the source
   files are synchronized, Rosé will rebuild the exact same cache regardless of
   machine.
 
-Rosé writes `.rose.{uuid}.toml` files into each album's directory as a way to
+Rosé writes `.rose.{uuid}.toml` files into each release's directory as a way to
 preserve release-level state and keep release UUIDs consistent across full
 cache rebuilds.
 

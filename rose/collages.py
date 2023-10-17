@@ -1,11 +1,15 @@
+import json
 import logging
 from pathlib import Path
+from typing import Any
 
 import tomli_w
 import tomllib
 
 from rose.cache import (
     get_release_id_from_virtual_dirname,
+    list_collage_releases,
+    list_collages,
     update_cache_evict_nonexistent_collages,
     update_cache_for_collages,
 )
@@ -62,6 +66,16 @@ def create_collage(c: Config, collage_name: str) -> None:
 def delete_collage(c: Config, collage_name: str) -> None:
     collage_path(c, collage_name).unlink()
     update_cache_evict_nonexistent_collages(c)
+
+
+def print_collages(c: Config) -> None:
+    out: dict[str, list[dict[str, Any]]] = {}
+    collage_names = list(list_collages(c))
+    for name in collage_names:
+        out[name] = []
+        for pos, virtual_dirname in list_collage_releases(c, name):
+            out[name].append({"position": pos, "release": virtual_dirname})
+    print(json.dumps(out))
 
 
 def collage_path(c: Config, name: str) -> Path:

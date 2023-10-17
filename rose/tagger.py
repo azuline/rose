@@ -14,7 +14,7 @@ import mutagen.oggopus
 import mutagen.oggvorbis
 
 from rose.artiststr import Artists, parse_artist_string
-from rose.errors import RoseError
+from rose.common import RoseError
 
 TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")
 YEAR_REGEX = re.compile(r"\d{4}$")

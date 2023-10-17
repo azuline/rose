@@ -1,5 +1,10 @@
 import re
 
+
+class RoseError(Exception):
+    pass
+
+
 ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]+')
 
 

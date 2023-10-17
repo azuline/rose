@@ -15,8 +15,8 @@ import tomllib
 import uuid6
 
 from rose.artiststr import format_artist_string
+from rose.common import sanitize_filename
 from rose.config import Config
-from rose.sanitize import sanitize_filename
 from rose.tagger import AudioFile
 
 logger = logging.getLogger(__name__)
@@ -1140,6 +1140,7 @@ def get_release_id_from_virtual_dirname(c: Config, release_virtual_dirname: str)
             (release_virtual_dirname,),
         )
         if row := cursor.fetchone():
+            assert isinstance(row["id"], str)
             return row["id"]
     return None
 
