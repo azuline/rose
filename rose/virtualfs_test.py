@@ -36,17 +36,17 @@ def test_virtual_filesystem(config: Config) -> None:
 
         assert not (root / "lalala").exists()
 
-        assert (root / "Albums").is_dir()
-        assert (root / "Albums" / "r1").is_dir()
-        assert not (root / "Albums" / "lalala").exists()
-        assert (root / "Albums" / "r1" / "01.m4a").is_file()
-        assert not (root / "Albums" / "r1" / "lala.m4a").exists()
-        assert can_read(root / "Albums" / "r1" / "01.m4a")
+        assert (root / "Releases").is_dir()
+        assert (root / "Releases" / "r1").is_dir()
+        assert not (root / "Releases" / "lalala").exists()
+        assert (root / "Releases" / "r1" / "01.m4a").is_file()
+        assert not (root / "Releases" / "r1" / "lala.m4a").exists()
+        assert can_read(root / "Releases" / "r1" / "01.m4a")
 
-        assert (root / "Albums" / "r2" / "cover.jpg").is_file()
-        assert can_read(root / "Albums" / "r2" / "cover.jpg")
-        assert not (root / "Albums" / "r1" / "cover.jpg").exists()
-        assert not (root / "Albums" / "r2" / "cover.png").exists()
+        assert (root / "Releases" / "r2" / "cover.jpg").is_file()
+        assert can_read(root / "Releases" / "r2" / "cover.jpg")
+        assert not (root / "Releases" / "r1" / "cover.jpg").exists()
+        assert not (root / "Releases" / "r2" / "cover.png").exists()
 
         assert (root / "Artists").is_dir()
         assert (root / "Artists" / "Bass Man").is_dir()

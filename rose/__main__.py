@@ -6,7 +6,12 @@ from pathlib import Path
 import click
 
 from rose.cache import migrate_database, update_cache
-from rose.collages import print_collages
+from rose.collages import (
+    add_release_to_collage,
+    delete_release_from_collage,
+    edit_collage_in_editor,
+    print_collages,
+)
 from rose.config import Config
 from rose.releases import print_releases
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
@@ -92,6 +97,41 @@ def print1(ctx: Context) -> None:
 @cli.group()
 def collages() -> None:
     """Manage collages."""
+
+
+@collages.command()
+@click.argument("collage", type=str, nargs=1)
+@click.argument("release", type=str, nargs=1)
+@click.pass_obj
+def add(ctx: Context, collage: str, release: str) -> None:
+    """
+    Add a release to a collage. Accepts a collage name and a release's UUID or virtual fs dirname
+    (both are accepted).
+    """
+    add_release_to_collage(ctx.config, collage, release)
+
+
+@collages.command(name="del")
+@click.argument("collage", type=str, nargs=1)
+@click.argument("release", type=str, nargs=1)
+@click.pass_obj
+def del_(ctx: Context, collage: str, release: str) -> None:
+    """
+    Delete a release from a collage. Accepts a collage name and a release's UUID or virtual fs
+    dirname (both are accepted).
+    """
+    delete_release_from_collage(ctx.config, collage, release)
+
+
+@collages.command()
+@click.argument("collage", type=str, nargs=1)
+@click.pass_obj
+def edit(ctx: Context, collage: str) -> None:
+    """
+    Edit a collage in $EDITOR. Reorder lines to update the ordering of releases. Delete lines to
+    delete releases from the collage.
+    """
+    edit_collage_in_editor(ctx.config, collage)
 
 
 @collages.command(name="print")

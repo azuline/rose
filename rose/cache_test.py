@@ -489,6 +489,11 @@ def test_get_release_id_from_virtual_dirname(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
+def test_get_release_virtual_dirname_from_id(config: Config) -> None:
+    assert get_release_id_from_virtual_dirname(config, "r1") == "r1"
+
+
+@pytest.mark.usefixtures("seeded_cache")
 def test_list_artists(config: Config) -> None:
     artists = list(list_artists(config))
     assert set(artists) == {"Techno Man", "Bass Man", "Violin Woman", "Conductor Woman"}

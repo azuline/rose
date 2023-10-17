@@ -1145,6 +1145,18 @@ def get_release_id_from_virtual_dirname(c: Config, release_virtual_dirname: str)
     return None
 
 
+def get_release_virtual_dirname_from_id(c: Config, uuid: str) -> str | None:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT virtual_dirname FROM releases WHERE id = ?",
+            (uuid,),
+        )
+        if row := cursor.fetchone():
+            assert isinstance(row["virtual_dirname"], str)
+            return row["virtual_dirname"]
+    return None
+
+
 def list_artists(c: Config) -> Iterator[str]:
     with connect(c) as conn:
         cursor = conn.execute("SELECT DISTINCT artist FROM releases_artists")
