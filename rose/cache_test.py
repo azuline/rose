@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+import tomllib
 
 from rose.cache import (
     CACHE_SCHEMA_PATH,
@@ -23,8 +24,8 @@ from rose.cache import (
     migrate_database,
     release_exists,
     track_exists,
+    update_cache,
     update_cache_delete_nonexistent_releases,
-    update_cache_for_all_releases,
     update_cache_for_releases,
 )
 from rose.config import Config
@@ -60,9 +61,33 @@ def test_migration(config: Config) -> None:
 TESTDATA = Path(__file__).resolve().parent.parent / "testdata" / "cache"
 TEST_RELEASE_1 = TESTDATA / "Test Release 1"
 TEST_RELEASE_2 = TESTDATA / "Test Release 2"
+TEST_COLLAGE_1 = TESTDATA / "Collage 1"
 
 
-def test_update_cache_for_release(config: Config) -> None:
+def test_update_cache_all(config: Config) -> None:
+    """Test that the update all function works."""
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+
+    # Test that we prune deleted releases too.
+    with connect(config) as conn:
+        conn.execute(
+            """
+            INSERT INTO releases (id, source_path, virtual_dirname, datafile_mtime, title, release_type, multidisc, formatted_artists)
+            VALUES ('aaaaaa', '/nonexistent', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
+            """  # noqa: E501
+        )
+
+    update_cache(config)
+
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        assert cursor.fetchone()[0] == 2
+        cursor = conn.execute("SELECT COUNT(*) FROM tracks")
+        assert cursor.fetchone()[0] == 4
+
+
+def test_update_cache_releases(config: Config) -> None:
     release_dir = config.music_source_dir / TEST_RELEASE_1.name
     shutil.copytree(TEST_RELEASE_1, release_dir)
     update_cache_for_releases(config, [release_dir])
@@ -156,7 +181,7 @@ def test_update_cache_for_release(config: Config) -> None:
             }
 
 
-def test_update_cache_uncached_release_with_existing_id(config: Config) -> None:
+def test_update_cache_releases_uncached_with_existing_id(config: Config) -> None:
     """Test that IDs in filenames are read and preserved."""
     release_dir = config.music_source_dir / TEST_RELEASE_2.name
     shutil.copytree(TEST_RELEASE_2, release_dir)
@@ -170,7 +195,7 @@ def test_update_cache_uncached_release_with_existing_id(config: Config) -> None:
     assert release_id == "ilovecarly"  # Hardcoded ID for testing.
 
 
-def test_update_cache_already_fully_cached_release(config: Config) -> None:
+def test_update_cache_releases_already_fully_cached(config: Config) -> None:
     """Test that a fully cached release No Ops when updated again."""
     release_dir = config.music_source_dir / TEST_RELEASE_1.name
     shutil.copytree(TEST_RELEASE_1, release_dir)
@@ -190,7 +215,7 @@ def test_update_cache_already_fully_cached_release(config: Config) -> None:
         assert row["new"]
 
 
-def test_update_cache_disk_update_to_cached_release(config: Config) -> None:
+def test_update_cache_releases_disk_update_to_previously_cached(config: Config) -> None:
     """Test that a cached release is updated after a track updates."""
     release_dir = config.music_source_dir / TEST_RELEASE_1.name
     shutil.copytree(TEST_RELEASE_1, release_dir)
@@ -215,7 +240,7 @@ def test_update_cache_disk_update_to_cached_release(config: Config) -> None:
         assert row["new"]
 
 
-def test_update_cache_disk_update_to_datafile(config: Config) -> None:
+def test_update_cache_releases_disk_update_to_datafile(config: Config) -> None:
     """Test that a cached release is updated after a datafile updates."""
     release_dir = config.music_source_dir / TEST_RELEASE_1.name
     shutil.copytree(TEST_RELEASE_1, release_dir)
@@ -231,7 +256,7 @@ def test_update_cache_disk_update_to_datafile(config: Config) -> None:
         assert row["new"]
 
 
-def test_update_cache_disk_upgrade_old_datafile(config: Config) -> None:
+def test_update_cache_releases_disk_upgrade_old_datafile(config: Config) -> None:
     """Test that a legacy invalid datafile is upgraded on index."""
     release_dir = config.music_source_dir / TEST_RELEASE_1.name
     shutil.copytree(TEST_RELEASE_1, release_dir)
@@ -249,7 +274,7 @@ def test_update_cache_disk_upgrade_old_datafile(config: Config) -> None:
         assert "new = true" in fp.read()
 
 
-def test_update_cache_disk_directory_renamed(config: Config) -> None:
+def test_update_cache_releases_source_path_renamed(config: Config) -> None:
     """Test that a cached release is updated after a directory rename."""
     release_dir = config.music_source_dir / TEST_RELEASE_1.name
     shutil.copytree(TEST_RELEASE_1, release_dir)
@@ -271,7 +296,7 @@ def test_update_cache_disk_directory_renamed(config: Config) -> None:
         assert row["new"]
 
 
-def test_update_cache_delete_nonexistent_releases(config: Config) -> None:
+def test_update_cache_releases_delete_nonexistent(config: Config) -> None:
     """Test that deleted releases that are no longer on disk are cleared from cache."""
     with connect(config) as conn:
         conn.execute(
@@ -286,30 +311,7 @@ def test_update_cache_delete_nonexistent_releases(config: Config) -> None:
         assert cursor.fetchone()[0] == 0
 
 
-def test_update_cache_for_all_releases(config: Config) -> None:
-    """Test that the update all function works."""
-    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
-    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
-
-    # Test that we prune deleted releases too.
-    with connect(config) as conn:
-        conn.execute(
-            """
-            INSERT INTO releases (id, source_path, virtual_dirname, datafile_mtime, title, release_type, multidisc, formatted_artists)
-            VALUES ('aaaaaa', '/nonexistent', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
-            """  # noqa: E501
-        )
-
-    update_cache_for_all_releases(config)
-
-    with connect(config) as conn:
-        cursor = conn.execute("SELECT COUNT(*) FROM releases")
-        assert cursor.fetchone()[0] == 2
-        cursor = conn.execute("SELECT COUNT(*) FROM tracks")
-        assert cursor.fetchone()[0] == 4
-
-
-def test_update_cache_skips_empty_directory(config: Config) -> None:
+def test_update_cache_releases_skips_empty_directory(config: Config) -> None:
     """Test that an directory with no audio files is skipped."""
     rd = config.music_source_dir / "lalala"
     rd.mkdir()
@@ -320,7 +322,7 @@ def test_update_cache_skips_empty_directory(config: Config) -> None:
         assert cursor.fetchone()[0] == 0
 
 
-def test_update_cache_uncaches_empty_directory(config: Config) -> None:
+def test_update_cache_releases_uncaches_empty_directory(config: Config) -> None:
     """Test that a previously-cached directory with no audio files now is cleared from cache."""
     release_dir = config.music_source_dir / TEST_RELEASE_1.name
     shutil.copytree(TEST_RELEASE_1, release_dir)
@@ -331,6 +333,48 @@ def test_update_cache_uncaches_empty_directory(config: Config) -> None:
     with connect(config) as conn:
         cursor = conn.execute("SELECT COUNT(*) FROM releases")
         assert cursor.fetchone()[0] == 0
+
+
+def test_update_cache_collages(config: Config) -> None:
+    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+    shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
+    update_cache(config)
+
+    # Assert that the collage metadata was read correctly.
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT name, source_mtime FROM collages")
+        rows = cursor.fetchall()
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["name"] == "Rose Gold"
+        assert row["source_mtime"]
+
+        cursor = conn.execute("SELECT collage_name, release_id, position FROM collages_releases")
+        rows = cursor.fetchall()
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["collage_name"] == "Rose Gold"
+        assert row["release_id"] == "ilovecarly"
+        assert row["position"] == 0
+
+
+def test_update_cache_collages_nonexistent_release_id(config: Config) -> None:
+    shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
+    update_cache(config)
+
+    # Assert that a nonexistent release was not read.
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT name FROM collages")
+        assert cursor.fetchone()["name"] == "Rose Gold"
+
+        cursor = conn.execute("SELECT collage_name, release_id, position FROM collages_releases")
+        rows = cursor.fetchall()
+        assert not rows
+
+    # Assert that source file was updated to remove the release.
+    with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
+        data = tomllib.load(fp)
+    assert data["releases"] == []
 
 
 @pytest.mark.usefixtures("seeded_cache")

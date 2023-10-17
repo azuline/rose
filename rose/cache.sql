@@ -100,36 +100,30 @@ CREATE INDEX tracks_artists_track_id ON tracks_artists(track_id);
 CREATE INDEX tracks_artists_artist ON tracks_artists(artist);
 CREATE INDEX tracks_artists_artist_sanitized ON tracks_artists(artist_sanitized);
 
-CREATE TABLE collections (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    source_path TEXT UNIQUE NOT NULL,
+CREATE TABLE collages (
+    name TEXT PRIMARY KEY,
     source_mtime TEXT NOT NULL
 );
-CREATE INDEX collections_source_path ON collections(source_path);
 
-CREATE TABLE collections_releases (
-    collection_id TEXT REFERENCES collections(id) ON DELETE CASCADE,
+CREATE TABLE collages_releases (
+    collage_name TEXT REFERENCES collages(name) ON DELETE CASCADE,
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
     position INTEGER NOT NULL
 );
-CREATE INDEX collections_releases_collection_id ON collections_releases(collection_id);
-CREATE INDEX collections_releases_release_id ON collections_releases(release_id);
-CREATE UNIQUE INDEX collections_releases_collection_position ON collections_releases(collection_id, position);
+CREATE INDEX collages_releases_collage_name ON collages_releases(collage_name);
+CREATE INDEX collages_releases_release_id ON collages_releases(release_id);
+CREATE UNIQUE INDEX collages_releases_collage_position ON collages_releases(collage_name, position);
 
 CREATE TABLE playlists (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    source_path TEXT UNIQUE NOT NULL,
+    name TEXT PRIMARY KEY,
     source_mtime TEXT NOT NULL
 );
-CREATE INDEX playlists_source_path ON playlists(source_path);
 
 CREATE TABLE playlists_tracks (
-    playlist_id TEXT REFERENCES playlists(id) ON DELETE CASCADE,
+    playlist_name TEXT REFERENCES playlists(name) ON DELETE CASCADE,
     track_id TEXT REFERENCES tracks(id) ON DELETE CASCADE,
     position INTEGER NOT NULL
 );
-CREATE INDEX playlists_tracks_playlist_id ON playlists_tracks(playlist_id);
+CREATE INDEX playlists_tracks_playlist_name ON playlists_tracks(playlist_name);
 CREATE INDEX playlists_tracks_track_id ON playlists_tracks(track_id);
-CREATE UNIQUE INDEX playlists_tracks_playlist_position ON playlists_tracks(playlist_id, position);
+CREATE UNIQUE INDEX playlists_tracks_playlist_position ON playlists_tracks(playlist_name, position);

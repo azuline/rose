@@ -5,7 +5,7 @@ from pathlib import Path
 
 import click
 
-from rose.cache import migrate_database, update_cache_for_all_releases
+from rose.cache import migrate_database, update_cache
 from rose.config import Config
 from rose.print import print_releases
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
@@ -47,7 +47,7 @@ def cache() -> None:
 # fmt: on
 def update(ctx: Context, force: bool) -> None:
     """Update the read cache from disk data."""
-    update_cache_for_all_releases(ctx.config, force)
+    update_cache(ctx.config, force)
 
 
 @cli.group()
@@ -61,7 +61,7 @@ def fs() -> None:
 def mount(ctx: Context, foreground: bool) -> None:
     """Mount the virtual library."""
     # Trigger a cache refresh in the background when we first mount the filesystem.
-    p = Process(target=update_cache_for_all_releases, args=[ctx.config, False])
+    p = Process(target=update_cache, args=[ctx.config, False])
     try:
         p.start()
         mount_virtualfs(ctx.config, foreground)

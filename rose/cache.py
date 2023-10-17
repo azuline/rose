@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
 import tomli_w
 import tomllib
@@ -116,6 +117,20 @@ class CachedTrack:
 
 
 @dataclass
+class CachedCollage:
+    name: str
+    source_mtime: str
+    release_ids: list[str]
+
+
+@dataclass
+class CachedPlaylist:
+    name: str
+    source_mtime: str
+    track_ids: list[str]
+
+
+@dataclass
 class StoredDataFile:
     new: bool
 
@@ -149,13 +164,14 @@ SUPPORTED_RELEASE_TYPES = [
 STORED_DATA_FILE_REGEX = re.compile(r"\.rose\.([^.]+)\.toml")
 
 
-def update_cache_for_all_releases(c: Config, force: bool = False) -> None:
+def update_cache(c: Config, force: bool = False) -> None:
     """
     Update the read cache to match the data for all releases in the music source directory. Delete
     any cached releases that are no longer present on disk.
     """
     dirs = [Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()]
     update_cache_for_releases(c, dirs, force)
+    update_cache_for_collages(c, force)
     update_cache_delete_nonexistent_releases(c)
 
 
@@ -220,21 +236,21 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path], force: bool =
             rf"""
             WITH genres AS (
                 SELECT
-                    release_id,
-                    GROUP_CONCAT(genre, ' \\ ') AS genres
+                    release_id
+                  , GROUP_CONCAT(genre, ' \\ ') AS genres
                 FROM releases_genres
                 GROUP BY release_id
             ), labels AS (
                 SELECT
-                    release_id,
-                    GROUP_CONCAT(label, ' \\ ') AS labels
+                    release_id
+                  , GROUP_CONCAT(label, ' \\ ') AS labels
                 FROM releases_labels
                 GROUP BY release_id
             ), artists AS (
                 SELECT
-                    release_id,
-                    GROUP_CONCAT(artist, ' \\ ') AS names,
-                    GROUP_CONCAT(role, ' \\ ') AS roles
+                    release_id
+                  , GROUP_CONCAT(artist, ' \\ ') AS names
+                  , GROUP_CONCAT(role, ' \\ ') AS roles
                 FROM releases_artists
                 GROUP BY release_id
             )
@@ -294,9 +310,9 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path], force: bool =
             rf"""
             WITH artists AS (
                 SELECT
-                    track_id,
-                    GROUP_CONCAT(artist, ' \\ ') AS names,
-                    GROUP_CONCAT(role, ' \\ ') AS roles
+                    track_id
+                  , GROUP_CONCAT(artist, ' \\ ') AS names
+                  , GROUP_CONCAT(role, ' \\ ') AS roles
                 FROM tracks_artists
                 GROUP BY track_id
             )
@@ -476,7 +492,7 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path], force: bool =
                 track_mtime = str(os.stat(track_path).st_mtime)
                 # Skip re-read if we can reuse a cached entry.
                 if cached_track and track_mtime == cached_track.source_mtime and not force:
-                    logger.debug(f"Track cache hit (mtime) for {f}, reusing cached data")
+                    logger.debug(f"Track cache hit (mtime) for {f.name}, reusing cached data")
                     tracks.append(cached_track)
                     unknown_cached_tracks.remove(str(track_path))
                     continue
@@ -787,7 +803,129 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path], force: bool =
                         (track.id, art.name, sanitize_filename(art.name), art.role, art.role),
                     )
 
-    logger.debug(f"Update loop time {time.time() - loop_start=}")
+    logger.debug(f"Release update loop time {time.time() - loop_start=}")
+
+
+def update_cache_for_collages(c: Config, force: bool = False) -> None:
+    """
+    Update the read cache to match the data for all stored collages.
+
+    This is performance-optimized in the same way as the update releases function. We:
+
+    1. Execute one big SQL query at the start to fetch the relevant previous caches.
+    2. Skip reading a file's data if the mtime has not changed since the previous cache update.
+    3. Only execute a SQLite upsert if the read data differ from the previous caches.
+    """
+    collage_dir = c.music_source_dir / "!collages"
+    collage_dir.mkdir(exist_ok=True)
+
+    files: list[tuple[Path, str, os.DirEntry[str]]] = []
+    for f in os.scandir(str(collage_dir)):
+        path = Path(f.path)
+        if path.suffix != ".toml":
+            continue
+        files.append((path.resolve(), path.stem, f))
+    logger.info(f"Refreshing the read cache for {len(files)} collages")
+
+    cached_collages: dict[str, CachedCollage] = {}
+    with connect(c) as conn:
+        cursor = conn.execute(
+            r"""
+            SELECT
+                c.name
+              , c.source_mtime
+              , COALESCE(GROUP_CONCAT(cr.release_id, ' \\ '), '') AS release_ids
+            FROM collages c
+            LEFT JOIN collages_releases cr ON cr.collage_name = c.name
+            """,
+        )
+        for row in cursor:
+            cached_collages[row["name"]] = CachedCollage(
+                name=row["name"],
+                source_mtime=row["source_mtime"],
+                release_ids=row["release_ids"].split(r" \\ "),
+            )
+
+        # We want to validate that all release IDs exist before we write them. In order to do that,
+        # we need to know which releases exist.
+        cursor = conn.execute("SELECT id FROM releases")
+        existing_release_ids = {row["id"] for row in cursor}
+
+    loop_start = time.time()
+    with connect(c) as conn:
+        for source_path, name, f in files:
+            try:
+                cached_collage = cached_collages[name]
+            except KeyError:
+                logger.debug(f"First-time unidentified collage found at {source_path}")
+                cached_collage = CachedCollage(
+                    name=name,
+                    source_mtime="",
+                    release_ids=[],
+                )
+
+            source_mtime = str(f.stat().st_mtime)
+            if source_mtime == cached_collage.source_mtime and not force:
+                logger.debug(f"Collage cache hit (mtime) for {source_path}, reusing cached data")
+
+            logger.debug(f"Collage cache miss (mtime) for {source_path}, reading data from disk")
+            cached_collage.source_mtime = source_mtime
+
+            with source_path.open("rb") as fp:
+                diskdata = tomllib.load(fp)
+
+            # Track the listed releases that no longer exist. Remove them from the collage file
+            # after.
+            nonexistent_release_idxs: list[int] = []
+            for idx, rls in enumerate(diskdata.get("releases", [])):
+                if rls["uuid"] not in existing_release_ids:
+                    nonexistent_release_idxs.append(idx)
+                    continue
+                cached_collage.release_ids.append(rls["uuid"])
+
+            conn.execute(
+                """
+                INSERT INTO collages (name, source_mtime) VALUES (?, ?)
+                ON CONFLICT (name) DO UPDATE SET source_mtime = ?
+                """,
+                (cached_collage.name, cached_collage.source_mtime, cached_collage.source_mtime),
+            )
+            conn.execute(
+                "DELETE FROM collages_releases WHERE collage_name = ?",
+                (cached_collage.name,),
+            )
+            args: list[Any] = []
+            for position, rid in enumerate(cached_collage.release_ids):
+                args.extend([cached_collage.name, rid, position])
+            if args:
+                conn.execute(
+                    f"""
+                    INSERT INTO collages_releases (collage_name, release_id, position)
+                    VALUES {','.join(['(?, ?, ?)'] * len(cached_collage.release_ids))}
+                    """,
+                    args,
+                )
+
+            logger.info(f"Applying cache updates for collage {cached_collage.name}")
+
+            if nonexistent_release_idxs:
+                new_diskdata_releases: list[dict[str, str]] = []
+                removed_releases: list[str] = []
+                for idx, rls in enumerate(diskdata.get("releases", [])):
+                    if idx in nonexistent_release_idxs:
+                        removed_releases.append(rls["description_meta"])
+                        continue
+                    new_diskdata_releases.append(rls)
+
+                with source_path.open("wb") as fp:
+                    tomli_w.dump({"releases": new_diskdata_releases}, fp)
+
+                logger.info(
+                    f"Removing nonexistent releases from collage {cached_collage.name}: "
+                    f"{','.join(removed_releases)}"
+                )
+
+    logger.debug(f"Collage update loop time {time.time() - loop_start=}")
 
 
 def list_releases(
@@ -800,21 +938,21 @@ def list_releases(
         query = r"""
             WITH genres AS (
                 SELECT
-                    release_id,
-                    GROUP_CONCAT(genre, ' \\ ') AS genres
+                    release_id
+                  , GROUP_CONCAT(genre, ' \\ ') AS genres
                 FROM releases_genres
                 GROUP BY release_id
             ), labels AS (
                 SELECT
-                    release_id,
-                    GROUP_CONCAT(label, ' \\ ') AS labels
+                    release_id
+                  , GROUP_CONCAT(label, ' \\ ') AS labels
                 FROM releases_labels
                 GROUP BY release_id
             ), artists AS (
                 SELECT
-                    release_id,
-                    GROUP_CONCAT(artist, ' \\ ') AS names,
-                    GROUP_CONCAT(role, ' \\ ') AS roles
+                    release_id
+                  , GROUP_CONCAT(artist, ' \\ ') AS names
+                  , GROUP_CONCAT(role, ' \\ ') AS roles
                 FROM releases_artists
                 GROUP BY release_id
             )
@@ -904,9 +1042,9 @@ def get_release_files(c: Config, release_virtual_dirname: str) -> ReleaseFiles:
             r"""
             WITH artists AS (
                 SELECT
-                    track_id,
-                    GROUP_CONCAT(artist, ' \\ ') AS names,
-                    GROUP_CONCAT(role, ' \\ ') AS roles
+                    track_id
+                  , GROUP_CONCAT(artist, ' \\ ') AS names
+                  , GROUP_CONCAT(role, ' \\ ') AS roles
                 FROM tracks_artists
                 GROUP BY track_id
             )
