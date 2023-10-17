@@ -112,7 +112,6 @@ CREATE TABLE collages_releases (
 );
 CREATE INDEX collages_releases_collage_name ON collages_releases(collage_name);
 CREATE INDEX collages_releases_release_id ON collages_releases(release_id);
-CREATE UNIQUE INDEX collages_releases_collage_position ON collages_releases(collage_name, position);
 
 CREATE TABLE playlists (
     name TEXT PRIMARY KEY,
@@ -126,4 +125,3 @@ CREATE TABLE playlists_tracks (
 );
 CREATE INDEX playlists_tracks_playlist_name ON playlists_tracks(playlist_name);
 CREATE INDEX playlists_tracks_track_id ON playlists_tracks(track_id);
-CREATE UNIQUE INDEX playlists_tracks_playlist_position ON playlists_tracks(playlist_name, position);

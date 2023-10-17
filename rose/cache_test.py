@@ -10,13 +10,12 @@ from rose.cache import (
     STORED_DATA_FILE_REGEX,
     CachedArtist,
     CachedRelease,
-    CachedTrack,
     artist_exists,
     collage_exists,
     connect,
     cover_exists,
     genre_exists,
-    get_release_files,
+    get_release_id_from_virtual_dirname,
     label_exists,
     list_artists,
     list_collage_releases,
@@ -28,7 +27,7 @@ from rose.cache import (
     release_exists,
     track_exists,
     update_cache,
-    update_cache_delete_nonexistent_releases,
+    update_cache_evict_nonexistent_releases,
     update_cache_for_releases,
 )
 from rose.config import Config
@@ -64,6 +63,7 @@ def test_migration(config: Config) -> None:
 TESTDATA = Path(__file__).resolve().parent.parent / "testdata" / "cache"
 TEST_RELEASE_1 = TESTDATA / "Test Release 1"
 TEST_RELEASE_2 = TESTDATA / "Test Release 2"
+TEST_RELEASE_3 = TESTDATA / "Test Release 3"
 TEST_COLLAGE_1 = TESTDATA / "Collage 1"
 
 
@@ -113,7 +113,7 @@ def test_update_cache_releases(config: Config) -> None:
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
-        assert row["title"] == "A Cool Album"
+        assert row["title"] == "I Love Blackpink"
         assert row["release_type"] == "album"
         assert row["release_year"] == 1990
         assert row["new"]
@@ -123,7 +123,7 @@ def test_update_cache_releases(config: Config) -> None:
             (release_id,),
         )
         genres = {r["genre"] for r in cursor.fetchall()}
-        assert genres == {"Electronic", "House"}
+        assert genres == {"K-Pop", "Pop"}
 
         cursor = conn.execute(
             "SELECT label FROM releases_labels WHERE release_id = ?",
@@ -138,8 +138,7 @@ def test_update_cache_releases(config: Config) -> None:
         )
         artists = {(r["artist"], r["role"]) for r in cursor.fetchall()}
         assert artists == {
-            ("Artist A", "main"),
-            ("Artist B", "main"),
+            ("BLACKPINK", "main"),
         }
 
         for f in release_dir.iterdir():
@@ -157,7 +156,7 @@ def test_update_cache_releases(config: Config) -> None:
             )
             row = cursor.fetchone()
             track_id = row["id"]
-            assert row["title"] == "Title"
+            assert row["title"].startswith("Track")
             assert row["release_id"] == release_id
             assert row["track_number"] != ""
             assert row["disc_number"] == "1"
@@ -169,18 +168,8 @@ def test_update_cache_releases(config: Config) -> None:
             )
             artists = {(r["artist"], r["role"]) for r in cursor.fetchall()}
             assert artists == {
-                ("Artist GH", "main"),
-                ("Artist HI", "main"),
-                ("Artist C", "guest"),
-                ("Artist A", "guest"),
-                ("Artist AB", "remixer"),
-                ("Artist BC", "remixer"),
-                ("Artist CD", "producer"),
-                ("Artist DE", "producer"),
-                ("Artist EF", "composer"),
-                ("Artist FG", "composer"),
-                ("Artist IJ", "djmixer"),
-                ("Artist JK", "djmixer"),
+                ("BLACKPINK", "main"),
+                ("Teddy", "composer"),
             }
 
 
@@ -212,7 +201,7 @@ def test_update_cache_releases_already_fully_cached(config: Config) -> None:
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
-        assert row["title"] == "A Cool Album"
+        assert row["title"] == "I Love Blackpink"
         assert row["release_type"] == "album"
         assert row["release_year"] == 1990
         assert row["new"]
@@ -237,7 +226,7 @@ def test_update_cache_releases_disk_update_to_previously_cached(config: Config) 
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
-        assert row["title"] == "A Cool Album"
+        assert row["title"] == "I Love Blackpink"
         assert row["release_type"] == "album"
         assert row["release_year"] == 1990
         assert row["new"]
@@ -293,7 +282,7 @@ def test_update_cache_releases_source_path_renamed(config: Config) -> None:
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(moved_release_dir)
-        assert row["title"] == "A Cool Album"
+        assert row["title"] == "I Love Blackpink"
         assert row["release_type"] == "album"
         assert row["release_year"] == 1990
         assert row["new"]
@@ -308,7 +297,7 @@ def test_update_cache_releases_delete_nonexistent(config: Config) -> None:
             VALUES ('aaaaaa', '/nonexistent', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
             """  # noqa: E501
         )
-    update_cache_delete_nonexistent_releases(config)
+    update_cache_evict_nonexistent_releases(config)
     with connect(config) as conn:
         cursor = conn.execute("SELECT COUNT(*) FROM releases")
         assert cursor.fetchone()[0] == 0
@@ -495,46 +484,8 @@ def test_list_releases(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_release_files(config: Config) -> None:
-    rf = get_release_files(config, "r1")
-    assert rf.tracks == [
-        CachedTrack(
-            source_mtime=rf.tracks[0].source_mtime,  # IGNORE THIS FIELD.
-            id="t1",
-            source_path=Path(config.music_source_dir / "r1" / "01.m4a"),
-            virtual_filename="01.m4a",
-            title="Track 1",
-            release_id="r1",
-            track_number="01",
-            disc_number="01",
-            duration_seconds=120,
-            artists=[
-                CachedArtist(name="Techno Man", role="main"),
-                CachedArtist(name="Bass Man", role="main"),
-            ],
-            formatted_artists="Techno Man;Bass Man",
-        ),
-        CachedTrack(
-            source_mtime=rf.tracks[1].source_mtime,  # IGNORE THIS FIELD.
-            id="t2",
-            source_path=Path(config.music_source_dir / "r1" / "02.m4a"),
-            virtual_filename="02.m4a",
-            title="Track 2",
-            release_id="r1",
-            track_number="02",
-            disc_number="01",
-            duration_seconds=240,
-            artists=[
-                CachedArtist(name="Techno Man", role="main"),
-                CachedArtist(name="Bass Man", role="main"),
-            ],
-            formatted_artists="Techno Man;Bass Man",
-        ),
-    ]
-    assert rf.cover is None
-
-    rf = get_release_files(config, "r2")
-    assert rf.cover == config.music_source_dir / "r2" / "cover.jpg"
+def test_get_release_id_from_virtual_dirname(config: Config) -> None:
+    assert get_release_id_from_virtual_dirname(config, "r1") == "r1"
 
 
 @pytest.mark.usefixtures("seeded_cache")

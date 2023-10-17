@@ -170,11 +170,12 @@ def update_cache(c: Config, force: bool = False) -> None:
     any cached releases that are no longer present on disk.
     """
     update_cache_for_releases(c, None, force)
+    update_cache_evict_nonexistent_releases(c)
     update_cache_for_collages(c, None, force)
-    update_cache_delete_nonexistent_releases(c)
+    update_cache_evict_nonexistent_collages(c)
 
 
-def update_cache_delete_nonexistent_releases(c: Config) -> None:
+def update_cache_evict_nonexistent_releases(c: Config) -> None:
     logger.info("Evicting cached releases that are not on disk")
     dirs = [Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()]
     with connect(c) as conn:
@@ -505,7 +506,7 @@ def update_cache_for_releases(
                     continue
 
                 # Otherwise, read tags from disk and construct a new cached_track.
-                logger.debug(f"Track cache miss for {f}, reading tags from disk")
+                logger.debug(f"Track cache miss for {f.name}, reading tags from disk")
                 tags = AudioFile.from_file(track_path)
 
                 # Now that we're here, pull the release tags. We also need them to compute the
@@ -897,7 +898,9 @@ def update_cache_for_collages(
                     nonexistent_release_idxs.append(idx)
                     continue
                 cached_collage.release_ids.append(rls["uuid"])
+            logger.debug(f"Found {len(cached_collage.release_ids)} release(s) in {source_path}")
 
+            logger.info(f"Applying cache updates for collage {cached_collage.name}")
             conn.execute(
                 """
                 INSERT INTO collages (name, source_mtime) VALUES (?, ?)
@@ -921,8 +924,6 @@ def update_cache_for_collages(
                     args,
                 )
 
-            logger.info(f"Applying cache updates for collage {cached_collage.name}")
-
             if nonexistent_release_idxs:
                 new_diskdata_releases: list[dict[str, str]] = []
                 removed_releases: list[str] = []
@@ -934,13 +935,32 @@ def update_cache_for_collages(
 
                 with source_path.open("wb") as fp:
                     tomli_w.dump({"releases": new_diskdata_releases}, fp)
-
                 logger.info(
                     f"Removing nonexistent releases from collage {cached_collage.name}: "
                     f"{','.join(removed_releases)}"
                 )
 
     logger.debug(f"Collage update loop time {time.time() - loop_start=}")
+
+
+def update_cache_evict_nonexistent_collages(c: Config) -> None:
+    logger.info("Evicting cached collages that are not on disk")
+    collage_names: list[str] = []
+    for f in os.scandir(c.music_source_dir / "!collages"):
+        p = Path(f.path)
+        if p.is_file() and p.suffix == ".toml":
+            collage_names.append(p.stem)
+
+    with connect(c) as conn:
+        conn.execute(
+            f"""
+            DELETE FROM collages
+            WHERE name NOT IN ({",".join(["?"] * len(collage_names))})
+            """,
+            collage_names,
+        )
+        for name in collage_names:
+            logger.info(f"Evicted collage {name} from cache")
 
 
 def list_releases(
@@ -1113,6 +1133,17 @@ def get_release_files(c: Config, release_virtual_dirname: str) -> ReleaseFiles:
     return rf
 
 
+def get_release_id_from_virtual_dirname(c: Config, release_virtual_dirname: str) -> str | None:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT id FROM releases WHERE virtual_dirname = ?",
+            (release_virtual_dirname,),
+        )
+        if row := cursor.fetchone():
+            return row["id"]
+    return None
+
+
 def list_artists(c: Config) -> Iterator[str]:
     with connect(c) as conn:
         cursor = conn.execute("SELECT DISTINCT artist FROM releases_artists")
@@ -1170,7 +1201,9 @@ def release_exists(c: Config, virtual_dirname: str) -> Path | None:
 
 
 def track_exists(
-    c: Config, release_virtual_dirname: str, track_virtual_filename: str
+    c: Config,
+    release_virtual_dirname: str,
+    track_virtual_filename: str,
 ) -> Path | None:
     with connect(c) as conn:
         cursor = conn.execute(
