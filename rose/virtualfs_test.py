@@ -33,6 +33,9 @@ def test_virtual_filesystem(config: Config) -> None:
 
     with startfs(config):
         root = config.fuse_mount_dir
+
+        assert not (root / "lalala").exists()
+
         assert (root / "Albums").is_dir()
         assert (root / "Albums" / "r1").is_dir()
         assert not (root / "Albums" / "lalala").exists()
@@ -72,7 +75,15 @@ def test_virtual_filesystem(config: Config) -> None:
         assert not (root / "Labels" / "Silk Music" / "r1" / "lalala").exists()
         assert can_read(root / "Labels" / "Silk Music" / "r1" / "01.m4a")
 
-        assert not (root / "lalala").exists()
+        assert (root / "Collages").is_dir()
+        assert (root / "Collages" / "Rose Gold").is_dir()
+        assert (root / "Collages" / "Ruby Red").is_dir()
+        assert not (root / "Collages" / "lalala").exists()
+        assert (root / "Collages" / "Rose Gold" / "1. r1").is_dir()
+        assert not (root / "Collages" / "Rose Gold" / "lalala").exists()
+        assert (root / "Collages" / "Rose Gold" / "1. r1" / "01.m4a").is_file()
+        assert not (root / "Collages" / "Rose Gold" / "1. r1" / "lalala").exists()
+        assert can_read(root / "Collages" / "Rose Gold" / "1. r1" / "01.m4a")
 
 
 @pytest.mark.usefixtures("seeded_cache")
