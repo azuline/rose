@@ -76,12 +76,12 @@ def unmount(ctx: Context) -> None:
     unmount_virtualfs(ctx.config)
 
 
-@cli.group()
-def print() -> None:
+@cli.group(name="print")
+def printg() -> None:
     """Print cached library data (JSON-encoded)."""
 
 
-@print.command()
+@printg.command()
 @click.pass_obj
 def albums(ctx: Context) -> None:
     """Print albums."""
