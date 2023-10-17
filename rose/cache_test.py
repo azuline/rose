@@ -12,12 +12,15 @@ from rose.cache import (
     CachedRelease,
     CachedTrack,
     artist_exists,
+    collage_exists,
     connect,
     cover_exists,
     genre_exists,
     get_release_files,
     label_exists,
     list_artists,
+    list_collage_releases,
+    list_collages,
     list_genres,
     list_labels,
     list_releases,
@@ -355,7 +358,7 @@ def test_update_cache_collages(config: Config) -> None:
         row = rows[0]
         assert row["collage_name"] == "Rose Gold"
         assert row["release_id"] == "ilovecarly"
-        assert row["position"] == 0
+        assert row["position"] == 1
 
 
 def test_update_cache_collages_nonexistent_release_id(config: Config) -> None:
@@ -553,6 +556,20 @@ def test_list_labels(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
+def test_list_collages(config: Config) -> None:
+    collages = list(list_collages(config))
+    assert set(collages) == {"Rose Gold", "Ruby Red"}
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_list_collage_releases(config: Config) -> None:
+    releases = list(list_collage_releases(config, "Rose Gold"))
+    assert set(releases) == {(0, "r1"), (1, "r2")}
+    releases = list(list_collage_releases(config, "Ruby Red"))
+    assert releases == []
+
+
+@pytest.mark.usefixtures("seeded_cache")
 def test_release_exists(config: Config) -> None:
     assert release_exists(config, "r1")
     assert not release_exists(config, "lalala")
@@ -588,3 +605,9 @@ def test_genre_exists(config: Config) -> None:
 def test_label_exists(config: Config) -> None:
     assert label_exists(config, "Silk Music")
     assert not label_exists(config, "Cotton Music")
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_collage_exists(config: Config) -> None:
+    assert collage_exists(config, "Rose Gold")
+    assert not collage_exists(config, "lalala")

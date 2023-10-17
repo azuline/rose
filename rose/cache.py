@@ -867,6 +867,7 @@ def update_cache_for_collages(c: Config, force: bool = False) -> None:
             source_mtime = str(f.stat().st_mtime)
             if source_mtime == cached_collage.source_mtime and not force:
                 logger.debug(f"Collage cache hit (mtime) for {source_path}, reusing cached data")
+                continue
 
             logger.debug(f"Collage cache miss (mtime) for {source_path}, reading data from disk")
             cached_collage.source_mtime = source_mtime
@@ -876,6 +877,7 @@ def update_cache_for_collages(c: Config, force: bool = False) -> None:
 
             # Track the listed releases that no longer exist. Remove them from the collage file
             # after.
+            cached_collage.release_ids = []
             nonexistent_release_idxs: list[int] = []
             for idx, rls in enumerate(diskdata.get("releases", [])):
                 if rls["uuid"] not in existing_release_ids:
@@ -896,7 +898,7 @@ def update_cache_for_collages(c: Config, force: bool = False) -> None:
             )
             args: list[Any] = []
             for position, rid in enumerate(cached_collage.release_ids):
-                args.extend([cached_collage.name, rid, position])
+                args.extend([cached_collage.name, rid, position + 1])
             if args:
                 conn.execute(
                     f"""
@@ -1119,6 +1121,30 @@ def list_labels(c: Config) -> Iterator[str]:
             yield row["label"]
 
 
+def list_collages(c: Config) -> Iterator[str]:
+    with connect(c) as conn:
+        cursor = conn.execute("SELECT DISTINCT name FROM collages")
+        for row in cursor:
+            yield row["name"]
+
+
+def list_collage_releases(c: Config, collage_name: str) -> Iterator[tuple[int, str]]:
+    """Returns tuples of (position, release_virtual_dirname)."""
+    with connect(c) as conn:
+        cursor = conn.execute(
+            """
+            SELECT cr.position, r.virtual_dirname 
+            FROM collages_releases cr
+            JOIN releases r ON r.id = cr.release_id
+            WHERE cr.collage_name = ?
+            ORDER BY cr.position
+            """,
+            (collage_name,),
+        )
+        for row in cursor:
+            yield (row["position"], row["virtual_dirname"])
+
+
 def release_exists(c: Config, virtual_dirname: str) -> Path | None:
     with connect(c) as conn:
         cursor = conn.execute(
@@ -1187,5 +1213,14 @@ def label_exists(c: Config, label_sanitized: str) -> bool:
         cursor = conn.execute(
             "SELECT EXISTS(SELECT * FROM releases_labels WHERE label_sanitized = ?)",
             (label_sanitized,),
+        )
+        return bool(cursor.fetchone()[0])
+
+
+def collage_exists(c: Config, name: str) -> bool:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT EXISTS(SELECT * FROM collages WHERE name = ?)",
+            (name,),
         )
         return bool(cursor.fetchone()[0])

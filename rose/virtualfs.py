@@ -12,11 +12,14 @@ import fuse
 
 from rose.cache import (
     artist_exists,
+    collage_exists,
     cover_exists,
     genre_exists,
     get_release_files,
     label_exists,
     list_artists,
+    list_collage_releases,
+    list_collages,
     list_genres,
     list_labels,
     list_releases,
@@ -69,6 +72,9 @@ class VirtualFS(fuse.Operations):  # type: ignore
         elif p.label:
             if label_exists(self.config, p.label) and p.label not in self.hide_labels_set:
                 return mkstat("dir")
+        elif p.collage:
+            if collage_exists(self.config, p.collage):
+                return mkstat("dir")
         elif p.view:
             return mkstat("dir")
 
@@ -87,6 +93,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 "Artists",
                 "Genres",
                 "Labels",
+                "Collages",
             ]
         elif p.album:
             rf = get_release_files(self.config, p.album)
@@ -123,6 +130,14 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 if label in self.hide_labels_set:
                     continue
                 yield sanitize_filename(label)
+        elif p.view == "Collages" and p.collage:
+            releases = list(list_collage_releases(self.config, p.collage))
+            pad_size = max(len(str(r[0])) for r in releases)
+            for idx, virtual_dirname in releases:
+                yield f"{str(idx).zfill(pad_size)}. {virtual_dirname}"
+        elif p.view == "Collages":
+            # Don't need to sanitize because the collage names come from filenames.
+            yield from list_collages(self.config)
         else:
             raise fuse.FuseOSError(errno.ENOENT)
 
@@ -156,10 +171,11 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
 @dataclass
 class ParsedPath:
-    view: Literal["Root", "Albums", "Artists", "Genres", "Labels"] | None
+    view: Literal["Root", "Albums", "Artists", "Genres", "Labels", "Collages"] | None
     artist: str | None = None
     genre: str | None = None
     label: str | None = None
+    collage: str | None = None
     album: str | None = None
     file: str | None = None
 
@@ -210,6 +226,34 @@ def parse_virtual_path(path: str) -> ParsedPath:
             return ParsedPath(view="Labels", label=parts[1], album=parts[2])
         if len(parts) == 4:
             return ParsedPath(view="Labels", label=parts[1], album=parts[2], file=parts[3])
+        raise fuse.FuseOSError(errno.ENOENT)
+
+    # In collages, we print directories with position of the release in the collage. When parsing,
+    # strip it out. Otherwise we will have to handle this parsing in every method.
+    if parts[0] == "Collages":
+        if len(parts) == 1:
+            return ParsedPath(view="Collages")
+        if len(parts) == 2:
+            return ParsedPath(view="Collages", collage=parts[1])
+        if len(parts) == 3:
+            try:
+                return ParsedPath(
+                    view="Collages",
+                    collage=parts[1],
+                    album=parts[2].split(". ", maxsplit=1)[1],
+                )
+            except IndexError:
+                pass
+        if len(parts) == 4:
+            try:
+                return ParsedPath(
+                    view="Collages",
+                    collage=parts[1],
+                    album=parts[2].split(". ", maxsplit=1)[1],
+                    file=parts[3],
+                )
+            except IndexError:
+                pass
         raise fuse.FuseOSError(errno.ENOENT)
 
     raise fuse.FuseOSError(errno.ENOENT)

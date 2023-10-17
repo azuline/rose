@@ -111,6 +111,16 @@ VALUES ('t1'    , 'Techno Man'     , 'Techno Man'     , 'main')
      , ('t2'    , 'Bass Man'       , 'Bass Man'       , 'main')
      , ('t3'    , 'Violin Woman'   , 'Violin Woman'   , 'main')
      , ('t3'    , 'Conductor Woman', 'Conductor Woman', 'guest');
+
+INSERT INTO collages
+       (name       , source_mtime)
+VALUES ('Rose Gold', '999')
+     , ('Ruby Red' , '999');
+
+INSERT INTO collages_releases
+       (collage_name, release_id, position)
+VALUES ('Rose Gold' , 'r1'      , 0)
+     , ('Rose Gold' , 'r2'      , 1);
             """  # noqa: E501
         )
 
