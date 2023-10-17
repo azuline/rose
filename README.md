@@ -126,13 +126,22 @@ located at `${XDG_CONFIG_HOME:-$HOME/.config}/rose/config.toml`.
 The configuration parameters, with examples, are:
 
 ```toml
+# === Required values ===
+
 # The directory containing the music to manage.
 music_source_dir = "~/.music-source"
 # The directory to mount the library's virtual filesystem on.
 fuse_mount_dir = "~/music"
+
+# === Optional values ===
+
 # The directory to write the cache to. Defaults to
 # `${XDG_CACHE_HOME:-$HOME/.cache}/rose`.
 cache_dir = "~/.cache/rose"
+# Artists, genres, and labels to hide from the virtual filesystem navigation.
+fuse_hide_artists = [ "xxx" ]
+fuse_hide_genres = [ "xxx" ]
+fuse_hide_labels = [ "xxx" ]
 ```
 
 The `--config/-c` flag overrides the config location.

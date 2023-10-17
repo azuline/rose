@@ -1,5 +1,4 @@
 import errno
-import functools
 import logging
 import os
 import stat
@@ -33,41 +32,44 @@ logger = logging.getLogger(__name__)
 class VirtualFS(fuse.Operations):  # type: ignore
     def __init__(self, config: Config):
         self.config = config
+        self.hide_artists_set = set(config.fuse_hide_artists)
+        self.hide_genres_set = set(config.fuse_hide_genres)
+        self.hide_labels_set = set(config.fuse_hide_labels)
+        self.getattr_cache: dict[str, dict[str, Any]] = {}
         super().__init__()
 
     def getattr(self, path: str, _: int) -> dict[str, Any]:
         logger.debug(f"Received getattr for {path}")
-        return self._cached_getattr(self.config, path)
 
-    @staticmethod
-    @functools.lru_cache(maxsize=69696)
-    def _cached_getattr(config: Config, path: str) -> dict[str, Any]:
         # We cache the getattr call with lru_cache because this is called _extremely_ often. Like
         # for every node that we see in the output of `ls`.
+        try:
+            return self.getattr_cache[path]
+        except KeyError:
+            pass
+
         logger.debug(f"Recomputing uncached getattr for {path}")
         p = parse_virtual_path(path)
         logger.debug(f"Parsed getattr path as {p}")
 
-        if p.view == "Root":
-            return mkstat("dir")
-        elif p.album and p.file:
-            if tp := track_exists(config, p.album, p.file):
+        if p.album and p.file:
+            if tp := track_exists(self.config, p.album, p.file):
                 return mkstat("file", tp)
-            if cp := cover_exists(config, p.album, p.file):
+            if cp := cover_exists(self.config, p.album, p.file):
                 return mkstat("file", cp)
         elif p.album:
-            if rp := release_exists(config, p.album):
+            if rp := release_exists(self.config, p.album):
                 return mkstat("dir", rp)
         elif p.artist:
-            if artist_exists(config, p.artist):
+            if artist_exists(self.config, p.artist) and p.artist not in self.hide_artists_set:
                 return mkstat("dir")
         elif p.genre:
-            if genre_exists(config, p.genre):
+            if genre_exists(self.config, p.genre) and p.genre not in self.hide_genres_set:
                 return mkstat("dir")
         elif p.label:
-            if label_exists(config, p.label):
+            if label_exists(self.config, p.label) and p.label not in self.hide_labels_set:
                 return mkstat("dir")
-        else:
+        elif p.view:
             return mkstat("dir")
 
         raise fuse.FuseOSError(errno.ENOENT)
@@ -93,6 +95,12 @@ class VirtualFS(fuse.Operations):  # type: ignore
             if rf.cover:
                 yield rf.cover.name
         elif p.artist or p.genre or p.label or p.view == "Albums":
+            if (
+                (p.artist and p.artist in self.hide_artists_set)
+                or (p.genre and p.genre in self.hide_genres_set)
+                or (p.label and p.label in self.hide_labels_set)
+            ):
+                raise fuse.FuseOSError(errno.ENOENT)
             for album in list_releases(
                 self.config,
                 sanitized_artist_filter=p.artist,
@@ -102,12 +110,18 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 yield album.virtual_dirname
         elif p.view == "Artists":
             for artist in list_artists(self.config):
+                if artist in self.hide_artists_set:
+                    continue
                 yield sanitize_filename(artist)
         elif p.view == "Genres":
             for genre in list_genres(self.config):
+                if genre in self.hide_genres_set:
+                    continue
                 yield sanitize_filename(genre)
         elif p.view == "Labels":
             for label in list_labels(self.config):
+                if label in self.hide_labels_set:
+                    continue
                 yield sanitize_filename(label)
         else:
             raise fuse.FuseOSError(errno.ENOENT)

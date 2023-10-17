@@ -50,6 +50,9 @@ def config(isolated_dir: Path) -> Config:
         fuse_mount_dir=mount_dir,
         cache_dir=cache_dir,
         cache_database_path=cache_database_path,
+        fuse_hide_artists=[],
+        fuse_hide_genres=[],
+        fuse_hide_labels=[],
     )
 
 

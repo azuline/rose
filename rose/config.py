@@ -29,6 +29,10 @@ class Config:
     cache_dir: Path
     cache_database_path: Path
 
+    fuse_hide_artists: list[str]
+    fuse_hide_genres: list[str]
+    fuse_hide_labels: list[str]
+
     @classmethod
     def read(cls, config_path_override: Path | None = None) -> Config:
         cfgpath = config_path_override or CONFIG_PATH
@@ -49,6 +53,9 @@ class Config:
                 fuse_mount_dir=Path(data["fuse_mount_dir"]).expanduser(),
                 cache_dir=cache_dir,
                 cache_database_path=cache_dir / "cache.sqlite3",
+                fuse_hide_artists=data.get("fuse_hide_artists", []),
+                fuse_hide_genres=data.get("fuse_hide_genres", []),
+                fuse_hide_labels=data.get("fuse_hide_labels", []),
             )
         except KeyError as e:
             raise MissingConfigKeyError(f"Missing key in configuration file: {e}") from e

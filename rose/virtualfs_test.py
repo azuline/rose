@@ -1,6 +1,7 @@
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import asdict
 from multiprocessing import Process
 from pathlib import Path
 
@@ -72,3 +73,20 @@ def test_virtual_filesystem(config: Config) -> None:
         assert can_read(root / "Labels" / "Silk Music" / "r1" / "01.m4a")
 
         assert not (root / "lalala").exists()
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_virtual_filesystem_hide_values(config: Config) -> None:
+    new_config = Config(
+        **{
+            **asdict(config),
+            "fuse_hide_artists": ["Bass Man"],
+            "fuse_hide_genres": ["Techno"],
+            "fuse_hide_labels": ["Silk Music"],
+        },
+    )
+    with startfs(new_config):
+        root = config.fuse_mount_dir
+        assert not (root / "Artists" / "Bass Man").exists()
+        assert not (root / "Genres" / "Techno").exists()
+        assert not (root / "Labels" / "Silk Music").exists()
