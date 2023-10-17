@@ -17,6 +17,7 @@ setuptools.setup(
         "click",
         "fusepy",
         "mutagen",
+        "send2trash",
         "tomli-w",
         "uuid6",
     ],

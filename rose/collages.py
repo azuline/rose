@@ -6,23 +6,19 @@ from typing import Any
 import click
 import tomli_w
 import tomllib
+from send2trash import send2trash
 
 from rose.cache import (
-    get_release_id_from_virtual_dirname,
-    get_release_virtual_dirname_from_id,
     list_collage_releases,
     list_collages,
     update_cache_evict_nonexistent_collages,
     update_cache_for_collages,
 )
-from rose.common import RoseError, valid_uuid
+from rose.common import RoseError
 from rose.config import Config
+from rose.releases import resolve_release_ids
 
 logger = logging.getLogger(__name__)
-
-
-class ReleaseDoesNotExistError(RoseError):
-    pass
 
 
 class DescriptionMismatchError(RoseError):
@@ -35,7 +31,16 @@ def create_collage(c: Config, collage_name: str) -> None:
 
 
 def delete_collage(c: Config, collage_name: str) -> None:
-    collage_path(c, collage_name).unlink()
+    send2trash(collage_path(c, collage_name))
+    update_cache_evict_nonexistent_collages(c)
+
+
+def rename_collage(c: Config, old_name: str, new_name: str) -> None:
+    logger.info(f"Renaming collage {old_name} to {new_name}")
+    old_path = collage_path(c, old_name)
+    new_path = collage_path(c, new_name)
+    old_path.rename(new_path)
+    update_cache_for_collages(c, [new_name], force=True)
     update_cache_evict_nonexistent_collages(c)
 
 
@@ -70,7 +75,7 @@ def add_release_to_collage(
     # collage entries.
     for r in data["releases"]:
         if r["uuid"] == release_id:
-            logger.debug(f"No-Opping: Release {release_dirname} already in collage {collage_name}.")
+            logger.debug(f"No-Opping: Release {release_dirname} already in collage {collage_name}")
             return
     data["releases"].append({"uuid": release_id, "description_meta": release_dirname})
     with fpath.open("wb") as fp:
@@ -116,21 +121,9 @@ def edit_collage_in_editor(c: Config, collage_name: str) -> None:
 
     with fpath.open("wb") as fp:
         tomli_w.dump(data, fp)
-    logger.info(f"Edited collage {collage_name} from EDITOR.")
+    logger.info(f"Edited collage {collage_name} from EDITOR")
     update_cache_for_collages(c, [collage_name], force=True)
 
 
 def collage_path(c: Config, name: str) -> Path:
     return c.music_source_dir / "!collages" / f"{name}.toml"
-
-
-def resolve_release_ids(c: Config, release_id_or_virtual_dirname: str) -> tuple[str, str]:
-    if valid_uuid(release_id_or_virtual_dirname):
-        uuid = release_id_or_virtual_dirname
-        virtual_dirname = get_release_virtual_dirname_from_id(c, uuid)
-    else:
-        virtual_dirname = release_id_or_virtual_dirname
-        uuid = get_release_id_from_virtual_dirname(c, virtual_dirname)  # type: ignore
-    if uuid is None or virtual_dirname is None:
-        raise ReleaseDoesNotExistError(f"Release {uuid} ({virtual_dirname}) does not exist.")
-    return uuid, virtual_dirname

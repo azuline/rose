@@ -1157,6 +1157,17 @@ def get_release_virtual_dirname_from_id(c: Config, uuid: str) -> str | None:
     return None
 
 
+def get_release_source_path_from_id(c: Config, uuid: str) -> Path | None:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT source_path FROM releases WHERE id = ?",
+            (uuid,),
+        )
+        if row := cursor.fetchone():
+            return Path(row["source_path"])
+    return None
+
+
 def list_artists(c: Config) -> Iterator[str]:
     with connect(c) as conn:
         cursor = conn.execute("SELECT DISTINCT artist FROM releases_artists")

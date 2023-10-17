@@ -26,8 +26,16 @@ from rose.cache import (
     release_exists,
     track_exists,
 )
+from rose.collages import (
+    add_release_to_collage,
+    create_collage,
+    delete_collage,
+    delete_release_from_collage,
+    rename_collage,
+)
 from rose.common import sanitize_filename
 from rose.config import Config
+from rose.releases import ReleaseDoesNotExistError, delete_release
 
 logger = logging.getLogger(__name__)
 
@@ -143,13 +151,6 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
     def open(self, path: str, flags: int) -> int:
         logger.debug(f"Received open for {path=} {flags=}")
-
-        # Enforce a read-only file system.
-        accmode = os.O_RDONLY | os.O_WRONLY | os.O_RDWR
-        if (flags & accmode) != os.O_RDONLY:
-            logger.debug("Raising EACCES due to a write-access open request")
-            raise fuse.FuseOSError(errno.EACCES)
-
         p = parse_virtual_path(path)
         logger.debug(f"Parsed open path as {p}")
 
@@ -161,12 +162,104 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 if track.virtual_filename == p.file:
                     return os.open(str(track.source_path), flags)
 
+        if flags & os.O_CREAT == os.O_CREAT:
+            raise fuse.FuseOSError(errno.EACCES)
         raise fuse.FuseOSError(errno.ENOENT)
 
     def read(self, path: str, length: int, offset: int, fh: int) -> bytes:
         logger.debug(f"Received read for {path=} {length=} {offset=} {fh=}")
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)
+
+    def write(self, path: str, data: bytes, offset: int, fh: int) -> int:
+        logger.debug(f"Received write for {path=} {data=} {offset=} {fh=}")
+        os.lseek(fh, offset, os.SEEK_SET)
+        return os.write(fh, data)
+
+    def release(self, path: str, fh: int) -> None:
+        logger.debug(f"Received release for {path=} {fh=}")
+        os.close(fh)
+
+    def mkdir(self, path: str, mode: int) -> None:
+        logger.debug(f"Received mkdir for {path=} {mode=}")
+        p = parse_virtual_path(path)
+
+        # Possible actions:
+        # 1. Add a release to an existing collage.
+        # 2. Create a new collage.
+        if p.view != "Collages" or (p.collage is None and p.release is None):
+            raise fuse.FuseOSError(errno.EACCES)
+        if p.collage and p.release is None:
+            create_collage(self.config, p.collage)
+        if p.collage and p.release:
+            try:
+                add_release_to_collage(self.config, p.collage, p.release)
+            except ReleaseDoesNotExistError as e:
+                logger.debug(
+                    f"Failed adding release {p.release} to collage {p.collage}: release not found."
+                )
+                raise fuse.FuseOSError(errno.ENOENT) from e
+        else:
+            raise fuse.FuseOSError(errno.EACCES)
+
+    def rmdir(self, path: str) -> None:
+        logger.debug(f"Received rmdir for {path=}")
+        p = parse_virtual_path(path)
+
+        # Possible actions:
+        # 1. Delete a release from an existing collage.
+        # 2. Delete a collage.
+        if p.view == "Collages":
+            if p.collage and p.release is None:
+                delete_collage(self.config, p.collage)
+            if p.collage and p.release:
+                delete_release_from_collage(self.config, p.collage, p.release)
+            raise fuse.FuseOSError(errno.EACCES)
+        elif p.release is not None:
+            delete_release(self.config, p.release)
+        else:
+            raise fuse.FuseOSError(errno.EACCES)
+
+    def rename(self, old: str, new: str) -> None:
+        logger.debug(f"Received rename for {old=} {new=}")
+        op = parse_virtual_path(old)
+        np = parse_virtual_path(new)
+        print(op, np)
+
+        # Possible actions:
+        # 1. Rename a collage
+        if op.view == "Collages" and np.view == "Collages":
+            if op.collage and np.collage and not op.release and not np.release:
+                rename_collage(self.config, op.collage, np.collage)
+            raise fuse.FuseOSError(errno.EACCES)
+        else:
+            raise fuse.FuseOSError(errno.EACCES)
+        # TODO: Consider allowing renaming artist/genre/label here?
+
+    # To investigate:
+    # - opendir/releasedir (edit collage?)
+    #
+    # Unimplemented:
+    # - readlink
+    # - mknod
+    # - unlink
+    # - symlink
+    # - link
+    # - chmod
+    # - chown
+    # - truncate
+    # - statfs
+    # - flush
+    # - fsync
+    # - readdir
+    # - fsyncdir
+    # - destroy
+    # - access
+    # - create
+    # - ftruncate
+    # - fgetattr
+    # - lock
+    # - utimens
 
 
 @dataclass

@@ -129,7 +129,7 @@ def _convert_mutagen(m: Any, p: Path) -> AudioFile:
             ),
             duration_sec=round(m.info.length),  # type: ignore
         )
-    raise UnsupportedFiletypeError(f"{p} is not a supported audio file.")
+    raise UnsupportedFiletypeError(f"{p} is not a supported audio file")
 
 
 def _split_tag(t: str | None) -> list[str]:

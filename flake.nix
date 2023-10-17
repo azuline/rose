@@ -30,10 +30,10 @@
         click
         fusepy
         mutagen
+        send2trash
         setuptools
         tomli-w
         uuid6-python
-        pip
       ];
       dev-deps = with python.pkgs; [
         black

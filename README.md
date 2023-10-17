@@ -177,6 +177,8 @@ The virtual filesystem is mounted and unmounted by `rose fs mount` and
 
 TODO
 
+- document supported operations
+
 ## Metadata Management
 
 TODO
