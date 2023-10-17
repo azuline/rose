@@ -169,9 +169,8 @@ def update_cache(c: Config, force: bool = False) -> None:
     Update the read cache to match the data for all releases in the music source directory. Delete
     any cached releases that are no longer present on disk.
     """
-    dirs = [Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()]
-    update_cache_for_releases(c, dirs, force)
-    update_cache_for_collages(c, force)
+    update_cache_for_releases(c, None, force)
+    update_cache_for_collages(c, None, force)
     update_cache_delete_nonexistent_releases(c)
 
 
@@ -191,7 +190,12 @@ def update_cache_delete_nonexistent_releases(c: Config) -> None:
             logger.info(f"Evicted release {row['source_path']} from cache")
 
 
-def update_cache_for_releases(c: Config, release_dirs: list[Path], force: bool = False) -> None:
+def update_cache_for_releases(
+    c: Config,
+    # Leave as None to update all releases.
+    release_dirs: list[Path] | None = None,
+    force: bool = False,
+) -> None:
     """
     Update the read cache to match the data for any passed-in releases. If a directory lacks a
     .rose.{uuid}.toml datafile, create the datafile for the release and set it to the initial state.
@@ -207,6 +211,9 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path], force: bool =
     With these optimizations, we make a lot of readdir and stat calls, but minimize file and
     database accesses to solely the files that have updated since the last cache run.
     """
+    release_dirs = release_dirs or [
+        Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()
+    ]
     logger.info(f"Refreshing the read cache for {len(release_dirs)} releases")
     logger.debug(f"Refreshing cached data for {', '.join([r.name for r in release_dirs])}")
 
@@ -806,7 +813,12 @@ def update_cache_for_releases(c: Config, release_dirs: list[Path], force: bool =
     logger.debug(f"Release update loop time {time.time() - loop_start=}")
 
 
-def update_cache_for_collages(c: Config, force: bool = False) -> None:
+def update_cache_for_collages(
+    c: Config,
+    # Leave as None to update all collages.
+    collage_names: list[str] | None = None,
+    force: bool = False,
+) -> None:
     """
     Update the read cache to match the data for all stored collages.
 
@@ -824,7 +836,8 @@ def update_cache_for_collages(c: Config, force: bool = False) -> None:
         path = Path(f.path)
         if path.suffix != ".toml":
             continue
-        files.append((path.resolve(), path.stem, f))
+        if collage_names is None or path.stem in collage_names:
+            files.append((path.resolve(), path.stem, f))
     logger.info(f"Refreshing the read cache for {len(files)} collages")
 
     cached_collages: dict[str, CachedCollage] = {}
