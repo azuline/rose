@@ -58,11 +58,10 @@ def update(ctx: Context, force: bool) -> None:
 
 
 @cache.command()
-@click.option("--foreground", "-f", is_flag=True, help="Foreground the cache watcher.")
 @click.pass_obj
-def watch(ctx: Context, foreground: bool) -> None:
+def watch(ctx: Context) -> None:
     """Start a watchdog that will auto-refresh the cache on changes in music_source_dir."""
-    start_watchdog(ctx.config, foreground)
+    start_watchdog(ctx.config)
 
 
 @cli.group()

@@ -2,22 +2,23 @@ import shutil
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from multiprocessing import Process
 
 from conftest import TEST_COLLAGE_1, TEST_RELEASE_2, TEST_RELEASE_3
 from rose.cache import connect
 from rose.config import Config
-from rose.watcher import create_watchdog_observer
+from rose.watcher import start_watchdog
 
 
 @contextmanager
 def start_watcher(c: Config) -> Iterator[None]:
-    observer = create_watchdog_observer(c)
+    process = Process(target=start_watchdog, args=[c])
     try:
-        observer.start()  # type: ignore
-        time.sleep(0.05)
+        process.start()
+        time.sleep(0.1)
         yield
     finally:
-        observer.stop()  # type: ignore
+        process.terminate()
 
 
 def test_watchdog_events(config: Config) -> None:
@@ -25,21 +26,21 @@ def test_watchdog_events(config: Config) -> None:
     with start_watcher(config):
         # Create release.
         shutil.copytree(TEST_RELEASE_2, src / TEST_RELEASE_2.name)
-        time.sleep(0.05)
+        time.sleep(0.4)
         with connect(config) as conn:
             cursor = conn.execute("SELECT id FROM releases")
             assert {r["id"] for r in cursor.fetchall()} == {"ilovecarly"}
 
         # Create another release.
         shutil.copytree(TEST_RELEASE_3, src / TEST_RELEASE_3.name)
-        time.sleep(0.05)
+        time.sleep(0.4)
         with connect(config) as conn:
             cursor = conn.execute("SELECT id FROM releases")
             assert {r["id"] for r in cursor.fetchall()} == {"ilovecarly", "ilovenewjeans"}
 
         # Create collage.
         shutil.copytree(TEST_COLLAGE_1, src / "!collages")
-        time.sleep(0.05)
+        time.sleep(0.2)
         with connect(config) as conn:
             cursor = conn.execute("SELECT name FROM collages")
             assert {r["name"] for r in cursor.fetchall()} == {"Rose Gold"}
@@ -53,7 +54,7 @@ def test_watchdog_events(config: Config) -> None:
 
         # Delete release.
         shutil.rmtree(src / TEST_RELEASE_3.name)
-        time.sleep(0.05)
+        time.sleep(0.4)
         with connect(config) as conn:
             cursor = conn.execute("SELECT id FROM releases")
             assert {r["id"] for r in cursor.fetchall()} == {"ilovecarly"}
@@ -62,7 +63,7 @@ def test_watchdog_events(config: Config) -> None:
 
         # Rename release.
         (src / TEST_RELEASE_2.name).rename(src / "lalala")
-        time.sleep(0.05)
+        time.sleep(0.4)
         with connect(config) as conn:
             cursor = conn.execute("SELECT id, source_path FROM releases")
             rows = cursor.fetchall()
@@ -73,7 +74,7 @@ def test_watchdog_events(config: Config) -> None:
 
         # Rename collage.
         (src / "!collages" / "Rose Gold.toml").rename(src / "!collages" / "Black Pink.toml")
-        time.sleep(0.05)
+        time.sleep(0.2)
         with connect(config) as conn:
             cursor = conn.execute("SELECT name FROM collages")
             assert {r["name"] for r in cursor.fetchall()} == {"Black Pink"}
@@ -82,7 +83,7 @@ def test_watchdog_events(config: Config) -> None:
 
         # Delete collage.
         (src / "!collages" / "Black Pink.toml").unlink()
-        time.sleep(0.05)
+        time.sleep(0.2)
         with connect(config) as conn:
             cursor = conn.execute("SELECT COUNT(*) FROM collages")
             assert cursor.fetchone()[0] == 0
