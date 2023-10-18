@@ -268,11 +268,15 @@ Rosé has a simple uni-directional looping architecture.
 
 ```mermaid
 flowchart BT
-    M[Metadata Tooling]    -->|Writes| S
-    S[Source Files]        -->|Populates| C
-    C[Read Cache]          -->|Renders| V
-    C[Read Cache]          -->|Improves Performance| M
-    V[Virtual Filesystem]  -->|Updates| S
+    S[Source Files]
+    C[Read Cache]
+    M[Metadata Tooling]
+    V[Virtual Filesystem]
+    S -->|Populates| C
+    M -->|Reads| C
+    M -->|Writes| S
+    V -->|Writes| S
+    V -->|Reads| C
 ```
 
 This architecture takes care to ensure that there is a single source of truth
