@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import tomllib
 
+from conftest import TEST_COLLAGE_1, TEST_RELEASE_1, TEST_RELEASE_2
 from rose.cache import (
     CACHE_SCHEMA_PATH,
     STORED_DATA_FILE_REGEX,
@@ -60,13 +61,6 @@ def test_migration(config: Config) -> None:
         assert cursor.fetchone()[0] == latest_schema_hash
         cursor = conn.execute("SELECT COUNT(*) FROM _schema_hash")
         assert cursor.fetchone()[0] == 1
-
-
-TESTDATA = Path(__file__).resolve().parent.parent / "testdata" / "cache"
-TEST_RELEASE_1 = TESTDATA / "Test Release 1"
-TEST_RELEASE_2 = TESTDATA / "Test Release 2"
-TEST_RELEASE_3 = TESTDATA / "Test Release 3"
-TEST_COLLAGE_1 = TESTDATA / "Collage 1"
 
 
 def test_update_cache_all(config: Config) -> None:

@@ -54,6 +54,10 @@ ignore = [
 ]
 line-length = 100
 exclude = [".venv"]
+unfixable = [
+  # Remove unused variables.
+  "F841",
+]
 src = ["."]
 
 [tool.mypy]
@@ -69,6 +73,9 @@ module = "pytest_cov.embed"
 ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "send2trash"
+ignore_missing_imports = true
+[[tool.mypy.overrides]]
+module = "watchdog.*"
 ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "setuptools"

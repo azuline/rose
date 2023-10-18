@@ -15,6 +15,7 @@ from rose.collages import (
 from rose.config import Config
 from rose.releases import dump_releases
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
+from rose.watcher import start_watchdog
 
 
 @dataclass
@@ -54,6 +55,14 @@ def cache() -> None:
 def update(ctx: Context, force: bool) -> None:
     """Update the read cache from disk data."""
     update_cache(ctx.config, force)
+
+
+@cache.command()
+@click.option("--foreground", "-f", is_flag=True, help="Foreground the cache watcher.")
+@click.pass_obj
+def watch(ctx: Context, foreground: bool) -> None:
+    """Start a watchdog that will auto-refresh the cache on changes in music_source_dir."""
+    start_watchdog(ctx.config, foreground)
 
 
 @cli.group()

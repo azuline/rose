@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import shutil
 import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
@@ -8,10 +9,16 @@ import _pytest.pathlib
 import pytest
 from click.testing import CliRunner
 
-from rose.cache import CACHE_SCHEMA_PATH
+from rose.cache import CACHE_SCHEMA_PATH, update_cache
 from rose.config import Config
 
 logger = logging.getLogger(__name__)
+
+TESTDATA = Path(__file__).resolve().parent / "testdata" / "cache"
+TEST_RELEASE_1 = TESTDATA / "Test Release 1"
+TEST_RELEASE_2 = TESTDATA / "Test Release 2"
+TEST_RELEASE_3 = TESTDATA / "Test Release 3"
+TEST_COLLAGE_1 = TESTDATA / "Collage 1"
 
 
 @pytest.fixture(autouse=True)
@@ -128,6 +135,16 @@ VALUES ('Rose Gold' , 'r1'      , 0)
         d.mkdir()
     for f in musicpaths + imagepaths:
         f.touch()
+
+
+@pytest.fixture()
+def source_dir(config: Config) -> Path:
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+    shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
+    shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
+    update_cache(config)
+    return config.music_source_dir
 
 
 def freeze_database_time(conn: sqlite3.Connection) -> None:

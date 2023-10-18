@@ -225,6 +225,9 @@ def update_cache_for_releases(
     for rd in release_dirs:
         release_id = None
         files: list[os.DirEntry[str]] = []
+        if not rd.is_dir():
+            logger.debug(f"Skipping scanning {rd} because it is not a directory")
+            continue
         for f in os.scandir(str(rd)):
             if m := STORED_DATA_FILE_REGEX.match(f.name):
                 release_id = m[1]
@@ -836,6 +839,9 @@ def update_cache_for_collages(
     for f in os.scandir(str(collage_dir)):
         path = Path(f.path)
         if path.suffix != ".toml":
+            continue
+        if not path.is_file():
+            logger.debug(f"Skipping processing collage {path.name} because it is not a file")
             continue
         if collage_names is None or path.stem in collage_names:
             files.append((path.resolve(), path.stem, f))

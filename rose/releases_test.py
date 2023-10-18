@@ -2,8 +2,8 @@ import shutil
 
 import pytest
 
+from conftest import TEST_RELEASE_1
 from rose.cache import connect, update_cache
-from rose.cache_test import TEST_RELEASE_1
 from rose.config import Config
 from rose.releases import (
     ReleaseDoesNotExistError,

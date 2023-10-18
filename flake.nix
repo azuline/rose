@@ -34,6 +34,7 @@
         setuptools
         tomli-w
         uuid6-python
+        watchdog
       ];
       dev-deps = with python.pkgs; [
         black
