@@ -66,9 +66,7 @@ def test_collage_lifecycle(config: Config) -> None:
 
     # Add one release.
     add_release_to_collage(
-        config,
-        "Rose Gold",
-        "Carly Rae Jepsen - 1990. I Love Carly [Pop;Dream Pop] {A Cool Label}",
+        config, "Rose Gold", "Carly Rae Jepsen - 1990. I Love Carly [Pop;Dream Pop] {A Cool Label}"
     )
     with filepath.open("rb") as fp:
         diskdata = tomllib.load(fp)
@@ -80,7 +78,9 @@ def test_collage_lifecycle(config: Config) -> None:
         assert {r["release_id"] for r in cursor} == {"ilovecarly"}
 
     # Add another release.
-    add_release_to_collage(config, "Rose Gold", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]")
+    add_release_to_collage(
+        config, "Rose Gold", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
+    )
     with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
         diskdata = tomllib.load(fp)
         assert {r["uuid"] for r in diskdata["releases"]} == {"ilovecarly", "ilovenewjeans"}
@@ -91,7 +91,9 @@ def test_collage_lifecycle(config: Config) -> None:
         assert {r["release_id"] for r in cursor} == {"ilovecarly", "ilovenewjeans"}
 
     # Delete one release.
-    delete_release_from_collage(config, "Rose Gold", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]")
+    delete_release_from_collage(
+        config, "Rose Gold", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
+    )
     with filepath.open("rb") as fp:
         diskdata = tomllib.load(fp)
         assert {r["uuid"] for r in diskdata["releases"]} == {"ilovecarly"}
@@ -113,8 +115,12 @@ def test_collage_add_duplicate(config: Config) -> None:
     shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
     update_cache(config)
     create_collage(config, "Rose Gold")
-    add_release_to_collage(config, "Rose Gold", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]")
-    add_release_to_collage(config, "Rose Gold", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]")
+    add_release_to_collage(
+        config, "Rose Gold", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
+    )
+    add_release_to_collage(
+        config, "Rose Gold", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
+    )
     with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
         diskdata = tomllib.load(fp)
         assert len(diskdata["releases"]) == 1
