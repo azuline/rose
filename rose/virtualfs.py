@@ -1,6 +1,7 @@
 import errno
 import logging
 import os
+import re
 import stat
 import subprocess
 from collections.abc import Iterator
@@ -289,6 +290,9 @@ class VirtualFS(fuse.Operations):  # type: ignore
     def chown(self, *_, **__) -> None:  # type: ignore
         pass
 
+    def unlink(self, *_, **__) -> None:  # type: ignore
+        pass
+
     def create(self, *_, **__) -> None:  # type: ignore
         raise fuse.FuseOSError(errno.ENOTSUP)
 
@@ -368,13 +372,13 @@ def parse_virtual_path(path: str) -> ParsedPath:
     raise fuse.FuseOSError(errno.ENOENT)
 
 
+POSITION_REGEX = re.compile(r"^\d+\. ")
+
+
 # In collages, we print directories with position of the release in the collage. When parsing,
 # strip it out. Otherwise we will have to handle this parsing in every method.
 def rm_position(x: str) -> str:
-    try:
-        return x.split(". ", maxsplit=1)[1]
-    except IndexError:
-        return x
+    return POSITION_REGEX.sub("", x)
 
 
 def mkstat(mode: Literal["dir", "file"], file: Path | None = None) -> dict[str, Any]:
