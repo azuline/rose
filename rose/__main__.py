@@ -9,11 +9,11 @@ from rose.cache import migrate_database, update_cache
 from rose.collages import (
     add_release_to_collage,
     delete_release_from_collage,
+    dump_collages,
     edit_collage_in_editor,
-    print_collages,
 )
 from rose.config import Config
-from rose.releases import print_releases
+from rose.releases import dump_releases
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
 
@@ -91,7 +91,7 @@ def releases() -> None:
 @click.pass_obj
 def print1(ctx: Context) -> None:
     """Print JSON-encoded releases."""
-    print_releases(ctx.config)
+    print(dump_releases(ctx.config))
 
 
 @cli.group()
@@ -138,7 +138,7 @@ def edit(ctx: Context, collage: str) -> None:
 @click.pass_obj
 def print2(ctx: Context) -> None:
     """Print JSON-encoded collages."""
-    print_collages(ctx.config)
+    print(dump_collages(ctx.config))
 
 
 if __name__ == "__main__":

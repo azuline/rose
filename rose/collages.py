@@ -26,6 +26,7 @@ class DescriptionMismatchError(RoseError):
 
 
 def create_collage(c: Config, collage_name: str) -> None:
+    (c.music_source_dir / "!collages").mkdir(parents=True, exist_ok=True)
     collage_path(c, collage_name).touch()
     update_cache_for_collages(c, [collage_name], force=True)
 
@@ -84,14 +85,14 @@ def add_release_to_collage(
     update_cache_for_collages(c, [collage_name], force=True)
 
 
-def print_collages(c: Config) -> None:
+def dump_collages(c: Config) -> str:
     out: dict[str, list[dict[str, Any]]] = {}
     collage_names = list(list_collages(c))
     for name in collage_names:
         out[name] = []
         for pos, virtual_dirname in list_collage_releases(c, name):
             out[name].append({"position": pos, "release": virtual_dirname})
-    print(json.dumps(out))
+    return json.dumps(out)
 
 
 def edit_collage_in_editor(c: Config, collage_name: str) -> None:

@@ -31,9 +31,9 @@ class CustomJSONEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-def print_releases(c: Config) -> None:
+def dump_releases(c: Config) -> str:
     releases = [asdict(r) for r in list_releases(c)]
-    print(json.dumps(releases, cls=CustomJSONEncoder))
+    return json.dumps(releases, cls=CustomJSONEncoder)
 
 
 def delete_release(c: Config, release_id_or_virtual_dirname: str) -> None:

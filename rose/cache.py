@@ -952,15 +952,16 @@ def update_cache_evict_nonexistent_collages(c: Config) -> None:
             collage_names.append(p.stem)
 
     with connect(c) as conn:
-        conn.execute(
+        cursor = conn.execute(
             f"""
             DELETE FROM collages
             WHERE name NOT IN ({",".join(["?"] * len(collage_names))})
+            RETURNING name
             """,
             collage_names,
         )
-        for name in collage_names:
-            logger.info(f"Evicted collage {name} from cache")
+        for row in cursor:
+            logger.info(f"Evicted collage {row['name']} from cache")
 
 
 def list_releases(
@@ -1292,5 +1293,20 @@ def collage_exists(c: Config, name: str) -> bool:
         cursor = conn.execute(
             "SELECT EXISTS(SELECT * FROM collages WHERE name = ?)",
             (name,),
+        )
+        return bool(cursor.fetchone()[0])
+
+
+def collage_has_release(c: Config, collage_name: str, release_virtual_dirname: str) -> bool:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            """
+            SELECT EXISTS(
+                SELECT *
+                FROM collages_releases cr JOIN releases r ON r.id = cr.release_id
+                WHERE cr.collage_name = ? AND r.virtual_dirname = ?
+            )
+            """,
+            (collage_name, release_virtual_dirname),
         )
         return bool(cursor.fetchone()[0])

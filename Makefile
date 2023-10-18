@@ -4,7 +4,7 @@ typecheck:
 	mypy .
 
 test:
-	pytest --cov=. --cov-branch .
+	pytest --cov=. .
 	coverage html
 
 lintcheck:

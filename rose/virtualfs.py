@@ -13,6 +13,7 @@ import fuse
 from rose.cache import (
     artist_exists,
     collage_exists,
+    collage_has_release,
     cover_exists,
     genre_exists,
     get_release_files,
@@ -49,8 +50,8 @@ class VirtualFS(fuse.Operations):  # type: ignore
         self.getattr_cache: dict[str, dict[str, Any]] = {}
         super().__init__()
 
-    def getattr(self, path: str, _: int) -> dict[str, Any]:
-        logger.debug(f"Received getattr for {path}")
+    def getattr(self, path: str, fh: int) -> dict[str, Any]:
+        logger.debug(f"Received getattr for {path=} {fh=}")
 
         # We cache the getattr call with lru_cache because this is called _extremely_ often. Like
         # for every node that we see in the output of `ls`.
@@ -62,6 +63,10 @@ class VirtualFS(fuse.Operations):  # type: ignore
         logger.debug(f"Recomputing uncached getattr for {path}")
         p = parse_virtual_path(path)
         logger.debug(f"Parsed getattr path as {p}")
+
+        # Some early guards just in case.
+        if p.release and p.collage and not collage_has_release(self.config, p.collage, p.release):
+            raise fuse.FuseOSError(errno.ENOENT)
 
         if p.release and p.file:
             if tp := track_exists(self.config, p.release, p.file):
@@ -176,6 +181,21 @@ class VirtualFS(fuse.Operations):  # type: ignore
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, data)
 
+    def truncate(self, path: str, length: int, fh: int | None = None) -> None:
+        logger.debug(f"Received truncate for {path=} {length=} {fh=}")
+        if fh:
+            os.ftruncate(fh, length)
+        else:
+            p = parse_virtual_path(path)
+            logger.debug(f"Parsed truncate path as {p}")
+            if p.release and p.file:
+                rf = get_release_files(self.config, p.release)
+                if rf.cover and p.file == rf.cover.name:
+                    os.truncate(str(rf.cover), length)
+                for track in rf.tracks:
+                    if track.virtual_filename == p.file:
+                        return os.truncate(str(track.source_path), length)
+
     def release(self, path: str, fh: int) -> None:
         logger.debug(f"Received release for {path=} {fh=}")
         os.close(fh)
@@ -189,9 +209,9 @@ class VirtualFS(fuse.Operations):  # type: ignore
         # 2. Create a new collage.
         if p.view != "Collages" or (p.collage is None and p.release is None):
             raise fuse.FuseOSError(errno.EACCES)
-        if p.collage and p.release is None:
+        elif p.collage and p.release is None:
             create_collage(self.config, p.collage)
-        if p.collage and p.release:
+        elif p.collage and p.release:
             try:
                 add_release_to_collage(self.config, p.collage, p.release)
             except ReleaseDoesNotExistError as e:
@@ -212,9 +232,10 @@ class VirtualFS(fuse.Operations):  # type: ignore
         if p.view == "Collages":
             if p.collage and p.release is None:
                 delete_collage(self.config, p.collage)
-            if p.collage and p.release:
+            elif p.collage and p.release:
                 delete_release_from_collage(self.config, p.collage, p.release)
-            raise fuse.FuseOSError(errno.EACCES)
+            else:
+                raise fuse.FuseOSError(errno.EACCES)
         elif p.release is not None:
             delete_release(self.config, p.release)
         else:
@@ -224,14 +245,14 @@ class VirtualFS(fuse.Operations):  # type: ignore
         logger.debug(f"Received rename for {old=} {new=}")
         op = parse_virtual_path(old)
         np = parse_virtual_path(new)
-        print(op, np)
 
         # Possible actions:
         # 1. Rename a collage
         if op.view == "Collages" and np.view == "Collages":
             if op.collage and np.collage and not op.release and not np.release:
                 rename_collage(self.config, op.collage, np.collage)
-            raise fuse.FuseOSError(errno.EACCES)
+            else:
+                raise fuse.FuseOSError(errno.EACCES)
         else:
             raise fuse.FuseOSError(errno.EACCES)
         # TODO: Consider allowing renaming artist/genre/label here?
@@ -247,7 +268,6 @@ class VirtualFS(fuse.Operations):  # type: ignore
     # - link
     # - chmod
     # - chown
-    # - truncate
     # - statfs
     # - flush
     # - fsync
@@ -260,6 +280,17 @@ class VirtualFS(fuse.Operations):  # type: ignore
     # - fgetattr
     # - lock
     # - utimens
+    #
+    # Dummy implementations below:
+
+    def chmod(self, *_, **__) -> None:  # type: ignore
+        pass
+
+    def chown(self, *_, **__) -> None:  # type: ignore
+        pass
+
+    def create(self, *_, **__) -> None:  # type: ignore
+        raise fuse.FuseOSError(errno.ENOTSUP)
 
 
 @dataclass
@@ -321,35 +352,29 @@ def parse_virtual_path(path: str) -> ParsedPath:
             return ParsedPath(view="Labels", label=parts[1], release=parts[2], file=parts[3])
         raise fuse.FuseOSError(errno.ENOENT)
 
-    # In collages, we print directories with position of the release in the collage. When parsing,
-    # strip it out. Otherwise we will have to handle this parsing in every method.
     if parts[0] == "Collages":
         if len(parts) == 1:
             return ParsedPath(view="Collages")
         if len(parts) == 2:
             return ParsedPath(view="Collages", collage=parts[1])
         if len(parts) == 3:
-            try:
-                return ParsedPath(
-                    view="Collages",
-                    collage=parts[1],
-                    release=parts[2].split(". ", maxsplit=1)[1],
-                )
-            except IndexError:
-                pass
+            return ParsedPath(view="Collages", collage=parts[1], release=rm_position(parts[2]))
         if len(parts) == 4:
-            try:
-                return ParsedPath(
-                    view="Collages",
-                    collage=parts[1],
-                    release=parts[2].split(". ", maxsplit=1)[1],
-                    file=parts[3],
-                )
-            except IndexError:
-                pass
+            return ParsedPath(
+                view="Collages", collage=parts[1], release=rm_position(parts[2]), file=parts[3]
+            )
         raise fuse.FuseOSError(errno.ENOENT)
 
     raise fuse.FuseOSError(errno.ENOENT)
+
+
+# In collages, we print directories with position of the release in the collage. When parsing,
+# strip it out. Otherwise we will have to handle this parsing in every method.
+def rm_position(x: str) -> str:
+    try:
+        return x.split(". ", maxsplit=1)[1]
+    except IndexError:
+        return x
 
 
 def mkstat(mode: Literal["dir", "file"], file: Path | None = None) -> dict[str, Any]:
@@ -367,7 +392,7 @@ def mkstat(mode: Literal["dir", "file"], file: Path | None = None) -> dict[str, 
 
     return {
         "st_nlink": 4,
-        "st_mode": (stat.S_IFDIR | 0o555) if mode == "dir" else (stat.S_IFREG | 0o444),
+        "st_mode": (stat.S_IFDIR | 0o755) if mode == "dir" else (stat.S_IFREG | 0o644),
         "st_size": st_size,
         "st_uid": os.getuid(),
         "st_gid": os.getgid(),
@@ -377,8 +402,19 @@ def mkstat(mode: Literal["dir", "file"], file: Path | None = None) -> dict[str, 
     }
 
 
-def mount_virtualfs(c: Config, foreground: bool = False) -> None:
-    fuse.FUSE(VirtualFS(c), str(c.fuse_mount_dir), foreground=foreground)
+def mount_virtualfs(
+    c: Config,
+    foreground: bool = False,
+    nothreads: bool = False,
+    debug: bool = False,
+) -> None:
+    fuse.FUSE(
+        VirtualFS(c),
+        str(c.fuse_mount_dir),
+        foreground=foreground,
+        nothreads=nothreads,
+        debug=debug,
+    )
 
 
 def unmount_virtualfs(c: Config) -> None:

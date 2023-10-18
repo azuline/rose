@@ -1,4 +1,5 @@
 [run]
+branch = True
 omit =
     rose/__main__.py
     setup.py
