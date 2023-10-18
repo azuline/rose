@@ -42,6 +42,7 @@ from rose.releases import ReleaseDoesNotExistError, delete_release
 logger = logging.getLogger(__name__)
 
 
+# IDK how to get coverage on this thing.
 class VirtualFS(fuse.Operations):  # type: ignore
     def __init__(self, config: Config):
         self.config = config

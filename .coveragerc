@@ -1,5 +1,7 @@
 [run]
 branch = True
+# fusepy does not support coverage collection.
 omit =
     rose/__main__.py
+    rose/virtualfs.py
     setup.py
