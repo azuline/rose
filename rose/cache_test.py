@@ -521,7 +521,10 @@ def test_list_collages(config: Config) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_collage_releases(config: Config) -> None:
     releases = list(list_collage_releases(config, "Rose Gold"))
-    assert set(releases) == {(0, "r1"), (1, "r2")}
+    assert set(releases) == {
+        (0, "r1", config.music_source_dir / "r1"),
+        (1, "r2", config.music_source_dir / "r2"),
+    }
     releases = list(list_collage_releases(config, "Ruby Red"))
     assert releases == []
 

@@ -218,10 +218,6 @@ name       ::= string ';' name | string
 
 TODO
 
-## Bookmarks
-
-TODO
-
 ## The Read Cache
 
 For performance, Rosé stores a copy of every source file's metadata in a SQLite

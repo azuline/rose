@@ -1,9 +1,11 @@
+import contextlib
 import errno
 import logging
 import os
 import re
 import stat
 import subprocess
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,20 +51,27 @@ class VirtualFS(fuse.Operations):  # type: ignore
         self.hide_artists_set = set(config.fuse_hide_artists)
         self.hide_genres_set = set(config.fuse_hide_genres)
         self.hide_labels_set = set(config.fuse_hide_labels)
-        self.getattr_cache: dict[str, dict[str, Any]] = {}
+        # We cache some items for getattr for performance reasons--after a ls, getattr is serially
+        # called for each item in the directory, and sequential 1k SQLite reads is quite slow in any
+        # universe. So whenever we have a readdir, we do a batch read and populate the getattr
+        # cache. The getattr cache is valid for only 1 second, which prevents stale results from
+        # being read from it.
+        #
+        # The dict is a map of paths to (timestamp, mkstat_args). The timestamp should be checked
+        # upon access. If the cache entry is valid, mkstat should be called with the provided args.
+        self.getattr_cache: dict[str, tuple[float, Any]] = {}
         super().__init__()
 
     def getattr(self, path: str, fh: int) -> dict[str, Any]:
         logger.debug(f"Received getattr for {path=} {fh=}")
 
-        # We cache the getattr call with lru_cache because this is called _extremely_ often. Like
-        # for every node that we see in the output of `ls`.
-        try:
-            return self.getattr_cache[path]
-        except KeyError:
-            pass
+        with contextlib.suppress(KeyError):
+            ts, mkstat_args = self.getattr_cache[path]
+            if time.time() - ts < 1.0:
+                logger.debug(f"Returning cached getattr result for {path=}")
+                return mkstat(*mkstat_args)
 
-        logger.debug(f"Recomputing uncached getattr for {path}")
+        logger.debug(f"Handling uncached getattr for {path=}")
         p = parse_virtual_path(path)
         logger.debug(f"Parsed getattr path as {p}")
 
@@ -102,6 +111,9 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
         yield from [".", ".."]
 
+        # Outside of yielding the strings, we also populate the getattr cache here. See the comment
+        # in __init__ for documentation.
+
         if p.view == "Root":
             yield from [
                 "Artists",
@@ -114,8 +126,16 @@ class VirtualFS(fuse.Operations):  # type: ignore
             rf = get_release_files(self.config, p.release)
             for track in rf.tracks:
                 yield track.virtual_filename
+                self.getattr_cache[path + "/" + track.virtual_filename] = (
+                    time.time(),
+                    ("file", track.source_path),
+                )
             if rf.cover:
                 yield rf.cover.name
+                self.getattr_cache[path + "/" + rf.cover.name] = (
+                    time.time(),
+                    ("file", rf.cover),
+                )
         elif p.artist or p.genre or p.label or p.view == "Releases":
             if (
                 (p.artist and p.artist in self.hide_artists_set)
@@ -130,29 +150,40 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 sanitized_label_filter=p.label,
             ):
                 yield release.virtual_dirname
+                self.getattr_cache[path + "/" + release.virtual_dirname] = (
+                    time.time(),
+                    ("dir", release.source_path),
+                )
         elif p.view == "Artists":
             for artist in list_artists(self.config):
                 if artist in self.hide_artists_set:
                     continue
                 yield sanitize_filename(artist)
+                self.getattr_cache[path + "/" + artist] = (time.time(), ("dir",))
         elif p.view == "Genres":
             for genre in list_genres(self.config):
                 if genre in self.hide_genres_set:
                     continue
                 yield sanitize_filename(genre)
+                self.getattr_cache[path + "/" + genre] = (time.time(), ("dir",))
         elif p.view == "Labels":
             for label in list_labels(self.config):
                 if label in self.hide_labels_set:
                     continue
                 yield sanitize_filename(label)
+                self.getattr_cache[path + "/" + label] = (time.time(), ("dir",))
         elif p.view == "Collages" and p.collage:
             releases = list(list_collage_releases(self.config, p.collage))
             pad_size = max(len(str(r[0])) for r in releases)
-            for idx, virtual_dirname in releases:
-                yield f"{str(idx).zfill(pad_size)}. {virtual_dirname}"
+            for idx, virtual_dirname, source_dir in releases:
+                dirname = f"{str(idx).zfill(pad_size)}. {virtual_dirname}"
+                yield dirname
+                self.getattr_cache[path + "/" + dirname] = (time.time(), ("dir", source_dir))
         elif p.view == "Collages":
             # Don't need to sanitize because the collage names come from filenames.
-            yield from list_collages(self.config)
+            for collage in list_collages(self.config):
+                yield collage
+                self.getattr_cache[path + "/" + collage] = (time.time(), ("dir",))
         else:
             raise fuse.FuseOSError(errno.ENOENT)
 
