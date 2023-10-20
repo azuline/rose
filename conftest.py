@@ -83,7 +83,7 @@ def seeded_cache(config: Config) -> None:
             f"""\
 INSERT INTO releases
        (id  , source_path    , cover_image_path , datafile_mtime, virtual_dirname, title      , release_type, release_year, multidisc, new  , formatted_artists)
-VALUES ('r1', '{dirpaths[0]}', null             , '999'         , 'r1'           , 'Release 1', 'album'     , 2023        , false    , true , 'Techno Man;Bass Man')
+VALUES ('r1', '{dirpaths[0]}', null             , '999'         , 'r1'           , 'Release 1', 'album'     , 2023        , false    , false , 'Techno Man;Bass Man')
      , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '999'         , 'r2'           , 'Release 2', 'album'     , 2021        , false    , false, 'Violin Woman feat. Conductor Woman');
 
 INSERT INTO releases_genres

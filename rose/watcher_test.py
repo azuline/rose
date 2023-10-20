@@ -40,7 +40,7 @@ def test_watchdog_events(config: Config) -> None:
 
         # Create collage.
         shutil.copytree(TEST_COLLAGE_1, src / "!collages")
-        time.sleep(0.2)
+        time.sleep(0.3)
         with connect(config) as conn:
             cursor = conn.execute("SELECT name FROM collages")
             assert {r["name"] for r in cursor.fetchall()} == {"Rose Gold"}
@@ -74,7 +74,7 @@ def test_watchdog_events(config: Config) -> None:
 
         # Rename collage.
         (src / "!collages" / "Rose Gold.toml").rename(src / "!collages" / "Black Pink.toml")
-        time.sleep(0.2)
+        time.sleep(0.3)
         with connect(config) as conn:
             cursor = conn.execute("SELECT name FROM collages")
             assert {r["name"] for r in cursor.fetchall()} == {"Black Pink"}
@@ -83,7 +83,7 @@ def test_watchdog_events(config: Config) -> None:
 
         # Delete collage.
         (src / "!collages" / "Black Pink.toml").unlink()
-        time.sleep(0.2)
+        time.sleep(0.3)
         with connect(config) as conn:
             cursor = conn.execute("SELECT COUNT(*) FROM collages")
             assert cursor.fetchone()[0] == 0

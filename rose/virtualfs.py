@@ -39,7 +39,7 @@ from rose.collages import (
 )
 from rose.common import sanitize_filename
 from rose.config import Config
-from rose.releases import ReleaseDoesNotExistError, delete_release
+from rose.releases import ReleaseDoesNotExistError, delete_release, toggle_release_new
 
 logger = logging.getLogger(__name__)
 
@@ -176,9 +176,9 @@ class VirtualFS(fuse.Operations):  # type: ignore
             releases = list(list_collage_releases(self.config, p.collage))
             pad_size = max(len(str(r[0])) for r in releases)
             for idx, virtual_dirname, source_dir in releases:
-                dirname = f"{str(idx).zfill(pad_size)}. {virtual_dirname}"
-                yield dirname
-                self.getattr_cache[path + "/" + dirname] = (time.time(), ("dir", source_dir))
+                v = f"{str(idx).zfill(pad_size)}. {virtual_dirname}"
+                yield v
+                self.getattr_cache[path + "/" + v] = (time.time(), ("dir", source_dir))
         elif p.view == "Collages":
             # Don't need to sanitize because the collage names come from filenames.
             for collage in list_collages(self.config):
@@ -236,6 +236,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
     def mkdir(self, path: str, mode: int) -> None:
         logger.debug(f"Received mkdir for {path=} {mode=}")
         p = parse_virtual_path(path)
+        logger.debug(f"Parsed mkdir path as {p}")
 
         # Possible actions:
         # 1. Add a release to an existing collage.
@@ -258,6 +259,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
     def rmdir(self, path: str) -> None:
         logger.debug(f"Received rmdir for {path=}")
         p = parse_virtual_path(path)
+        logger.debug(f"Parsed rmdir path as {p}")
 
         # Possible actions:
         # 1. Delete a release from an existing collage.
@@ -277,12 +279,28 @@ class VirtualFS(fuse.Operations):  # type: ignore
     def rename(self, old: str, new: str) -> None:
         logger.debug(f"Received rename for {old=} {new=}")
         op = parse_virtual_path(old)
+        logger.debug(f"Parsed rename old path as {op}")
         np = parse_virtual_path(new)
+        logger.debug(f"Parsed rename new path as {np}")
 
         # Possible actions:
-        # 1. Rename a collage
-        if op.view == "Collages" and np.view == "Collages":
-            if op.collage and np.collage and not op.release and not np.release:
+        # 1. Rename a collage.
+        # 2. Toggle a release's new status.
+        if (
+            (op.release and np.release)
+            and op.release.removeprefix("[NEW] ") == np.release.removeprefix("[NEW] ")
+            and (not op.file and not np.file)
+        ):
+            if op.release.startswith("[NEW] ") != np.release.startswith("[NEW] "):
+                toggle_release_new(self.config, op.release)
+            else:
+                raise fuse.FuseOSError(errno.EACCES)
+        elif op.view == "Collages" and np.view == "Collages":
+            if (
+                (op.collage and np.collage)
+                and op.collage != np.collage
+                and (not op.release and not np.release)
+            ):
                 rename_collage(self.config, op.collage, np.collage)
             else:
                 raise fuse.FuseOSError(errno.EACCES)
@@ -397,7 +415,10 @@ def parse_virtual_path(path: str) -> ParsedPath:
             return ParsedPath(view="Collages", collage=parts[1], release=rm_position(parts[2]))
         if len(parts) == 4:
             return ParsedPath(
-                view="Collages", collage=parts[1], release=rm_position(parts[2]), file=parts[3]
+                view="Collages",
+                collage=parts[1],
+                release=rm_position(parts[2]),
+                file=parts[3],
             )
         raise fuse.FuseOSError(errno.ENOENT)
 

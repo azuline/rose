@@ -379,7 +379,7 @@ def test_list_releases(config: Config) -> None:
             type="album",
             year=2023,
             multidisc=False,
-            new=True,
+            new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
             artists=[
@@ -421,7 +421,7 @@ def test_list_releases(config: Config) -> None:
             type="album",
             year=2023,
             multidisc=False,
-            new=True,
+            new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
             artists=[
@@ -444,7 +444,7 @@ def test_list_releases(config: Config) -> None:
             type="album",
             year=2023,
             multidisc=False,
-            new=True,
+            new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
             artists=[
@@ -467,7 +467,7 @@ def test_list_releases(config: Config) -> None:
             type="album",
             year=2023,
             multidisc=False,
-            new=True,
+            new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
             artists=[
