@@ -14,11 +14,12 @@ from rose.config import Config
 
 logger = logging.getLogger(__name__)
 
-TESTDATA = Path(__file__).resolve().parent / "testdata" / "cache"
+TESTDATA = Path(__file__).resolve().parent / "testdata"
 TEST_RELEASE_1 = TESTDATA / "Test Release 1"
 TEST_RELEASE_2 = TESTDATA / "Test Release 2"
 TEST_RELEASE_3 = TESTDATA / "Test Release 3"
 TEST_COLLAGE_1 = TESTDATA / "Collage 1"
+TEST_TAGGER = TESTDATA / "tagger"
 
 
 @pytest.fixture(autouse=True)

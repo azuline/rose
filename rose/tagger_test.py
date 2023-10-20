@@ -1,11 +1,8 @@
-from pathlib import Path
-
 import pytest
 
+from conftest import TEST_TAGGER
 from rose.artiststr import Artists
 from rose.tagger import AudioFile, _split_tag
-
-TESTDATA = Path(__file__).resolve().parent.parent / "testdata" / "tagger"
 
 
 @pytest.mark.parametrize(
@@ -19,7 +16,7 @@ TESTDATA = Path(__file__).resolve().parent.parent / "testdata" / "tagger"
     ],
 )
 def test_getters(filepath: str, track_num: str, duration: int) -> None:
-    tf = AudioFile.from_file(TESTDATA / filepath)
+    tf = AudioFile.from_file(TEST_TAGGER / filepath)
     assert tf.track_number == track_num
     assert tf.title == f"Track {track_num}"
 
