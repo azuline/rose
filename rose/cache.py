@@ -577,9 +577,8 @@ def update_cache_for_releases(
                         release_virtual_dirname += " [" + ";".join(release.genres) + "]"
                     if release.labels:
                         release_virtual_dirname += " {" + ";".join(release.labels) + "}"
-                    # Reimplement this once we have new toggling.
-                    # if release.new:
-                    #     release_virtual_dirname += " +NEW!+"
+                    if release.new:
+                        release_virtual_dirname = "[NEW] " + release_virtual_dirname
                     release_virtual_dirname = sanitize_filename(release_virtual_dirname)
                     # And in case of a name collision, add an extra number at the end. Iterate to
                     # find the first unused number.

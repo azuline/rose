@@ -12,7 +12,7 @@ LOGFILE = STATE_HOME / "rose.log"
 
 # Add a logging handler for stdout unless we are testing. Pytest
 # captures logging output on its own.
-if "pytest" not in sys.modules:  # pragma: no cover
+if True:  # "pytest" not in sys.modules:  # pragma: no cover
     stream_formatter = logging.Formatter(
         "[%(asctime)s] %(levelname)s: %(message)s",
         datefmt="%H:%M:%S",

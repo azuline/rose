@@ -288,17 +288,15 @@ class VirtualFS(fuse.Operations):  # type: ignore
         # Possible actions:
         # 1. Rename a collage.
         # 2. Toggle a release's new status.
-        if op.release and np.release and op.release == np.release:
-            # HACK: In the above case, we really should also have `and (not op.file and not
-            # np.file)`, but it turns out that because we return a valid `getattr` regardless of
-            # `[NEW]`, that mv tries to move the old path into the new path subdirectory. So we take
-            # that and treat it as a new toggle, even though we shouldn't.
-            #
-            # Maybe we refactor later and pull out the release directory name calculation,
-            # transformation, and validation into its own encapuslated abstraction.
-            if op.release_new != np.release_new:
-                assert np.release_new is not None
-                set_release_new(self.config, np.release, np.release_new)
+        if (
+            (op.release and np.release)
+            and op.release.removeprefix("[NEW] ") == np.release.removeprefix("[NEW] ")
+            and (not op.file and not np.file)
+        ):
+            old_new = op.release.startswith("[NEW] ")
+            new_new = np.release.startswith("[NEW] ")
+            if old_new != new_new:
+                set_release_new(self.config, op.release, new_new)
             else:
                 raise fuse.FuseOSError(errno.EACCES)
         elif op.view == "Collages" and np.view == "Collages":
@@ -361,7 +359,6 @@ class ParsedPath:
     label: str | None = None
     collage: str | None = None
     release: str | None = None
-    release_new: bool | None = None
     file: str | None = None
 
 
@@ -375,18 +372,9 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 1:
             return ParsedPath(view="Releases")
         if len(parts) == 2:
-            return ParsedPath(
-                view="Releases",
-                release=rm_new(parts[1]),
-                release_new=parts[1].startswith("[NEW] "),
-            )
+            return ParsedPath(view="Releases", release=parts[1])
         if len(parts) == 3:
-            return ParsedPath(
-                view="Releases",
-                release=rm_new(parts[1]),
-                release_new=parts[1].startswith("[NEW] "),
-                file=parts[2],
-            )
+            return ParsedPath(view="Releases", release=parts[1], file=parts[2])
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "Artists":
@@ -395,20 +383,9 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2:
             return ParsedPath(view="Artists", artist=parts[1])
         if len(parts) == 3:
-            return ParsedPath(
-                view="Artists",
-                artist=parts[1],
-                release=rm_new(parts[2]),
-                release_new=parts[2].startswith("[NEW] "),
-            )
+            return ParsedPath(view="Artists", artist=parts[1], release=parts[2])
         if len(parts) == 4:
-            return ParsedPath(
-                view="Artists",
-                artist=parts[1],
-                release=rm_new(parts[2]),
-                release_new=parts[2].startswith("[NEW] "),
-                file=parts[3],
-            )
+            return ParsedPath(view="Artists", artist=parts[1], release=parts[2], file=parts[3])
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "Genres":
@@ -417,20 +394,9 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2:
             return ParsedPath(view="Genres", genre=parts[1])
         if len(parts) == 3:
-            return ParsedPath(
-                view="Genres",
-                genre=parts[1],
-                release=rm_new(parts[2]),
-                release_new=parts[2].startswith("[NEW] "),
-            )
+            return ParsedPath(view="Genres", genre=parts[1], release=parts[2])
         if len(parts) == 4:
-            return ParsedPath(
-                view="Genres",
-                genre=parts[1],
-                release=rm_new(parts[2]),
-                release_new=parts[2].startswith("[NEW] "),
-                file=parts[3],
-            )
+            return ParsedPath(view="Genres", genre=parts[1], release=parts[2], file=parts[3])
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "Labels":
@@ -439,20 +405,9 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2:
             return ParsedPath(view="Labels", label=parts[1])
         if len(parts) == 3:
-            return ParsedPath(
-                view="Labels",
-                label=parts[1],
-                release=rm_new(parts[2]),
-                release_new=parts[2].startswith("[NEW] "),
-            )
+            return ParsedPath(view="Labels", label=parts[1], release=parts[2])
         if len(parts) == 4:
-            return ParsedPath(
-                view="Labels",
-                label=parts[1],
-                release=rm_new(parts[2]),
-                release_new=parts[2].startswith("[NEW] "),
-                file=parts[3],
-            )
+            return ParsedPath(view="Labels", label=parts[1], release=parts[2], file=parts[3])
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "Collages":
@@ -461,18 +416,12 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2:
             return ParsedPath(view="Collages", collage=parts[1])
         if len(parts) == 3:
-            return ParsedPath(
-                view="Collages",
-                collage=parts[1],
-                release=rm_new(rm_position(parts[2])),
-                release_new=rm_position(parts[2]).startswith("[NEW] "),
-            )
+            return ParsedPath(view="Collages", collage=parts[1], release=rm_position(parts[2]))
         if len(parts) == 4:
             return ParsedPath(
                 view="Collages",
                 collage=parts[1],
-                release=rm_new(rm_position(parts[2])),
-                release_new=rm_position(parts[2]).startswith("[NEW] "),
+                release=rm_position(parts[2]),
                 file=parts[3],
             )
         raise fuse.FuseOSError(errno.ENOENT)
@@ -487,11 +436,6 @@ POSITION_REGEX = re.compile(r"^\d+\. ")
 # strip it out. Otherwise we will have to handle this parsing in every method.
 def rm_position(x: str) -> str:
     return POSITION_REGEX.sub("", x)
-
-
-# We also prepend `[NEW]` to releases if they are new. Strip that when reading the releases back in.
-def rm_new(x: str) -> str:
-    return x.removeprefix("[NEW] ")
 
 
 def mkstat(mode: Literal["dir", "file"], file: Path | None = None) -> dict[str, Any]:
