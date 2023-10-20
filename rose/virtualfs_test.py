@@ -127,6 +127,20 @@ def test_virtual_filesystem_collage_actions(config: Config) -> None:
         assert not (src / "!collages" / "New Jeans.toml").exists()
 
 
+def test_virtual_filesystem_toggle_new(config: Config, source_dir: Path) -> None:
+    dirname = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
+    root = config.fuse_mount_dir
+    with startfs(config):
+        (root / "Releases" / dirname).rename(root / "Releases" / f"[NEW] {dirname}")
+        assert (root / "Releases" / f"[NEW] {dirname}").is_dir()
+        assert not (root / "Releases" / dirname).exists()
+        (root / "Releases" / f"[NEW] {dirname}").rename(root / "Releases" / dirname)
+        assert (root / "Releases" / dirname).is_dir()
+        assert not (root / "Releases" / f"[NEW] {dirname}").exists()
+        with pytest.raises(OSError):  # noqa: PT011
+            (root / "Releases" / dirname).rename(root / "Releases" / "lalala")
+
+
 @pytest.mark.usefixtures("seeded_cache")
 def test_virtual_filesystem_hide_values(config: Config) -> None:
     new_config = Config(

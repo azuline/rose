@@ -90,7 +90,7 @@ def dump_collages(c: Config) -> str:
     collage_names = list(list_collages(c))
     for name in collage_names:
         out[name] = []
-        for pos, virtual_dirname, _ in list_collage_releases(c, name):
+        for pos, virtual_dirname, _, _ in list_collage_releases(c, name):
             out[name].append({"position": pos, "release": virtual_dirname})
     return json.dumps(out)
 

@@ -1203,12 +1203,12 @@ def list_collages(c: Config) -> Iterator[str]:
             yield row["name"]
 
 
-def list_collage_releases(c: Config, collage_name: str) -> Iterator[tuple[int, str, Path]]:
-    """Returns tuples of (position, release_virtual_dirname, release_source_path)."""
+def list_collage_releases(c: Config, collage_name: str) -> Iterator[tuple[int, str, Path, bool]]:
+    """Returns tuples of (position, release_virtual_dirname, release_source_path, release_new)."""
     with connect(c) as conn:
         cursor = conn.execute(
             """
-            SELECT cr.position, r.virtual_dirname, r.source_path
+            SELECT cr.position, r.virtual_dirname, r.source_path, r.new
             FROM collages_releases cr
             JOIN releases r ON r.id = cr.release_id
             WHERE cr.collage_name = ?
@@ -1217,7 +1217,12 @@ def list_collage_releases(c: Config, collage_name: str) -> Iterator[tuple[int, s
             (collage_name,),
         )
         for row in cursor:
-            yield (row["position"], row["virtual_dirname"], Path(row["source_path"]))
+            yield (
+                row["position"],
+                row["virtual_dirname"],
+                Path(row["source_path"]),
+                bool(row["new"]),
+            )
 
 
 def release_exists(c: Config, virtual_dirname: str) -> Path | None:

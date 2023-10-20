@@ -379,7 +379,7 @@ def test_list_releases(config: Config) -> None:
             type="album",
             year=2023,
             multidisc=False,
-            new=True,
+            new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
             artists=[
@@ -421,7 +421,7 @@ def test_list_releases(config: Config) -> None:
             type="album",
             year=2023,
             multidisc=False,
-            new=True,
+            new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
             artists=[
@@ -444,7 +444,7 @@ def test_list_releases(config: Config) -> None:
             type="album",
             year=2023,
             multidisc=False,
-            new=True,
+            new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
             artists=[
@@ -467,7 +467,7 @@ def test_list_releases(config: Config) -> None:
             type="album",
             year=2023,
             multidisc=False,
-            new=True,
+            new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
             artists=[
@@ -522,8 +522,8 @@ def test_list_collages(config: Config) -> None:
 def test_list_collage_releases(config: Config) -> None:
     releases = list(list_collage_releases(config, "Rose Gold"))
     assert set(releases) == {
-        (0, "r1", config.music_source_dir / "r1"),
-        (1, "r2", config.music_source_dir / "r2"),
+        (0, "r1", config.music_source_dir / "r1", False),
+        (1, "r2", config.music_source_dir / "r2", False),
     }
     releases = list(list_collage_releases(config, "Ruby Red"))
     assert releases == []

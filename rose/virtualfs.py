@@ -39,7 +39,7 @@ from rose.collages import (
 )
 from rose.common import sanitize_filename
 from rose.config import Config
-from rose.releases import ReleaseDoesNotExistError, delete_release
+from rose.releases import ReleaseDoesNotExistError, delete_release, set_release_new
 
 logger = logging.getLogger(__name__)
 
@@ -149,11 +149,11 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 sanitized_genre_filter=p.genre,
                 sanitized_label_filter=p.label,
             ):
-                yield release.virtual_dirname
-                self.getattr_cache[path + "/" + release.virtual_dirname] = (
-                    time.time(),
-                    ("dir", release.source_path),
-                )
+                v = release.virtual_dirname
+                if release.new:
+                    v = "[NEW] " + v
+                yield v
+                self.getattr_cache[path + "/" + v] = (time.time(), ("dir", release.source_path))
         elif p.view == "Artists":
             for artist in list_artists(self.config):
                 if artist in self.hide_artists_set:
@@ -175,10 +175,12 @@ class VirtualFS(fuse.Operations):  # type: ignore
         elif p.view == "Collages" and p.collage:
             releases = list(list_collage_releases(self.config, p.collage))
             pad_size = max(len(str(r[0])) for r in releases)
-            for idx, virtual_dirname, source_dir in releases:
-                dirname = f"{str(idx).zfill(pad_size)}. {virtual_dirname}"
-                yield dirname
-                self.getattr_cache[path + "/" + dirname] = (time.time(), ("dir", source_dir))
+            for idx, v, source_dir, new in releases:
+                if new:
+                    v = f"[NEW] {v}"
+                v = f"{str(idx).zfill(pad_size)}. {v}"
+                yield v
+                self.getattr_cache[path + "/" + v] = (time.time(), ("dir", source_dir))
         elif p.view == "Collages":
             # Don't need to sanitize because the collage names come from filenames.
             for collage in list_collages(self.config):
@@ -236,6 +238,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
     def mkdir(self, path: str, mode: int) -> None:
         logger.debug(f"Received mkdir for {path=} {mode=}")
         p = parse_virtual_path(path)
+        logger.debug(f"Parsed mkdir path as {p}")
 
         # Possible actions:
         # 1. Add a release to an existing collage.
@@ -258,6 +261,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
     def rmdir(self, path: str) -> None:
         logger.debug(f"Received rmdir for {path=}")
         p = parse_virtual_path(path)
+        logger.debug(f"Parsed rmdir path as {p}")
 
         # Possible actions:
         # 1. Delete a release from an existing collage.
@@ -277,12 +281,32 @@ class VirtualFS(fuse.Operations):  # type: ignore
     def rename(self, old: str, new: str) -> None:
         logger.debug(f"Received rename for {old=} {new=}")
         op = parse_virtual_path(old)
+        logger.debug(f"Parsed rename old path as {op}")
         np = parse_virtual_path(new)
+        logger.debug(f"Parsed rename new path as {np}")
 
         # Possible actions:
-        # 1. Rename a collage
-        if op.view == "Collages" and np.view == "Collages":
-            if op.collage and np.collage and not op.release and not np.release:
+        # 1. Rename a collage.
+        # 2. Toggle a release's new status.
+        if op.release and np.release and op.release == np.release:
+            # HACK: In the above case, we really should also have `and (not op.file and not
+            # np.file)`, but it turns out that because we return a valid `getattr` regardless of
+            # `[NEW]`, that mv tries to move the old path into the new path subdirectory. So we take
+            # that and treat it as a new toggle, even though we shouldn't.
+            #
+            # Maybe we refactor later and pull out the release directory name calculation,
+            # transformation, and validation into its own encapuslated abstraction.
+            if op.release_new != np.release_new:
+                assert np.release_new is not None
+                set_release_new(self.config, np.release, np.release_new)
+            else:
+                raise fuse.FuseOSError(errno.EACCES)
+        elif op.view == "Collages" and np.view == "Collages":
+            if (
+                (op.collage and np.collage)
+                and op.collage != np.collage
+                and (not op.release and not np.release)
+            ):
                 rename_collage(self.config, op.collage, np.collage)
             else:
                 raise fuse.FuseOSError(errno.EACCES)
@@ -337,6 +361,7 @@ class ParsedPath:
     label: str | None = None
     collage: str | None = None
     release: str | None = None
+    release_new: bool | None = None
     file: str | None = None
 
 
@@ -350,9 +375,18 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 1:
             return ParsedPath(view="Releases")
         if len(parts) == 2:
-            return ParsedPath(view="Releases", release=parts[1])
+            return ParsedPath(
+                view="Releases",
+                release=rm_new(parts[1]),
+                release_new=parts[1].startswith("[NEW] "),
+            )
         if len(parts) == 3:
-            return ParsedPath(view="Releases", release=parts[1], file=parts[2])
+            return ParsedPath(
+                view="Releases",
+                release=rm_new(parts[1]),
+                release_new=parts[1].startswith("[NEW] "),
+                file=parts[2],
+            )
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "Artists":
@@ -361,9 +395,20 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2:
             return ParsedPath(view="Artists", artist=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="Artists", artist=parts[1], release=parts[2])
+            return ParsedPath(
+                view="Artists",
+                artist=parts[1],
+                release=rm_new(parts[2]),
+                release_new=parts[2].startswith("[NEW] "),
+            )
         if len(parts) == 4:
-            return ParsedPath(view="Artists", artist=parts[1], release=parts[2], file=parts[3])
+            return ParsedPath(
+                view="Artists",
+                artist=parts[1],
+                release=rm_new(parts[2]),
+                release_new=parts[2].startswith("[NEW] "),
+                file=parts[3],
+            )
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "Genres":
@@ -372,9 +417,20 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2:
             return ParsedPath(view="Genres", genre=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="Genres", genre=parts[1], release=parts[2])
+            return ParsedPath(
+                view="Genres",
+                genre=parts[1],
+                release=rm_new(parts[2]),
+                release_new=parts[2].startswith("[NEW] "),
+            )
         if len(parts) == 4:
-            return ParsedPath(view="Genres", genre=parts[1], release=parts[2], file=parts[3])
+            return ParsedPath(
+                view="Genres",
+                genre=parts[1],
+                release=rm_new(parts[2]),
+                release_new=parts[2].startswith("[NEW] "),
+                file=parts[3],
+            )
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "Labels":
@@ -383,9 +439,20 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2:
             return ParsedPath(view="Labels", label=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="Labels", label=parts[1], release=parts[2])
+            return ParsedPath(
+                view="Labels",
+                label=parts[1],
+                release=rm_new(parts[2]),
+                release_new=parts[2].startswith("[NEW] "),
+            )
         if len(parts) == 4:
-            return ParsedPath(view="Labels", label=parts[1], release=parts[2], file=parts[3])
+            return ParsedPath(
+                view="Labels",
+                label=parts[1],
+                release=rm_new(parts[2]),
+                release_new=parts[2].startswith("[NEW] "),
+                file=parts[3],
+            )
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "Collages":
@@ -394,10 +461,19 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2:
             return ParsedPath(view="Collages", collage=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="Collages", collage=parts[1], release=rm_position(parts[2]))
+            return ParsedPath(
+                view="Collages",
+                collage=parts[1],
+                release=rm_new(rm_position(parts[2])),
+                release_new=rm_position(parts[2]).startswith("[NEW] "),
+            )
         if len(parts) == 4:
             return ParsedPath(
-                view="Collages", collage=parts[1], release=rm_position(parts[2]), file=parts[3]
+                view="Collages",
+                collage=parts[1],
+                release=rm_new(rm_position(parts[2])),
+                release_new=rm_position(parts[2]).startswith("[NEW] "),
+                file=parts[3],
             )
         raise fuse.FuseOSError(errno.ENOENT)
 
@@ -411,6 +487,11 @@ POSITION_REGEX = re.compile(r"^\d+\. ")
 # strip it out. Otherwise we will have to handle this parsing in every method.
 def rm_position(x: str) -> str:
     return POSITION_REGEX.sub("", x)
+
+
+# We also prepend `[NEW]` to releases if they are new. Strip that when reading the releases back in.
+def rm_new(x: str) -> str:
+    return x.removeprefix("[NEW] ")
 
 
 def mkstat(mode: Literal["dir", "file"], file: Path | None = None) -> dict[str, Any]:
