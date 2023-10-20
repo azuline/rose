@@ -39,7 +39,7 @@ from rose.collages import (
 )
 from rose.common import sanitize_filename
 from rose.config import Config
-from rose.releases import ReleaseDoesNotExistError, delete_release, set_release_new
+from rose.releases import ReleaseDoesNotExistError, delete_release, toggle_release_new
 
 logger = logging.getLogger(__name__)
 
@@ -293,10 +293,8 @@ class VirtualFS(fuse.Operations):  # type: ignore
             and op.release.removeprefix("[NEW] ") == np.release.removeprefix("[NEW] ")
             and (not op.file and not np.file)
         ):
-            old_new = op.release.startswith("[NEW] ")
-            new_new = np.release.startswith("[NEW] ")
-            if old_new != new_new:
-                set_release_new(self.config, op.release, new_new)
+            if op.release.startswith("[NEW] ") != np.release.startswith("[NEW] "):
+                toggle_release_new(self.config, op.release)
             else:
                 raise fuse.FuseOSError(errno.EACCES)
         elif op.view == "Collages" and np.view == "Collages":

@@ -53,22 +53,26 @@ def delete_release(c: Config, release_id_or_virtual_dirname: str) -> None:
     update_cache_for_collages(c, None, force=True)
 
 
-def set_release_new(c: Config, release_id_or_virtual_dirname: str, new: bool) -> None:
+def toggle_release_new(c: Config, release_id_or_virtual_dirname: str) -> None:
     release_id, release_dirname = resolve_release_ids(c, release_id_or_virtual_dirname)
     source_path = get_release_source_path_from_id(c, release_id)
     if source_path is None:
         logger.debug(f"Failed to lookup source path for release {release_id} ({release_dirname})")
         return None
+
     for f in source_path.iterdir():
-        if STORED_DATA_FILE_REGEX.match(f.name):
-            with f.open("rb") as fp:
-                data = tomllib.load(fp)
-            data["new"] = new
-            with f.open("wb") as fp:
-                tomli_w.dump(data, fp)
-    else:
-        logger.critical(f"Failed to find .rose.toml in {source_path}")
-    update_cache_for_releases(c, [source_path], force=True)
+        if not STORED_DATA_FILE_REGEX.match(f.name):
+            continue
+
+        with f.open("rb") as fp:
+            data = tomllib.load(fp)
+        data["new"] = not data["new"]
+        with f.open("wb") as fp:
+            tomli_w.dump(data, fp)
+        update_cache_for_releases(c, [source_path], force=True)
+        return
+
+    logger.critical(f"Failed to find .rose.toml in {source_path}")
 
 
 def resolve_release_ids(c: Config, release_id_or_virtual_dirname: str) -> tuple[str, str]:

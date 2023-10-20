@@ -13,7 +13,7 @@ from rose.collages import (
     edit_collage_in_editor,
 )
 from rose.config import Config
-from rose.releases import dump_releases
+from rose.releases import dump_releases, toggle_release_new
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
@@ -100,6 +100,17 @@ def releases() -> None:
 def print1(ctx: Context) -> None:
     """Print JSON-encoded releases."""
     print(dump_releases(ctx.config))
+
+
+@releases.command()
+@click.argument("release", type=str, nargs=1)
+@click.pass_obj
+def toggle_new(ctx: Context, release: str) -> None:
+    """
+    Toggle whether a release is new. Accepts a release's UUID or virtual fs dirname (both are
+    accepted).
+    """
+    toggle_release_new(ctx.config, release)
 
 
 @cli.group()
