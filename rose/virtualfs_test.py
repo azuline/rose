@@ -85,6 +85,12 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert not (root / "Collages" / "Rose Gold" / "1. r1" / "lalala").exists()
         assert can_read(root / "Collages" / "Rose Gold" / "1. r1" / "01.m4a")
 
+        assert (root / "New").is_dir()
+        assert (root / "New" / "[NEW] r3").is_dir()
+        assert not (root / "New" / "r2").exists()
+        assert (root / "New" / "[NEW] r3" / "01.m4a").is_file()
+        assert not (root / "New" / "[NEW] r3" / "lalala").exists()
+
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_virtual_filesystem_write_files(config: Config) -> None:

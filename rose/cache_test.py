@@ -407,6 +407,22 @@ def test_list_releases(config: Config) -> None:
             ],
             formatted_artists="Violin Woman feat. Conductor Woman",
         ),
+        CachedRelease(
+            datafile_mtime=releases[2].datafile_mtime,  # IGNORE THIS FIELD.
+            id="r3",
+            source_path=Path(config.music_source_dir / "r3"),
+            cover_image_path=None,
+            virtual_dirname="[NEW] r3",
+            title="Release 3",
+            type="album",
+            year=2021,
+            multidisc=False,
+            new=True,
+            genres=[],
+            labels=[],
+            artists=[],
+            formatted_artists="",
+        ),
     ]
 
     releases = list(list_releases(config, sanitized_artist_filter="Techno Man"))

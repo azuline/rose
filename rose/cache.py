@@ -292,6 +292,10 @@ def update_cache_for_releases(
         for row in cursor:
             release_artists: list[CachedArtist] = []
             for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
+                if not n:
+                    # This can occur if there are no artist names; then we get a single iteration
+                    # with empty string.
+                    continue
                 release_artists.append(CachedArtist(name=n, role=r))
             cached_releases[row["id"]] = (
                 CachedRelease(
@@ -307,8 +311,8 @@ def update_cache_for_releases(
                     year=row["release_year"],
                     multidisc=bool(row["multidisc"]),
                     new=bool(row["new"]),
-                    genres=row["genres"].split(r" \\ "),
-                    labels=row["labels"].split(r" \\ "),
+                    genres=row["genres"].split(r" \\ ") if row["genres"] else [],
+                    labels=row["labels"].split(r" \\ ") if row["labels"] else [],
                     artists=release_artists,
                     formatted_artists=row["formatted_artists"],
                 ),
@@ -351,6 +355,10 @@ def update_cache_for_releases(
         for row in cursor:
             track_artists: list[CachedArtist] = []
             for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
+                if not n:
+                    # This can occur if there are no artist names; then we get a single iteration
+                    # with empty string.
+                    continue
                 track_artists.append(CachedArtist(name=n, role=r))
             cached_releases[row["release_id"]][1][row["source_path"]] = CachedTrack(
                 id=row["id"],
@@ -862,7 +870,7 @@ def update_cache_for_collages(
             cached_collages[row["name"]] = CachedCollage(
                 name=row["name"],
                 source_mtime=row["source_mtime"],
-                release_ids=row["release_ids"].split(r" \\ "),
+                release_ids=row["release_ids"].split(r" \\ ") if row["release_ids"] else [],
             )
 
         # We want to validate that all release IDs exist before we write them. In order to do that,
@@ -974,6 +982,7 @@ def list_releases(
     sanitized_artist_filter: str | None = None,
     sanitized_genre_filter: str | None = None,
     sanitized_label_filter: str | None = None,
+    new: bool | None = None,
 ) -> Iterator[CachedRelease]:
     with connect(c) as conn:
         query = r"""
@@ -1019,7 +1028,7 @@ def list_releases(
             LEFT JOIN artists a ON a.release_id = r.id
             WHERE 1=1
         """
-        args: list[str] = []
+        args: list[str | bool] = []
         if sanitized_artist_filter:
             query += """
                 AND EXISTS (
@@ -1044,12 +1053,19 @@ def list_releases(
                 )
             """
             args.append(sanitized_label_filter)
+        if new is not None:
+            query += "AND r.new = ?"
+            args.append(new)
         query += " ORDER BY r.source_path"
 
         cursor = conn.execute(query, args)
         for row in cursor:
             artists: list[CachedArtist] = []
             for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
+                if not n:
+                    # This can occur if there are no artist names; then we get a single iteration
+                    # with empty string.
+                    continue
                 artists.append(CachedArtist(name=n, role=r))
             yield CachedRelease(
                 id=row["id"],
@@ -1062,8 +1078,8 @@ def list_releases(
                 year=row["release_year"],
                 multidisc=bool(row["multidisc"]),
                 new=bool(row["new"]),
-                genres=row["genres"].split(r" \\ "),
-                labels=row["labels"].split(r" \\ "),
+                genres=row["genres"].split(r" \\ ") if row["genres"] else [],
+                labels=row["labels"].split(r" \\ ") if row["labels"] else [],
                 artists=artists,
                 formatted_artists=row["formatted_artists"],
             )
@@ -1112,6 +1128,10 @@ def get_release_files(c: Config, release_virtual_dirname: str) -> ReleaseFiles:
         for row in cursor:
             artists: list[CachedArtist] = []
             for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
+                if not n:
+                    # This can occur if there are no artist names; then we get a single iteration
+                    # with empty string.
+                    continue
                 artists.append(CachedArtist(name=n, role=r))
             rf.tracks.append(
                 CachedTrack(

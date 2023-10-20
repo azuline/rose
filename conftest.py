@@ -69,11 +69,13 @@ def seeded_cache(config: Config) -> None:
     dirpaths = [
         config.music_source_dir / "r1",
         config.music_source_dir / "r2",
+        config.music_source_dir / "r3",
     ]
     musicpaths = [
         config.music_source_dir / "r1" / "01.m4a",
         config.music_source_dir / "r1" / "02.m4a",
         config.music_source_dir / "r2" / "01.m4a",
+        config.music_source_dir / "r3" / "01.m4a",
     ]
     imagepaths = [
         config.music_source_dir / "r2" / "cover.jpg",
@@ -84,8 +86,9 @@ def seeded_cache(config: Config) -> None:
             f"""\
 INSERT INTO releases
        (id  , source_path    , cover_image_path , datafile_mtime, virtual_dirname, title      , release_type, release_year, multidisc, new  , formatted_artists)
-VALUES ('r1', '{dirpaths[0]}', null             , '999'         , 'r1'           , 'Release 1', 'album'     , 2023        , false    , false , 'Techno Man;Bass Man')
-     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '999'         , 'r2'           , 'Release 2', 'album'     , 2021        , false    , false, 'Violin Woman feat. Conductor Woman');
+VALUES ('r1', '{dirpaths[0]}', null             , '999'         , 'r1'           , 'Release 1', 'album'     , 2023        , false    , false, 'Techno Man;Bass Man')
+     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '999'         , 'r2'           , 'Release 2', 'album'     , 2021        , false    , false, 'Violin Woman feat. Conductor Woman')
+     , ('r3', '{dirpaths[2]}', null             , '999'         , '[NEW] r3'     , 'Release 3', 'album'     , 2021        , false    , true , '');
 
 INSERT INTO releases_genres
        (release_id, genre       , genre_sanitized)
@@ -102,7 +105,8 @@ INSERT INTO tracks
        (id  , source_path      , source_mtime, virtual_filename, title    , release_id, track_number, disc_number, duration_seconds, formatted_artists)
 VALUES ('t1', '{musicpaths[0]}', '999'       , '01.m4a'        , 'Track 1', 'r1'      , '01'        , '01'       , 120             , 'Techno Man;Bass Man')
      , ('t2', '{musicpaths[1]}', '999'       , '02.m4a'        , 'Track 2', 'r1'      , '02'        , '01'       , 240             , 'Techno Man;Bass Man')
-     , ('t3', '{musicpaths[2]}', '999'       , '01.m4a'        , 'Track 1', 'r2'      , '01'        , '01'       , 120             , 'Violin Woman feat. Conductor Woman');
+     , ('t3', '{musicpaths[2]}', '999'       , '01.m4a'        , 'Track 1', 'r2'      , '01'        , '01'       , 120             , 'Violin Woman feat. Conductor Woman')
+     , ('t4', '{musicpaths[3]}', '999'       , '01.m4a'        , 'Track 1', 'r3'      , '01'        , '01'       , 120             , '');
 
 INSERT INTO releases_artists
        (release_id, artist           , artist_sanitized , role)

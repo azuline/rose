@@ -78,6 +78,8 @@ class VirtualFS(fuse.Operations):  # type: ignore
         # Some early guards just in case.
         if p.release and p.collage and not collage_has_release(self.config, p.collage, p.release):
             raise fuse.FuseOSError(errno.ENOENT)
+        if p.release and p.view == "New" and not p.release.startswith("[NEW] "):
+            raise fuse.FuseOSError(errno.ENOENT)
 
         if p.release and p.file:
             if tp := track_exists(self.config, p.release, p.file):
@@ -120,6 +122,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 "Collages",
                 "Genres",
                 "Labels",
+                "New",
                 "Releases",
             ]
         elif p.release:
@@ -136,7 +139,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
                     time.time(),
                     ("file", rf.cover),
                 )
-        elif p.artist or p.genre or p.label or p.view == "Releases":
+        elif p.artist or p.genre or p.label or p.view == "Releases" or p.view == "New":
             if (
                 (p.artist and p.artist in self.hide_artists_set)
                 or (p.genre and p.genre in self.hide_genres_set)
@@ -148,6 +151,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 sanitized_artist_filter=p.artist,
                 sanitized_genre_filter=p.genre,
                 sanitized_label_filter=p.label,
+                new=True if p.view == "New" else None,
             ):
                 yield release.virtual_dirname
                 self.getattr_cache[path + "/" + release.virtual_dirname] = (
@@ -349,7 +353,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
 @dataclass
 class ParsedPath:
-    view: Literal["Root", "Releases", "Artists", "Genres", "Labels", "Collages"] | None
+    view: Literal["Root", "Releases", "Artists", "Genres", "Labels", "Collages", "New"] | None
     artist: str | None = None
     genre: str | None = None
     label: str | None = None
@@ -420,6 +424,15 @@ def parse_virtual_path(path: str) -> ParsedPath:
                 release=rm_position(parts[2]),
                 file=parts[3],
             )
+        raise fuse.FuseOSError(errno.ENOENT)
+
+    if parts[0] == "New":
+        if len(parts) == 1:
+            return ParsedPath(view="New")
+        if len(parts) == 2:
+            return ParsedPath(view="New", release=parts[1])
+        if len(parts) == 3:
+            return ParsedPath(view="New", release=parts[1], file=parts[2])
         raise fuse.FuseOSError(errno.ENOENT)
 
     raise fuse.FuseOSError(errno.ENOENT)
