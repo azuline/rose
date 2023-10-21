@@ -412,7 +412,7 @@ def test_list_releases(config: Config) -> None:
             id="r3",
             source_path=Path(config.music_source_dir / "r3"),
             cover_image_path=None,
-            virtual_dirname="[NEW] r3",
+            virtual_dirname="{NEW} r3",
             title="Release 3",
             type="album",
             year=2021,

@@ -47,7 +47,7 @@ def test_toggle_release_new(config: Config) -> None:
         assert data["new"] is False
     with connect(config) as conn:
         cursor = conn.execute("SELECT virtual_dirname FROM releases")
-        assert not cursor.fetchone()["virtual_dirname"].startswith("[NEW] ")
+        assert not cursor.fetchone()["virtual_dirname"].startswith("{NEW} ")
 
     # Set new.
     toggle_release_new(config, release_id)
@@ -56,7 +56,7 @@ def test_toggle_release_new(config: Config) -> None:
         assert data["new"] is True
     with connect(config) as conn:
         cursor = conn.execute("SELECT virtual_dirname FROM releases")
-        assert cursor.fetchone()["virtual_dirname"].startswith("[NEW] ")
+        assert cursor.fetchone()["virtual_dirname"].startswith("{NEW} ")
 
 
 def test_resolve_release_ids(config: Config) -> None:

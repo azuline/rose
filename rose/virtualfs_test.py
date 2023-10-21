@@ -86,10 +86,10 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert can_read(root / "Collages" / "Rose Gold" / "1. r1" / "01.m4a")
 
         assert (root / "New").is_dir()
-        assert (root / "New" / "[NEW] r3").is_dir()
+        assert (root / "New" / "{NEW} r3").is_dir()
         assert not (root / "New" / "r2").exists()
-        assert (root / "New" / "[NEW] r3" / "01.m4a").is_file()
-        assert not (root / "New" / "[NEW] r3" / "lalala").exists()
+        assert (root / "New" / "{NEW} r3" / "01.m4a").is_file()
+        assert not (root / "New" / "{NEW} r3" / "lalala").exists()
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -137,12 +137,12 @@ def test_virtual_filesystem_toggle_new(config: Config, source_dir: Path) -> None
     dirname = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
     root = config.fuse_mount_dir
     with startfs(config):
-        (root / "Releases" / dirname).rename(root / "Releases" / f"[NEW] {dirname}")
-        assert (root / "Releases" / f"[NEW] {dirname}").is_dir()
+        (root / "Releases" / dirname).rename(root / "Releases" / f"{{NEW}} {dirname}")
+        assert (root / "Releases" / f"{{NEW}} {dirname}").is_dir()
         assert not (root / "Releases" / dirname).exists()
-        (root / "Releases" / f"[NEW] {dirname}").rename(root / "Releases" / dirname)
+        (root / "Releases" / f"{{NEW}} {dirname}").rename(root / "Releases" / dirname)
         assert (root / "Releases" / dirname).is_dir()
-        assert not (root / "Releases" / f"[NEW] {dirname}").exists()
+        assert not (root / "Releases" / f"{{NEW}} {dirname}").exists()
         with pytest.raises(OSError):  # noqa: PT011
             (root / "Releases" / dirname).rename(root / "Releases" / "lalala")
 

@@ -586,7 +586,7 @@ def update_cache_for_releases(
                     if release.labels:
                         release_virtual_dirname += " {" + ";".join(release.labels) + "}"
                     if release.new:
-                        release_virtual_dirname = "[NEW] " + release_virtual_dirname
+                        release_virtual_dirname = "{NEW} " + release_virtual_dirname
                     release_virtual_dirname = sanitize_filename(release_virtual_dirname)
                     # And in case of a name collision, add an extra number at the end. Iterate to
                     # find the first unused number.

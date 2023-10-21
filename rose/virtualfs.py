@@ -78,7 +78,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
         # Some early guards just in case.
         if p.release and p.collage and not collage_has_release(self.config, p.collage, p.release):
             raise fuse.FuseOSError(errno.ENOENT)
-        if p.release and p.view == "New" and not p.release.startswith("[NEW] "):
+        if p.release and p.view == "New" and not p.release.startswith("{NEW} "):
             raise fuse.FuseOSError(errno.ENOENT)
 
         if p.release and p.file:
@@ -292,10 +292,10 @@ class VirtualFS(fuse.Operations):  # type: ignore
         # 2. Toggle a release's new status.
         if (
             (op.release and np.release)
-            and op.release.removeprefix("[NEW] ") == np.release.removeprefix("[NEW] ")
+            and op.release.removeprefix("{NEW} ") == np.release.removeprefix("{NEW} ")
             and (not op.file and not np.file)
         ):
-            if op.release.startswith("[NEW] ") != np.release.startswith("[NEW] "):
+            if op.release.startswith("{NEW} ") != np.release.startswith("{NEW} "):
                 toggle_release_new(self.config, op.release)
             else:
                 raise fuse.FuseOSError(errno.EACCES)
