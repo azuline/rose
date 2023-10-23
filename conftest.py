@@ -85,10 +85,10 @@ def seeded_cache(config: Config) -> None:
         conn.executescript(
             f"""\
 INSERT INTO releases
-       (id  , source_path    , cover_image_path , datafile_mtime, virtual_dirname, title      , release_type, release_year, multidisc, new  , formatted_artists)
-VALUES ('r1', '{dirpaths[0]}', null             , '999'         , 'r1'           , 'Release 1', 'album'     , 2023        , false    , false, 'Techno Man;Bass Man')
-     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '999'         , 'r2'           , 'Release 2', 'album'     , 2021        , false    , false, 'Violin Woman feat. Conductor Woman')
-     , ('r3', '{dirpaths[2]}', null             , '999'         , '{{NEW}} r3'     , 'Release 3', 'album'     , 2021        , false    , true , '');
+       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, virtual_dirname, title      , release_type, release_year, multidisc, new  , formatted_artists)
+VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'r1'           , 'Release 1', 'album'     , 2023        , false    , false, 'Techno Man;Bass Man')
+     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'r2'           , 'Release 2', 'album'     , 2021        , false    , false, 'Violin Woman feat. Conductor Woman')
+     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , '{{NEW}} r3'     , 'Release 3', 'album'     , 2021        , false    , true , '');
 
 INSERT INTO releases_genres
        (release_id, genre       , genre_sanitized)

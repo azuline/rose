@@ -72,8 +72,8 @@ def test_update_cache_all(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases (id, source_path, virtual_dirname, datafile_mtime, title, release_type, multidisc, formatted_artists)
-            VALUES ('aaaaaa', '/nonexistent', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
+            INSERT INTO releases (id, source_path, virtual_dirname, added_at, datafile_mtime, title, release_type, multidisc, formatted_artists)
+            VALUES ('aaaaaa', '/nonexistent', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
             """  # noqa: E501
         )
 
@@ -239,9 +239,10 @@ def test_update_cache_releases_disk_update_to_datafile(config: Config) -> None:
 
     # Assert that the release metadata was re-read and updated correctly.
     with connect(config) as conn:
-        cursor = conn.execute("SELECT new FROM releases")
+        cursor = conn.execute("SELECT new, added_at FROM releases")
         row = cursor.fetchone()
         assert row["new"]
+        assert row["added_at"]
 
 
 def test_update_cache_releases_disk_upgrade_old_datafile(config: Config) -> None:
@@ -254,12 +255,15 @@ def test_update_cache_releases_disk_upgrade_old_datafile(config: Config) -> None
 
     # Assert that the release metadata was re-read and updated correctly.
     with connect(config) as conn:
-        cursor = conn.execute("SELECT id, new FROM releases")
+        cursor = conn.execute("SELECT id, new, added_at FROM releases")
         row = cursor.fetchone()
         assert row["id"] == "lalala"
         assert row["new"]
+        assert row["added_at"]
     with datafile.open("r") as fp:
-        assert "new = true" in fp.read()
+        data = fp.read()
+        assert "new = true" in data
+        assert "added_at = " in data
 
 
 def test_update_cache_releases_source_path_renamed(config: Config) -> None:
@@ -289,8 +293,8 @@ def test_update_cache_releases_delete_nonexistent(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases (id, source_path, virtual_dirname, datafile_mtime, title, release_type, multidisc, formatted_artists)
-            VALUES ('aaaaaa', '/nonexistent', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
+            INSERT INTO releases (id, source_path, virtual_dirname, added_at, datafile_mtime, title, release_type, multidisc, formatted_artists)
+            VALUES ('aaaaaa', '/nonexistent', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
             """  # noqa: E501
         )
     update_cache_evict_nonexistent_releases(config)
@@ -374,6 +378,7 @@ def test_list_releases(config: Config) -> None:
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
+            added_at="0000-01-01T00:00:00+00:00",
             virtual_dirname="r1",
             title="Release 1",
             type="album",
@@ -393,6 +398,7 @@ def test_list_releases(config: Config) -> None:
             id="r2",
             source_path=Path(config.music_source_dir / "r2"),
             cover_image_path=Path(config.music_source_dir / "r2" / "cover.jpg"),
+            added_at="0000-01-01T00:00:00+00:00",
             virtual_dirname="r2",
             title="Release 2",
             type="album",
@@ -412,6 +418,7 @@ def test_list_releases(config: Config) -> None:
             id="r3",
             source_path=Path(config.music_source_dir / "r3"),
             cover_image_path=None,
+            added_at="0000-01-01T00:00:00+00:00",
             virtual_dirname="{NEW} r3",
             title="Release 3",
             type="album",
@@ -432,6 +439,7 @@ def test_list_releases(config: Config) -> None:
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
+            added_at="0000-01-01T00:00:00+00:00",
             virtual_dirname="r1",
             title="Release 1",
             type="album",
@@ -455,6 +463,7 @@ def test_list_releases(config: Config) -> None:
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
+            added_at="0000-01-01T00:00:00+00:00",
             virtual_dirname="r1",
             title="Release 1",
             type="album",
@@ -478,6 +487,7 @@ def test_list_releases(config: Config) -> None:
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
+            added_at="0000-01-01T00:00:00+00:00",
             virtual_dirname="r1",
             title="Release 1",
             type="album",

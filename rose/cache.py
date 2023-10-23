@@ -7,6 +7,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -86,8 +87,9 @@ class CachedArtist:
 class CachedRelease:
     id: str
     source_path: Path
-    datafile_mtime: str
     cover_image_path: Path | None
+    added_at: str  # ISO8601 timestamp
+    datafile_mtime: str
     virtual_dirname: str
     title: str
     type: str
@@ -133,6 +135,7 @@ class CachedPlaylist:
 @dataclass
 class StoredDataFile:
     new: bool
+    added_at: str  # ISO8601 timestamp
 
 
 VALID_COVER_FILENAMES = [
@@ -269,6 +272,7 @@ def update_cache_for_releases(
                 r.id
               , r.source_path
               , r.cover_image_path
+              , r.added_at
               , r.datafile_mtime
               , r.virtual_dirname
               , r.title
@@ -304,6 +308,7 @@ def update_cache_for_releases(
                     cover_image_path=Path(row["cover_image_path"])
                     if row["cover_image_path"]
                     else None,
+                    added_at=row["added_at"],
                     datafile_mtime=row["datafile_mtime"],
                     virtual_dirname=row["virtual_dirname"],
                     title=row["title"],
@@ -414,6 +419,7 @@ def update_cache_for_releases(
                     source_path=source_path,
                     datafile_mtime="",
                     cover_image_path=None,
+                    added_at="",
                     virtual_dirname="",
                     title="",
                     type="",
@@ -436,13 +442,17 @@ def update_cache_for_releases(
             # The directory does not have a release ID, so create the stored data file.
             if not preexisting_release_id:
                 logger.debug(f"Creating new stored data file for release {source_path}")
-                stored_release_data = StoredDataFile(new=True)
+                stored_release_data = StoredDataFile(
+                    new=True,
+                    added_at=datetime.now().astimezone().replace(microsecond=0).isoformat(),
+                )
                 new_release_id = str(uuid6.uuid7())
                 datafile_path = source_path / f".rose.{new_release_id}.toml"
                 with datafile_path.open("wb") as fp:
                     tomli_w.dump(asdict(stored_release_data), fp)
                 release.id = new_release_id
                 release.new = stored_release_data.new
+                release.added_at = stored_release_data.added_at
                 release.datafile_mtime = str(os.stat(datafile_path).st_mtime)
                 release_dirty = True
             else:
@@ -452,12 +462,19 @@ def update_cache_for_releases(
                 datafile_mtime = str(os.stat(datafile_path).st_mtime)
                 if datafile_mtime != release.datafile_mtime or force:
                     logger.debug(f"Datafile changed for release {source_path}, updating")
-                    release.datafile_mtime = datafile_mtime
                     release_dirty = True
+                    release.datafile_mtime = datafile_mtime
                     with datafile_path.open("rb") as fp:
                         diskdata = tomllib.load(fp)
-                    datafile = StoredDataFile(new=diskdata.get("new", True))
+                    datafile = StoredDataFile(
+                        new=diskdata.get("new", True),
+                        added_at=diskdata.get(
+                            "added_at",
+                            datetime.now().astimezone().replace(microsecond=0).isoformat(),
+                        ),
+                    )
                     release.new = datafile.new
+                    release.added_at = datafile.added_at
                     # And then write the data back to disk if it changed. This allows us to update
                     # datafiles to contain newer default values.
                     new_resolved_data = asdict(datafile)
@@ -689,6 +706,7 @@ def update_cache_for_releases(
                         id
                       , source_path
                       , cover_image_path
+                      , added_at
                       , datafile_mtime
                       , virtual_dirname
                       , title
@@ -697,10 +715,11 @@ def update_cache_for_releases(
                       , multidisc
                       , new
                       , formatted_artists
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT (id) DO UPDATE SET
                         source_path = ?
                       , cover_image_path = ?
+                      , added_at = ?
                       , datafile_mtime = ?
                       , virtual_dirname = ?
                       , title = ?
@@ -714,6 +733,7 @@ def update_cache_for_releases(
                         release.id,
                         str(release.source_path),
                         str(release.cover_image_path) if release.cover_image_path else None,
+                        release.added_at,
                         release.datafile_mtime,
                         release.virtual_dirname,
                         release.title,
@@ -724,6 +744,7 @@ def update_cache_for_releases(
                         release.formatted_artists,
                         str(release.source_path),
                         str(release.cover_image_path) if release.cover_image_path else None,
+                        release.added_at,
                         release.datafile_mtime,
                         release.virtual_dirname,
                         release.title,
@@ -1010,6 +1031,7 @@ def list_releases(
                 r.id
               , r.source_path
               , r.cover_image_path
+              , r.added_at
               , r.datafile_mtime
               , r.virtual_dirname
               , r.title
@@ -1071,6 +1093,7 @@ def list_releases(
                 id=row["id"],
                 source_path=Path(row["source_path"]),
                 cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
+                added_at=row["added_at"],
                 datafile_mtime=row["datafile_mtime"],
                 virtual_dirname=row["virtual_dirname"],
                 title=row["title"],

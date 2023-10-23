@@ -16,6 +16,8 @@ CREATE TABLE releases (
     id TEXT PRIMARY KEY,
     source_path TEXT NOT NULL UNIQUE,
     cover_image_path TEXT,
+    -- ISO8601 timestamp.
+    added_at TEXT NOT NULL,
     datafile_mtime TEXT NOT NULL,
     virtual_dirname TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
