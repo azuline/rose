@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import multiprocessing
 import os
 from collections import defaultdict
 from dataclasses import dataclass
@@ -29,6 +30,8 @@ class Config:
     fuse_mount_dir: Path
     cache_dir: Path
     cache_database_path: Path
+    # Maximum parallel processes for cache updates. Defaults to nproc/2.
+    max_proc: int
 
     # A map from parent artist -> subartists.
     artist_aliases_map: dict[str, list[str]]
@@ -66,6 +69,7 @@ class Config:
                 fuse_mount_dir=Path(data["fuse_mount_dir"]).expanduser(),
                 cache_dir=cache_dir,
                 cache_database_path=cache_dir / "cache.sqlite3",
+                max_proc=data.get("max_proc", max(1, multiprocessing.cpu_count() // 2)),
                 artist_aliases_map=artist_aliases_map,
                 artist_aliases_parents_map=artist_aliases_parents_map,
                 fuse_hide_artists=data.get("fuse_hide_artists", []),

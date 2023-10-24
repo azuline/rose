@@ -139,6 +139,9 @@ fuse_mount_dir = "~/music"
 # The directory to write the cache to. Defaults to
 # `${XDG_CACHE_HOME:-$HOME/.cache}/rose`.
 cache_dir = "~/.cache/rose"
+# Maximum parallel processes that the cache updater can spawn. Defaults to
+# nproc/2.
+max_proc = 4
 # Artist aliases: Releases belonging to an alias will also appear in the main
 # artists' releases.
 artist_aliases = [

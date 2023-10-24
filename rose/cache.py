@@ -1,5 +1,7 @@
 import hashlib
 import logging
+import math
+import multiprocessing
 import os
 import re
 import sqlite3
@@ -209,24 +211,55 @@ def update_cache_for_releases(
     .rose.{uuid}.toml datafile, create the datafile for the release and set it to the initial state.
 
     This is a hot path and is thus performance-optimized. The bottleneck is disk accesses, so we
-    structure this function in order to minimize them. We trade higher memory for reduced disk
-    accesses. We:
+    structure this function in order to minimize them. We solely read files that have changed since
+    last run and batch writes together. We trade higher memory for reduced disk accesses.
+    Concretely, we:
 
     1. Execute one big SQL query at the start to fetch the relevant previous caches.
     2. Skip reading a file's data if the mtime has not changed since the previous cache update.
-    3. Only execute a SQLite upsert if the read data differ from the previous caches.
+    3. Batch SQLite write operations to the end of this function, and only execute a SQLite upsert
+       if the read data differs from the previous caches.
 
-    We also batch all database writes together at the very end of the update loop.
-
-    With these optimizations, we make a lot of readdir and stat calls, but minimize file and
-    database accesses to solely the files that have updated since the last cache run.
+    We also shard the directories across multiple processes and execute them simultaneously.
     """
     release_dirs = release_dirs or [
-        Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()
+        Path(d.path) for d in os.scandir(c.music_source_dir) if d.is_dir()
     ]
     logger.info(f"Refreshing the read cache for {len(release_dirs)} releases")
     logger.debug(f"Refreshing cached data for {', '.join([r.name for r in release_dirs])}")
 
+    # Batch size defaults to equal split across all processes. However, if the number of directories
+    # is small, we shrink the # of processes to save on overhead.
+    num_proc = c.max_proc
+    if len(release_dirs) < c.max_proc * 50:
+        num_proc = max(1, math.ceil(len(release_dirs) // 50))
+    batch_size = len(release_dirs) // num_proc + 1
+
+    manager = multiprocessing.Manager()
+    # Track the known virtual dirnames for collision calculation. This needs to be shared across
+    # all processes.
+    known_virtual_dirnames = manager.dict()
+    with multiprocessing.Pool(processes=c.max_proc) as pool:
+        # At 0, no batch. At 1, 1 batch. At 49, 1 batch. At 50, 1 batch. At 51, 2 batches.
+        for i in range(0, len(release_dirs), batch_size):
+            logger.debug(
+                f"Spawning release cache update process for releases [{i}, {i+batch_size})"
+            )
+            pool.apply_async(
+                _update_cache_for_releases_executor,
+                (c, release_dirs[i : i + batch_size], force, known_virtual_dirnames),
+            )
+        pool.close()
+        pool.join()
+
+
+def _update_cache_for_releases_executor(
+    c: Config,
+    release_dirs: list[Path],
+    force: bool,
+    known_virtual_dirnames: dict[str, bool],
+) -> None:
+    """The implementation logic, split out for multiprocessing."""
     # First, call readdir on every release directory. We store the results in a map of
     # Path Basename -> (Release ID if exists, File DirEntries).
     dir_tree: list[tuple[Path, str | None, list[os.DirEntry[str]]]] = []
@@ -251,9 +284,6 @@ def update_cache_for_releases(
     # 2. Fetch all tracks in a single query, and then associates each track with a release.
     # The tracks are stored as a dict of source_path -> Track.
     cached_releases: dict[str, tuple[CachedRelease, dict[str, CachedTrack]]] = {}
-    # Track the known virtual dirnames here for collision calculation. We will continually update
-    # this as-we-go as well.
-    known_virtual_dirnames: set[str] = set()
     with connect(c) as conn:
         cursor = conn.execute(
             rf"""
@@ -332,7 +362,7 @@ def update_cache_for_releases(
                 ),
                 {},
             )
-            known_virtual_dirnames.add(row["virtual_dirname"])
+            known_virtual_dirnames[row["virtual_dirname"]] = True
 
         logger.debug(f"Found {len(cached_releases)}/{len(release_dirs)} releases in cache")
 
@@ -626,7 +656,7 @@ def update_cache_for_releases(
                 original_virtual_dirname = release_virtual_dirname
                 collision_no = 2
                 while True:
-                    if release_virtual_dirname not in known_virtual_dirnames:
+                    if not known_virtual_dirnames.get(release_virtual_dirname, False):
                         break
                     logger.debug(
                         "Virtual dirname collision: "
@@ -640,8 +670,8 @@ def update_cache_for_releases(
                         f"Release virtual dirname change detected for {source_path}, updating"
                     )
                     if release.virtual_dirname in known_virtual_dirnames:
-                        known_virtual_dirnames.remove(release.virtual_dirname)
-                    known_virtual_dirnames.add(release_virtual_dirname)
+                        known_virtual_dirnames[release.virtual_dirname] = False
+                    known_virtual_dirnames[release_virtual_dirname] = True
                     release.virtual_dirname = release_virtual_dirname
                     release_dirty = True
 
