@@ -170,6 +170,24 @@ def test_update_cache_releases(config: Config) -> None:
             }
 
 
+def test_update_cache_releases_duplicate_collision(config: Config) -> None:
+    """Test that equivalent releases are appropriately handled."""
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "d1")
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "d2")
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "d3")
+    update_cache_for_releases(config)
+
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT id, virtual_dirname FROM releases")
+        rows = cursor.fetchall()
+        assert len({r["id"] for r in rows}) == 3
+        assert {r["virtual_dirname"] for r in rows} == {
+            "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop] {A Cool Label}",
+            "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop] {A Cool Label} [2]",
+            "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop] {A Cool Label} [3]",
+        }
+
+
 def test_update_cache_releases_uncached_with_existing_id(config: Config) -> None:
     """Test that IDs in filenames are read and preserved."""
     release_dir = config.music_source_dir / TEST_RELEASE_2.name
