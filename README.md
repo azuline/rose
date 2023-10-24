@@ -212,12 +212,13 @@ delimiters. for example, `artist=Pyotr Ilyich Tchaikovsky performed by André Pr
 The artist tag is described by the following grammar:
 
 ```
-artist-tag ::= composer dj main guest remixer
+artist-tag ::= composer dj main guest remixer producer
 composer   ::= name ' performed by '
 dj         ::= name ' pres. '
 main       ::= name
 guest      ::= ' feat. ' name
 remixer    ::= ' remixed by ' name
+producer   ::= ' produced by ' name
 name       ::= string ';' name | string
 ```
 

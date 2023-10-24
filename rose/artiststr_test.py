@@ -19,6 +19,11 @@ def test_parse_artist_string() -> None:
         main=["B", "C"],
         guest=["D", "E"],
     )
+    # Test the deduplication handling.
+    assert parse_artist_string("A pres. B", dj="A") == Artists(
+        djmixer=["A"],
+        main=["B"],
+    )
 
 
 def test_format_artist_string() -> None:

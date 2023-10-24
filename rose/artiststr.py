@@ -1,5 +1,9 @@
+import logging
 import re
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
+
 
 TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")
 
@@ -32,6 +36,9 @@ def parse_artist_string(
     li_composer = _split_tag(composer)
     li_producer = _split_tag(producer)
     li_dj = _split_tag(dj)
+    if main and "produced by " in main:
+        main, producer = re.split(r" ?produced by ", main, maxsplit=1)
+        li_producer.extend(_split_tag(producer))
     if main and "remixed by " in main:
         main, remixer = re.split(r" ?remixed by ", main, maxsplit=1)
         li_remixer.extend(_split_tag(remixer))
@@ -47,18 +54,22 @@ def parse_artist_string(
     if main:
         li_main.extend(_split_tag(main))
 
-    return Artists(
-        main=li_main,
-        guest=li_guests,
-        remixer=li_remixer,
-        composer=li_composer,
-        producer=li_producer,
-        djmixer=li_dj,
+    rval = Artists(
+        main=_deduplicate(li_main),
+        guest=_deduplicate(li_guests),
+        remixer=_deduplicate(li_remixer),
+        composer=_deduplicate(li_composer),
+        producer=_deduplicate(li_producer),
+        djmixer=_deduplicate(li_dj),
     )
+    logger.debug(
+        f"Parsed args {main=} {remixer=} {composer=} {conductor=} {producer=} {dj=} as {rval=}"
+    )
+    return rval
 
 
 def format_artist_string(a: Artists, genres: list[str]) -> str:
-    r = ";".join(a.producer + a.main + a.remixer)
+    r = ";".join(a.main)
     if a.composer and "Classical" in genres:
         r = ";".join(a.composer) + " performed by " + r
     if a.djmixer:
@@ -67,4 +78,17 @@ def format_artist_string(a: Artists, genres: list[str]) -> str:
         r += " feat. " + ";".join(a.guest)
     if a.remixer:
         r += " remixed by " + ";".join(a.remixer)
+    if a.producer:
+        r += " produced by " + ";".join(a.producer)
+    logger.debug(f"Formatted {a} ({genres=}) as {r}")
+    return r
+
+
+def _deduplicate(xs: list[str]) -> list[str]:
+    seen: set[str] = set()
+    r: list[str] = []
+    for x in xs:
+        if x not in seen:
+            r.append(x)
+        seen.add(x)
     return r
