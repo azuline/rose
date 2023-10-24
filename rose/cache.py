@@ -16,7 +16,6 @@ import tomllib
 import uuid6
 
 from rose.artiststr import format_artist_string
-from rose.common import sanitize_filename
 from rose.config import Config
 from rose.tagger import AudioFile
 
@@ -614,7 +613,7 @@ def update_cache_for_releases(
                         release_virtual_dirname += " {" + ";".join(release.labels) + "}"
                     if release.new:
                         release_virtual_dirname = "{NEW} " + release_virtual_dirname
-                    release_virtual_dirname = sanitize_filename(release_virtual_dirname)
+                    release_virtual_dirname = _sanitize_filename(release_virtual_dirname)
                     # And in case of a name collision, add an extra number at the end. Iterate to
                     # find the first unused number.
                     original_virtual_dirname = release_virtual_dirname
@@ -678,7 +677,7 @@ def update_cache_for_releases(
                 if release.type in ["compilation", "soundtrack", "remix", "djmix", "mixtape"]:
                     virtual_filename += f" (by {t.formatted_artists})"
                 virtual_filename += t.source_path.suffix
-                virtual_filename = sanitize_filename(virtual_filename)
+                virtual_filename = _sanitize_filename(virtual_filename)
                 # And in case of a name collision, add an extra number at the end. Iterate to find
                 # the first unused number.
                 original_virtual_filename = virtual_filename
@@ -774,7 +773,7 @@ def update_cache_for_releases(
                         INSERT INTO releases_genres (release_id, genre, genre_sanitized)
                         VALUES (?, ?, ?) ON CONFLICT (release_id, genre) DO NOTHING
                         """,
-                        (release.id, genre, sanitize_filename(genre)),
+                        (release.id, genre, _sanitize_filename(genre)),
                     )
                 for label in release.labels:
                     conn.execute(
@@ -782,7 +781,7 @@ def update_cache_for_releases(
                         INSERT INTO releases_labels (release_id, label, label_sanitized)
                         VALUES (?, ?, ?) ON CONFLICT (release_id, label) DO NOTHING
                         """,
-                        (release.id, label, sanitize_filename(label)),
+                        (release.id, label, _sanitize_filename(label)),
                     )
                 for art in release.artists:
                     conn.execute(
@@ -795,7 +794,7 @@ def update_cache_for_releases(
                         (
                             release.id,
                             art.name,
-                            sanitize_filename(art.name),
+                            _sanitize_filename(art.name),
                             art.role,
                             art.alias,
                             art.role,
@@ -864,7 +863,7 @@ def update_cache_for_releases(
                         (
                             track.id,
                             art.name,
-                            sanitize_filename(art.name),
+                            _sanitize_filename(art.name),
                             art.role,
                             art.alias,
                             art.role,
@@ -1247,25 +1246,25 @@ def get_release_source_path_from_id(c: Config, uuid: str) -> Path | None:
     return None
 
 
-def list_artists(c: Config) -> Iterator[str]:
+def list_artists(c: Config) -> Iterator[tuple[str, str]]:
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT artist FROM releases_artists")
+        cursor = conn.execute("SELECT DISTINCT artist, artist_sanitized FROM releases_artists")
         for row in cursor:
-            yield row["artist"]
+            yield row["artist"], row["artist_sanitized"]
 
 
-def list_genres(c: Config) -> Iterator[str]:
+def list_genres(c: Config) -> Iterator[tuple[str, str]]:
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT genre FROM releases_genres")
+        cursor = conn.execute("SELECT DISTINCT genre, genre_sanitized FROM releases_genres")
         for row in cursor:
-            yield row["genre"]
+            yield row["genre"], row["genre_sanitized"]
 
 
-def list_labels(c: Config) -> Iterator[str]:
+def list_labels(c: Config) -> Iterator[tuple[str, str]]:
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT label FROM releases_labels")
+        cursor = conn.execute("SELECT DISTINCT label, label_sanitized FROM releases_labels")
         for row in cursor:
-            yield row["label"]
+            yield row["label"], row["label_sanitized"]
 
 
 def list_collages(c: Config) -> Iterator[str]:
@@ -1388,3 +1387,10 @@ def collage_has_release(c: Config, collage_name: str, release_virtual_dirname: s
             (collage_name, release_virtual_dirname),
         )
         return bool(cursor.fetchone()[0])
+
+
+ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]+')
+
+
+def _sanitize_filename(x: str) -> str:
+    return ILLEGAL_FS_CHARS_REGEX.sub("_", x)

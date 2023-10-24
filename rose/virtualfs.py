@@ -37,7 +37,6 @@ from rose.collages import (
     delete_release_from_collage,
     rename_collage,
 )
-from rose.common import sanitize_filename
 from rose.config import Config
 from rose.releases import ReleaseDoesNotExistError, delete_release, toggle_release_new
 
@@ -166,23 +165,23 @@ class VirtualFS(fuse.Operations):  # type: ignore
                     ("dir", release.source_path),
                 )
         elif p.view == "Artists":
-            for artist in list_artists(self.config):
+            for artist, sanitized_artist in list_artists(self.config):
                 if artist in self.hide_artists_set:
                     continue
-                yield sanitize_filename(artist)
-                self.getattr_cache[path + "/" + artist] = (time.time(), ("dir",))
+                yield sanitized_artist
+                self.getattr_cache[path + "/" + sanitized_artist] = (time.time(), ("dir",))
         elif p.view == "Genres":
-            for genre in list_genres(self.config):
+            for genre, sanitized_genre in list_genres(self.config):
                 if genre in self.hide_genres_set:
                     continue
-                yield sanitize_filename(genre)
-                self.getattr_cache[path + "/" + genre] = (time.time(), ("dir",))
+                yield sanitized_genre
+                self.getattr_cache[path + "/" + sanitized_genre] = (time.time(), ("dir",))
         elif p.view == "Labels":
-            for label in list_labels(self.config):
+            for label, sanitized_label in list_labels(self.config):
                 if label in self.hide_labels_set:
                     continue
-                yield sanitize_filename(label)
-                self.getattr_cache[path + "/" + label] = (time.time(), ("dir",))
+                yield sanitized_label
+                self.getattr_cache[path + "/" + sanitized_label] = (time.time(), ("dir",))
         elif p.view == "Collages" and p.collage:
             releases = list(list_collage_releases(self.config, p.collage))
             pad_size = max(len(str(r[0])) for r in releases)

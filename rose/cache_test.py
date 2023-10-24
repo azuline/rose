@@ -568,19 +568,28 @@ def test_get_release_source_path_dirname_from_id(config: Config) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_artists(config: Config) -> None:
     artists = list(list_artists(config))
-    assert set(artists) == {"Techno Man", "Bass Man", "Violin Woman", "Conductor Woman"}
+    assert set(artists) == {
+        ("Techno Man", "Techno Man"),
+        ("Bass Man", "Bass Man"),
+        ("Violin Woman", "Violin Woman"),
+        ("Conductor Woman", "Conductor Woman"),
+    }
 
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_genres(config: Config) -> None:
     genres = list(list_genres(config))
-    assert set(genres) == {"Techno", "Deep House", "Classical"}
+    assert set(genres) == {
+        ("Techno", "Techno"),
+        ("Deep House", "Deep House"),
+        ("Classical", "Classical"),
+    }
 
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_labels(config: Config) -> None:
     labels = list(list_labels(config))
-    assert set(labels) == {"Silk Music", "Native State"}
+    assert set(labels) == {("Silk Music", "Silk Music"), ("Native State", "Native State")}
 
 
 @pytest.mark.usefixtures("seeded_cache")
