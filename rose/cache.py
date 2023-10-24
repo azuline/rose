@@ -656,7 +656,10 @@ def _update_cache_for_releases_executor(
                 original_virtual_dirname = release_virtual_dirname
                 collision_no = 2
                 while True:
-                    if not known_virtual_dirnames.get(release_virtual_dirname, False):
+                    if (
+                        release.virtual_dirname == release_virtual_dirname
+                        or not known_virtual_dirnames.get(release_virtual_dirname, False)
+                    ):
                         break
                     logger.debug(
                         "Virtual dirname collision: "
