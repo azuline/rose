@@ -914,6 +914,7 @@ def update_cache_for_collages(
               , COALESCE(GROUP_CONCAT(cr.release_id, ' \\ '), '') AS release_ids
             FROM collages c
             LEFT JOIN collages_releases cr ON cr.collage_name = c.name
+            GROUP BY c.name
             """,
         )
         for row in cursor:
