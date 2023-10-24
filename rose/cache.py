@@ -81,6 +81,11 @@ def migrate_database(c: Config) -> None:
 class CachedArtist:
     name: str
     role: str
+    # Whether this artist is an aliased name of the artist that the release was actually released
+    # under. We include aliased artists in the cached state because it lets us relate releases from
+    # the aliased name to the main artist. However, we ignore these artists when computing the
+    # virtual dirname and tags.
+    alias: bool = False
 
 
 @dataclass
@@ -576,6 +581,11 @@ def update_cache_for_releases(
                     for role, names in asdict(tags.album_artists).items():
                         for name in names:
                             release_artists.append(CachedArtist(name=name, role=role))
+                            # And also make sure we attach any parent aliases for this artist.
+                            for alias in c.artist_aliases_parents_map.get(name, []):
+                                release_artists.append(
+                                    CachedArtist(name=alias, role=role, alias=True)
+                                )
                     if release_artists != release.artists:
                         logger.debug(f"Release artists change detected for {source_path}, updating")
                         release.artists = release_artists
@@ -644,6 +654,9 @@ def update_cache_for_releases(
                 for role, names in asdict(tags.artists).items():
                     for name in names:
                         track.artists.append(CachedArtist(name=name, role=role))
+                        # And also make sure we attach any parent aliases for this artist.
+                        for alias in c.artist_aliases_parents_map.get(name, []):
+                            track.artists.append(CachedArtist(name=alias, role=role, alias=True))
                 track_ids_to_insert.add(track.id)
 
             # Now calculate whether this release is multidisc, and then assign virtual_filenames for
@@ -774,10 +787,19 @@ def update_cache_for_releases(
                 for art in release.artists:
                     conn.execute(
                         """
-                        INSERT INTO releases_artists (release_id, artist, artist_sanitized, role)
-                        VALUES (?, ?, ?, ?) ON CONFLICT (release_id, artist) DO UPDATE SET role = ?
+                        INSERT INTO releases_artists
+                        (release_id, artist, artist_sanitized, role, alias)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT (release_id, artist) DO UPDATE SET role = ?
                         """,
-                        (release.id, art.name, sanitize_filename(art.name), art.role, art.role),
+                        (
+                            release.id,
+                            art.name,
+                            sanitize_filename(art.name),
+                            art.role,
+                            art.alias,
+                            art.role,
+                        ),
                     )
 
             for track in tracks:
@@ -836,10 +858,17 @@ def update_cache_for_releases(
                 for art in track.artists:
                     conn.execute(
                         """
-                        INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role)
-                        VALUES (?, ?, ?, ?) ON CONFLICT (track_id, artist) DO UPDATE SET role = ?
+                        INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role, alias)
+                        VALUES (?, ?, ?, ?, ?) ON CONFLICT (track_id, artist) DO UPDATE SET role = ?
                         """,
-                        (track.id, art.name, sanitize_filename(art.name), art.role, art.role),
+                        (
+                            track.id,
+                            art.name,
+                            sanitize_filename(art.name),
+                            art.role,
+                            art.alias,
+                            art.role,
+                        ),
                     )
 
     logger.debug(f"Release update loop time {time.time() - loop_start=}")

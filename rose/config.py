@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,6 +30,11 @@ class Config:
     cache_dir: Path
     cache_database_path: Path
 
+    # A map from parent artist -> subartists.
+    artist_aliases_map: dict[str, list[str]]
+    # A map from subartist -> parent artists.
+    artist_aliases_parents_map: dict[str, list[str]]
+
     fuse_hide_artists: list[str]
     fuse_hide_genres: list[str]
     fuse_hide_labels: list[str]
@@ -47,12 +53,21 @@ class Config:
             cache_dir = Path(data["cache_dir"]).expanduser()
         cache_dir.mkdir(exist_ok=True)
 
+        artist_aliases_map: dict[str, list[str]] = defaultdict(list)
+        artist_aliases_parents_map: dict[str, list[str]] = defaultdict(list)
+        for parent, subs in data.get("artist_aliases", []):
+            artist_aliases_map[parent] = subs
+            for s in subs:
+                artist_aliases_parents_map[s].append(parent)
+
         try:
             return cls(
                 music_source_dir=Path(data["music_source_dir"]).expanduser(),
                 fuse_mount_dir=Path(data["fuse_mount_dir"]).expanduser(),
                 cache_dir=cache_dir,
                 cache_database_path=cache_dir / "cache.sqlite3",
+                artist_aliases_map=artist_aliases_map,
+                artist_aliases_parents_map=artist_aliases_parents_map,
                 fuse_hide_artists=data.get("fuse_hide_artists", []),
                 fuse_hide_genres=data.get("fuse_hide_genres", []),
                 fuse_hide_labels=data.get("fuse_hide_labels", []),

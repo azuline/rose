@@ -1,5 +1,6 @@
 import hashlib
 import shutil
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -325,6 +326,50 @@ def test_update_cache_releases_uncaches_empty_directory(config: Config) -> None:
     with connect(config) as conn:
         cursor = conn.execute("SELECT COUNT(*) FROM releases")
         assert cursor.fetchone()[0] == 0
+
+
+def test_update_cache_releases_adds_aliased_artist(config: Config) -> None:
+    """Test that an artist alias is properly recorded in the read cache."""
+    config = Config(
+        **{
+            **asdict(config),
+            "artist_aliases_parents_map": {"BLACKPINK": ["HAHA"]},
+            "artist_aliases_map": {"HAHA": ["BLACKPINK"]},
+        }
+    )
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    update_cache_for_releases(config, [release_dir])
+
+    with connect(config) as conn:
+        cursor = conn.execute(
+            "SELECT artist, role, alias FROM releases_artists",
+        )
+        artists = {(r["artist"], r["role"], bool(r["alias"])) for r in cursor.fetchall()}
+        assert artists == {
+            ("BLACKPINK", "main", False),
+            ("HAHA", "main", True),
+        }
+
+        for f in release_dir.iterdir():
+            if f.suffix != ".m4a":
+                continue
+
+            cursor = conn.execute(
+                """
+                SELECT ta.artist, ta.role, ta.alias
+                FROM tracks_artists ta
+                JOIN tracks t ON t.id = ta.track_id
+                WHERE t.source_path = ?
+                """,
+                (str(f),),
+            )
+            artists = {(r["artist"], r["role"], bool(r["alias"])) for r in cursor.fetchall()}
+            assert artists == {
+                ("BLACKPINK", "main", False),
+                ("HAHA", "main", True),
+                ("Teddy", "composer", False),
+            }
 
 
 def test_update_cache_collages(config: Config) -> None:

@@ -58,6 +58,8 @@ def config(isolated_dir: Path) -> Config:
         fuse_mount_dir=mount_dir,
         cache_dir=cache_dir,
         cache_database_path=cache_database_path,
+        artist_aliases_map={},
+        artist_aliases_parents_map={},
         fuse_hide_artists=[],
         fuse_hide_genres=[],
         fuse_hide_labels=[],
@@ -109,20 +111,20 @@ VALUES ('t1', '{musicpaths[0]}', '999'       , '01.m4a'        , 'Track 1', 'r1'
      , ('t4', '{musicpaths[3]}', '999'       , '01.m4a'        , 'Track 1', 'r3'      , '01'        , '01'       , 120             , '');
 
 INSERT INTO releases_artists
-       (release_id, artist           , artist_sanitized , role)
-VALUES ('r1'      , 'Techno Man'     , 'Techno Man'     , 'main')
-     , ('r1'      , 'Bass Man'       , 'Bass Man'       , 'main')
-     , ('r2'      , 'Violin Woman'   , 'Violin Woman'   , 'main')
-     , ('r2'      , 'Conductor Woman', 'Conductor Woman', 'guest');
+       (release_id, artist           , artist_sanitized , role   , alias)
+VALUES ('r1'      , 'Techno Man'     , 'Techno Man'     , 'main' , false)
+     , ('r1'      , 'Bass Man'       , 'Bass Man'       , 'main' , false)
+     , ('r2'      , 'Violin Woman'   , 'Violin Woman'   , 'main' , false)
+     , ('r2'      , 'Conductor Woman', 'Conductor Woman', 'guest', false);
 
 INSERT INTO tracks_artists
-       (track_id, artist           , artist_sanitized , role)
-VALUES ('t1'    , 'Techno Man'     , 'Techno Man'     , 'main')
-     , ('t1'    , 'Bass Man'       , 'Bass Man'       , 'main')
-     , ('t2'    , 'Techno Man'     , 'Techno Man'     , 'main')
-     , ('t2'    , 'Bass Man'       , 'Bass Man'       , 'main')
-     , ('t3'    , 'Violin Woman'   , 'Violin Woman'   , 'main')
-     , ('t3'    , 'Conductor Woman', 'Conductor Woman', 'guest');
+       (track_id, artist           , artist_sanitized , role   , alias)
+VALUES ('t1'    , 'Techno Man'     , 'Techno Man'     , 'main' , false)
+     , ('t1'    , 'Bass Man'       , 'Bass Man'       , 'main' , false)
+     , ('t2'    , 'Techno Man'     , 'Techno Man'     , 'main' , false)
+     , ('t2'    , 'Bass Man'       , 'Bass Man'       , 'main' , false)
+     , ('t3'    , 'Violin Woman'   , 'Violin Woman'   , 'main' , false)
+     , ('t3'    , 'Conductor Woman', 'Conductor Woman', 'guest', false);
 
 INSERT INTO collages
        (name       , source_mtime)
