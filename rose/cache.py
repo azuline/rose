@@ -647,17 +647,17 @@ def _update_cache_for_releases_executor(
 
                 if set(tags.genre) != set(release.genres):
                     logger.debug(f"Release genre change detected for {source_path}, updating")
-                    release.genres = tags.genre
+                    release.genres = _uniq(tags.genre)
                     release_dirty = True
 
                 if set(tags.label) != set(release.labels):
                     logger.debug(f"Release label change detected for {source_path}, updating")
-                    release.labels = tags.label
+                    release.labels = _uniq(tags.label)
                     release_dirty = True
 
                 release_artists = []
                 for role, names in asdict(tags.album_artists).items():
-                    for name in names:
+                    for name in _uniq(names):
                         release_artists.append(CachedArtist(name=name, role=role))
                         # And also make sure we attach any parent aliases for this artist.
                         for alias in c.artist_aliases_parents_map.get(name, []):
@@ -732,7 +732,7 @@ def _update_cache_for_releases_executor(
             )
             tracks.append(track)
             for role, names in asdict(tags.artists).items():
-                for name in names:
+                for name in _uniq(names):
                     track.artists.append(CachedArtist(name=name, role=role))
                     # And also make sure we attach any parent aliases for this artist.
                     for alias in c.artist_aliases_parents_map.get(name, []):
@@ -1504,3 +1504,13 @@ def _flatten(xxs: list[list[T]]) -> list[T]:
     for group in xxs:
         xs.extend(group)
     return xs
+
+
+def _uniq(xs: list[T]) -> list[T]:
+    rv: list[T] = []
+    seen: set[T] = set()
+    for x in xs:
+        if x not in seen:
+            rv.append(x)
+            seen.add(x)
+    return rv

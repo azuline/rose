@@ -86,7 +86,7 @@ CREATE TABLE releases_artists (
     artist_sanitized TEXT NOT NULL,
     role TEXT REFERENCES artist_role_enum(value) NOT NULL,
     alias BOOL NOT NULL,
-    PRIMARY KEY (release_id, artist)
+    PRIMARY KEY (release_id, artist, role)
 );
 CREATE INDEX releases_artists_release_id ON releases_artists(release_id);
 CREATE INDEX releases_artists_artist ON releases_artists(artist);
@@ -98,7 +98,7 @@ CREATE TABLE tracks_artists (
     artist_sanitized TEXT NOT NULL,
     role TEXT REFERENCES artist_role_enum(value) NOT NULL,
     alias BOOL NOT NULL,
-    PRIMARY KEY (track_id, artist)
+    PRIMARY KEY (track_id, artist, role)
 );
 CREATE INDEX tracks_artists_track_id ON tracks_artists(track_id);
 CREATE INDEX tracks_artists_artist ON tracks_artists(artist);
