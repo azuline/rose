@@ -572,7 +572,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
                     return
             raise fuse.FuseOSError(errno.ENOENT)
 
-        raise fuse.FuseOSError(errno.EACCES)
+        # Otherwise, noop. If we return an error, that prevents rmdir from being called when we rm.
 
     def rename(self, old: str, new: str) -> None:
         logger.debug(f"Received rename for {old=} {new=}")

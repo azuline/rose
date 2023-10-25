@@ -1,4 +1,5 @@
 import shutil
+import subprocess
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -180,6 +181,19 @@ def test_virtual_filesystem_playlist_actions(
         # Delete playlist.
         (root / "8. Playlists" / "New Jeans").rmdir()
         assert not (src / "!playlists" / "New Jeans.toml").exists()
+
+
+def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> None:
+    dirname = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
+    root = config.fuse_mount_dir
+    with startfs(config):
+        # Fix: If we return EACCES from unlink, then `rm -r` fails despite `rmdir` succeeding. Thus
+        # we no-op if we cannot unlink a file. And we test the real tool we want to use in
+        # production.
+        subprocess.run(["rm", "-r", str(root / "1. Releases" / dirname)], check=True)
+        assert not (root / "1. Releases" / f"{{NEW}} {dirname}").is_dir()
+        assert not (root / "1. Releases" / dirname).exists()
+        assert not (source_dir / "Test Release 3").exists()
 
 
 def test_virtual_filesystem_toggle_new(config: Config, source_dir: Path) -> None:  # noqa: ARG001
