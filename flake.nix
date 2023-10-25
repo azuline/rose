@@ -42,6 +42,7 @@
         mypy
         pytest
         pytest-cov
+        pytest-xdist
       ];
       dev-cli = pkgs.writeShellScriptBin "rose" ''
         cd $ROSE_ROOT

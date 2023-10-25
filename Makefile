@@ -4,6 +4,10 @@ typecheck:
 	mypy .
 
 test:
+	pytest -n logical --cov=. .
+	coverage html
+
+test-sync:
 	pytest --cov=. .
 	coverage html
 
