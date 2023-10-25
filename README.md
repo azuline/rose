@@ -120,6 +120,7 @@ Commands:
   collages  Manage collages.
   fs        Manage the virtual library.
   releases  Manage releases.
+  playlists Manage playlists.
 ```
 
 ## Configuration

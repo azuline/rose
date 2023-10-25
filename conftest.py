@@ -19,6 +19,7 @@ TEST_RELEASE_1 = TESTDATA / "Test Release 1"
 TEST_RELEASE_2 = TESTDATA / "Test Release 2"
 TEST_RELEASE_3 = TESTDATA / "Test Release 3"
 TEST_COLLAGE_1 = TESTDATA / "Collage 1"
+TEST_PLAYLIST_1 = TESTDATA / "Playlist 1"
 TEST_TAGGER = TESTDATA / "tagger"
 
 
@@ -151,6 +152,16 @@ INSERT INTO collages_releases
        (collage_name, release_id, position)
 VALUES ('Rose Gold' , 'r1'      , 0)
      , ('Rose Gold' , 'r2'      , 1);
+
+INSERT INTO playlists
+       (name           , source_mtime)
+VALUES ('Lala Lisa'    , '999')
+     , ('Turtle Rabbit', '999');
+
+INSERT INTO playlists_tracks
+       (playlist_name, track_id, position)
+VALUES ('Lala Lisa'  , 't1'    , 0)
+     , ('Lala Lisa'  , 't3'    , 1);
             """  # noqa: E501
         )
 
@@ -166,6 +177,7 @@ def source_dir(config: Config) -> Path:
     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
     shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
     shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
+    shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
     update_cache(config)
     return config.music_source_dir
 
