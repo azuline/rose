@@ -9,16 +9,16 @@ from rose.collages import (
     add_release_to_collage,
     create_collage,
     delete_collage,
-    delete_release_from_collage,
     dump_collages,
     edit_collage_in_editor,
+    remove_release_from_collage,
     rename_collage,
 )
 from rose.config import Config
 
 
-def test_delete_release_from_collage(config: Config, source_dir: Path) -> None:
-    delete_release_from_collage(
+def test_remove_release_from_collage(config: Config, source_dir: Path) -> None:
+    remove_release_from_collage(
         config, "Rose Gold", "Carly Rae Jepsen - 1990. I Love Carly [Pop;Dream Pop] {A Cool Label}"
     )
 
@@ -75,7 +75,7 @@ def test_collage_lifecycle(config: Config, source_dir: Path) -> None:
         assert {r["release_id"] for r in cursor} == {"ilovecarly", "ilovenewjeans"}
 
     # Delete one release.
-    delete_release_from_collage(
+    remove_release_from_collage(
         config, "All Eyes", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
     )
     with filepath.open("rb") as fp:
@@ -141,7 +141,7 @@ def test_edit_collages_ordering(monkeypatch: Any, config: Config, source_dir: Pa
     assert data["releases"][1]["uuid"] == "ilovecarly"
 
 
-def test_edit_collages_delete_release(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_edit_collages_remove_release(monkeypatch: Any, config: Config, source_dir: Path) -> None:
     filepath = source_dir / "!collages" / "Rose Gold.toml"
     monkeypatch.setattr("rose.collages.click.edit", lambda x: x.split("\n")[0])
     edit_collage_in_editor(config, "Rose Gold")

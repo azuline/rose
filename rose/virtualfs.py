@@ -33,7 +33,7 @@ from rose.collages import (
     add_release_to_collage,
     create_collage,
     delete_collage,
-    delete_release_from_collage,
+    remove_release_from_collage,
     rename_collage,
 )
 from rose.config import Config
@@ -333,7 +333,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
             if p.collage and p.release is None:
                 delete_collage(self.config, p.collage)
             elif p.collage and p.release:
-                delete_release_from_collage(self.config, p.collage, p.release)
+                remove_release_from_collage(self.config, p.collage, p.release)
             else:
                 raise fuse.FuseOSError(errno.EACCES)
         elif p.release is not None:

@@ -8,11 +8,21 @@ import click
 from rose.cache import migrate_database, update_cache
 from rose.collages import (
     add_release_to_collage,
-    delete_release_from_collage,
+    create_collage,
+    delete_collage,
     dump_collages,
     edit_collage_in_editor,
+    remove_release_from_collage,
 )
 from rose.config import Config
+from rose.playlists import (
+    add_track_to_playlist,
+    create_playlist,
+    delete_playlist,
+    dump_playlists,
+    edit_playlist_in_editor,
+    remove_track_from_playlist,
+)
 from rose.releases import dump_releases, edit_release, toggle_release_new
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
@@ -127,10 +137,26 @@ def collages() -> None:
 
 
 @collages.command()
+@click.argument("name", type=str, nargs=1)
+@click.pass_obj
+def create(ctx: Context, name: str) -> None:
+    """Create a new collage."""
+    create_collage(ctx.config, name)
+
+
+@collages.command()
+@click.argument("name", type=str, nargs=1)
+@click.pass_obj
+def delete(ctx: Context, name: str) -> None:
+    """Delete a collage."""
+    delete_collage(ctx.config, name)
+
+
+@collages.command()
 @click.argument("collage", type=str, nargs=1)
 @click.argument("release", type=str, nargs=1)
 @click.pass_obj
-def add(ctx: Context, collage: str, release: str) -> None:
+def add_release(ctx: Context, collage: str, release: str) -> None:
     """
     Add a release to a collage. Accepts a collage name and a release's UUID or virtual fs dirname
     (both are accepted).
@@ -138,16 +164,16 @@ def add(ctx: Context, collage: str, release: str) -> None:
     add_release_to_collage(ctx.config, collage, release)
 
 
-@collages.command(name="del")
+@collages.command()
 @click.argument("collage", type=str, nargs=1)
 @click.argument("release", type=str, nargs=1)
 @click.pass_obj
-def del_(ctx: Context, collage: str, release: str) -> None:
+def remove_release(ctx: Context, collage: str, release: str) -> None:
     """
-    Delete a release from a collage. Accepts a collage name and a release's UUID or virtual fs
+    Remove a release from a collage. Accepts a collage name and a release's UUID or virtual fs
     dirname (both are accepted).
     """
-    delete_release_from_collage(ctx.config, collage, release)
+    remove_release_from_collage(ctx.config, collage, release)
 
 
 @collages.command()
@@ -166,6 +192,63 @@ def edit(ctx: Context, collage: str) -> None:
 def print2(ctx: Context) -> None:
     """Print JSON-encoded collages."""
     print(dump_collages(ctx.config))
+
+
+@cli.group()
+def playlists() -> None:
+    """Manage playlists."""
+
+
+@playlists.command(name="create")
+@click.argument("name", type=str, nargs=1)
+@click.pass_obj
+def create2(ctx: Context, name: str) -> None:
+    """Create a new playlist."""
+    create_playlist(ctx.config, name)
+
+
+@playlists.command(name="delete")
+@click.argument("name", type=str, nargs=1)
+@click.pass_obj
+def delete2(ctx: Context, name: str) -> None:
+    """Delete a playlist."""
+    delete_playlist(ctx.config, name)
+
+
+@playlists.command()
+@click.argument("playlist", type=str, nargs=1)
+@click.argument("track", type=str, nargs=1)
+@click.pass_obj
+def add_track(ctx: Context, playlist: str, track: str) -> None:
+    """Add a track to a playlist. Accepts a playlist name and a track's UUID."""
+    add_track_to_playlist(ctx.config, playlist, track)
+
+
+@playlists.command()
+@click.argument("playlist", type=str, nargs=1)
+@click.argument("track", type=str, nargs=1)
+@click.pass_obj
+def remove_track(ctx: Context, playlist: str, track: str) -> None:
+    """Remove a track from a playlist. Accepts a playlist name and a track's UUID."""
+    remove_track_from_playlist(ctx.config, playlist, track)
+
+
+@playlists.command(name="edit")
+@click.argument("playlist", type=str, nargs=1)
+@click.pass_obj
+def edit3(ctx: Context, playlist: str) -> None:
+    """
+    Edit a playlist in $EDITOR. Reorder lines to update the ordering of tracks. Delete lines to
+    delete tracks from the playlist.
+    """
+    edit_playlist_in_editor(ctx.config, playlist)
+
+
+@playlists.command(name="print")
+@click.pass_obj
+def print3(ctx: Context) -> None:
+    """Print JSON-encoded playlists."""
+    print(dump_playlists(ctx.config))
 
 
 if __name__ == "__main__":

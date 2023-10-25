@@ -68,7 +68,7 @@ def rename_playlist(c: Config, old_name: str, new_name: str) -> None:
     update_cache_evict_nonexistent_playlists(c)
 
 
-def delete_track_from_playlist(
+def remove_track_from_playlist(
     c: Config,
     playlist_name: str,
     track_id: str,

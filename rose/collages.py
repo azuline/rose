@@ -68,7 +68,7 @@ def rename_collage(c: Config, old_name: str, new_name: str) -> None:
     update_cache_evict_nonexistent_collages(c)
 
 
-def delete_release_from_collage(
+def remove_release_from_collage(
     c: Config,
     collage_name: str,
     release_id_or_virtual_dirname: str,

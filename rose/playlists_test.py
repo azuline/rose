@@ -10,15 +10,15 @@ from rose.playlists import (
     add_track_to_playlist,
     create_playlist,
     delete_playlist,
-    delete_track_from_playlist,
     dump_playlists,
     edit_playlist_in_editor,
+    remove_track_from_playlist,
     rename_playlist,
 )
 
 
-def test_delete_track_from_playlist(config: Config, source_dir: Path) -> None:
-    delete_track_from_playlist(config, "Lala Lisa", "iloveloona")
+def test_remove_track_from_playlist(config: Config, source_dir: Path) -> None:
+    remove_track_from_playlist(config, "Lala Lisa", "iloveloona")
 
     # Assert file is updated.
     with (source_dir / "!playlists" / "Lala Lisa.toml").open("rb") as fp:
@@ -69,7 +69,7 @@ def test_playlist_lifecycle(config: Config, source_dir: Path) -> None:
         assert {r["track_id"] for r in cursor} == {"iloveloona", "ilovetwice"}
 
     # Delete one track.
-    delete_track_from_playlist(config, "You & Me", "ilovetwice")
+    remove_track_from_playlist(config, "You & Me", "ilovetwice")
     with filepath.open("rb") as fp:
         diskdata = tomllib.load(fp)
         assert {r["uuid"] for r in diskdata["tracks"]} == {"iloveloona"}
@@ -129,7 +129,7 @@ def test_edit_playlists_ordering(monkeypatch: Any, config: Config, source_dir: P
     assert data["tracks"][1]["uuid"] == "iloveloona"
 
 
-def test_edit_playlists_delete_track(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_edit_playlists_remove_track(monkeypatch: Any, config: Config, source_dir: Path) -> None:
     filepath = source_dir / "!playlists" / "Lala Lisa.toml"
     monkeypatch.setattr("rose.playlists.click.edit", lambda x: x.split("\n")[0])
     edit_playlist_in_editor(config, "Lala Lisa")
