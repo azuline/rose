@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, no_type_check
@@ -20,6 +21,39 @@ from rose.common import RoseError
 TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")
 YEAR_REGEX = re.compile(r"\d{4}$")
 DATE_REGEX = re.compile(r"(\d{4})-\d{2}-\d{2}")
+
+SUPPORTED_EXTENSIONS = [
+    ".mp3",
+    ".m4a",
+    ".ogg",
+    ".opus",
+    ".flac",
+]
+
+SUPPORTED_RELEASE_TYPES = [
+    "album",
+    "single",
+    "ep",
+    "compilation",
+    "soundtrack",
+    "live",
+    "remix",
+    "djmix",
+    "mixtape",
+    "other",
+    "bootleg",
+    "unknown",
+]
+
+
+def _normalize_rtype(x: str | None) -> str:
+    """Determine the release type of a release."""
+    if not x:
+        return "unknown"
+    x = x.lower()
+    if x in SUPPORTED_RELEASE_TYPES:
+        return x
+    return "unknown"
 
 
 class UnsupportedFiletypeError(RoseError):
@@ -40,7 +74,7 @@ class AudioFile:
     album: str | None
     genre: list[str]
     label: list[str]
-    release_type: str | None
+    release_type: str
 
     album_artists: ArtistMapping
     artists: ArtistMapping
@@ -52,6 +86,8 @@ class AudioFile:
     @classmethod
     def from_file(cls, p: Path) -> AudioFile:
         """Read the tags of an audio file on disk."""
+        if not any(p.suffix.lower() == ext for ext in SUPPORTED_EXTENSIONS):
+            raise UnsupportedFiletypeError(f"{p.suffix} not a supported filetype")
         m = mutagen.File(p)  # type: ignore
         if isinstance(m, mutagen.mp3.MP3):
             # ID3 returns trackno/discno tags as no/total. We have to parse.
@@ -78,7 +114,7 @@ class AudioFile:
                 album=_get_tag(m.tags, ["TALB"]),
                 genre=_split_tag(_get_tag(m.tags, ["TCON"])),
                 label=_split_tag(_get_tag(m.tags, ["TPUB"])),
-                release_type=_get_tag(m.tags, ["TXXX:RELEASETYPE"], first=True),
+                release_type=_normalize_rtype(_get_tag(m.tags, ["TXXX:RELEASETYPE"], first=True)),
                 album_artists=parse_artist_string(main=_get_tag(m.tags, ["TPE2"])),
                 artists=parse_artist_string(
                     main=_get_tag(m.tags, ["TPE1"]),
@@ -101,7 +137,9 @@ class AudioFile:
                 album=_get_tag(m.tags, ["\xa9alb"]),
                 genre=_split_tag(_get_tag(m.tags, ["\xa9gen"])),
                 label=_split_tag(_get_tag(m.tags, ["----:com.apple.iTunes:LABEL"])),
-                release_type=_get_tag(m.tags, ["----:com.apple.iTunes:RELEASETYPE"], first=True),
+                release_type=_normalize_rtype(
+                    _get_tag(m.tags, ["----:com.apple.iTunes:RELEASETYPE"], first=True)
+                ),
                 album_artists=parse_artist_string(main=_get_tag(m.tags, ["aART"])),
                 artists=parse_artist_string(
                     main=_get_tag(m.tags, ["\xa9ART"]),
@@ -124,7 +162,7 @@ class AudioFile:
                 album=_get_tag(m.tags, ["album"]),
                 genre=_split_tag(_get_tag(m.tags, ["genre"])),
                 label=_split_tag(_get_tag(m.tags, ["organization", "label", "recordlabel"])),
-                release_type=_get_tag(m.tags, ["releasetype"], first=True),
+                release_type=_normalize_rtype(_get_tag(m.tags, ["releasetype"], first=True)),
                 album_artists=parse_artist_string(main=_get_tag(m.tags, ["albumartist"])),
                 artists=parse_artist_string(
                     main=_get_tag(m.tags, ["artist"]),
@@ -140,9 +178,17 @@ class AudioFile:
         raise UnsupportedFiletypeError(f"{p} is not a supported audio file")
 
     @no_type_check
-    def flush(self) -> None:
+    def flush(self, *, validate: bool = True) -> None:
         """Flush the current tags to the file on disk."""
         m = self._m
+        if not validate and "pytest" not in sys.modules:
+            raise Exception("Validate can only be turned off by tests.")
+
+        if validate and self.release_type not in SUPPORTED_RELEASE_TYPES:
+            raise UnsupportedTagValueTypeError(
+                f"Release type {self.release_type} is not a supported release type.\n"
+                f"Supported release types: {', '.join(SUPPORTED_RELEASE_TYPES)}"
+            )
 
         if isinstance(m, mutagen.mp3.MP3):
             if m.tags is None:

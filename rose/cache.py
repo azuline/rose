@@ -20,7 +20,7 @@ import uuid6
 
 from rose.artiststr import format_artist_string
 from rose.config import Config
-from rose.tagger import AudioFile
+from rose.tagger import SUPPORTED_EXTENSIONS, AudioFile
 
 logger = logging.getLogger(__name__)
 
@@ -161,29 +161,6 @@ class StoredDataFile:
 
 VALID_COVER_FILENAMES = [
     stem + ext for stem in ["cover", "folder", "art"] for ext in [".jpg", ".jpeg", ".png"]
-]
-
-SUPPORTED_EXTENSIONS = [
-    ".mp3",
-    ".m4a",
-    ".ogg",
-    ".opus",
-    ".flac",
-]
-
-SUPPORTED_RELEASE_TYPES = [
-    "album",
-    "single",
-    "ep",
-    "compilation",
-    "soundtrack",
-    "live",
-    "remix",
-    "djmix",
-    "mixtape",
-    "other",
-    "bootleg",
-    "unknown",
 ]
 
 RELEASE_TYPE_FORMATTER = {
@@ -494,7 +471,7 @@ def _update_cache_for_releases_executor(
         # any tracks, skip it. And if it does not have any tracks, but is in the cache, remove
         # it from the cache.
         for f in files:
-            if any(f.name.endswith(ext) for ext in SUPPORTED_EXTENSIONS):
+            if any(f.name.lower().endswith(ext) for ext in SUPPORTED_EXTENSIONS):
                 break
         else:
             logger.debug(f"Did not find any audio files in release {source_path}, skipping")
@@ -619,7 +596,7 @@ def _update_cache_for_releases_executor(
         # tags.
         pulled_release_tags = False
         for f in files:
-            if not any(f.name.endswith(ext) for ext in SUPPORTED_EXTENSIONS):
+            if not any(f.name.lower().endswith(ext) for ext in SUPPORTED_EXTENSIONS):
                 continue
             track_path = Path(f.path).resolve()
             cached_track = cached_tracks.get(str(track_path), None)
@@ -645,11 +622,7 @@ def _update_cache_for_releases_executor(
                     release.title = release_title
                     release_dirty = True
 
-                release_type = (
-                    tags.release_type.lower()
-                    if tags.release_type and tags.release_type.lower() in SUPPORTED_RELEASE_TYPES
-                    else "unknown"
-                )
+                release_type = tags.release_type
                 if release_type != release.releasetype:
                     logger.debug(f"Release type change detected for {source_path}, updating")
                     release.releasetype = release_type

@@ -5,7 +5,11 @@ import pytest
 
 from conftest import TEST_TAGGER
 from rose.artiststr import ArtistMapping
-from rose.tagger import AudioFile, _split_tag
+from rose.tagger import (
+    AudioFile,
+    UnsupportedTagValueTypeError,
+    _split_tag,
+)
 
 
 @pytest.mark.parametrize(
@@ -24,7 +28,7 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
     assert tf.title == f"Track {track_num}"
 
     assert tf.album == "A Cool Album"
-    assert tf.release_type == "Album"
+    assert tf.release_type == "album"
     assert tf.year == 1990
     assert tf.disc_number == "1"
     assert tf.genre == ["Electronic", "House"]
@@ -67,7 +71,7 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     assert tf.title == f"Track {track_num}"
 
     assert tf.album == "A Cool Album"
-    assert tf.release_type == "Album"
+    assert tf.release_type == "album"
     assert tf.year == 1990
     assert tf.disc_number == "1"
     assert tf.genre == ["Electronic", "House"]
@@ -83,6 +87,34 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
         djmixer=["New"],
     )
     assert tf.duration_sec == duration
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["track1.flac", "track2.m4a", "track3.mp3", "track4.vorbis.ogg", "track5.opus.ogg"],
+)
+def test_release_type_normalization(isolated_dir: Path, filename: str) -> None:
+    """Test the flush by flushing the file, then asserting that all the tags still read properly."""
+    fpath = isolated_dir / filename
+    shutil.copyfile(TEST_TAGGER / filename, fpath)
+
+    # Check that release type is read correctly.
+    tf = AudioFile.from_file(fpath)
+    assert tf.release_type == "album"
+    # Assert that attempting to flush a stupid value fails.
+    tf.release_type = "lalala"
+    with pytest.raises(UnsupportedTagValueTypeError):
+        tf.flush()
+    # Flush it anyways...
+    tf.flush(validate=False)
+    # Check that stupid release type is normalized as unknown.
+    tf = AudioFile.from_file(fpath)
+    assert tf.release_type == "unknown"
+    # And now assert that the read is case insensitive.
+    tf.release_type = "ALBUM"
+    tf.flush(validate=False)
+    tf = AudioFile.from_file(fpath)
+    assert tf.release_type == "album"
 
 
 def test_split_tag() -> None:
