@@ -183,8 +183,8 @@ The `music_source_dir` must be a flat directory of releases, meaning all release
 must be top-level directories inside `music_source_dir`. Each release should also
 be a single directory in `music_source_dir`.
 
-Every directory should follow the format: `$music_source_dir/$release_name/$track.mp3`.
-Additional nested directories are not currently supported.
+Every directory should follow the format: `$music_source_dir/$release_name/**/$track.mp3`.
+A release can have arbitrarily many nested subdirectories.
 
 So for example: `$music_source_dir/BLACKPINK - 2016. SQUARE ONE/*.mp3`.
 

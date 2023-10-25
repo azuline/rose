@@ -3,6 +3,7 @@ import logging
 import math
 import multiprocessing
 import os
+import os.path
 import re
 import sqlite3
 import time
@@ -330,19 +331,20 @@ def _update_cache_for_releases_executor(
 ) -> None:
     """The implementation logic, split out for multiprocessing."""
     # First, call readdir on every release directory. We store the results in a map of
-    # Path Basename -> (Release ID if exists, File DirEntries).
-    dir_tree: list[tuple[Path, str | None, list[os.DirEntry[str]]]] = []
+    # Path Basename -> (Release ID if exists, filenames).
+    dir_tree: list[tuple[Path, str | None, list[str]]] = []
     release_uuids: list[str] = []
     for rd in release_dirs:
         release_id = None
-        files: list[os.DirEntry[str]] = []
+        files: list[str] = []
         if not rd.is_dir():
             logger.debug(f"Skipping scanning {rd} because it is not a directory")
             continue
-        for f in os.scandir(str(rd)):
-            if m := STORED_DATA_FILE_REGEX.match(f.name):
-                release_id = m[1]
-            files.append(f)
+        for root, _, fx in os.walk(str(rd)):
+            for f in fx:
+                if m := STORED_DATA_FILE_REGEX.match(f):
+                    release_id = m[1]
+                files.append(os.path.join(root, f))
         dir_tree.append((rd.resolve(), release_id, files))
         if release_id is not None:
             release_uuids.append(release_id)
@@ -512,7 +514,7 @@ def _update_cache_for_releases_executor(
         # any tracks, skip it. And if it does not have any tracks, but is in the cache, remove
         # it from the cache.
         for f in files:
-            if any(f.name.lower().endswith(ext) for ext in SUPPORTED_EXTENSIONS):
+            if any(f.lower().endswith(ext) for ext in SUPPORTED_EXTENSIONS):
                 break
         else:
             logger.debug(f"Did not find any audio files in release {source_path}, skipping")
@@ -610,7 +612,9 @@ def _update_cache_for_releases_executor(
 
         # Handle cover art change.
         try:
-            cover = next(Path(f.path).resolve() for f in files if f.name in VALID_COVER_FILENAMES)
+            cover = next(
+                Path(f).resolve() for f in files if os.path.basename(f) in VALID_COVER_FILENAMES
+            )
         except StopIteration:  # No cover art in directory.
             cover = None
         if cover != release.cover_image_path:
@@ -642,21 +646,22 @@ def _update_cache_for_releases_executor(
         # tags.
         pulled_release_tags = False
         for f in files:
-            if not any(f.name.lower().endswith(ext) for ext in SUPPORTED_EXTENSIONS):
+            if not any(os.path.basename(f).lower().endswith(ext) for ext in SUPPORTED_EXTENSIONS):
                 continue
-            track_path = Path(f.path).resolve()
-            cached_track = cached_tracks.get(str(track_path), None)
-            track_mtime = str(os.stat(track_path).st_mtime)
+            cached_track = cached_tracks.get(f, None)
+            track_mtime = str(os.stat(f).st_mtime)
             # Skip re-read if we can reuse a cached entry.
             if cached_track and track_mtime == cached_track.source_mtime and not force:
-                logger.debug(f"Track cache hit (mtime) for {f.name}, reusing cached data")
+                logger.debug(
+                    f"Track cache hit (mtime) for {os.path.basename(f)}, reusing cached data"
+                )
                 tracks.append(cached_track)
-                unknown_cached_tracks.remove(str(track_path))
+                unknown_cached_tracks.remove(f)
                 continue
 
             # Otherwise, read tags from disk and construct a new cached_track.
-            logger.debug(f"Track cache miss for {f.name}, reading tags from disk")
-            tags = AudioFile.from_file(track_path)
+            logger.debug(f"Track cache miss for {os.path.basename(f)}, reading tags from disk")
+            tags = AudioFile.from_file(Path(f))
 
             # Now that we're here, pull the release tags. We also need them to compute the
             # formatted artist string.
@@ -771,7 +776,7 @@ def _update_cache_for_releases_executor(
             # And now create the cached track.
             track = CachedTrack(
                 id=track_id,
-                source_path=track_path,
+                source_path=Path(f),
                 source_mtime=track_mtime,
                 virtual_filename="",
                 title=tags.title or "Unknown Title",

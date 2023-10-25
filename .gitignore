@@ -2,7 +2,7 @@
 __pycache__
 .ruff_cache
 .mypy_cache
-.coverage
+.coverage*
 result
 db.sqlite3
 htmlcov
