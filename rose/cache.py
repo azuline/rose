@@ -96,21 +96,33 @@ def migrate_database(c: Config) -> None:
 @contextmanager
 def lock(c: Config, name: str, timeout: float = 1.0) -> Iterator[None]:
     try:
-        valid_until = time.time() + timeout
         while True:
             with connect(c) as conn:
                 cursor = conn.execute("SELECT MAX(valid_until) FROM locks WHERE name = ?", (name,))
                 row = cursor.fetchone()
                 if not row or not row[0] or row[0] < time.time():
+                    logger.debug(f"Acquiring lock for {name} with timeout {timeout}")
+                    valid_until = time.time() + timeout
                     conn.execute(
                         "INSERT INTO locks (name, valid_until) VALUES (?, ?)", (name, valid_until)
                     )
                     break
-                time.sleep(max(0, row[0] - time.time()))
+                sleep = max(0, row[0] - time.time())
+                logger.debug(f"Failed to acquire lock for {name}: sleeping for {sleep}")
+                time.sleep(sleep)
         yield
     finally:
+        logger.debug(f"Releasing lock {name}")
         with connect(c) as conn:
             conn.execute("DELETE FROM locks WHERE name = ?", (name,))
+
+
+def release_lock_name(release_id: str) -> str:
+    return f"release-{release_id}"
+
+
+def collage_lock_name(collage_name: str) -> str:
+    return f"collage-{collage_name}"
 
 
 @dataclass
@@ -547,6 +559,8 @@ def _update_cache_for_releases_executor(
             )
             new_release_id = str(uuid6.uuid7())
             datafile_path = source_path / f".rose.{new_release_id}.toml"
+            # No need to lock here, as since the release ID is new, there is no way there is a
+            # concurrent writer.
             with datafile_path.open("wb") as fp:
                 tomli_w.dump(asdict(stored_release_data), fp)
             release.id = new_release_id
@@ -563,24 +577,27 @@ def _update_cache_for_releases_executor(
                 logger.debug(f"Datafile changed for release {source_path}, updating")
                 release_dirty = True
                 release.datafile_mtime = datafile_mtime
-                with datafile_path.open("rb") as fp:
-                    diskdata = tomllib.load(fp)
-                datafile = StoredDataFile(
-                    new=diskdata.get("new", True),
-                    added_at=diskdata.get(
-                        "added_at",
-                        datetime.now().astimezone().replace(microsecond=0).isoformat(),
-                    ),
-                )
-                release.new = datafile.new
-                release.added_at = datafile.added_at
-                # And then write the data back to disk if it changed. This allows us to update
-                # datafiles to contain newer default values.
-                new_resolved_data = asdict(datafile)
-                if new_resolved_data != diskdata:
-                    logger.debug(f"Updating values in stored data file for release {source_path}")
-                    with datafile_path.open("wb") as fp:
-                        tomli_w.dump(new_resolved_data, fp)
+                with lock(c, release_lock_name(preexisting_release_id)):
+                    with datafile_path.open("rb") as fp:
+                        diskdata = tomllib.load(fp)
+                    datafile = StoredDataFile(
+                        new=diskdata.get("new", True),
+                        added_at=diskdata.get(
+                            "added_at",
+                            datetime.now().astimezone().replace(microsecond=0).isoformat(),
+                        ),
+                    )
+                    release.new = datafile.new
+                    release.added_at = datafile.added_at
+                    # And then write the data back to disk if it changed. This allows us to update
+                    # datafiles to contain newer default values.
+                    new_resolved_data = asdict(datafile)
+                    if new_resolved_data != diskdata:
+                        logger.debug(
+                            f"Updating values in stored data file for release {source_path}"
+                        )
+                        with datafile_path.open("wb") as fp:
+                            tomli_w.dump(new_resolved_data, fp)
 
         # Handle cover art change.
         try:
@@ -737,9 +754,10 @@ def _update_cache_for_releases_executor(
             # in this case, we skip this code path once an ID is generated.
             track_id = tags.id
             if not track_id:
-                track_id = str(uuid6.uuid7())
-                tags.id = track_id
-                tags.flush()
+                with lock(c, release_lock_name(release.id)):
+                    track_id = str(uuid6.uuid7())
+                    tags.id = track_id
+                    tags.flush()
 
             # And now create the cached track.
             track = CachedTrack(
@@ -1124,14 +1142,18 @@ def update_cache_for_collages(
             if nonexistent_release_idxs:
                 new_diskdata_releases: list[dict[str, str]] = []
                 removed_releases: list[str] = []
-                for idx, rls in enumerate(diskdata.get("releases", [])):
-                    if idx in nonexistent_release_idxs:
-                        removed_releases.append(rls["description_meta"])
-                        continue
-                    new_diskdata_releases.append(rls)
-
-                with source_path.open("wb") as fp:
-                    tomli_w.dump({"releases": new_diskdata_releases}, fp)
+                with lock(c, collage_lock_name(name)):
+                    # Re-read disk data here in case it changed. Super rare case, but better to be
+                    # correct than suffer from niche unexplainable bugs.
+                    with source_path.open("rb") as fp:
+                        diskdata = tomllib.load(fp)
+                    for idx, rls in enumerate(diskdata.get("releases", [])):
+                        if idx in nonexistent_release_idxs:
+                            removed_releases.append(rls["description_meta"])
+                            continue
+                        new_diskdata_releases.append(rls)
+                    with source_path.open("wb") as fp:
+                        tomli_w.dump({"releases": new_diskdata_releases}, fp)
                 logger.info(
                     f"Removing nonexistent releases from collage {cached_collage.name}: "
                     f"{','.join(removed_releases)}"

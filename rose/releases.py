@@ -21,6 +21,8 @@ from rose.cache import (
     get_release_source_path_from_id,
     get_release_virtual_dirname_from_id,
     list_releases,
+    lock,
+    release_lock_name,
     update_cache_evict_nonexistent_releases,
     update_cache_for_collages,
     update_cache_for_releases,
@@ -58,7 +60,8 @@ def delete_release(c: Config, release_id_or_virtual_dirname: str) -> None:
     if source_path is None:
         logger.debug(f"Failed to lookup source path for release {release_id} ({release_dirname})")
         return None
-    send2trash(source_path)
+    with lock(c, release_lock_name(release_id)):
+        send2trash(source_path)
     logger.info(f"Trashed release {release_dirname}")
     update_cache_evict_nonexistent_releases(c)
     # Update all collages so that the release is removed from whichever collages it was in.
@@ -76,11 +79,12 @@ def toggle_release_new(c: Config, release_id_or_virtual_dirname: str) -> None:
         if not STORED_DATA_FILE_REGEX.match(f.name):
             continue
 
-        with f.open("rb") as fp:
-            data = tomllib.load(fp)
-        data["new"] = not data["new"]
-        with f.open("wb") as fp:
-            tomli_w.dump(data, fp)
+        with lock(c, release_lock_name(release_id)):
+            with f.open("rb") as fp:
+                data = tomllib.load(fp)
+            data["new"] = not data["new"]
+            with f.open("wb") as fp:
+                tomli_w.dump(data, fp)
         update_cache_for_releases(c, [source_path], force=True)
         return
 
@@ -173,75 +177,79 @@ class MetadataRelease:
 
 
 def edit_release(c: Config, release_id_or_virtual_dirname: str) -> None:
-    cachedata = get_release(c, release_id_or_virtual_dirname)
-    if not cachedata:
-        raise ReleaseDoesNotExistError(f"Release {release_id_or_virtual_dirname} does not exist")
-    release, tracks = cachedata
-    original_metadata = MetadataRelease.from_cache(release, tracks)
-    toml = click.edit(original_metadata.serialize(), extension=".toml")
-    if not toml:
-        logger.info("Aborting: metadata file not submitted.")
-        return
-    release_meta = original_metadata.from_toml(toml)
-    if original_metadata == release_meta:
-        logger.info("Aborting: no metadata change detected.")
-        return
+    release_id, _ = resolve_release_ids(c, release_id_or_virtual_dirname)
+    with lock(c, release_lock_name(release_id)):
+        cachedata = get_release(c, release_id_or_virtual_dirname)
+        if not cachedata:
+            raise ReleaseDoesNotExistError(
+                f"Release {release_id_or_virtual_dirname} does not exist"
+            )
+        release, tracks = cachedata
+        original_metadata = MetadataRelease.from_cache(release, tracks)
+        toml = click.edit(original_metadata.serialize(), extension=".toml")
+        if not toml:
+            logger.info("Aborting: metadata file not submitted.")
+            return
+        release_meta = original_metadata.from_toml(toml)
+        if original_metadata == release_meta:
+            logger.info("Aborting: no metadata change detected.")
+            return
 
-    for t in tracks:
-        track_meta = release_meta.tracks[t.id]
-        tags = AudioFile.from_file(t.source_path)
+        for t in tracks:
+            track_meta = release_meta.tracks[t.id]
+            tags = AudioFile.from_file(t.source_path)
 
-        dirty = False
+            dirty = False
 
-        # Track tags.
-        if tags.track_number != track_meta.track_number:
-            tags.track_number = track_meta.track_number
-            dirty = True
-            logger.debug(f"Modified tag detected for {t.source_path}: track_number")
-        if tags.disc_number != track_meta.disc_number:
-            tags.disc_number = track_meta.disc_number
-            dirty = True
-            logger.debug(f"Modified tag detected for {t.source_path}: disc_number")
-        if tags.title != track_meta.title:
-            tags.title = track_meta.title
-            dirty = True
-            logger.debug(f"Modified tag detected for {t.source_path}: title")
-        tart = MetadataArtist.to_mapping(track_meta.artists)
-        if tags.artists != tart:
-            tags.artists = tart
-            dirty = True
-            logger.debug(f"Modified tag detected for {t.source_path}: artists")
+            # Track tags.
+            if tags.track_number != track_meta.track_number:
+                tags.track_number = track_meta.track_number
+                dirty = True
+                logger.debug(f"Modified tag detected for {t.source_path}: track_number")
+            if tags.disc_number != track_meta.disc_number:
+                tags.disc_number = track_meta.disc_number
+                dirty = True
+                logger.debug(f"Modified tag detected for {t.source_path}: disc_number")
+            if tags.title != track_meta.title:
+                tags.title = track_meta.title
+                dirty = True
+                logger.debug(f"Modified tag detected for {t.source_path}: title")
+            tart = MetadataArtist.to_mapping(track_meta.artists)
+            if tags.artists != tart:
+                tags.artists = tart
+                dirty = True
+                logger.debug(f"Modified tag detected for {t.source_path}: artists")
 
-        # Album tags.
-        if tags.album != release_meta.title:
-            tags.album = release_meta.title
-            dirty = True
-            logger.debug(f"Modified tag detected for {t.source_path}: album")
-        if tags.release_type != release_meta.releasetype:
-            tags.release_type = release_meta.releasetype
-            dirty = True
-            logger.debug(f"Modified tag detected for {t.source_path}: release_type")
-        if tags.year != release_meta.year:
-            tags.year = release_meta.year
-            dirty = True
-            logger.debug(f"Modified tag detected for {t.source_path}: year")
-        if tags.genre != release_meta.genres:
-            tags.genre = release_meta.genres
-            dirty = True
-            logger.debug(f"Modified tag detected for {t.source_path}: genre")
-        if tags.label != release_meta.labels:
-            tags.label = release_meta.labels
-            dirty = True
-            logger.debug(f"Modified tag detected for {t.source_path}: label")
-        aart = MetadataArtist.to_mapping(release_meta.artists)
-        if tags.album_artists != aart:
-            tags.album_artists = aart
-            dirty = True
-            logger.debug(f"Modified tag detected for {t.source_path}: album_artists")
+            # Album tags.
+            if tags.album != release_meta.title:
+                tags.album = release_meta.title
+                dirty = True
+                logger.debug(f"Modified tag detected for {t.source_path}: album")
+            if tags.release_type != release_meta.releasetype:
+                tags.release_type = release_meta.releasetype
+                dirty = True
+                logger.debug(f"Modified tag detected for {t.source_path}: release_type")
+            if tags.year != release_meta.year:
+                tags.year = release_meta.year
+                dirty = True
+                logger.debug(f"Modified tag detected for {t.source_path}: year")
+            if tags.genre != release_meta.genres:
+                tags.genre = release_meta.genres
+                dirty = True
+                logger.debug(f"Modified tag detected for {t.source_path}: genre")
+            if tags.label != release_meta.labels:
+                tags.label = release_meta.labels
+                dirty = True
+                logger.debug(f"Modified tag detected for {t.source_path}: label")
+            aart = MetadataArtist.to_mapping(release_meta.artists)
+            if tags.album_artists != aart:
+                tags.album_artists = aart
+                dirty = True
+                logger.debug(f"Modified tag detected for {t.source_path}: album_artists")
 
-        if dirty:
-            logger.info(f"Flushing changed tags to {t.source_path}")
-            tags.flush()
+            if dirty:
+                logger.info(f"Flushing changed tags to {t.source_path}")
+                tags.flush()
 
     update_cache_for_releases(c, [release.source_path], force=True)
 
