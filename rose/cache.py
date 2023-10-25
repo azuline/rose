@@ -694,7 +694,9 @@ def _update_cache_for_releases_executor(
                 if release.year:
                     release_virtual_dirname += str(release.year) + ". "
                 release_virtual_dirname += release.title
-                if release.releasetype not in ["album", "unknown"]:
+                if release.releasetype not in ["album", "unknown"] and not (
+                    release.releasetype == "remix" and "remix" in release.title.lower()
+                ):
                     release_virtual_dirname += " - " + RELEASE_TYPE_FORMATTER.get(
                         release.releasetype, release.releasetype.title()
                     )
