@@ -97,6 +97,14 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert not (root / "7. Collages" / "Rose Gold" / "1. r1" / "lalala").exists()
         assert can_read(root / "7. Collages" / "Rose Gold" / "1. r1" / "01.m4a")
 
+        assert (root / "8. Playlists").is_dir()
+        assert (root / "8. Playlists" / "Lala Lisa").is_dir()
+        assert (root / "8. Playlists" / "Turtle Rabbit").is_dir()
+        assert not (root / "8. Playlists" / "lalala").exists()
+        assert (root / "8. Playlists" / "Lala Lisa" / "1. 01.m4a").is_file()
+        assert not (root / "8. Playlists" / "Lala Lisa" / "lalala").exists()
+        assert can_read(root / "8. Playlists" / "Lala Lisa" / "1. 01.m4a")
+
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_virtual_filesystem_write_files(config: Config) -> None:
@@ -137,6 +145,37 @@ def test_virtual_filesystem_collage_actions(config: Config) -> None:
         # Delete collage.
         (root / "7. Collages" / "New Jeans").rmdir()
         assert not (src / "!collages" / "New Jeans.toml").exists()
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_virtual_filesystem_playlist_actions(config: Config) -> None:
+    root = config.fuse_mount_dir
+    src = config.music_source_dir
+
+    with startfs(config):
+        # Create playlist.
+        (root / "8. Playlists" / "New Tee").mkdir(parents=True)
+        assert (src / "!playlists" / "New Tee.toml").is_file()
+        # Rename playlist.
+        (root / "8. Playlists" / "New Tee").rename(root / "8. Playlists" / "New Jeans")
+        assert (src / "!playlists" / "New Jeans.toml").is_file()
+        assert not (src / "!playlists" / "New Tee.toml").exists()
+        # TODO: To implement.
+        # # Add track to playlist.
+        # shutil.copytree(
+        #     root / "1. Releases" / "r1" / "01.m4a", root / "8. Playlists" / "New Jeans" / "01.m4a"
+        # )
+        # assert (root / "8. Playlists" / "New Jeans" / "1. 01.m4a").is_file()
+        # with (src / "!playlists" / "New Jeans.toml").open("r") as fp:
+        #     assert "01.m4a" in fp.read()
+        # # Delete release from playlist.
+        # (root / "8. Playlists" / "New Jeans" / "1. 01.m4a").unlink()
+        # assert not (root / "8. Playlists" / "New Jeans" / "1. 01.m4a").exists()
+        # with (src / "!playlists" / "New Jeans.toml").open("r") as fp:
+        #     assert "01.m4a" not in fp.read()
+        # Delete playlist.
+        (root / "8. Playlists" / "New Jeans").rmdir()
+        assert not (src / "!playlists" / "New Jeans.toml").exists()
 
 
 def test_virtual_filesystem_toggle_new(config: Config, source_dir: Path) -> None:  # noqa: ARG001

@@ -121,8 +121,14 @@ def dump_playlists(c: Config) -> str:
     playlist_names = list(list_playlists(c))
     for name in playlist_names:
         out[name] = []
-        for pos, virtual_filename, _ in list_playlist_tracks(c, name):
-            out[name].append({"position": pos, "track": virtual_filename})
+        for pos, track_id, virtual_filename, _ in list_playlist_tracks(c, name):
+            out[name].append(
+                {
+                    "position": pos,
+                    "track_id": track_id,
+                    "track_filename": virtual_filename,
+                }
+            )
     return json.dumps(out)
 
 

@@ -114,7 +114,7 @@ def test_rename_playlist(config: Config, source_dir: Path) -> None:
 def test_dump_playlists(config: Config) -> None:
     out = dump_playlists(config)
     # fmt: off
-    assert out == '{"Lala Lisa": [{"position": 0, "track": "01.m4a"}, {"position": 1, "track": "01.m4a"}], "Turtle Rabbit": []}' # noqa: E501
+    assert out == '{"Lala Lisa": [{"position": 1, "track_id": "t1", "track_filename": "01.m4a"}, {"position": 2, "track_id": "t3", "track_filename": "01.m4a"}], "Turtle Rabbit": []}' # noqa: E501
     # fmt: on
 
 

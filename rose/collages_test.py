@@ -126,7 +126,7 @@ def test_rename_collage(config: Config, source_dir: Path) -> None:
 def test_dump_collages(config: Config) -> None:
     out = dump_collages(config)
     # fmt: off
-    assert out == '{"Rose Gold": [{"position": 0, "release": "r1"}, {"position": 1, "release": "r2"}], "Ruby Red": []}' # noqa: E501
+    assert out == '{"Rose Gold": [{"position": 1, "release": "r1"}, {"position": 2, "release": "r2"}], "Ruby Red": []}' # noqa: E501
     # fmt: on
 
 

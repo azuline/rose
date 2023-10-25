@@ -17,8 +17,10 @@ from watchdog.observers import Observer
 
 from rose.cache import (
     update_cache_evict_nonexistent_collages,
+    update_cache_evict_nonexistent_playlists,
     update_cache_evict_nonexistent_releases,
     update_cache_for_collages,
+    update_cache_for_playlists,
     update_cache_for_releases,
 )
 from rose.config import Config
@@ -51,6 +53,7 @@ EVENT_TYPES: list[EventType] = ["created", "deleted", "modified", "moved"]
 class WatchdogEvent:
     type: EventType
     collage: str | None = None
+    playlist: str | None = None
     release: Path | None = None
 
 
@@ -69,6 +72,7 @@ class EventHandler(FileSystemEventHandler):  # pragma: no cover
         if etype not in EVENT_TYPES:
             return
 
+        # Collage event.
         relative_path = path.removeprefix(str(self.config.music_source_dir) + "/")
         if relative_path.startswith("!collages/"):
             if not relative_path.endswith(".toml"):
@@ -78,6 +82,16 @@ class EventHandler(FileSystemEventHandler):  # pragma: no cover
             self.queue.put(WatchdogEvent(collage=collage, type=etype))
             return
 
+        # Playlist event.
+        if relative_path.startswith("!playlists/"):
+            if not relative_path.endswith(".toml"):
+                return
+            playlist = relative_path.removeprefix("!playlists/").removesuffix(".toml")
+            logger.debug(f"Queueing {etype} event on playlist {playlist}")
+            self.queue.put(WatchdogEvent(playlist=playlist, type=etype))
+            return
+
+        # Release event.
         with contextlib.suppress(IndexError):
             final_path_part = Path(relative_path).parts[0]
             if final_path_part == "/":
@@ -98,17 +112,24 @@ async def handle_event(
     if e.type == "created" or e.type == "modified":
         if e.collage:
             update_cache_for_collages(c, [e.collage])
+        elif e.playlist:
+            update_cache_for_playlists(c, [e.playlist])
         elif e.release:
             update_cache_for_releases(c, [e.release])
     elif e.type == "deleted":
         if e.collage:
             update_cache_evict_nonexistent_collages(c)
+        elif e.playlist:
+            update_cache_evict_nonexistent_playlists(c)
         elif e.release:
             update_cache_evict_nonexistent_releases(c)
     elif e.type == "moved":
         if e.collage:
             update_cache_for_collages(c, [e.collage])
             update_cache_evict_nonexistent_collages(c)
+        elif e.playlist:
+            update_cache_for_playlists(c, [e.playlist])
+            update_cache_evict_nonexistent_playlists(c)
         elif e.release:
             update_cache_for_releases(c, [e.release])
             update_cache_evict_nonexistent_releases(c)
@@ -117,7 +138,7 @@ async def handle_event(
 async def event_processor(c: Config, queue: Queue[WatchdogEvent]) -> None:  # pragma: no cover
     debounce_times: dict[str, float] = {}
     while True:
-        await asyncio.sleep(0.01 / WAIT_DIVIDER)
+        await asyncio.sleep(0.5 / WAIT_DIVIDER)
 
         try:
             event = queue.get(block=False)
@@ -127,6 +148,13 @@ async def event_processor(c: Config, queue: Queue[WatchdogEvent]) -> None:  # pr
         if event.collage:
             logger.info(
                 f"Updating cache in response to {event.type} event on collage {event.collage}"
+            )
+            await handle_event(c, event)
+            continue
+
+        if event.playlist:
+            logger.info(
+                f"Updating cache in response to {event.type} event on playlist {event.playlist}"
             )
             await handle_event(c, event)
             continue
@@ -144,7 +172,7 @@ async def event_processor(c: Config, queue: Queue[WatchdogEvent]) -> None:  # pr
         logger.info(
             f"Updating cache in response to {event.type} event on release {event.release.name}"
         )
-        asyncio.create_task(handle_event(c, event, 0.5))
+        asyncio.create_task(handle_event(c, event, 2))
 
 
 def start_watchdog(c: Config) -> None:  # pragma: no cover

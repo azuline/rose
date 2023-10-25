@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from multiprocessing import Process
 
-from conftest import TEST_COLLAGE_1, TEST_RELEASE_2, TEST_RELEASE_3
+from conftest import TEST_COLLAGE_1, TEST_PLAYLIST_1, TEST_RELEASE_2, TEST_RELEASE_3
 from rose.cache import connect
 from rose.config import Config
 from rose.watcher import start_watchdog
@@ -25,7 +25,7 @@ def retry_for_sec(timeout_sec: float) -> Iterator[None]:
     start = time.time()
     while True:
         yield
-        time.sleep(0.005)
+        time.sleep(0.01)
         if time.time() - start >= timeout_sec:
             break
 
@@ -67,27 +67,45 @@ def test_watchdog_events(config: Config) -> None:
         else:
             raise AssertionError("Failed to find collage in cache.")
 
+        # Create playlist.
+        shutil.copytree(TEST_PLAYLIST_1, src / "!playlists")
+        for _ in retry_for_sec(2):
+            with connect(config) as conn:
+                cursor = conn.execute("SELECT name FROM playlists")
+                if {r["name"] for r in cursor.fetchall()} != {"Lala Lisa"}:
+                    continue
+                cursor = conn.execute("SELECT track_id FROM playlists_tracks")
+                if {r["track_id"] for r in cursor.fetchall()} != {"iloveloona", "ilovetwice"}:
+                    continue
+                break
+        else:
+            raise AssertionError("Failed to find release in cache.")
+
         # Create/rename/delete random files; check that they don't interfere with rest of the test.
         (src / "hi.nfo").touch()
         (src / "hi.nfo").rename(src / "!collages" / "bye.haha")
-        (src / "!collages" / "bye.haha").unlink()
+        (src / "!collages" / "bye.haha").rename(src / "!playlists" / "bye.haha")
+        (src / "!playlists" / "bye.haha").unlink()
 
         # Delete release.
-        shutil.rmtree(src / TEST_RELEASE_3.name)
+        shutil.rmtree(src / TEST_RELEASE_2.name)
         for _ in retry_for_sec(2):
             with connect(config) as conn:
                 cursor = conn.execute("SELECT id FROM releases")
-                if {r["id"] for r in cursor.fetchall()} != {"ilovecarly"}:
+                if {r["id"] for r in cursor.fetchall()} != {"ilovenewjeans"}:
                     continue
                 cursor = conn.execute("SELECT release_id FROM collages_releases")
-                if {r["release_id"] for r in cursor.fetchall()} != {"ilovecarly"}:
+                if {r["release_id"] for r in cursor.fetchall()} != {"ilovenewjeans"}:
+                    continue
+                cursor = conn.execute("SELECT track_id FROM playlists_tracks")
+                if len(cursor.fetchall()):
                     continue
                 break
         else:
             raise AssertionError("Failed to see release deletion in cache.")
 
         # Rename release.
-        (src / TEST_RELEASE_2.name).rename(src / "lalala")
+        (src / TEST_RELEASE_3.name).rename(src / "lalala")
         time.sleep(0.5)
         for _ in retry_for_sec(2):
             with connect(config) as conn:
@@ -96,7 +114,7 @@ def test_watchdog_events(config: Config) -> None:
                 if len(rows) != 1:
                     continue
                 row = rows[0]
-                if row["id"] != "ilovecarly":
+                if row["id"] != "ilovenewjeans":
                     continue
                 if row["source_path"] != str(src / "lalala"):
                     continue
@@ -112,7 +130,7 @@ def test_watchdog_events(config: Config) -> None:
                 if {r["name"] for r in cursor.fetchall()} != {"Black Pink"}:
                     continue
                 cursor = conn.execute("SELECT release_id FROM collages_releases")
-                if {r["release_id"] for r in cursor.fetchall()} != {"ilovecarly"}:
+                if {r["release_id"] for r in cursor.fetchall()} != {"ilovenewjeans"}:
                     continue
                 break
         else:
@@ -126,4 +144,24 @@ def test_watchdog_events(config: Config) -> None:
                 if cursor.fetchone()[0] == 0:
                     break
         else:
-            raise AssertionError("Failed to see collage rename in cache.")
+            raise AssertionError("Failed to see collage deletion in cache.")
+
+        # Rename playlist.
+        (src / "!playlists" / "Lala Lisa.toml").rename(src / "!playlists" / "Turtle Rabbit.toml")
+        for _ in retry_for_sec(2):
+            with connect(config) as conn:
+                cursor = conn.execute("SELECT name FROM playlists")
+                if {r["name"] for r in cursor.fetchall()} == {"Turtle Rabbit"}:
+                    break
+        else:
+            raise AssertionError("Failed to see playlist rename in cache.")
+
+        # Delete playlist.
+        (src / "!playlists" / "Turtle Rabbit.toml").unlink()
+        for _ in retry_for_sec(2):
+            with connect(config) as conn:
+                cursor = conn.execute("SELECT COUNT(*) FROM playlists")
+                if cursor.fetchone()[0] == 0:
+                    break
+        else:
+            raise AssertionError("Failed to see playlist deletion in cache.")

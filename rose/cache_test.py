@@ -770,6 +770,7 @@ def test_get_release(config: Config) -> None:
                 release_id="r1",
                 track_number="01",
                 disc_number="01",
+                formatted_release_position="01",
                 duration_seconds=120,
                 artists=[
                     CachedArtist(name="Bass Man", role="main", alias=False),
@@ -786,6 +787,7 @@ def test_get_release(config: Config) -> None:
                 release_id="r1",
                 track_number="02",
                 disc_number="01",
+                formatted_release_position="02",
                 duration_seconds=240,
                 artists=[
                     CachedArtist(name="Bass Man", role="main", alias=False),
@@ -854,8 +856,8 @@ def test_list_collages(config: Config) -> None:
 def test_list_collage_releases(config: Config) -> None:
     releases = list(list_collage_releases(config, "Rose Gold"))
     assert set(releases) == {
-        (0, "r1", config.music_source_dir / "r1"),
-        (1, "r2", config.music_source_dir / "r2"),
+        (1, "r1", config.music_source_dir / "r1"),
+        (2, "r2", config.music_source_dir / "r2"),
     }
     releases = list(list_collage_releases(config, "Ruby Red"))
     assert releases == []
@@ -871,8 +873,8 @@ def test_list_playlists(config: Config) -> None:
 def test_list_playlist_tracks(config: Config) -> None:
     tracks = list(list_playlist_tracks(config, "Lala Lisa"))
     assert set(tracks) == {
-        (0, "01.m4a", config.music_source_dir / "r1" / "01.m4a"),
-        (1, "01.m4a", config.music_source_dir / "r2" / "01.m4a"),
+        (1, "t1", "01.m4a", config.music_source_dir / "r1" / "01.m4a"),
+        (2, "t3", "01.m4a", config.music_source_dir / "r2" / "01.m4a"),
     }
     tracks = list(list_playlist_tracks(config, "Turtle Rabbit"))
     assert tracks == []

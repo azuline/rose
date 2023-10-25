@@ -25,7 +25,10 @@ from rose.cache import (
     list_collages,
     list_genres,
     list_labels,
+    list_playlist_tracks,
+    list_playlists,
     list_releases,
+    playlist_exists,
     release_exists,
     track_exists,
 )
@@ -37,6 +40,12 @@ from rose.collages import (
     rename_collage,
 )
 from rose.config import Config
+from rose.playlists import (
+    create_playlist,
+    delete_playlist,
+    remove_track_from_playlist,
+    rename_playlist,
+)
 from rose.releases import ReleaseDoesNotExistError, delete_release, toggle_release_new
 
 logger = logging.getLogger(__name__)
@@ -146,6 +155,14 @@ class VirtualFS(fuse.Operations):  # type: ignore
         elif p.collage:
             if collage_exists(self.config, p.collage):
                 return mkstat("dir")
+        elif p.playlist and p.file:
+            if p.file_position:
+                for idx, _, virtual_filename, tp in list_playlist_tracks(self.config, p.playlist):
+                    if virtual_filename == p.file and idx == int(p.file_position):
+                        return mkstat("file", tp)
+        elif p.playlist:
+            if playlist_exists(self.config, p.playlist):
+                return mkstat("dir")
         elif p.view:
             return mkstat("dir")
 
@@ -170,6 +187,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 "5. Genres",
                 "6. Labels",
                 "7. Collages",
+                "8. Playlists",
             ]
         elif p.release:
             cachedata = get_release(self.config, p.release)
@@ -177,8 +195,9 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 raise fuse.FuseOSError(errno.ENOENT) from None
             release, tracks = cachedata
             for track in tracks:
-                yield track.virtual_filename
-                self.getattr_cache[path + "/" + track.virtual_filename] = (
+                filename = f"{track.formatted_release_position}. {track.virtual_filename}"
+                yield filename
+                self.getattr_cache[path + "/" + filename] = (
                     time.time(),
                     ("file", track.source_path),
                 )
@@ -245,6 +264,18 @@ class VirtualFS(fuse.Operations):  # type: ignore
             for collage in list_collages(self.config):
                 yield collage
                 self.getattr_cache[path + "/" + collage] = (time.time(), ("dir",))
+        elif p.view == "Playlists" and p.playlist:
+            ptracks = list(list_playlist_tracks(self.config, p.playlist))
+            pad_size = max(len(str(r[0])) for r in ptracks)
+            for idx, __, virtual_filename, source_dir in ptracks:
+                v = f"{str(idx).zfill(pad_size)}. {virtual_filename}"
+                yield v
+                self.getattr_cache[path + "/" + v] = (time.time(), ("file", source_dir))
+        elif p.view == "Playlists":
+            # Don't need to sanitize because the playlist names come from filenames.
+            for playlist in list_playlists(self.config):
+                yield playlist
+                self.getattr_cache[path + "/" + playlist] = (time.time(), ("dir",))
         else:
             raise fuse.FuseOSError(errno.ENOENT)
 
@@ -262,6 +293,13 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 for track in tracks:
                     if track.virtual_filename == p.file:
                         return os.open(str(track.source_path), flags)
+        elif p.playlist and p.file:
+            if p.file_position:
+                for idx, _, virtual_filename, tp in list_playlist_tracks(self.config, p.playlist):
+                    if virtual_filename == p.file and idx == int(p.file_position):
+                        return os.open(str(tp), flags)
+            # TODO: Cover
+            pass
 
         if flags & os.O_CREAT == os.O_CREAT:
             raise fuse.FuseOSError(errno.EACCES)
@@ -306,9 +344,8 @@ class VirtualFS(fuse.Operations):  # type: ignore
         # Possible actions:
         # 1. Add a release to an existing collage.
         # 2. Create a new collage.
-        if p.view != "Collages" or (p.collage is None and p.release is None):
-            raise fuse.FuseOSError(errno.EACCES)
-        elif p.collage and p.release is None:
+        # 3. Create a new playlist.
+        if p.collage and p.release is None:
             create_collage(self.config, p.collage)
         elif p.collage and p.release:
             try:
@@ -318,6 +355,8 @@ class VirtualFS(fuse.Operations):  # type: ignore
                     f"Failed adding release {p.release} to collage {p.collage}: release not found."
                 )
                 raise fuse.FuseOSError(errno.ENOENT) from e
+        elif p.playlist and p.file is None:
+            create_playlist(self.config, p.playlist)
         else:
             raise fuse.FuseOSError(errno.EACCES)
 
@@ -327,8 +366,9 @@ class VirtualFS(fuse.Operations):  # type: ignore
         logger.debug(f"Parsed rmdir path as {p}")
 
         # Possible actions:
-        # 1. Delete a release from an existing collage.
-        # 2. Delete a collage.
+        # 1. Delete a collage.
+        # 2. Delete a playlist.
+        # 3. Delete a release from an existing collage.
         if p.view == "Collages":
             if p.collage and p.release is None:
                 delete_collage(self.config, p.collage)
@@ -336,8 +376,38 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 remove_release_from_collage(self.config, p.collage, p.release)
             else:
                 raise fuse.FuseOSError(errno.EACCES)
+        elif p.view == "Playlists":
+            if p.playlist and p.file is None:
+                delete_playlist(self.config, p.playlist)
+            else:
+                raise fuse.FuseOSError(errno.EACCES)
         elif p.release is not None:
             delete_release(self.config, p.release)
+        else:
+            raise fuse.FuseOSError(errno.EACCES)
+
+    def unlink(self, path: str) -> None:
+        logger.debug(f"Received unlink for {path=}")
+        p = parse_virtual_path(path)
+        logger.debug(f"Parsed unlink path as {p}")
+
+        # Possible actions:
+        # 1. Delete a playlist.
+        # 2. Delete a track from a playlist.
+        if p.view == "Playlists":
+            if p.playlist and p.file is None:
+                delete_playlist(self.config, p.playlist)
+            elif p.playlist and p.file:
+                if p.file_position:
+                    for pos, track_id, virtual_filename, _ in list_playlist_tracks(
+                        self.config, p.playlist
+                    ):
+                        if virtual_filename == p.file and pos == int(p.file_position):
+                            remove_track_from_playlist(self.config, p.playlist, track_id)
+                            return
+                raise fuse.FuseOSError(errno.EACCES)
+            else:
+                raise fuse.FuseOSError(errno.EACCES)
         else:
             raise fuse.FuseOSError(errno.EACCES)
 
@@ -349,8 +419,10 @@ class VirtualFS(fuse.Operations):  # type: ignore
         logger.debug(f"Parsed rename new path as {np}")
 
         # Possible actions:
-        # 1. Rename a collage.
-        # 2. Toggle a release's new status.
+        # 1. Toggle a release's new status.
+        # 2. Rename a collage.
+        # 3. Rename a playlist.
+        # TODO: Consider allowing renaming artist/genre/label here?
         if (
             (op.release and np.release)
             and op.release.removeprefix("{NEW} ") == np.release.removeprefix("{NEW} ")
@@ -369,14 +441,21 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 rename_collage(self.config, op.collage, np.collage)
             else:
                 raise fuse.FuseOSError(errno.EACCES)
+        elif op.view == "Playlists" and np.view == "Playlists":
+            if (
+                (op.playlist and np.playlist)
+                and op.playlist != np.playlist
+                and (not op.file and not np.file)
+            ):
+                rename_playlist(self.config, op.playlist, np.playlist)
+            else:
+                raise fuse.FuseOSError(errno.EACCES)
         else:
             raise fuse.FuseOSError(errno.EACCES)
-        # TODO: Consider allowing renaming artist/genre/label here?
 
     # Unimplemented:
     # - readlink
     # - mknod
-    # - unlink
     # - symlink
     # - link
     # - opendir
@@ -404,9 +483,6 @@ class VirtualFS(fuse.Operations):  # type: ignore
     def chown(self, *_, **__) -> None:  # type: ignore
         pass
 
-    def unlink(self, *_, **__) -> None:  # type: ignore
-        pass
-
     def create(self, *_, **__) -> None:  # type: ignore
         raise fuse.FuseOSError(errno.ENOTSUP)
 
@@ -420,6 +496,7 @@ class ParsedPath:
         "Genres",
         "Labels",
         "Collages",
+        "Playlists",
         "New",
         "Recently Added",
     ] | None
@@ -427,13 +504,17 @@ class ParsedPath:
     genre: str | None = None
     label: str | None = None
     collage: str | None = None
+    playlist: str | None = None
     release: str | None = None
+    release_position: str | None = None
     file: str | None = None
+    file_position: str | None = None
 
 
-# In collages, we print directories with position of the release in the collage. When parsing,
-# strip it out. Otherwise we will have to handle this parsing in every method.
-POSITION_REGEX = re.compile(r"^\d+\. ")
+# In collages, playlists, and releases, we print directories with position of the release/track in
+# the collage. When parsing, strip it out. Otherwise we will have to handle this parsing in every
+# method.
+POSITION_REGEX = re.compile(r"^([^.]+)\. ")
 # In recently added, we print the date that the release was added to the library. When parsing,
 # strip it out.
 ADDED_AT_REGEX = re.compile(r"^\[[\d-]{10}\] ")
@@ -451,7 +532,12 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2:
             return ParsedPath(view="Releases", release=parts[1])
         if len(parts) == 3:
-            return ParsedPath(view="Releases", release=parts[1], file=parts[2])
+            return ParsedPath(
+                view="Releases",
+                release=parts[1],
+                file=POSITION_REGEX.sub("", parts[2]),
+                file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
+            )
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "2. Releases - New":
@@ -460,7 +546,12 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 2 and parts[1].startswith("{NEW} "):
             return ParsedPath(view="New", release=parts[1])
         if len(parts) == 3 and parts[1].startswith("{NEW} "):
-            return ParsedPath(view="New", release=parts[1], file=parts[2])
+            return ParsedPath(
+                view="New",
+                release=parts[1],
+                file=POSITION_REGEX.sub("", parts[2]),
+                file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
+            )
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "3. Releases - Recently Added":
@@ -472,7 +563,8 @@ def parse_virtual_path(path: str) -> ParsedPath:
             return ParsedPath(
                 view="Recently Added",
                 release=ADDED_AT_REGEX.sub("", parts[1]),
-                file=parts[2],
+                file=POSITION_REGEX.sub("", parts[2]),
+                file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
             )
         raise fuse.FuseOSError(errno.ENOENT)
 
@@ -484,7 +576,13 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 3:
             return ParsedPath(view="Artists", artist=parts[1], release=parts[2])
         if len(parts) == 4:
-            return ParsedPath(view="Artists", artist=parts[1], release=parts[2], file=parts[3])
+            return ParsedPath(
+                view="Artists",
+                artist=parts[1],
+                release=parts[2],
+                file=POSITION_REGEX.sub("", parts[3]),
+                file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
+            )
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "5. Genres":
@@ -495,7 +593,13 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 3:
             return ParsedPath(view="Genres", genre=parts[1], release=parts[2])
         if len(parts) == 4:
-            return ParsedPath(view="Genres", genre=parts[1], release=parts[2], file=parts[3])
+            return ParsedPath(
+                view="Genres",
+                genre=parts[1],
+                release=parts[2],
+                file=POSITION_REGEX.sub("", parts[3]),
+                file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
+            )
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "6. Labels":
@@ -506,7 +610,13 @@ def parse_virtual_path(path: str) -> ParsedPath:
         if len(parts) == 3:
             return ParsedPath(view="Labels", label=parts[1], release=parts[2])
         if len(parts) == 4:
-            return ParsedPath(view="Labels", label=parts[1], release=parts[2], file=parts[3])
+            return ParsedPath(
+                view="Labels",
+                label=parts[1],
+                release=parts[2],
+                file=POSITION_REGEX.sub("", parts[3]),
+                file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
+            )
         raise fuse.FuseOSError(errno.ENOENT)
 
     if parts[0] == "7. Collages":
@@ -516,14 +626,33 @@ def parse_virtual_path(path: str) -> ParsedPath:
             return ParsedPath(view="Collages", collage=parts[1])
         if len(parts) == 3:
             return ParsedPath(
-                view="Collages", collage=parts[1], release=POSITION_REGEX.sub("", parts[2])
+                view="Collages",
+                collage=parts[1],
+                release=POSITION_REGEX.sub("", parts[2]),
+                release_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
             )
         if len(parts) == 4:
             return ParsedPath(
                 view="Collages",
                 collage=parts[1],
                 release=POSITION_REGEX.sub("", parts[2]),
-                file=parts[3],
+                release_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
+                file=POSITION_REGEX.sub("", parts[3]),
+                file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
+            )
+        raise fuse.FuseOSError(errno.ENOENT)
+
+    if parts[0] == "8. Playlists":
+        if len(parts) == 1:
+            return ParsedPath(view="Playlists")
+        if len(parts) == 2:
+            return ParsedPath(view="Playlists", playlist=parts[1])
+        if len(parts) == 3:
+            return ParsedPath(
+                view="Playlists",
+                playlist=parts[1],
+                file=POSITION_REGEX.sub("", parts[2]),
+                file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
             )
         raise fuse.FuseOSError(errno.ENOENT)
 

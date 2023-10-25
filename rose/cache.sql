@@ -68,6 +68,10 @@ CREATE TABLE tracks (
     release_id TEXT NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
     track_number TEXT NOT NULL,
     disc_number TEXT NOT NULL,
+    -- Formatted disc_number/track_number combination that prefixes the virtual_filename in the
+    -- release view. This can be derived on-the-fly, but doesn't hurt to compute it once and pull it
+    -- from the cache after.
+    formatted_release_position TEXT NOT NULL,
     duration_seconds INTEGER NOT NULL,
     -- This is its own state because ordering matters--we preserve the ordering in the tags.
     -- However, the one-to-many table does not have ordering.
