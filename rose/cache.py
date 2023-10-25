@@ -185,6 +185,20 @@ SUPPORTED_RELEASE_TYPES = [
     "unknown",
 ]
 
+RELEASE_TYPE_FORMATTER = {
+    "album": "Album",
+    "single": "Single",
+    "ep": "EP",
+    "compilation": "Compilation",
+    "soundtrack": "Soundtrack",
+    "live": "Live",
+    "remix": "Remix",
+    "djmix": "DJ-Mix",
+    "mixtape": "Mixtape",
+    "other": "Other",
+    "unknown": "Unknown",
+}
+
 STORED_DATA_FILE_REGEX = re.compile(r"\.rose\.([^.]+)\.toml")
 
 
@@ -681,7 +695,9 @@ def _update_cache_for_releases_executor(
                     release_virtual_dirname += str(release.year) + ". "
                 release_virtual_dirname += release.title
                 if release.releasetype not in ["album", "unknown"]:
-                    release_virtual_dirname += " - " + release.releasetype.title()
+                    release_virtual_dirname += " - " + RELEASE_TYPE_FORMATTER.get(
+                        release.releasetype, release.releasetype.title()
+                    )
                 if release.genres:
                     release_virtual_dirname += " [" + ";".join(release.genres) + "]"
                 if release.labels:
