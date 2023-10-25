@@ -148,9 +148,8 @@ max_proc = 4
 # Artist aliases: Releases belonging to an alias will also appear in the main
 # artists' releases.
 artist_aliases = [
-  ["main_artist", ["alias1", "alias2"]],
-  ["Abakus", ["Cinnamon Chasers"]],
-  ["tripleS", ["EVOLution", "LOVElution", "+(KR)ystal Eyes", "Acid Angel From Asia", "Acid Eyes"]],
+  { artist = "Abakus", aliases = ["Cinnamon Chasers"] },
+  { artist = "tripleS", aliases = ["EVOLution", "LOVElution", "+(KR)ystal Eyes", "Acid Angel From Asia", "Acid Eyes"] },
 ]
 # Artists, genres, and labels to hide from the virtual filesystem navigation.
 fuse_hide_artists = [ "xxx" ]

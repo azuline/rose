@@ -21,6 +21,10 @@ class ConfigNotFoundError(RoseError):
     pass
 
 
+class ConfigDecodeError(RoseError):
+    pass
+
+
 class MissingConfigKeyError(RoseError):
     pass
 
@@ -59,6 +63,8 @@ class Config:
                 data = tomllib.loads(cfgtext)
         except FileNotFoundError as e:
             raise ConfigNotFoundError(f"Configuration file not found ({cfgpath})") from e
+        except tomllib.TOMLDecodeError as e:
+            raise ConfigDecodeError("Failed to decode configuration file: invalid TOML") from e
 
         try:
             music_source_dir = Path(data["music_source_dir"]).expanduser()
@@ -109,18 +115,22 @@ class Config:
         artist_aliases_map: dict[str, list[str]] = defaultdict(list)
         artist_aliases_parents_map: dict[str, list[str]] = defaultdict(list)
         try:
-            for parent, subs in data.get("artist_aliases", []):
-                artist_aliases_map[parent] = subs
-                if not isinstance(subs, list):
-                    raise ValueError(f"Aliases must be of type list[str]: got {type(subs)}")
-                for s in subs:
+            for entry in data.get("artist_aliases", []):
+                if not isinstance(entry["artist"], str):
+                    raise ValueError(f"Artists must be of type str: got {type(entry['artist'])}")
+                artist_aliases_map[entry["artist"]] = entry["aliases"]
+                if not isinstance(entry["aliases"], list):
+                    raise ValueError(
+                        f"Aliases must be of type list[str]: got {type(entry['aliases'])}"
+                    )
+                for s in entry["aliases"]:
                     if not isinstance(s, str):
                         raise ValueError(f"Each alias must be of type str: got {type(s)}")
-                    artist_aliases_parents_map[s].append(parent)
-        except (ValueError, TypeError) as e:
+                    artist_aliases_parents_map[s].append(entry["artist"])
+        except (ValueError, TypeError, KeyError) as e:
             raise InvalidConfigValueError(
                 f"Invalid value for artist_aliases in configuration file ({cfgpath}): "
-                "must be a list of (parent: str, aliases: list[str]) tuples"
+                "must be a list of { artist = str, aliases = list[str] } records"
             ) from e
 
         try:

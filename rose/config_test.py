@@ -34,8 +34,8 @@ def test_config_full() -> None:
                 cache_dir = "{cache_dir}"
                 max_proc = 8
                 artist_aliases = [
-                  ["Abakus", ["Cinnamon Chasers"]],
-                  ["tripleS", ["EVOLution", "LOVElution", "+(KR)ystal Eyes", "Acid Angel From Asia", "Acid Eyes"]],
+                  {{ artist = "Abakus", aliases = ["Cinnamon Chasers"] }},
+                  {{ artist = "tripleS", aliases = ["EVOLution", "LOVElution", "+(KR)ystal Eyes", "Acid Angel From Asia", "Acid Eyes"] }},
                 ]
                 fuse_hide_artists = [ "xxx" ]
                 fuse_hide_genres = [ "yyy" ]
@@ -153,44 +153,37 @@ def test_config_value_validation() -> None:
             Config.read(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of (parent: str, aliases: list[str]) tuples"  # noqa
+            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
         )
         write(config + '\nartist_aliases = ["lalala"]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.read(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of (parent: str, aliases: list[str]) tuples"  # noqa
+            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
         )
         write(config + '\nartist_aliases = [["lalala"]]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.read(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of (parent: str, aliases: list[str]) tuples"  # noqa
+            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
         )
-        write(config + '\nartist_aliases = [["lalala", "lalala"]]')
+        write(config + '\nartist_aliases = [{artist="lalala", aliases="lalala"}]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.read(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of (parent: str, aliases: list[str]) tuples"  # noqa
+            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
         )
-        write(config + '\nartist_aliases = [["lalala", "lalala", "lalala"]]')
+        write(config + '\nartist_aliases = [{artist="lalala", aliases=[123]}]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.read(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of (parent: str, aliases: list[str]) tuples"  # noqa
+            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
         )
-        write(config + '\nartist_aliases = [["lalala", [123]]]')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of (parent: str, aliases: list[str]) tuples"  # noqa
-        )
-        config += '\nartist_aliases = [["tripleS", ["EVOLution"]]]'
+        config += '\nartist_aliases = [{artist="tripleS", aliases=["EVOLution"]}]'
 
         # fuse_hide_artists
         write(config + '\nfuse_hide_artists = "lalala"')
