@@ -182,6 +182,7 @@ SUPPORTED_RELEASE_TYPES = [
     "djmix",
     "mixtape",
     "other",
+    "bootleg",
     "unknown",
 ]
 
@@ -694,7 +695,7 @@ def _update_cache_for_releases_executor(
                 if release.year:
                     release_virtual_dirname += str(release.year) + ". "
                 release_virtual_dirname += release.title
-                if release.releasetype not in ["album", "unknown"] and not (
+                if release.releasetype not in ["album", "other", "unknown"] and not (
                     release.releasetype == "remix" and "remix" in release.title.lower()
                 ):
                     release_virtual_dirname += " - " + RELEASE_TYPE_FORMATTER.get(
@@ -786,7 +787,13 @@ def _update_cache_for_releases_executor(
             if t.track_number:
                 virtual_filename += f"{t.track_number:0>2}. "
             virtual_filename += t.title or "Unknown Title"
-            if release.releasetype in ["compilation", "soundtrack", "remix", "djmix", "mixtape"]:
+            if release.releasetype in [
+                "compilation",
+                "soundtrack",
+                "remix",
+                "djmix",
+                "mixtape",
+            ]:
                 virtual_filename += f" (by {t.formatted_artists})"
             virtual_filename += t.source_path.suffix
             virtual_filename = _sanitize_filename(virtual_filename)
