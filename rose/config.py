@@ -24,6 +24,10 @@ class MissingConfigKeyError(RoseError):
     pass
 
 
+class InvalidConfigValueError(RoseError):
+    pass
+
+
 @dataclass(frozen=True)
 class Config:
     music_source_dir: Path
@@ -49,32 +53,131 @@ class Config:
             with cfgpath.open("rb") as fp:
                 data = tomllib.load(fp)
         except FileNotFoundError as e:
-            raise ConfigNotFoundError(f"Configuration file not found ({CONFIG_PATH})") from e
+            raise ConfigNotFoundError(f"Configuration file not found ({cfgpath})") from e
 
-        cache_dir = CACHE_PATH
-        if "cache_dir" in data:
+        try:
+            music_source_dir = Path(data["music_source_dir"]).expanduser()
+        except KeyError as e:
+            raise MissingConfigKeyError(
+                f"Missing key music_source_dir in configuration file ({cfgpath})"
+            ) from e
+        except (ValueError, TypeError) as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for music_source_dir in configuration file ({cfgpath}): "
+                "must be a path"
+            ) from e
+
+        try:
+            fuse_mount_dir = Path(data["fuse_mount_dir"]).expanduser()
+        except KeyError as e:
+            raise MissingConfigKeyError(
+                f"Missing key fuse_mount_dir in configuration file ({cfgpath})"
+            ) from e
+        except (ValueError, TypeError) as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for fuse_mount_dir in configuration file ({cfgpath}): "
+                "must be a path"
+            ) from e
+
+        try:
             cache_dir = Path(data["cache_dir"]).expanduser()
+        except KeyError:
+            cache_dir = CACHE_PATH
+        except (TypeError, ValueError) as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for cache_dir in configuration file ({cfgpath}): must be a path"
+            ) from e
         cache_dir.mkdir(exist_ok=True)
+
+        try:
+            max_proc = int(data["max_proc"])
+            if max_proc <= 0:
+                raise ValueError(f"max_proc must be a positive integer: got {max_proc}")
+        except KeyError:
+            max_proc = max(1, multiprocessing.cpu_count() // 2)
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for max_proc in configuration file ({cfgpath}): "
+                "must be a positive integer"
+            ) from e
 
         artist_aliases_map: dict[str, list[str]] = defaultdict(list)
         artist_aliases_parents_map: dict[str, list[str]] = defaultdict(list)
-        for parent, subs in data.get("artist_aliases", []):
-            artist_aliases_map[parent] = subs
-            for s in subs:
-                artist_aliases_parents_map[s].append(parent)
+        try:
+            for parent, subs in data.get("artist_aliases", []):
+                artist_aliases_map[parent] = subs
+                if not isinstance(subs, list):
+                    raise ValueError(f"Aliases must be of type list[str]: got {type(subs)}")
+                for s in subs:
+                    if not isinstance(s, str):
+                        raise ValueError(f"Each alias must be of type str: got {type(s)}")
+                    artist_aliases_parents_map[s].append(parent)
+        except (ValueError, TypeError) as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for artist_aliases in configuration file ({cfgpath}): "
+                "must be a list of (parent: str, aliases: list[str]) tuples"
+            ) from e
 
         try:
-            return cls(
-                music_source_dir=Path(data["music_source_dir"]).expanduser(),
-                fuse_mount_dir=Path(data["fuse_mount_dir"]).expanduser(),
-                cache_dir=cache_dir,
-                cache_database_path=cache_dir / "cache.sqlite3",
-                max_proc=data.get("max_proc", max(1, multiprocessing.cpu_count() // 2)),
-                artist_aliases_map=artist_aliases_map,
-                artist_aliases_parents_map=artist_aliases_parents_map,
-                fuse_hide_artists=data.get("fuse_hide_artists", []),
-                fuse_hide_genres=data.get("fuse_hide_genres", []),
-                fuse_hide_labels=data.get("fuse_hide_labels", []),
-            )
-        except KeyError as e:
-            raise MissingConfigKeyError(f"Missing key in configuration file: {e}") from e
+            fuse_hide_artists = data["fuse_hide_artists"]
+            if not isinstance(fuse_hide_artists, list):
+                raise ValueError(
+                    f"fuse_hide_artists must be a list[str]: got {type(fuse_hide_artists)}"
+                )
+            for s in fuse_hide_artists:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each artist must be of type str: got {type(s)}")
+        except KeyError:
+            fuse_hide_artists = []
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for fuse_hide_artists in configuration file ({cfgpath}): "
+                "must be a list of strings"
+            ) from e
+
+        try:
+            fuse_hide_genres = data["fuse_hide_genres"]
+            if not isinstance(fuse_hide_genres, list):
+                raise ValueError(
+                    f"fuse_hide_genres must be a list[str]: got {type(fuse_hide_genres)}"
+                )
+            for s in fuse_hide_genres:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each genre must be of type str: got {type(s)}")
+        except KeyError:
+            fuse_hide_genres = []
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for fuse_hide_genres in configuration file ({cfgpath}): "
+                "must be a list of strings"
+            ) from e
+
+        try:
+            fuse_hide_labels = data["fuse_hide_labels"]
+            if not isinstance(fuse_hide_labels, list):
+                raise ValueError(
+                    f"fuse_hide_labels must be a list[str]: got {type(fuse_hide_labels)}"
+                )
+            for s in fuse_hide_labels:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each label must be of type str: got {type(s)}")
+        except KeyError:
+            fuse_hide_labels = []
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for fuse_hide_labels in configuration file ({cfgpath}): "
+                "must be a list of strings"
+            ) from e
+
+        return cls(
+            music_source_dir=music_source_dir,
+            fuse_mount_dir=fuse_mount_dir,
+            cache_dir=cache_dir,
+            cache_database_path=cache_dir / "cache.sqlite3",
+            max_proc=max_proc,
+            artist_aliases_map=artist_aliases_map,
+            artist_aliases_parents_map=artist_aliases_parents_map,
+            fuse_hide_artists=fuse_hide_artists,
+            fuse_hide_genres=fuse_hide_genres,
+            fuse_hide_labels=fuse_hide_labels,
+        )
