@@ -5,6 +5,7 @@ import os
 import re
 import stat
 import subprocess
+import tempfile
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -41,18 +42,24 @@ from rose.collages import (
 )
 from rose.config import Config
 from rose.playlists import (
+    add_track_to_playlist,
     create_playlist,
     delete_playlist,
     remove_track_from_playlist,
     rename_playlist,
 )
 from rose.releases import ReleaseDoesNotExistError, delete_release, toggle_release_new
+from rose.tagger import AudioFile
 
 logger = logging.getLogger(__name__)
 
 
-# I'm great at naming things.
 class CanShower:
+    """
+    I'm great at naming things. This is "can show"-er, determining whether we can show an
+    artist/genre/label based on the configured whitelists and blacklists.
+    """
+
     def __init__(self, config: Config):
         self._config = config
         self._artist_w = None
@@ -97,6 +104,21 @@ class CanShower:
         return True
 
 
+class FileDescriptorGenerator:
+    """
+    FileDescriptorGenerator generates file descriptors and handles wrapping so that we do not go
+    over the int size. Assumes that we do not cycle 10k file descriptors before the first descriptor
+    is released.
+    """
+
+    def __init__(self) -> None:
+        self._state = 0
+
+    def next(self) -> int:
+        self._state = self._state + 1 % 10_000
+        return self._state
+
+
 # IDK how to get coverage on this thing.
 class VirtualFS(fuse.Operations):  # type: ignore
     def __init__(self, config: Config):
@@ -112,6 +134,26 @@ class VirtualFS(fuse.Operations):  # type: ignore
         self.getattr_cache: dict[str, tuple[float, Any]] = {}
         # We use this object to determine whether we should show an artist/genre/label
         self.can_show = CanShower(config)
+        # We implement the "add track to playlist" operation in a slightly special way. Unlike
+        # releases, where the virtual dirname is globally unique, track filenames are not globally
+        # unique. Rather, they clash quite often. So instead of running a lookup on the virtual
+        # filename, we must instead inspect the bytes that get written upon copy, because within the
+        # copied audio file is the `track_id` tag (aka `roseid`).
+        #
+        # In order to be able to inspect the written bytes, we must store state across several
+        # syscalls (open, write, release). So the process goes:
+        #
+        # 1. Upon file open, if the syscall is intended to create a new file in a playlist, treat it
+        #    as a playlist addition instead. Mock the file descriptor with an in-memory sentinel.
+        # 2. On subsequent write requests to the same path and sentinel file descriptor, take the
+        #    bytes-to-write and store them in the in-memory state.
+        # 3. On release, write all the bytes to a temporary file and load the audio file up into an
+        #    AudioFile dataclass (which parses tags). Look for the track ID tag, and if it exists,
+        #    add it to the playlist.
+        #
+        # The state is a mapping of (path, fh) -> (playlist_name, ext, bytes).
+        self.playlist_additions_in_progress: dict[tuple[str, int], tuple[str, str, bytes]] = {}
+        self.fhgen = FileDescriptorGenerator()
         super().__init__()
 
     def getattr(self, path: str, fh: int | None) -> dict[str, Any]:
@@ -126,6 +168,11 @@ class VirtualFS(fuse.Operations):  # type: ignore
         logger.debug(f"Handling uncached getattr for {path=}")
         p = parse_virtual_path(path)
         logger.debug(f"Parsed getattr path as {p}")
+
+        # We need this here in order to support fgetattr during the file write operation.
+        if fh and self.playlist_additions_in_progress.get((path, fh), None):
+            logger.debug("Matched read to an in-progress playlist addition.")
+            return mkstat("file")
 
         # Common logic that gets called for each release.
         def getattr_release(rp: Path) -> dict[str, Any]:
@@ -256,7 +303,8 @@ class VirtualFS(fuse.Operations):  # type: ignore
                         time.time(),
                         ("file", release.cover_image_path),
                     )
-            raise fuse.FuseOSError(errno.ENOENT) from None
+                return
+            raise fuse.FuseOSError(errno.ENOENT)
 
         if p.artist or p.genre or p.label or p.view == "Releases" or p.view == "New":
             for release in list_releases(
@@ -358,27 +406,61 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 if track.virtual_filename == p.file:
                     return os.open(str(track.source_path), flags)
             raise fuse.FuseOSError(err)
-        if p.playlist and p.file and p.file_position:
-            for idx, _, virtual_filename, tp in list_playlist_tracks(self.config, p.playlist):
-                if virtual_filename == p.file and idx == int(p.file_position):
-                    return os.open(str(tp), flags)
+        if p.playlist and p.file:
+            if not playlist_exists(self.config, p.playlist):
+                raise fuse.FuseOSError(errno.ENOENT)
+            # If we are trying to create a file in the playlist, enter the "add file to playlist"
+            # operation sequence. See the __init__ for more details.
+            if flags & os.O_CREAT == os.O_CREAT:
+                fh = self.fhgen.next()
+                self.playlist_additions_in_progress[(path, fh)] = (
+                    p.playlist,
+                    Path(p.file).suffix,
+                    b"",
+                )
+                return fh
+            # Otherwise, continue on...
+            if p.file_position:
+                for idx, _, virtual_filename, tp in list_playlist_tracks(self.config, p.playlist):
+                    if virtual_filename == p.file and idx == int(p.file_position):
+                        return os.open(str(tp), flags)
+
             raise fuse.FuseOSError(err)
 
         raise fuse.FuseOSError(err)
 
     def read(self, path: str, length: int, offset: int, fh: int) -> bytes:
         logger.debug(f"Received read for {path=} {length=} {offset=} {fh=}")
+
+        if pap := self.playlist_additions_in_progress.get((path, fh), None):
+            logger.debug("Matched read to an in-progress playlist addition.")
+            _, _, b = pap
+            return b[offset : offset + length]
+
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)
 
     def write(self, path: str, data: bytes, offset: int, fh: int) -> int:
         logger.debug(f"Received write for {path=} {data=} {offset=} {fh=}")
+
+        if pap := self.playlist_additions_in_progress.get((path, fh), None):
+            logger.debug("Matched write to an in-progress playlist addition.")
+            playlist, ext, b = pap
+            self.playlist_additions_in_progress[(path, fh)] = (playlist, ext, b[:offset] + data)
+            return len(data)
+
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, data)
 
     def truncate(self, path: str, length: int, fh: int | None = None) -> None:
         logger.debug(f"Received truncate for {path=} {length=} {fh=}")
+
         if fh:
+            if pap := self.playlist_additions_in_progress.get((path, fh), None):
+                logger.debug("Matched truncate to an in-progress playlist addition.")
+                playlist, ext, b = pap
+                self.playlist_additions_in_progress[(path, fh)] = (playlist, ext, b[:length])
+                return
             return os.ftruncate(fh, length)
 
         p = parse_virtual_path(path)
@@ -397,6 +479,27 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
     def release(self, path: str, fh: int) -> None:
         logger.debug(f"Received release for {path=} {fh=}")
+        if pap := self.playlist_additions_in_progress.get((path, fh), None):
+            logger.debug("Matched release to an in-progress playlist addition.")
+            playlist, ext, b = pap
+            if not b:
+                logger.debug("Aborting playlist addition release: no bytes to write.")
+                return
+            with tempfile.TemporaryDirectory() as tmpdir:
+                audiopath = Path(tmpdir) / f"f{ext}"
+                with audiopath.open("wb") as fp:
+                    fp.write(b)
+                audiofile = AudioFile.from_file(audiopath)
+                track_id = audiofile.id
+            if not track_id:
+                logger.warning(
+                    "Failed to parse track_id from file in playlist addition operation "
+                    f"sequence: {path} {audiofile}"
+                )
+                return
+            add_track_to_playlist(self.config, playlist, track_id)
+            del self.playlist_additions_in_progress[(path, fh)]
+            return
         os.close(fh)
 
     def mkdir(self, path: str, mode: int) -> None:
@@ -532,18 +635,20 @@ class VirtualFS(fuse.Operations):  # type: ignore
     # - ftruncate
     # - fgetattr
     # - lock
+    # - ioctl
     # - utimens
     #
     # Dummy implementations below:
+
+    def create(self, path: str, mode: int) -> int:
+        logger.debug(f"Received create for {path=} {mode=}")
+        return self.open(path, os.O_CREAT | os.O_WRONLY)
 
     def chmod(self, *_, **__) -> None:  # type: ignore
         pass
 
     def chown(self, *_, **__) -> None:  # type: ignore
         pass
-
-    def create(self, *_, **__) -> None:  # type: ignore
-        raise fuse.FuseOSError(errno.ENOTSUP)
 
 
 @dataclass

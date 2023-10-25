@@ -147,10 +147,17 @@ def test_virtual_filesystem_collage_actions(config: Config) -> None:
         assert not (src / "!collages" / "New Jeans.toml").exists()
 
 
-@pytest.mark.usefixtures("seeded_cache")
-def test_virtual_filesystem_playlist_actions(config: Config) -> None:
+def test_virtual_filesystem_playlist_actions(
+    config: Config,
+    source_dir: Path,  # noqa: ARG001
+) -> None:
     root = config.fuse_mount_dir
     src = config.music_source_dir
+
+    release_dir = (
+        root / "1. Releases" / "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop] {A Cool Label}"
+    )
+    filename = "01. BLACKPINK - Track 1.m4a"
 
     with startfs(config):
         # Create playlist.
@@ -160,19 +167,16 @@ def test_virtual_filesystem_playlist_actions(config: Config) -> None:
         (root / "8. Playlists" / "New Tee").rename(root / "8. Playlists" / "New Jeans")
         assert (src / "!playlists" / "New Jeans.toml").is_file()
         assert not (src / "!playlists" / "New Tee.toml").exists()
-        # TODO: To implement.
-        # # Add track to playlist.
-        # shutil.copytree(
-        #     root / "1. Releases" / "r1" / "01.m4a", root / "8. Playlists" / "New Jeans" / "01.m4a"
-        # )
-        # assert (root / "8. Playlists" / "New Jeans" / "1. 01.m4a").is_file()
-        # with (src / "!playlists" / "New Jeans.toml").open("r") as fp:
-        #     assert "01.m4a" in fp.read()
-        # # Delete release from playlist.
-        # (root / "8. Playlists" / "New Jeans" / "1. 01.m4a").unlink()
-        # assert not (root / "8. Playlists" / "New Jeans" / "1. 01.m4a").exists()
-        # with (src / "!playlists" / "New Jeans.toml").open("r") as fp:
-        #     assert "01.m4a" not in fp.read()
+        # Add track to playlist.
+        shutil.copyfile(release_dir / filename, root / "8. Playlists" / "New Jeans" / filename)
+        assert (root / "8. Playlists" / "New Jeans" / "1. BLACKPINK - Track 1.m4a").is_file()
+        with (src / "!playlists" / "New Jeans.toml").open("r") as fp:
+            assert "BLACKPINK - Track 1.m4a" in fp.read()
+        # Delete track from playlist.
+        (root / "8. Playlists" / "New Jeans" / "1. BLACKPINK - Track 1.m4a").unlink()
+        assert not (root / "8. Playlists" / "New Jeans" / "1. BLACKPINK - Track 1.m4a").exists()
+        with (src / "!playlists" / "New Jeans.toml").open("r") as fp:
+            assert "BLACKPINK - Track 1.m4a" not in fp.read()
         # Delete playlist.
         (root / "8. Playlists" / "New Jeans").rmdir()
         assert not (src / "!playlists" / "New Jeans.toml").exists()
