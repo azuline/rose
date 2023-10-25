@@ -114,7 +114,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
         self.can_show = CanShower(config)
         super().__init__()
 
-    def getattr(self, path: str, fh: int) -> dict[str, Any]:
+    def getattr(self, path: str, fh: int | None) -> dict[str, Any]:
         logger.debug(f"Received getattr for {path=} {fh=}")
 
         with contextlib.suppress(KeyError):
@@ -127,45 +127,88 @@ class VirtualFS(fuse.Operations):  # type: ignore
         p = parse_virtual_path(path)
         logger.debug(f"Parsed getattr path as {p}")
 
-        # Some early guards just in case.
-        if p.release and p.collage:
-            for _, virtual_dirname, _ in list_collage_releases(self.config, p.collage):
-                if virtual_dirname == p.release:
-                    break
-            else:
-                raise fuse.FuseOSError(errno.ENOENT)
-
-        if p.release and p.file:
+        # Common logic that gets called for each release.
+        def getattr_release(rp: Path) -> dict[str, Any]:
+            assert p.release is not None
+            # If no file, return stat for the release dir.
+            if not p.file:
+                return mkstat("dir", rp)
+            # If there is a file, getattr the file.
             if tp := track_exists(self.config, p.release, p.file):
                 return mkstat("file", tp)
             if cp := cover_exists(self.config, p.release, p.file):
                 return mkstat("file", cp)
-        elif p.release:
-            if rp := release_exists(self.config, p.release):
-                return mkstat("dir", rp)
-        elif p.artist:
-            if artist_exists(self.config, p.artist) and self.can_show.artist(p.artist):
-                return mkstat("dir")
-        elif p.genre:
-            if genre_exists(self.config, p.genre) and self.can_show.genre(p.genre):
-                return mkstat("dir")
-        elif p.label:
-            if label_exists(self.config, p.label) and self.can_show.label(p.label):
-                return mkstat("dir")
-        elif p.collage:
-            if collage_exists(self.config, p.collage):
-                return mkstat("dir")
-        elif p.playlist and p.file:
-            if p.file_position:
+            # If no file matches, return errno.ENOENT.
+            raise fuse.FuseOSError(errno.ENOENT)
+
+        # 8. Playlists
+        if p.playlist:
+            if not playlist_exists(self.config, p.playlist):
+                raise fuse.FuseOSError(errno.ENOENT)
+            if p.file:
+                if not p.file_position:
+                    raise fuse.FuseOSError(errno.ENOENT)
                 for idx, _, virtual_filename, tp in list_playlist_tracks(self.config, p.playlist):
                     if virtual_filename == p.file and idx == int(p.file_position):
                         return mkstat("file", tp)
-        elif p.playlist:
-            if playlist_exists(self.config, p.playlist):
-                return mkstat("dir")
+                raise fuse.FuseOSError(errno.ENOENT)
+            return mkstat("dir")
+
+        # 7. Collages
+        if p.collage:
+            if not collage_exists(self.config, p.collage):
+                raise fuse.FuseOSError(errno.ENOENT)
+            if p.release:
+                for _, virtual_dirname, src_path in list_collage_releases(self.config, p.collage):
+                    if virtual_dirname == p.release:
+                        return getattr_release(src_path)
+                raise fuse.FuseOSError(errno.ENOENT)
+            return mkstat("dir")
+
+        # 6. Labels
+        if p.label:
+            if not label_exists(self.config, p.label) or not self.can_show.label(p.label):
+                raise fuse.FuseOSError(errno.ENOENT)
+            if p.release:
+                for r in list_releases(self.config, sanitized_label_filter=p.label):
+                    if r.virtual_dirname == p.release:
+                        return getattr_release(r.source_path)
+                raise fuse.FuseOSError(errno.ENOENT)
+            return mkstat("dir")
+
+        # 5. Genres
+        if p.genre:
+            if not genre_exists(self.config, p.genre) or not self.can_show.genre(p.genre):
+                raise fuse.FuseOSError(errno.ENOENT)
+            if p.release:
+                for r in list_releases(self.config, sanitized_genre_filter=p.genre):
+                    if r.virtual_dirname == p.release:
+                        return getattr_release(r.source_path)
+                raise fuse.FuseOSError(errno.ENOENT)
+            return mkstat("dir")
+
+        # 4. Artists
+        if p.artist:
+            if not artist_exists(self.config, p.artist) or not self.can_show.artist(p.artist):
+                raise fuse.FuseOSError(errno.ENOENT)
+            if p.release:
+                for r in list_releases(self.config, sanitized_artist_filter=p.artist):
+                    if r.virtual_dirname == p.release:
+                        return getattr_release(r.source_path)
+                raise fuse.FuseOSError(errno.ENOENT)
+            return mkstat("dir")
+
+        # {1,2,3}. Releases
+        if p.release:
+            if rp := release_exists(self.config, p.release):
+                return getattr_release(rp)
+            raise fuse.FuseOSError(errno.ENOENT)
+
+        # 0. Root
         elif p.view:
             return mkstat("dir")
 
+        # -1. Wtf are you doing here?
         raise fuse.FuseOSError(errno.ENOENT)
 
     def readdir(self, path: str, _: int) -> Iterator[str]:
@@ -173,10 +216,16 @@ class VirtualFS(fuse.Operations):  # type: ignore
         p = parse_virtual_path(path)
         logger.debug(f"Parsed readdir path as {p}")
 
-        yield from [".", ".."]
-
         # Outside of yielding the strings, we also populate the getattr cache here. See the comment
         # in __init__ for documentation.
+
+        # Call getattr to validate existence. We can now assume that the provided path exists. This
+        # for example includes checks that a given album belongs to the artist/genre/label/collage
+        # its nested under.
+        logger.debug(f"Invoking getattr in readdir to validate existence of {path}")
+        self.getattr(path, None)
+
+        yield from [".", ".."]
 
         if p.view == "Root":
             yield from [
@@ -189,31 +238,27 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 "7. Collages",
                 "8. Playlists",
             ]
-        elif p.release:
-            cachedata = get_release(self.config, p.release)
-            if not cachedata:
-                raise fuse.FuseOSError(errno.ENOENT) from None
-            release, tracks = cachedata
-            for track in tracks:
-                filename = f"{track.formatted_release_position}. {track.virtual_filename}"
-                yield filename
-                self.getattr_cache[path + "/" + filename] = (
-                    time.time(),
-                    ("file", track.source_path),
-                )
-            if release.cover_image_path:
-                yield release.cover_image_path.name
-                self.getattr_cache[path + "/" + release.cover_image_path.name] = (
-                    time.time(),
-                    ("file", release.cover_image_path),
-                )
-        elif p.artist or p.genre or p.label or p.view == "Releases" or p.view == "New":
-            if (
-                (p.artist and not self.can_show.artist(p.artist))
-                or (p.genre and not self.can_show.genre(p.genre))
-                or (p.label and not self.can_show.label(p.label))
-            ):
-                raise fuse.FuseOSError(errno.ENOENT)
+            return
+
+        if p.release:
+            if cachedata := get_release(self.config, p.release):
+                release, tracks = cachedata
+                for track in tracks:
+                    filename = f"{track.formatted_release_position}. {track.virtual_filename}"
+                    yield filename
+                    self.getattr_cache[path + "/" + filename] = (
+                        time.time(),
+                        ("file", track.source_path),
+                    )
+                if release.cover_image_path:
+                    yield release.cover_image_path.name
+                    self.getattr_cache[path + "/" + release.cover_image_path.name] = (
+                        time.time(),
+                        ("file", release.cover_image_path),
+                    )
+            raise fuse.FuseOSError(errno.ENOENT) from None
+
+        if p.artist or p.genre or p.label or p.view == "Releases" or p.view == "New":
             for release in list_releases(
                 self.config,
                 sanitized_artist_filter=p.artist,
@@ -226,7 +271,9 @@ class VirtualFS(fuse.Operations):  # type: ignore
                     time.time(),
                     ("dir", release.source_path),
                 )
-        elif p.view == "Recently Added":
+            return
+
+        if p.view == "Recently Added":
             for release in list_releases(self.config):
                 dirname = f"[{release.added_at[:10]}] {release.virtual_dirname}"
                 yield dirname
@@ -234,76 +281,90 @@ class VirtualFS(fuse.Operations):  # type: ignore
                     time.time(),
                     ("dir", release.source_path),
                 )
+            return
+
         elif p.view == "Artists":
             for artist, sanitized_artist in list_artists(self.config):
                 if not self.can_show.artist(artist):
                     continue
                 yield sanitized_artist
                 self.getattr_cache[path + "/" + sanitized_artist] = (time.time(), ("dir",))
-        elif p.view == "Genres":
+            return
+
+        if p.view == "Genres":
             for genre, sanitized_genre in list_genres(self.config):
                 if not self.can_show.genre(genre):
                     continue
                 yield sanitized_genre
                 self.getattr_cache[path + "/" + sanitized_genre] = (time.time(), ("dir",))
-        elif p.view == "Labels":
+            return
+
+        if p.view == "Labels":
             for label, sanitized_label in list_labels(self.config):
                 if not self.can_show.label(label):
                     continue
                 yield sanitized_label
                 self.getattr_cache[path + "/" + sanitized_label] = (time.time(), ("dir",))
-        elif p.view == "Collages" and p.collage:
+            return
+
+        if p.view == "Collages" and p.collage:
             releases = list(list_collage_releases(self.config, p.collage))
             pad_size = max(len(str(r[0])) for r in releases)
             for idx, virtual_dirname, source_dir in releases:
                 v = f"{str(idx).zfill(pad_size)}. {virtual_dirname}"
                 yield v
                 self.getattr_cache[path + "/" + v] = (time.time(), ("dir", source_dir))
-        elif p.view == "Collages":
+            return
+
+        if p.view == "Collages":
             # Don't need to sanitize because the collage names come from filenames.
             for collage in list_collages(self.config):
                 yield collage
                 self.getattr_cache[path + "/" + collage] = (time.time(), ("dir",))
-        elif p.view == "Playlists" and p.playlist:
+            return
+
+        if p.view == "Playlists" and p.playlist:
             ptracks = list(list_playlist_tracks(self.config, p.playlist))
             pad_size = max(len(str(r[0])) for r in ptracks)
             for idx, __, virtual_filename, source_dir in ptracks:
                 v = f"{str(idx).zfill(pad_size)}. {virtual_filename}"
                 yield v
                 self.getattr_cache[path + "/" + v] = (time.time(), ("file", source_dir))
-        elif p.view == "Playlists":
+            return
+
+        if p.view == "Playlists":
             # Don't need to sanitize because the playlist names come from filenames.
             for playlist in list_playlists(self.config):
                 yield playlist
                 self.getattr_cache[path + "/" + playlist] = (time.time(), ("dir",))
-        else:
-            raise fuse.FuseOSError(errno.ENOENT)
+            return
+
+        raise fuse.FuseOSError(errno.ENOENT)
 
     def open(self, path: str, flags: int) -> int:
         logger.debug(f"Received open for {path=} {flags=}")
         p = parse_virtual_path(path)
         logger.debug(f"Parsed open path as {p}")
 
-        if p.release and p.file:
-            cachedata = get_release(self.config, p.release)
-            if cachedata:
-                release, tracks = cachedata
-                if release.cover_image_path and p.file == release.cover_image_path.name:
-                    return os.open(str(release.cover_image_path), flags)
-                for track in tracks:
-                    if track.virtual_filename == p.file:
-                        return os.open(str(track.source_path), flags)
-        elif p.playlist and p.file:
-            if p.file_position:
-                for idx, _, virtual_filename, tp in list_playlist_tracks(self.config, p.playlist):
-                    if virtual_filename == p.file and idx == int(p.file_position):
-                        return os.open(str(tp), flags)
-            # TODO: Cover
-            pass
-
+        err = errno.ENOENT
         if flags & os.O_CREAT == os.O_CREAT:
-            raise fuse.FuseOSError(errno.EACCES)
-        raise fuse.FuseOSError(errno.ENOENT)
+            err = errno.EACCES
+
+        if p.release and p.file and (cachedata := get_release(self.config, p.release)):
+            release, tracks = cachedata
+            if release.cover_image_path and p.file == release.cover_image_path.name:
+                return os.open(str(release.cover_image_path), flags)
+            for track in tracks:
+                if track.virtual_filename == p.file:
+                    return os.open(str(track.source_path), flags)
+            raise fuse.FuseOSError(err)
+        if p.playlist and p.file and p.file_position:
+            for idx, _, virtual_filename, tp in list_playlist_tracks(self.config, p.playlist):
+                if virtual_filename == p.file and idx == int(p.file_position):
+                    return os.open(str(tp), flags)
+            raise fuse.FuseOSError(err)
+
+        raise fuse.FuseOSError(err)
 
     def read(self, path: str, length: int, offset: int, fh: int) -> bytes:
         logger.debug(f"Received read for {path=} {length=} {offset=} {fh=}")
@@ -318,19 +379,21 @@ class VirtualFS(fuse.Operations):  # type: ignore
     def truncate(self, path: str, length: int, fh: int | None = None) -> None:
         logger.debug(f"Received truncate for {path=} {length=} {fh=}")
         if fh:
-            os.ftruncate(fh, length)
-        else:
-            p = parse_virtual_path(path)
-            logger.debug(f"Parsed truncate path as {p}")
-            if p.release and p.file:
-                cachedata = get_release(self.config, p.release)
-                if cachedata:
-                    release, tracks = cachedata
-                    if release.cover_image_path and p.file == release.cover_image_path.name:
-                        os.truncate(str(release.cover_image_path), length)
-                    for track in tracks:
-                        if track.virtual_filename == p.file:
-                            return os.truncate(str(track.source_path), length)
+            return os.ftruncate(fh, length)
+
+        p = parse_virtual_path(path)
+        logger.debug(f"Parsed truncate path as {p}")
+
+        if p.release and p.file and (cachedata := get_release(self.config, p.release)):
+            release, tracks = cachedata
+            if release.cover_image_path and p.file == release.cover_image_path.name:
+                return os.truncate(str(release.cover_image_path), length)
+            for track in tracks:
+                if track.virtual_filename == p.file:
+                    return os.truncate(str(track.source_path), length)
+            raise fuse.FuseOSError(errno.ENOENT)
+
+        raise fuse.FuseOSError(errno.ENOENT)
 
     def release(self, path: str, fh: int) -> None:
         logger.debug(f"Received release for {path=} {fh=}")
@@ -347,18 +410,21 @@ class VirtualFS(fuse.Operations):  # type: ignore
         # 3. Create a new playlist.
         if p.collage and p.release is None:
             create_collage(self.config, p.collage)
-        elif p.collage and p.release:
+            return
+        if p.collage and p.release:
             try:
                 add_release_to_collage(self.config, p.collage, p.release)
+                return
             except ReleaseDoesNotExistError as e:
                 logger.debug(
                     f"Failed adding release {p.release} to collage {p.collage}: release not found."
                 )
                 raise fuse.FuseOSError(errno.ENOENT) from e
-        elif p.playlist and p.file is None:
+        if p.playlist and p.file is None:
             create_playlist(self.config, p.playlist)
-        else:
-            raise fuse.FuseOSError(errno.EACCES)
+            return
+
+        raise fuse.FuseOSError(errno.EACCES)
 
     def rmdir(self, path: str) -> None:
         logger.debug(f"Received rmdir for {path=}")
@@ -367,24 +433,23 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
         # Possible actions:
         # 1. Delete a collage.
-        # 2. Delete a playlist.
-        # 3. Delete a release from an existing collage.
-        if p.view == "Collages":
-            if p.collage and p.release is None:
-                delete_collage(self.config, p.collage)
-            elif p.collage and p.release:
-                remove_release_from_collage(self.config, p.collage, p.release)
-            else:
-                raise fuse.FuseOSError(errno.EACCES)
-        elif p.view == "Playlists":
-            if p.playlist and p.file is None:
-                delete_playlist(self.config, p.playlist)
-            else:
-                raise fuse.FuseOSError(errno.EACCES)
-        elif p.release is not None:
+        # 2. Delete a release from an existing collage.
+        # 3. Delete a playlist.
+        # 4. Delete a release.
+        if p.view == "Collages" and p.collage and p.release is None:
+            delete_collage(self.config, p.collage)
+            return
+        if p.view == "Collages" and p.collage and p.release:
+            remove_release_from_collage(self.config, p.collage, p.release)
+            return
+        if p.view == "Playlists" and p.playlist and p.file is None:
+            delete_playlist(self.config, p.playlist)
+            return
+        if p.view != "Collages" and p.release is not None:
             delete_release(self.config, p.release)
-        else:
-            raise fuse.FuseOSError(errno.EACCES)
+            return
+
+        raise fuse.FuseOSError(errno.EACCES)
 
     def unlink(self, path: str) -> None:
         logger.debug(f"Received unlink for {path=}")
@@ -394,22 +459,17 @@ class VirtualFS(fuse.Operations):  # type: ignore
         # Possible actions:
         # 1. Delete a playlist.
         # 2. Delete a track from a playlist.
-        if p.view == "Playlists":
-            if p.playlist and p.file is None:
-                delete_playlist(self.config, p.playlist)
-            elif p.playlist and p.file:
-                if p.file_position:
-                    for pos, track_id, virtual_filename, _ in list_playlist_tracks(
-                        self.config, p.playlist
-                    ):
-                        if virtual_filename == p.file and pos == int(p.file_position):
-                            remove_track_from_playlist(self.config, p.playlist, track_id)
-                            return
-                raise fuse.FuseOSError(errno.EACCES)
-            else:
-                raise fuse.FuseOSError(errno.EACCES)
-        else:
-            raise fuse.FuseOSError(errno.EACCES)
+        if p.view == "Playlists" and p.playlist and p.file is None:
+            delete_playlist(self.config, p.playlist)
+            return
+        if p.view == "Playlists" and p.playlist and p.file and p.file_position:
+            for pos, track_id, virtual_filename, _ in list_playlist_tracks(self.config, p.playlist):
+                if virtual_filename == p.file and pos == int(p.file_position):
+                    remove_track_from_playlist(self.config, p.playlist, track_id)
+                    return
+            raise fuse.FuseOSError(errno.ENOENT)
+
+        raise fuse.FuseOSError(errno.EACCES)
 
     def rename(self, old: str, new: str) -> None:
         logger.debug(f"Received rename for {old=} {new=}")
@@ -427,31 +487,30 @@ class VirtualFS(fuse.Operations):  # type: ignore
             (op.release and np.release)
             and op.release.removeprefix("{NEW} ") == np.release.removeprefix("{NEW} ")
             and (not op.file and not np.file)
+            and op.release.startswith("{NEW} ") != np.release.startswith("{NEW} ")
         ):
-            if op.release.startswith("{NEW} ") != np.release.startswith("{NEW} "):
-                toggle_release_new(self.config, op.release)
-            else:
-                raise fuse.FuseOSError(errno.EACCES)
-        elif op.view == "Collages" and np.view == "Collages":
-            if (
-                (op.collage and np.collage)
-                and op.collage != np.collage
-                and (not op.release and not np.release)
-            ):
-                rename_collage(self.config, op.collage, np.collage)
-            else:
-                raise fuse.FuseOSError(errno.EACCES)
-        elif op.view == "Playlists" and np.view == "Playlists":
-            if (
-                (op.playlist and np.playlist)
-                and op.playlist != np.playlist
-                and (not op.file and not np.file)
-            ):
-                rename_playlist(self.config, op.playlist, np.playlist)
-            else:
-                raise fuse.FuseOSError(errno.EACCES)
-        else:
-            raise fuse.FuseOSError(errno.EACCES)
+            toggle_release_new(self.config, op.release)
+            return
+        if (
+            op.view == "Collages"
+            and np.view == "Collages"
+            and (op.collage and np.collage)
+            and op.collage != np.collage
+            and (not op.release and not np.release)
+        ):
+            rename_collage(self.config, op.collage, np.collage)
+            return
+        if (
+            op.view == "Playlists"
+            and np.view == "Playlists"
+            and (op.playlist and np.playlist)
+            and op.playlist != np.playlist
+            and (not op.file and not np.file)
+        ):
+            rename_playlist(self.config, op.playlist, np.playlist)
+            return
+
+        raise fuse.FuseOSError(errno.EACCES)
 
     # Unimplemented:
     # - readlink
