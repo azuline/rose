@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,7 +14,7 @@ import mutagen.mp4
 import mutagen.oggopus
 import mutagen.oggvorbis
 
-from rose.artiststr import Artists, format_artist_string, parse_artist_string
+from rose.artiststr import ArtistMapping, format_artist_string, parse_artist_string
 from rose.common import RoseError
 
 TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")
@@ -31,6 +32,7 @@ class UnsupportedTagValueTypeError(RoseError):
 
 @dataclass
 class AudioFile:
+    id: str | None
     title: str | None
     year: int | None
     track_number: str | None
@@ -40,8 +42,8 @@ class AudioFile:
     label: list[str]
     release_type: str | None
 
-    album_artists: Artists
-    artists: Artists
+    album_artists: ArtistMapping
+    artists: ArtistMapping
 
     duration_sec: int
 
@@ -68,6 +70,7 @@ class AudioFile:
                 return None
 
             return AudioFile(
+                id=_get_tag(m.tags, ["TXXX:ROSEID"]),
                 title=_get_tag(m.tags, ["TIT2"]),
                 year=_parse_year(_get_tag(m.tags, ["TDRC", "TYER"])),
                 track_number=_parse_num(_get_tag(m.tags, ["TRCK"], first=True)),
@@ -90,6 +93,7 @@ class AudioFile:
             )
         if isinstance(m, mutagen.mp4.MP4):
             return AudioFile(
+                id=_get_tag(m.tags, ["----:net.sunsetglow.rose:ID"]),
                 title=_get_tag(m.tags, ["\xa9nam"]),
                 year=_parse_year(_get_tag(m.tags, ["\xa9day"])),
                 track_number=_get_tag(m.tags, ["trkn"], first=True),
@@ -112,6 +116,7 @@ class AudioFile:
             )
         if isinstance(m, (mutagen.flac.FLAC, mutagen.oggvorbis.OggVorbis, mutagen.oggopus.OggOpus)):
             return AudioFile(
+                id=_get_tag(m.tags, ["roseid"]),
                 title=_get_tag(m.tags, ["title"]),
                 year=_parse_year(_get_tag(m.tags, ["date", "year"])),
                 track_number=_get_tag(m.tags, ["tracknumber"], first=True),
@@ -146,7 +151,8 @@ class AudioFile:
             def _write_standard_tag(key: str, value: str | None) -> None:
                 m.tags.delall(key)
                 frame = getattr(mutagen.id3, key)(text=value)
-                m.tags.add(frame)
+                if value:
+                    m.tags.add(frame)
 
             def _write_tag_with_description(name: str, value: str | None) -> None:
                 key, desc = name.split(":", 1)
@@ -154,11 +160,13 @@ class AudioFile:
                 # the other tags with the shared prefix key.
                 keep_fields = [f for f in m.tags.getall(key) if getattr(f, "desc", None) != desc]
                 m.tags.delall(key)
-                frame = getattr(mutagen.id3, key)(desc=desc, text=value)
-                m.tags.add(frame)
+                if value:
+                    frame = getattr(mutagen.id3, key)(desc=desc, text=value)
+                    m.tags.add(frame)
                 for f in keep_fields:
                     m.tags.add(f)
 
+            _write_tag_with_description("TXXX:ROSEID", self.id)
             _write_standard_tag("TIT2", self.title)
             _write_standard_tag("TDRC", str(self.year))
             _write_standard_tag("TRCK", self.track_number)
@@ -169,19 +177,39 @@ class AudioFile:
             _write_tag_with_description("TXXX:RELEASETYPE", self.release_type)
             _write_standard_tag("TPE2", format_artist_string(self.album_artists, self.genre))
             _write_standard_tag("TPE1", format_artist_string(self.artists, self.genre))
+            # Wipe the alt. role artist tags, since we encode the full artist into the main tag.
+            m.tags.delall("TPE4")
+            m.tags.delall("TCOM")
+            m.tags.delall("TPE3")
+            # Delete all paired text frames, since these represent additional artist roles. We don't
+            # want to preserve them.
+            m.tags.delall("TIPL")
+            m.tags.delall("IPLS")
             m.save()
             return
         if isinstance(m, mutagen.mp4.MP4):
             if m.tags is None:
                 m.tags = mutagen.mp4.MP4Tags()
-            m.tags["\xa9nam"] = self.title
+            m.tags["----:net.sunsetglow.rose:ID"] = (self.id or "").encode()
+            m.tags["\xa9nam"] = self.title or ""
             m.tags["\xa9day"] = str(self.year)
-            m.tags["\xa9alb"] = self.album
+            m.tags["\xa9alb"] = self.album or ""
             m.tags["\xa9gen"] = ";".join(self.genre)
             m.tags["----:com.apple.iTunes:LABEL"] = ";".join(self.label).encode()
             m.tags["----:com.apple.iTunes:RELEASETYPE"] = (self.release_type or "").encode()
             m.tags["aART"] = format_artist_string(self.album_artists, self.genre)
             m.tags["\xa9ART"] = format_artist_string(self.artists, self.genre)
+            # Wipe the alt. role artist tags, since we encode the full artist into the main tag.
+            with contextlib.suppress(KeyError):
+                del m.tags["----:com.apple.iTunes:REMIXER"]
+            with contextlib.suppress(KeyError):
+                del m.tags["----:com.apple.iTunes:PRODUCER"]
+            with contextlib.suppress(KeyError):
+                del m.tags["\xa9wrt"]
+            with contextlib.suppress(KeyError):
+                del m.tags["----:com.apple.iTunes:CONDUCTOR"]
+            with contextlib.suppress(KeyError):
+                del m.tags["----:com.apple.iTunes:DJMIXER"]
 
             # The track and disc numbers in MP4 are a bit annoying, because they must be a
             # single-element list of 2-tuple ints. We preserve the previous tracktotal/disctotal (as
@@ -215,16 +243,28 @@ class AudioFile:
                 else:
                     m.tags = mutagen.oggopus.OggOpusVComment()
             assert not isinstance(m.tags, mutagen.flac.MetadataBlock)
-            m.tags["title"] = self.title
+            m.tags["roseid"] = self.id or ""
+            m.tags["title"] = self.title or ""
             m.tags["date"] = str(self.year)
-            m.tags["tracknumber"] = self.track_number
-            m.tags["discnumber"] = self.disc_number
-            m.tags["album"] = self.album
+            m.tags["tracknumber"] = self.track_number or ""
+            m.tags["discnumber"] = self.disc_number or ""
+            m.tags["album"] = self.album or ""
             m.tags["genre"] = ";".join(self.genre)
             m.tags["organization"] = ";".join(self.label)
-            m.tags["releasetype"] = self.release_type
+            m.tags["releasetype"] = self.release_type or ""
             m.tags["albumartist"] = format_artist_string(self.album_artists, self.genre)
             m.tags["artist"] = format_artist_string(self.artists, self.genre)
+            # Wipe the alt. role artist tags, since we encode the full artist into the main tag.
+            with contextlib.suppress(KeyError):
+                del m.tags["remixer"]
+            with contextlib.suppress(KeyError):
+                del m.tags["producer"]
+            with contextlib.suppress(KeyError):
+                del m.tags["composer"]
+            with contextlib.suppress(KeyError):
+                del m.tags["conductor"]
+            with contextlib.suppress(KeyError):
+                del m.tags["djmixer"]
             m.save()
             return
 

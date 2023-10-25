@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from conftest import TEST_TAGGER
-from rose.artiststr import Artists
+from rose.artiststr import ArtistMapping
 from rose.tagger import AudioFile, _split_tag
 
 
@@ -31,7 +31,7 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
     assert tf.label == ["A Cool Label"]
 
     assert tf.album_artists.main == ["Artist A", "Artist B"]
-    assert tf.artists == Artists(
+    assert tf.artists == ArtistMapping(
         main=["Artist GH", "Artist HI"],
         guest=["Artist C", "Artist A"],
         remixer=["Artist AB", "Artist BC"],
@@ -56,7 +56,11 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     """Test the flush by flushing the file, then asserting that all the tags still read properly."""
     fpath = isolated_dir / filename
     shutil.copyfile(TEST_TAGGER / filename, fpath)
-    AudioFile.from_file(fpath).flush()
+    tf = AudioFile.from_file(fpath)
+    # Inject one special case into here: modify the djmixer artist. This checks that we also clear
+    # the original djmixer tag, so that the next read does not contain Artist EF and Artist FG.
+    tf.artists.djmixer = ["New"]
+    tf.flush()
     tf = AudioFile.from_file(fpath)
 
     assert tf.track_number == track_num
@@ -70,13 +74,13 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     assert tf.label == ["A Cool Label"]
 
     assert tf.album_artists.main == ["Artist A", "Artist B"]
-    assert tf.artists == Artists(
+    assert tf.artists == ArtistMapping(
         main=["Artist GH", "Artist HI"],
         guest=["Artist C", "Artist A"],
         remixer=["Artist AB", "Artist BC"],
         producer=["Artist CD", "Artist DE"],
-        composer=["Artist EF", "Artist FG"],
-        djmixer=["Artist IJ", "Artist JK"],
+        composer=[],  # Composer gets wiped because we're not of the classical genre :-)
+        djmixer=["New"],
     )
     assert tf.duration_sec == duration
 

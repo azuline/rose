@@ -3,6 +3,9 @@
 _Work in Progress. See [Issue #1](https://github.com/azuline/rose/issues/1) for
 the current state._
 
+**WARNING: Rosé modifies your audio files. If you do not want to modify your
+audio files, you should not use Rosé.**
+
 A virtual filesystem for music and metadata improvement tooling.
 
 ## The Virtual Filesystem

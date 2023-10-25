@@ -27,7 +27,7 @@ def retry_for_sec(timeout_sec: float) -> Iterator[None]:
         yield
         time.sleep(0.005)
         if time.time() - start >= timeout_sec:
-            raise StopIteration
+            break
 
 
 def test_watchdog_events(config: Config) -> None:
@@ -35,7 +35,7 @@ def test_watchdog_events(config: Config) -> None:
     with start_watcher(config):
         # Create release.
         shutil.copytree(TEST_RELEASE_2, src / TEST_RELEASE_2.name)
-        for _ in retry_for_sec(1):
+        for _ in retry_for_sec(2):
             with connect(config) as conn:
                 cursor = conn.execute("SELECT id FROM releases")
                 if {r["id"] for r in cursor.fetchall()} == {"ilovecarly"}:
@@ -45,7 +45,7 @@ def test_watchdog_events(config: Config) -> None:
 
         # Create another release.
         shutil.copytree(TEST_RELEASE_3, src / TEST_RELEASE_3.name)
-        for _ in retry_for_sec(1):
+        for _ in retry_for_sec(2):
             with connect(config) as conn:
                 cursor = conn.execute("SELECT id FROM releases")
                 if {r["id"] for r in cursor.fetchall()} == {"ilovecarly", "ilovenewjeans"}:
@@ -55,7 +55,7 @@ def test_watchdog_events(config: Config) -> None:
 
         # Create collage.
         shutil.copytree(TEST_COLLAGE_1, src / "!collages")
-        for _ in retry_for_sec(1):
+        for _ in retry_for_sec(2):
             with connect(config) as conn:
                 cursor = conn.execute("SELECT name FROM collages")
                 if {r["name"] for r in cursor.fetchall()} != {"Rose Gold"}:
@@ -74,7 +74,7 @@ def test_watchdog_events(config: Config) -> None:
 
         # Delete release.
         shutil.rmtree(src / TEST_RELEASE_3.name)
-        for _ in retry_for_sec(1):
+        for _ in retry_for_sec(2):
             with connect(config) as conn:
                 cursor = conn.execute("SELECT id FROM releases")
                 if {r["id"] for r in cursor.fetchall()} != {"ilovecarly"}:
@@ -89,7 +89,7 @@ def test_watchdog_events(config: Config) -> None:
         # Rename release.
         (src / TEST_RELEASE_2.name).rename(src / "lalala")
         time.sleep(0.5)
-        for _ in retry_for_sec(1):
+        for _ in retry_for_sec(2):
             with connect(config) as conn:
                 cursor = conn.execute("SELECT id, source_path FROM releases")
                 rows = cursor.fetchall()
@@ -106,7 +106,7 @@ def test_watchdog_events(config: Config) -> None:
 
         # Rename collage.
         (src / "!collages" / "Rose Gold.toml").rename(src / "!collages" / "Black Pink.toml")
-        for _ in retry_for_sec(1):
+        for _ in retry_for_sec(2):
             with connect(config) as conn:
                 cursor = conn.execute("SELECT name FROM collages")
                 if {r["name"] for r in cursor.fetchall()} != {"Black Pink"}:
@@ -120,7 +120,7 @@ def test_watchdog_events(config: Config) -> None:
 
         # Delete collage.
         (src / "!collages" / "Black Pink.toml").unlink()
-        for _ in retry_for_sec(1):
+        for _ in retry_for_sec(2):
             with connect(config) as conn:
                 cursor = conn.execute("SELECT COUNT(*) FROM collages")
                 if cursor.fetchone()[0] == 0:

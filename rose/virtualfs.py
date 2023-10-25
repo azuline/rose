@@ -19,7 +19,7 @@ from rose.cache import (
     collage_has_release,
     cover_exists,
     genre_exists,
-    get_release_files,
+    get_release,
     label_exists,
     list_artists,
     list_collage_releases,
@@ -124,18 +124,21 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 "7. Collages",
             ]
         elif p.release:
-            rf = get_release_files(self.config, p.release)
-            for track in rf.tracks:
+            cachedata = get_release(self.config, p.release)
+            if not cachedata:
+                raise fuse.FuseOSError(errno.ENOENT) from None
+            release, tracks = cachedata
+            for track in tracks:
                 yield track.virtual_filename
                 self.getattr_cache[path + "/" + track.virtual_filename] = (
                     time.time(),
                     ("file", track.source_path),
                 )
-            if rf.cover:
-                yield rf.cover.name
-                self.getattr_cache[path + "/" + rf.cover.name] = (
+            if release.cover_image_path:
+                yield release.cover_image_path.name
+                self.getattr_cache[path + "/" + release.cover_image_path.name] = (
                     time.time(),
-                    ("file", rf.cover),
+                    ("file", release.cover_image_path),
                 )
         elif p.artist or p.genre or p.label or p.view == "Releases" or p.view == "New":
             if (
@@ -203,12 +206,14 @@ class VirtualFS(fuse.Operations):  # type: ignore
         logger.debug(f"Parsed open path as {p}")
 
         if p.release and p.file:
-            rf = get_release_files(self.config, p.release)
-            if rf.cover and p.file == rf.cover.name:
-                return os.open(str(rf.cover), flags)
-            for track in rf.tracks:
-                if track.virtual_filename == p.file:
-                    return os.open(str(track.source_path), flags)
+            cachedata = get_release(self.config, p.release)
+            if cachedata:
+                release, tracks = cachedata
+                if release.cover_image_path and p.file == release.cover_image_path.name:
+                    return os.open(str(release.cover_image_path), flags)
+                for track in tracks:
+                    if track.virtual_filename == p.file:
+                        return os.open(str(track.source_path), flags)
 
         if flags & os.O_CREAT == os.O_CREAT:
             raise fuse.FuseOSError(errno.EACCES)
@@ -232,12 +237,14 @@ class VirtualFS(fuse.Operations):  # type: ignore
             p = parse_virtual_path(path)
             logger.debug(f"Parsed truncate path as {p}")
             if p.release and p.file:
-                rf = get_release_files(self.config, p.release)
-                if rf.cover and p.file == rf.cover.name:
-                    os.truncate(str(rf.cover), length)
-                for track in rf.tracks:
-                    if track.virtual_filename == p.file:
-                        return os.truncate(str(track.source_path), length)
+                cachedata = get_release(self.config, p.release)
+                if cachedata:
+                    release, tracks = cachedata
+                    if release.cover_image_path and p.file == release.cover_image_path.name:
+                        os.truncate(str(release.cover_image_path), length)
+                    for track in tracks:
+                        if track.virtual_filename == p.file:
+                            return os.truncate(str(track.source_path), length)
 
     def release(self, path: str, fh: int) -> None:
         logger.debug(f"Received release for {path=} {fh=}")

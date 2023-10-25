@@ -13,7 +13,7 @@ from rose.collages import (
     edit_collage_in_editor,
 )
 from rose.config import Config
-from rose.releases import dump_releases, toggle_release_new
+from rose.releases import dump_releases, edit_release, toggle_release_new
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
@@ -100,6 +100,14 @@ def releases() -> None:
 def print1(ctx: Context) -> None:
     """Print JSON-encoded releases."""
     print(dump_releases(ctx.config))
+
+
+@releases.command(name="edit")
+@click.argument("release", type=str, nargs=1)
+@click.pass_obj
+def edit2(ctx: Context, release: str) -> None:
+    """Edit a release's metadata in $EDITOR."""
+    edit_release(ctx.config, release)
 
 
 @releases.command()

@@ -113,7 +113,7 @@ class CachedRelease:
     datafile_mtime: str
     virtual_dirname: str
     title: str
-    type: str
+    releasetype: str
     year: int | None
     new: bool
     multidisc: bool
@@ -389,7 +389,7 @@ def _update_cache_for_releases_executor(
                     datafile_mtime=row["datafile_mtime"],
                     virtual_dirname=row["virtual_dirname"],
                     title=row["title"],
-                    type=row["release_type"],
+                    releasetype=row["release_type"],
                     year=row["release_year"],
                     multidisc=bool(row["multidisc"]),
                     new=bool(row["new"]),
@@ -509,7 +509,7 @@ def _update_cache_for_releases_executor(
                 added_at="",
                 virtual_dirname="",
                 title="",
-                type="",
+                releasetype="",
                 year=None,
                 new=True,
                 multidisc=False,
@@ -635,9 +635,9 @@ def _update_cache_for_releases_executor(
                     if tags.release_type and tags.release_type.lower() in SUPPORTED_RELEASE_TYPES
                     else "unknown"
                 )
-                if release_type != release.type:
+                if release_type != release.releasetype:
                     logger.debug(f"Release type change detected for {source_path}, updating")
-                    release.type = release_type
+                    release.releasetype = release_type
                     release_dirty = True
 
                 if tags.year != release.year:
@@ -680,8 +680,8 @@ def _update_cache_for_releases_executor(
                 if release.year:
                     release_virtual_dirname += str(release.year) + ". "
                 release_virtual_dirname += release.title
-                if release.type not in ["album", "unknown"]:
-                    release_virtual_dirname += " - " + release.type.title()
+                if release.releasetype not in ["album", "unknown"]:
+                    release_virtual_dirname += " - " + release.releasetype.title()
                 if release.genres:
                     release_virtual_dirname += " [" + ";".join(release.genres) + "]"
                 if release.labels:
@@ -716,9 +716,22 @@ def _update_cache_for_releases_executor(
                     release.virtual_dirname = release_virtual_dirname
                     release_dirty = True
 
+            # Here we compute the track ID. We store the track ID on the audio file in order to
+            # enable persistence. This does mutate the file!
+            #
+            # We don't attempt to optimize this write; however, there is not much purpose to doing
+            # so, since this occurs once over the lifetime of the track's existence in Rose. We
+            # optimize this function because it is called repeatedly upon every metadata edit, but
+            # in this case, we skip this code path once an ID is generated.
+            track_id = tags.id
+            if not track_id:
+                track_id = str(uuid6.uuid7())
+                tags.id = track_id
+                tags.flush()
+
             # And now create the cached track.
             track = CachedTrack(
-                id=str(uuid6.uuid7()),
+                id=track_id,
                 source_path=track_path,
                 source_mtime=track_mtime,
                 virtual_filename="",
@@ -755,7 +768,7 @@ def _update_cache_for_releases_executor(
             if t.track_number:
                 virtual_filename += f"{t.track_number:0>2}. "
             virtual_filename += t.title or "Unknown Title"
-            if release.type in ["compilation", "soundtrack", "remix", "djmix", "mixtape"]:
+            if release.releasetype in ["compilation", "soundtrack", "remix", "djmix", "mixtape"]:
                 virtual_filename += f" (by {t.formatted_artists})"
             virtual_filename += t.source_path.suffix
             virtual_filename = _sanitize_filename(virtual_filename)
@@ -795,7 +808,7 @@ def _update_cache_for_releases_executor(
                     release.datafile_mtime,
                     release.virtual_dirname,
                     release.title,
-                    release.type,
+                    release.releasetype,
                     release.year,
                     release.multidisc,
                     release.new,
@@ -1229,7 +1242,7 @@ def list_releases(
                 datafile_mtime=row["datafile_mtime"],
                 virtual_dirname=row["virtual_dirname"],
                 title=row["title"],
-                type=row["release_type"],
+                releasetype=row["release_type"],
                 year=row["release_year"],
                 multidisc=bool(row["multidisc"]),
                 new=bool(row["new"]),
@@ -1240,16 +1253,87 @@ def list_releases(
             )
 
 
-@dataclass
-class ReleaseFiles:
-    tracks: list[CachedTrack]
-    cover: Path | None
-
-
-def get_release_files(c: Config, release_virtual_dirname: str) -> ReleaseFiles:
-    rf = ReleaseFiles(tracks=[], cover=None)
-
+def get_release(
+    c: Config,
+    release_id_or_virtual_dirname: str,
+) -> tuple[CachedRelease, list[CachedTrack]] | None:
     with connect(c) as conn:
+        cursor = conn.execute(
+            r"""
+            WITH genres AS (
+                SELECT
+                    release_id
+                  , GROUP_CONCAT(genre, ' \\ ') AS genres
+                FROM (SELECT * FROM releases_genres ORDER BY genre)
+                GROUP BY release_id
+            ), labels AS (
+                SELECT
+                    release_id
+                  , GROUP_CONCAT(label, ' \\ ') AS labels
+                FROM (SELECT * FROM releases_labels ORDER BY label)
+                GROUP BY release_id
+            ), artists AS (
+                SELECT
+                    release_id
+                  , GROUP_CONCAT(artist, ' \\ ') AS names
+                  , GROUP_CONCAT(role, ' \\ ') AS roles
+                FROM (SELECT * FROM releases_artists ORDER BY artist, role)
+                GROUP BY release_id
+            )
+            SELECT
+                r.id
+              , r.source_path
+              , r.cover_image_path
+              , r.added_at
+              , r.datafile_mtime
+              , r.virtual_dirname
+              , r.title
+              , r.release_type
+              , r.release_year
+              , r.multidisc
+              , r.new
+              , r.formatted_artists
+              , COALESCE(g.genres, '') AS genres
+              , COALESCE(l.labels, '') AS labels
+              , COALESCE(a.names, '') AS artist_names
+              , COALESCE(a.roles, '') AS artist_roles
+            FROM releases r
+            LEFT JOIN genres g ON g.release_id = r.id
+            LEFT JOIN labels l ON l.release_id = r.id
+            LEFT JOIN artists a ON a.release_id = r.id
+            WHERE r.id = ? or r.virtual_dirname = ?
+            """,
+            (release_id_or_virtual_dirname, release_id_or_virtual_dirname),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        rartists: list[CachedArtist] = []
+        for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
+            if not n:
+                # This can occur if there are no artist names; then we get a single iteration
+                # with empty string.
+                continue
+            rartists.append(CachedArtist(name=n, role=r))
+        release = CachedRelease(
+            id=row["id"],
+            source_path=Path(row["source_path"]),
+            cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
+            added_at=row["added_at"],
+            datafile_mtime=row["datafile_mtime"],
+            virtual_dirname=row["virtual_dirname"],
+            title=row["title"],
+            releasetype=row["release_type"],
+            year=row["release_year"],
+            multidisc=bool(row["multidisc"]),
+            new=bool(row["new"]),
+            genres=row["genres"].split(r" \\ ") if row["genres"] else [],
+            labels=row["labels"].split(r" \\ ") if row["labels"] else [],
+            artists=rartists,
+            formatted_artists=row["formatted_artists"],
+        )
+
+        tracks: list[CachedTrack] = []
         cursor = conn.execute(
             r"""
             WITH artists AS (
@@ -1276,19 +1360,20 @@ def get_release_files(c: Config, release_virtual_dirname: str) -> ReleaseFiles:
             FROM tracks t
             JOIN releases r ON r.id = t.release_id
             LEFT JOIN artists a ON a.track_id = t.id
-            WHERE r.virtual_dirname = ?
+            WHERE r.id = ? OR r.virtual_dirname = ?
+            ORDER BY t.disc_number, t.track_number
             """,
-            (release_virtual_dirname,),
+            (release_id_or_virtual_dirname, release_id_or_virtual_dirname),
         )
         for row in cursor:
-            artists: list[CachedArtist] = []
+            tartists: list[CachedArtist] = []
             for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
                 if not n:
                     # This can occur if there are no artist names; then we get a single iteration
                     # with empty string.
                     continue
-                artists.append(CachedArtist(name=n, role=r))
-            rf.tracks.append(
+                tartists.append(CachedArtist(name=n, role=r))
+            tracks.append(
                 CachedTrack(
                     id=row["id"],
                     source_path=Path(row["source_path"]),
@@ -1300,18 +1385,11 @@ def get_release_files(c: Config, release_virtual_dirname: str) -> ReleaseFiles:
                     disc_number=row["disc_number"],
                     duration_seconds=row["duration_seconds"],
                     formatted_artists=row["formatted_artists"],
-                    artists=artists,
+                    artists=tartists,
                 )
             )
 
-        cursor = conn.execute(
-            "SELECT cover_image_path FROM releases WHERE virtual_dirname = ?",
-            (release_virtual_dirname,),
-        )
-        if (row := cursor.fetchone()) and row["cover_image_path"]:
-            rf.cover = Path(row["cover_image_path"])
-
-    return rf
+    return (release, tracks)
 
 
 def get_release_id_from_virtual_dirname(c: Config, release_virtual_dirname: str) -> str | None:

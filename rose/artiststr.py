@@ -9,7 +9,7 @@ TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")
 
 
 @dataclass
-class Artists:
+class ArtistMapping:
     main: list[str] = field(default_factory=list)
     guest: list[str] = field(default_factory=list)
     remixer: list[str] = field(default_factory=list)
@@ -26,7 +26,7 @@ def parse_artist_string(
     conductor: str | None = None,
     producer: str | None = None,
     dj: str | None = None,
-) -> Artists:
+) -> ArtistMapping:
     def _split_tag(t: str | None) -> list[str]:
         return TAG_SPLITTER_REGEX.split(t) if t else []
 
@@ -54,7 +54,7 @@ def parse_artist_string(
     if main:
         li_main.extend(_split_tag(main))
 
-    rval = Artists(
+    rval = ArtistMapping(
         main=_deduplicate(li_main),
         guest=_deduplicate(li_guests),
         remixer=_deduplicate(li_remixer),
@@ -68,7 +68,7 @@ def parse_artist_string(
     return rval
 
 
-def format_artist_string(a: Artists, genres: list[str]) -> str:
+def format_artist_string(a: ArtistMapping, genres: list[str]) -> str:
     r = ";".join(a.main)
     if a.composer and "Classical" in genres:
         r = ";".join(a.composer) + " performed by " + r

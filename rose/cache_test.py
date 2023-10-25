@@ -13,13 +13,12 @@ from rose.cache import (
     CachedArtist,
     CachedRelease,
     CachedTrack,
-    ReleaseFiles,
     artist_exists,
     collage_exists,
     connect,
     cover_exists,
     genre_exists,
-    get_release_files,
+    get_release,
     get_release_id_from_virtual_dirname,
     get_release_source_path_from_id,
     get_release_virtual_dirname_from_id,
@@ -217,6 +216,29 @@ def test_update_cache_releases_uncached_with_existing_id(config: Config) -> None
         if m := STORED_DATA_FILE_REGEX.match(f.name):
             release_id = m[1]
     assert release_id == "ilovecarly"  # Hardcoded ID for testing.
+
+
+def test_update_cache_releases_preserves_track_ids_across_rebuilds(config: Config) -> None:
+    """Test that track IDs are preserved across cache rebuilds."""
+    release_dir = config.music_source_dir / TEST_RELEASE_2.name
+    shutil.copytree(TEST_RELEASE_2, release_dir)
+    update_cache_for_releases(config, [release_dir])
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT id FROM tracks")
+        first_track_ids = {r["id"] for r in cursor}
+
+    # Nuke the database.
+    config.cache_database_path.unlink()
+    migrate_database(config)
+
+    # Repeat cache population.
+    update_cache_for_releases(config, [release_dir])
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT id FROM tracks")
+        second_track_ids = {r["id"] for r in cursor}
+
+    # Assert IDs are equivalent.
+    assert first_track_ids == second_track_ids
 
 
 def test_update_cache_releases_already_fully_cached(config: Config) -> None:
@@ -511,14 +533,14 @@ def test_list_releases(config: Config) -> None:
     releases = list(list_releases(config))
     assert releases == [
         CachedRelease(
-            datafile_mtime=releases[0].datafile_mtime,  # IGNORE THIS FIELD.
+            datafile_mtime="999",
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             added_at="0000-01-01T00:00:00+00:00",
             virtual_dirname="r1",
             title="Release 1",
-            type="album",
+            releasetype="album",
             year=2023,
             multidisc=False,
             new=False,
@@ -531,14 +553,14 @@ def test_list_releases(config: Config) -> None:
             formatted_artists="Techno Man;Bass Man",
         ),
         CachedRelease(
-            datafile_mtime=releases[1].datafile_mtime,  # IGNORE THIS FIELD.
+            datafile_mtime="999",
             id="r2",
             source_path=Path(config.music_source_dir / "r2"),
             cover_image_path=Path(config.music_source_dir / "r2" / "cover.jpg"),
             added_at="0000-01-01T00:00:00+00:00",
             virtual_dirname="r2",
             title="Release 2",
-            type="album",
+            releasetype="album",
             year=2021,
             multidisc=False,
             new=False,
@@ -551,14 +573,14 @@ def test_list_releases(config: Config) -> None:
             formatted_artists="Violin Woman feat. Conductor Woman",
         ),
         CachedRelease(
-            datafile_mtime=releases[2].datafile_mtime,  # IGNORE THIS FIELD.
+            datafile_mtime="999",
             id="r3",
             source_path=Path(config.music_source_dir / "r3"),
             cover_image_path=None,
             added_at="0000-01-01T00:00:00+00:00",
             virtual_dirname="{NEW} r3",
             title="Release 3",
-            type="album",
+            releasetype="album",
             year=2021,
             multidisc=False,
             new=True,
@@ -572,14 +594,14 @@ def test_list_releases(config: Config) -> None:
     releases = list(list_releases(config, sanitized_artist_filter="Techno Man"))
     assert releases == [
         CachedRelease(
-            datafile_mtime=releases[0].datafile_mtime,  # IGNORE THIS FIELD.
+            datafile_mtime="999",
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             added_at="0000-01-01T00:00:00+00:00",
             virtual_dirname="r1",
             title="Release 1",
-            type="album",
+            releasetype="album",
             year=2023,
             multidisc=False,
             new=False,
@@ -596,14 +618,14 @@ def test_list_releases(config: Config) -> None:
     releases = list(list_releases(config, sanitized_genre_filter="Techno"))
     assert releases == [
         CachedRelease(
-            datafile_mtime=releases[0].datafile_mtime,  # IGNORE THIS FIELD.
+            datafile_mtime="999",
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             added_at="0000-01-01T00:00:00+00:00",
             virtual_dirname="r1",
             title="Release 1",
-            type="album",
+            releasetype="album",
             year=2023,
             multidisc=False,
             new=False,
@@ -620,14 +642,14 @@ def test_list_releases(config: Config) -> None:
     releases = list(list_releases(config, sanitized_label_filter="Silk Music"))
     assert releases == [
         CachedRelease(
-            datafile_mtime=releases[0].datafile_mtime,  # IGNORE THIS FIELD.
+            datafile_mtime="999",
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             added_at="0000-01-01T00:00:00+00:00",
             virtual_dirname="r1",
             title="Release 1",
-            type="album",
+            releasetype="album",
             year=2023,
             multidisc=False,
             new=False,
@@ -643,9 +665,29 @@ def test_list_releases(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_release_files(config: Config) -> None:
-    assert get_release_files(config, "r1") == ReleaseFiles(
-        tracks=[
+def test_get_release(config: Config) -> None:
+    assert get_release(config, "r1") == (
+        CachedRelease(
+            datafile_mtime="999",
+            id="r1",
+            source_path=Path(config.music_source_dir / "r1"),
+            cover_image_path=None,
+            added_at="0000-01-01T00:00:00+00:00",
+            virtual_dirname="r1",
+            title="Release 1",
+            releasetype="album",
+            year=2023,
+            multidisc=False,
+            new=False,
+            genres=["Deep House", "Techno"],
+            labels=["Silk Music"],
+            artists=[
+                CachedArtist(name="Bass Man", role="main"),
+                CachedArtist(name="Techno Man", role="main"),
+            ],
+            formatted_artists="Techno Man;Bass Man",
+        ),
+        [
             CachedTrack(
                 id="t1",
                 source_path=config.music_source_dir / "r1" / "01.m4a",
@@ -679,7 +721,6 @@ def test_get_release_files(config: Config) -> None:
                 formatted_artists="Techno Man;Bass Man",
             ),
         ],
-        cover=None,
     )
 
 
