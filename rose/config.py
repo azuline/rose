@@ -47,9 +47,12 @@ class Config:
     # A map from subartist -> parent artists.
     artist_aliases_parents_map: dict[str, list[str]]
 
-    fuse_hide_artists: list[str]
-    fuse_hide_genres: list[str]
-    fuse_hide_labels: list[str]
+    fuse_artists_whitelist: list[str] | None
+    fuse_genres_whitelist: list[str] | None
+    fuse_labels_whitelist: list[str] | None
+    fuse_artists_blacklist: list[str] | None
+    fuse_genres_blacklist: list[str] | None
+    fuse_labels_blacklist: list[str] | None
 
     hash: str
 
@@ -134,55 +137,124 @@ class Config:
             ) from e
 
         try:
-            fuse_hide_artists = data["fuse_hide_artists"]
-            if not isinstance(fuse_hide_artists, list):
+            fuse_artists_whitelist = data["fuse_artists_whitelist"]
+            if not isinstance(fuse_artists_whitelist, list):
                 raise ValueError(
-                    f"fuse_hide_artists must be a list[str]: got {type(fuse_hide_artists)}"
+                    f"fuse_artists_whitelist must be a list[str]: "
+                    f"got {type(fuse_artists_whitelist)}"
                 )
-            for s in fuse_hide_artists:
+            for s in fuse_artists_whitelist:
                 if not isinstance(s, str):
                     raise ValueError(f"Each artist must be of type str: got {type(s)}")
         except KeyError:
-            fuse_hide_artists = []
+            fuse_artists_whitelist = None
         except ValueError as e:
             raise InvalidConfigValueError(
-                f"Invalid value for fuse_hide_artists in configuration file ({cfgpath}): "
+                f"Invalid value for fuse_artists_whitelist in configuration file ({cfgpath}): "
                 "must be a list of strings"
             ) from e
 
         try:
-            fuse_hide_genres = data["fuse_hide_genres"]
-            if not isinstance(fuse_hide_genres, list):
+            fuse_genres_whitelist = data["fuse_genres_whitelist"]
+            if not isinstance(fuse_genres_whitelist, list):
                 raise ValueError(
-                    f"fuse_hide_genres must be a list[str]: got {type(fuse_hide_genres)}"
+                    f"fuse_genres_whitelist must be a list[str]: got {type(fuse_genres_whitelist)}"
                 )
-            for s in fuse_hide_genres:
+            for s in fuse_genres_whitelist:
                 if not isinstance(s, str):
                     raise ValueError(f"Each genre must be of type str: got {type(s)}")
         except KeyError:
-            fuse_hide_genres = []
+            fuse_genres_whitelist = None
         except ValueError as e:
             raise InvalidConfigValueError(
-                f"Invalid value for fuse_hide_genres in configuration file ({cfgpath}): "
+                f"Invalid value for fuse_genres_whitelist in configuration file ({cfgpath}): "
                 "must be a list of strings"
             ) from e
 
         try:
-            fuse_hide_labels = data["fuse_hide_labels"]
-            if not isinstance(fuse_hide_labels, list):
+            fuse_labels_whitelist = data["fuse_labels_whitelist"]
+            if not isinstance(fuse_labels_whitelist, list):
                 raise ValueError(
-                    f"fuse_hide_labels must be a list[str]: got {type(fuse_hide_labels)}"
+                    f"fuse_labels_whitelist must be a list[str]: got {type(fuse_labels_whitelist)}"
                 )
-            for s in fuse_hide_labels:
+            for s in fuse_labels_whitelist:
                 if not isinstance(s, str):
                     raise ValueError(f"Each label must be of type str: got {type(s)}")
         except KeyError:
-            fuse_hide_labels = []
+            fuse_labels_whitelist = None
         except ValueError as e:
             raise InvalidConfigValueError(
-                f"Invalid value for fuse_hide_labels in configuration file ({cfgpath}): "
+                f"Invalid value for fuse_labels_whitelist in configuration file ({cfgpath}): "
                 "must be a list of strings"
             ) from e
+
+        try:
+            fuse_artists_blacklist = data["fuse_artists_blacklist"]
+            if not isinstance(fuse_artists_blacklist, list):
+                raise ValueError(
+                    f"fuse_artists_blacklist must be a list[str]: "
+                    f"got {type(fuse_artists_blacklist)}"
+                )
+            for s in fuse_artists_blacklist:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each artist must be of type str: got {type(s)}")
+        except KeyError:
+            fuse_artists_blacklist = None
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for fuse_artists_blacklist in configuration file ({cfgpath}): "
+                "must be a list of strings"
+            ) from e
+
+        try:
+            fuse_genres_blacklist = data["fuse_genres_blacklist"]
+            if not isinstance(fuse_genres_blacklist, list):
+                raise ValueError(
+                    f"fuse_genres_blacklist must be a list[str]: got {type(fuse_genres_blacklist)}"
+                )
+            for s in fuse_genres_blacklist:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each genre must be of type str: got {type(s)}")
+        except KeyError:
+            fuse_genres_blacklist = None
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for fuse_genres_blacklist in configuration file ({cfgpath}): "
+                "must be a list of strings"
+            ) from e
+
+        try:
+            fuse_labels_blacklist = data["fuse_labels_blacklist"]
+            if not isinstance(fuse_labels_blacklist, list):
+                raise ValueError(
+                    f"fuse_labels_blacklist must be a list[str]: got {type(fuse_labels_blacklist)}"
+                )
+            for s in fuse_labels_blacklist:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each label must be of type str: got {type(s)}")
+        except KeyError:
+            fuse_labels_blacklist = None
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for fuse_labels_blacklist in configuration file ({cfgpath}): "
+                "must be a list of strings"
+            ) from e
+
+        if fuse_artists_whitelist and fuse_artists_blacklist:
+            raise InvalidConfigValueError(
+                "Cannot specify both fuse_artists_whitelist and fuse_artists_blacklist in "
+                f"configuration file ({cfgpath}): must specify only one or the other"
+            )
+        if fuse_genres_whitelist and fuse_genres_blacklist:
+            raise InvalidConfigValueError(
+                "Cannot specify both fuse_genres_whitelist and fuse_genres_blacklist in "
+                f"configuration file ({cfgpath}): must specify only one or the other"
+            )
+        if fuse_labels_whitelist and fuse_labels_blacklist:
+            raise InvalidConfigValueError(
+                "Cannot specify both fuse_labels_whitelist and fuse_labels_blacklist in "
+                f"configuration file ({cfgpath}): must specify only one or the other"
+            )
 
         return cls(
             music_source_dir=music_source_dir,
@@ -192,8 +264,11 @@ class Config:
             max_proc=max_proc,
             artist_aliases_map=artist_aliases_map,
             artist_aliases_parents_map=artist_aliases_parents_map,
-            fuse_hide_artists=fuse_hide_artists,
-            fuse_hide_genres=fuse_hide_genres,
-            fuse_hide_labels=fuse_hide_labels,
+            fuse_artists_whitelist=fuse_artists_whitelist,
+            fuse_genres_whitelist=fuse_genres_whitelist,
+            fuse_labels_whitelist=fuse_labels_whitelist,
+            fuse_artists_blacklist=fuse_artists_blacklist,
+            fuse_genres_blacklist=fuse_genres_blacklist,
+            fuse_labels_blacklist=fuse_labels_blacklist,
             hash=sha256(cfgtext.encode()).hexdigest(),
         )

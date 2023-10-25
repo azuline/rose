@@ -43,13 +43,56 @@ from rose.releases import ReleaseDoesNotExistError, delete_release, toggle_relea
 logger = logging.getLogger(__name__)
 
 
+# I'm great at naming things.
+class CanShower:
+    def __init__(self, config: Config):
+        self._config = config
+        self._artist_w = None
+        self._artist_b = None
+        self._genre_w = None
+        self._genre_b = None
+        self._label_w = None
+        self._label_b = None
+
+        if config.fuse_artists_whitelist:
+            self._artist_w = set(config.fuse_artists_whitelist)
+        if config.fuse_artists_blacklist:
+            self._artist_b = set(config.fuse_artists_blacklist)
+        if config.fuse_genres_whitelist:
+            self._genre_w = set(config.fuse_genres_whitelist)
+        if config.fuse_genres_blacklist:
+            self._genre_b = set(config.fuse_genres_blacklist)
+        if config.fuse_labels_whitelist:
+            self._label_w = set(config.fuse_labels_whitelist)
+        if config.fuse_labels_blacklist:
+            self._label_b = set(config.fuse_labels_blacklist)
+
+    def artist(self, artist: str) -> bool:
+        if self._artist_w:
+            return artist in self._artist_w
+        elif self._artist_b:
+            return artist not in self._artist_b
+        return True
+
+    def genre(self, genre: str) -> bool:
+        if self._genre_w:
+            return genre in self._genre_w
+        elif self._genre_b:
+            return genre not in self._genre_b
+        return True
+
+    def label(self, label: str) -> bool:
+        if self._label_w:
+            return label in self._label_w
+        elif self._label_b:
+            return label not in self._label_b
+        return True
+
+
 # IDK how to get coverage on this thing.
 class VirtualFS(fuse.Operations):  # type: ignore
     def __init__(self, config: Config):
         self.config = config
-        self.hide_artists_set = set(config.fuse_hide_artists)
-        self.hide_genres_set = set(config.fuse_hide_genres)
-        self.hide_labels_set = set(config.fuse_hide_labels)
         # We cache some items for getattr for performance reasons--after a ls, getattr is serially
         # called for each item in the directory, and sequential 1k SQLite reads is quite slow in any
         # universe. So whenever we have a readdir, we do a batch read and populate the getattr
@@ -59,6 +102,8 @@ class VirtualFS(fuse.Operations):  # type: ignore
         # The dict is a map of paths to (timestamp, mkstat_args). The timestamp should be checked
         # upon access. If the cache entry is valid, mkstat should be called with the provided args.
         self.getattr_cache: dict[str, tuple[float, Any]] = {}
+        # We use this object to determine whether we should show an artist/genre/label
+        self.can_show = CanShower(config)
         super().__init__()
 
     def getattr(self, path: str, fh: int) -> dict[str, Any]:
@@ -87,13 +132,13 @@ class VirtualFS(fuse.Operations):  # type: ignore
             if rp := release_exists(self.config, p.release):
                 return mkstat("dir", rp)
         elif p.artist:
-            if artist_exists(self.config, p.artist) and p.artist not in self.hide_artists_set:
+            if artist_exists(self.config, p.artist) and self.can_show.artist(p.artist):
                 return mkstat("dir")
         elif p.genre:
-            if genre_exists(self.config, p.genre) and p.genre not in self.hide_genres_set:
+            if genre_exists(self.config, p.genre) and self.can_show.genre(p.genre):
                 return mkstat("dir")
         elif p.label:
-            if label_exists(self.config, p.label) and p.label not in self.hide_labels_set:
+            if label_exists(self.config, p.label) and self.can_show.label(p.label):
                 return mkstat("dir")
         elif p.collage:
             if collage_exists(self.config, p.collage):
@@ -142,9 +187,9 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 )
         elif p.artist or p.genre or p.label or p.view == "Releases" or p.view == "New":
             if (
-                (p.artist and p.artist in self.hide_artists_set)
-                or (p.genre and p.genre in self.hide_genres_set)
-                or (p.label and p.label in self.hide_labels_set)
+                (p.artist and not self.can_show.artist(p.artist))
+                or (p.genre and not self.can_show.genre(p.genre))
+                or (p.label and not self.can_show.label(p.label))
             ):
                 raise fuse.FuseOSError(errno.ENOENT)
             for release in list_releases(
@@ -169,19 +214,19 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 )
         elif p.view == "Artists":
             for artist, sanitized_artist in list_artists(self.config):
-                if artist in self.hide_artists_set:
+                if not self.can_show.artist(artist):
                     continue
                 yield sanitized_artist
                 self.getattr_cache[path + "/" + sanitized_artist] = (time.time(), ("dir",))
         elif p.view == "Genres":
             for genre, sanitized_genre in list_genres(self.config):
-                if genre in self.hide_genres_set:
+                if not self.can_show.genre(genre):
                     continue
                 yield sanitized_genre
                 self.getattr_cache[path + "/" + sanitized_genre] = (time.time(), ("dir",))
         elif p.view == "Labels":
             for label, sanitized_label in list_labels(self.config):
-                if label in self.hide_labels_set:
+                if not self.can_show.label(label):
                     continue
                 yield sanitized_label
                 self.getattr_cache[path + "/" + sanitized_label] = (time.time(), ("dir",))

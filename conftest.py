@@ -72,9 +72,12 @@ def config(isolated_dir: Path) -> Config:
         max_proc=2,
         artist_aliases_map={},
         artist_aliases_parents_map={},
-        fuse_hide_artists=[],
-        fuse_hide_genres=[],
-        fuse_hide_labels=[],
+        fuse_artists_whitelist=None,
+        fuse_genres_whitelist=None,
+        fuse_labels_whitelist=None,
+        fuse_artists_blacklist=None,
+        fuse_genres_blacklist=None,
+        fuse_labels_blacklist=None,
         hash="00ff",
     )
 

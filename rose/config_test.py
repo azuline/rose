@@ -37,9 +37,9 @@ def test_config_full() -> None:
                   {{ artist = "Abakus", aliases = ["Cinnamon Chasers"] }},
                   {{ artist = "tripleS", aliases = ["EVOLution", "LOVElution", "+(KR)ystal Eyes", "Acid Angel From Asia", "Acid Eyes"] }},
                 ]
-                fuse_hide_artists = [ "xxx" ]
-                fuse_hide_genres = [ "yyy" ]
-                fuse_hide_labels = [ "zzz" ]
+                fuse_artists_blacklist = [ "xxx" ]
+                fuse_genres_blacklist = [ "yyy" ]
+                fuse_labels_blacklist = [ "zzz" ]
                 """  # noqa: E501
             )
 
@@ -68,11 +68,38 @@ def test_config_full() -> None:
                 "Acid Angel From Asia": ["tripleS"],
                 "Acid Eyes": ["tripleS"],
             },
-            fuse_hide_artists=["xxx"],
-            fuse_hide_genres=["yyy"],
-            fuse_hide_labels=["zzz"],
+            fuse_artists_whitelist=None,
+            fuse_genres_whitelist=None,
+            fuse_labels_whitelist=None,
+            fuse_artists_blacklist=["xxx"],
+            fuse_genres_blacklist=["yyy"],
+            fuse_labels_blacklist=["zzz"],
             hash=c.hash,
         )
+
+
+def test_config_whitelist() -> None:
+    """Since whitelist and blacklist are mutually exclusive, we can't test them in the same test."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / "config.toml"
+        with path.open("w") as fp:
+            fp.write(
+                """
+                music_source_dir = "~/.music-src"
+                fuse_mount_dir = "~/music"
+                fuse_artists_whitelist = [ "xxx" ]
+                fuse_genres_whitelist = [ "yyy" ]
+                fuse_labels_whitelist = [ "zzz" ]
+                """
+            )
+
+        c = Config.read(config_path_override=path)
+        assert c.fuse_artists_whitelist == ["xxx"]
+        assert c.fuse_genres_whitelist == ["yyy"]
+        assert c.fuse_labels_whitelist == ["zzz"]
+        assert c.fuse_artists_blacklist is None
+        assert c.fuse_genres_blacklist is None
+        assert c.fuse_labels_blacklist is None
 
 
 def test_config_not_found() -> None:
@@ -185,53 +212,125 @@ def test_config_value_validation() -> None:
         )
         config += '\nartist_aliases = [{artist="tripleS", aliases=["EVOLution"]}]'
 
-        # fuse_hide_artists
-        write(config + '\nfuse_hide_artists = "lalala"')
+        # fuse_artists_whitelist
+        write(config + '\nfuse_artists_whitelist = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.read(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_hide_artists in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_artists_whitelist in configuration file ({path}): must be a list of strings"  # noqa
         )
-        write(config + "\nfuse_hide_artists = [123]")
+        write(config + "\nfuse_artists_whitelist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.read(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_hide_artists in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_artists_whitelist in configuration file ({path}): must be a list of strings"  # noqa
         )
-        config += '\nfuse_hide_artists = ["xxx"]'
 
-        # fuse_hide_genres
-        write(config + '\nfuse_hide_genres = "lalala"')
+        # fuse_genres_whitelist
+        write(config + '\nfuse_genres_whitelist = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.read(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_hide_genres in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_genres_whitelist in configuration file ({path}): must be a list of strings"  # noqa
         )
-        write(config + "\nfuse_hide_genres = [123]")
+        write(config + "\nfuse_genres_whitelist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.read(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_hide_genres in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_genres_whitelist in configuration file ({path}): must be a list of strings"  # noqa
         )
-        config += '\nfuse_hide_genres = ["xxx"]'
 
-        # fuse_hide_labels
-        write(config + '\nfuse_hide_labels = "lalala"')
+        # fuse_labels_whitelist
+        write(config + '\nfuse_labels_whitelist = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.read(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_hide_labels in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_labels_whitelist in configuration file ({path}): must be a list of strings"  # noqa
         )
-        write(config + "\nfuse_hide_labels = [123]")
+        write(config + "\nfuse_labels_whitelist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.read(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_hide_labels in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_labels_whitelist in configuration file ({path}): must be a list of strings"  # noqa
         )
-        config += '\nfuse_hide_labels = ["xxx"]'
+
+        # fuse_artists_blacklist
+        write(config + '\nfuse_artists_blacklist = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for fuse_artists_blacklist in configuration file ({path}): must be a list of strings"  # noqa
+        )
+        write(config + "\nfuse_artists_blacklist = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for fuse_artists_blacklist in configuration file ({path}): must be a list of strings"  # noqa
+        )
+
+        # fuse_genres_blacklist
+        write(config + '\nfuse_genres_blacklist = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for fuse_genres_blacklist in configuration file ({path}): must be a list of strings"  # noqa
+        )
+        write(config + "\nfuse_genres_blacklist = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for fuse_genres_blacklist in configuration file ({path}): must be a list of strings"  # noqa
+        )
+
+        # fuse_labels_blacklist
+        write(config + '\nfuse_labels_blacklist = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for fuse_labels_blacklist in configuration file ({path}): must be a list of strings"  # noqa
+        )
+        write(config + "\nfuse_labels_blacklist = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for fuse_labels_blacklist in configuration file ({path}): must be a list of strings"  # noqa
+        )
+
+        # fuse_artists_whitelist + fuse_artists_blacklist
+        write(config + '\nfuse_artists_whitelist = ["a"]\nfuse_artists_blacklist = ["b"]')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Cannot specify both fuse_artists_whitelist and fuse_artists_blacklist in configuration file ({path}): must specify only one or the other"  # noqa: E501
+        )
+
+        # fuse_genres_whitelist + fuse_genres_blacklist
+        write(config + '\nfuse_genres_whitelist = ["a"]\nfuse_genres_blacklist = ["b"]')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Cannot specify both fuse_genres_whitelist and fuse_genres_blacklist in configuration file ({path}): must specify only one or the other"  # noqa: E501
+        )
+
+        # fuse_labels_whitelist + fuse_labels_blacklist
+        write(config + '\nfuse_labels_whitelist = ["a"]\nfuse_labels_blacklist = ["b"]')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Cannot specify both fuse_labels_whitelist and fuse_labels_blacklist in configuration file ({path}): must specify only one or the other"  # noqa: E501
+        )

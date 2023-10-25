@@ -132,9 +132,13 @@ The configuration parameters, with examples, are:
 ```toml
 # === Required values ===
 
-# The directory containing the music to manage.
+# The directory containing the music to manage. This source directory WILL be
+# modified by Rosé; if you do not want the files in directory to be modified,
+# use another tool!
 music_source_dir = "~/.music-source"
-# The directory to mount the library's virtual filesystem on.
+# The directory to mount the library's virtual filesystem on. This is the
+# primary "user interface" of Rosé, and the directory in which you will be able
+# to browse your music library.
 fuse_mount_dir = "~/music"
 
 # === Optional values ===
@@ -143,18 +147,31 @@ fuse_mount_dir = "~/music"
 # `${XDG_CACHE_HOME:-$HOME/.cache}/rose`.
 cache_dir = "~/.cache/rose"
 # Maximum parallel processes that the cache updater can spawn. Defaults to
-# nproc/2.
+# nproc/2. The higher this number is; the more performant the cache update will
+# be.
 max_proc = 4
-# Artist aliases: Releases belonging to an alias will also appear in the main
-# artists' releases.
+# Artist aliases: Releases belonging to an alias will also "belong" to the main
+# artist. This option improves the Artist browsing view by showing the aliased
+# releases in the main artist's releases list.
 artist_aliases = [
   { artist = "Abakus", aliases = ["Cinnamon Chasers"] },
   { artist = "tripleS", aliases = ["EVOLution", "LOVElution", "+(KR)ystal Eyes", "Acid Angel From Asia", "Acid Eyes"] },
 ]
+# Artists, genres, and labels to show in the virtual filesystem navigation. By
+# default, all artists, genres, and labels are shown. However, these values can
+# be used to filter the listed values to a specific few. This is useful e.g. if
+# you only care to browse your favorite genres and labels.
+fuse_artists_whitelist = [ "xxx", "yyy" ]
+fuse_genres_whitelist = [ "xxx", "yyy" ]
+fuse_labels_whitelist = [ "xxx", "yyy" ]
 # Artists, genres, and labels to hide from the virtual filesystem navigation.
-fuse_hide_artists = [ "xxx" ]
-fuse_hide_genres = [ "xxx" ]
-fuse_hide_labels = [ "xxx" ]
+# These options remove specific entities from the default policy of listing all
+# entities. These options are mutually exclusive with the fuse_*_whitelist
+# options; if both are specified for a given entity type, the configuration
+# will not validate.
+fuse_artists_blacklist = [ "xxx" ]
+fuse_genres_blacklist = [ "xxx" ]
+fuse_labels_blacklist = [ "xxx" ]
 ```
 
 The `--config/-c` flag overrides the config location.

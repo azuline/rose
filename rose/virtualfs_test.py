@@ -154,17 +154,40 @@ def test_virtual_filesystem_toggle_new(config: Config, source_dir: Path) -> None
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_virtual_filesystem_hide_values(config: Config) -> None:
+def test_virtual_filesystem_blacklist(config: Config) -> None:
     new_config = Config(
         **{
             **asdict(config),
-            "fuse_hide_artists": ["Bass Man"],
-            "fuse_hide_genres": ["Techno"],
-            "fuse_hide_labels": ["Silk Music"],
+            "fuse_artists_blacklist": ["Bass Man"],
+            "fuse_genres_blacklist": ["Techno"],
+            "fuse_labels_blacklist": ["Silk Music"],
         },
     )
     root = config.fuse_mount_dir
     with startfs(new_config):
+        assert (root / "4. Artists" / "Techno Man").is_dir()
+        assert (root / "5. Genres" / "Deep House").is_dir()
+        assert (root / "6. Labels" / "Native State").is_dir()
         assert not (root / "4. Artists" / "Bass Man").exists()
         assert not (root / "5. Genres" / "Techno").exists()
         assert not (root / "6. Labels" / "Silk Music").exists()
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_virtual_filesystem_whitelist(config: Config) -> None:
+    new_config = Config(
+        **{
+            **asdict(config),
+            "fuse_artists_whitelist": ["Bass Man"],
+            "fuse_genres_whitelist": ["Techno"],
+            "fuse_labels_whitelist": ["Silk Music"],
+        },
+    )
+    root = config.fuse_mount_dir
+    with startfs(new_config):
+        assert not (root / "4. Artists" / "Techno Man").exists()
+        assert not (root / "5. Genres" / "Deep House").exists()
+        assert not (root / "6. Labels" / "Native State").exists()
+        assert (root / "4. Artists" / "Bass Man").is_dir()
+        assert (root / "5. Genres" / "Techno").is_dir()
+        assert (root / "6. Labels" / "Silk Music").is_dir()
