@@ -130,7 +130,8 @@ CREATE INDEX collages_releases_release_id ON collages_releases(release_id);
 
 CREATE TABLE playlists (
     name TEXT PRIMARY KEY,
-    source_mtime TEXT NOT NULL
+    source_mtime TEXT NOT NULL,
+    cover_path TEXT
 );
 
 CREATE TABLE playlists_tracks (

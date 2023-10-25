@@ -12,6 +12,7 @@ from rose.cache import (
     CACHE_SCHEMA_PATH,
     STORED_DATA_FILE_REGEX,
     CachedArtist,
+    CachedPlaylist,
     CachedRelease,
     CachedTrack,
     artist_exists,
@@ -19,6 +20,7 @@ from rose.cache import (
     connect,
     cover_exists,
     genre_exists,
+    get_playlist,
     get_release,
     get_release_id_from_virtual_dirname,
     get_release_source_path_from_id,
@@ -30,7 +32,6 @@ from rose.cache import (
     list_collages,
     list_genres,
     list_labels,
-    list_playlist_tracks,
     list_playlists,
     list_releases,
     lock,
@@ -566,12 +567,13 @@ def test_update_cache_playlists(config: Config) -> None:
 
     # Assert that the playlist metadata was read correctly.
     with connect(config) as conn:
-        cursor = conn.execute("SELECT name, source_mtime FROM playlists")
+        cursor = conn.execute("SELECT name, source_mtime, cover_path FROM playlists")
         rows = cursor.fetchall()
         assert len(rows) == 1
         row = rows[0]
         assert row["name"] == "Lala Lisa"
-        assert row["source_mtime"]
+        assert row["source_mtime"] is not None
+        assert row["cover_path"] == str(config.music_source_dir / "!playlists" / "Lala Lisa.jpg")
 
         cursor = conn.execute(
             "SELECT playlist_name, track_id, position FROM playlists_tracks ORDER BY position"
@@ -870,14 +872,52 @@ def test_list_playlists(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_list_playlist_tracks(config: Config) -> None:
-    tracks = list(list_playlist_tracks(config, "Lala Lisa"))
-    assert set(tracks) == {
-        (1, "t1", "01.m4a", config.music_source_dir / "r1" / "01.m4a"),
-        (2, "t3", "01.m4a", config.music_source_dir / "r2" / "01.m4a"),
-    }
-    tracks = list(list_playlist_tracks(config, "Turtle Rabbit"))
-    assert tracks == []
+def test_get_playlist(config: Config) -> None:
+    pdata = get_playlist(config, "Lala Lisa")
+    assert pdata is not None
+    playlist, tracks = pdata
+    assert playlist == CachedPlaylist(
+        name="Lala Lisa",
+        source_mtime="999",
+        cover_path=config.music_source_dir / "!playlists" / "Lala Lisa.jpg",
+        track_ids=["t1", "t3"],
+    )
+    assert tracks == [
+        CachedTrack(
+            id="t1",
+            source_path=config.music_source_dir / "r1" / "01.m4a",
+            source_mtime="999",
+            virtual_filename="01.m4a",
+            title="Track 1",
+            release_id="r1",
+            track_number="01",
+            disc_number="01",
+            formatted_release_position="01",
+            duration_seconds=120,
+            artists=[
+                CachedArtist(name="Bass Man", role="main", alias=False),
+                CachedArtist(name="Techno Man", role="main", alias=False),
+            ],
+            formatted_artists="Techno Man;Bass Man",
+        ),
+        CachedTrack(
+            id="t3",
+            source_path=config.music_source_dir / "r2" / "01.m4a",
+            source_mtime="999",
+            virtual_filename="01.m4a",
+            title="Track 1",
+            release_id="r2",
+            track_number="01",
+            disc_number="01",
+            formatted_release_position="01",
+            duration_seconds=120,
+            artists=[
+                CachedArtist(name="Conductor Woman", role="guest", alias=False),
+                CachedArtist(name="Violin Woman", role="main", alias=False),
+            ],
+            formatted_artists="Violin Woman feat. Conductor Woman",
+        ),
+    ]
 
 
 @pytest.mark.usefixtures("seeded_cache")

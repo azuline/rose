@@ -19,6 +19,7 @@ from rose.cache import (
     collage_exists,
     cover_exists,
     genre_exists,
+    get_playlist,
     get_release,
     label_exists,
     list_artists,
@@ -26,7 +27,6 @@ from rose.cache import (
     list_collages,
     list_genres,
     list_labels,
-    list_playlist_tracks,
     list_playlists,
     list_releases,
     playlist_exists,
@@ -190,14 +190,17 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
         # 8. Playlists
         if p.playlist:
-            if not playlist_exists(self.config, p.playlist):
-                raise fuse.FuseOSError(errno.ENOENT)
+            try:
+                playlist, tracks = get_playlist(self.config, p.playlist)  # type: ignore
+            except TypeError as e:
+                raise fuse.FuseOSError(errno.ENOENT) from e
             if p.file:
-                if not p.file_position:
-                    raise fuse.FuseOSError(errno.ENOENT)
-                for idx, _, virtual_filename, tp in list_playlist_tracks(self.config, p.playlist):
-                    if virtual_filename == p.file and idx == int(p.file_position):
-                        return mkstat("file", tp)
+                if p.file_position:
+                    for idx, track in enumerate(tracks):
+                        if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
+                            return mkstat("file", track.source_path)
+                if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
+                    return mkstat("file", playlist.cover_path)
                 raise fuse.FuseOSError(errno.ENOENT)
             return mkstat("dir")
 
@@ -372,19 +375,26 @@ class VirtualFS(fuse.Operations):  # type: ignore
             return
 
         if p.view == "Playlists" and p.playlist:
-            ptracks = list(list_playlist_tracks(self.config, p.playlist))
-            pad_size = max(len(str(r[0])) for r in ptracks)
-            for idx, __, virtual_filename, source_dir in ptracks:
-                v = f"{str(idx).zfill(pad_size)}. {virtual_filename}"
+            pdata = get_playlist(self.config, p.playlist)
+            if pdata is None:
+                raise fuse.FuseOSError(errno.ENOENT)
+            playlist, tracks = pdata
+            pad_size = max([len(str(i + 1)) for i, _ in enumerate(tracks)])
+            for idx, track in enumerate(tracks):
+                v = f"{str(idx+1).zfill(pad_size)}. {track.virtual_filename}"
                 yield v
-                self.getattr_cache[path + "/" + v] = (time.time(), ("file", source_dir))
+                self.getattr_cache[path + "/" + v] = (time.time(), ("file", track.source_path))
+            if playlist.cover_path:
+                v = f"cover{playlist.cover_path.suffix}"
+                yield v
+                self.getattr_cache[path + "/" + v] = (time.time(), ("file", playlist.cover_path))
             return
 
         if p.view == "Playlists":
             # Don't need to sanitize because the playlist names come from filenames.
-            for playlist in list_playlists(self.config):
-                yield playlist
-                self.getattr_cache[path + "/" + playlist] = (time.time(), ("dir",))
+            for pname in list_playlists(self.config):
+                yield pname
+                self.getattr_cache[path + "/" + pname] = (time.time(), ("dir",))
             return
 
         raise fuse.FuseOSError(errno.ENOENT)
@@ -398,8 +408,8 @@ class VirtualFS(fuse.Operations):  # type: ignore
         if flags & os.O_CREAT == os.O_CREAT:
             err = errno.EACCES
 
-        if p.release and p.file and (cachedata := get_release(self.config, p.release)):
-            release, tracks = cachedata
+        if p.release and p.file and (rdata := get_release(self.config, p.release)):
+            release, tracks = rdata
             if release.cover_image_path and p.file == release.cover_image_path.name:
                 return os.open(str(release.cover_image_path), flags)
             for track in tracks:
@@ -420,10 +430,13 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 )
                 return fh
             # Otherwise, continue on...
-            if p.file_position:
-                for idx, _, virtual_filename, tp in list_playlist_tracks(self.config, p.playlist):
-                    if virtual_filename == p.file and idx == int(p.file_position):
-                        return os.open(str(tp), flags)
+            if p.file_position and (pdata := get_playlist(self.config, p.playlist)):
+                playlist, tracks = pdata
+                for idx, track in enumerate(tracks):
+                    if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
+                        return os.open(str(track.source_path), flags)
+                if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
+                    return os.open(playlist.cover_path, flags)
 
             raise fuse.FuseOSError(err)
 
@@ -466,8 +479,8 @@ class VirtualFS(fuse.Operations):  # type: ignore
         p = parse_virtual_path(path)
         logger.debug(f"Parsed truncate path as {p}")
 
-        if p.release and p.file and (cachedata := get_release(self.config, p.release)):
-            release, tracks = cachedata
+        if p.release and p.file and (rdata := get_release(self.config, p.release)):
+            release, tracks = rdata
             if release.cover_image_path and p.file == release.cover_image_path.name:
                 return os.truncate(str(release.cover_image_path), length)
             for track in tracks:
@@ -565,10 +578,16 @@ class VirtualFS(fuse.Operations):  # type: ignore
         if p.view == "Playlists" and p.playlist and p.file is None:
             delete_playlist(self.config, p.playlist)
             return
-        if p.view == "Playlists" and p.playlist and p.file and p.file_position:
-            for pos, track_id, virtual_filename, _ in list_playlist_tracks(self.config, p.playlist):
-                if virtual_filename == p.file and pos == int(p.file_position):
-                    remove_track_from_playlist(self.config, p.playlist, track_id)
+        if (
+            p.view == "Playlists"
+            and p.playlist
+            and p.file
+            and p.file_position
+            and (pdata := get_playlist(self.config, p.playlist))
+        ):
+            for idx, track in enumerate(pdata[1]):
+                if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
+                    remove_track_from_playlist(self.config, p.playlist, track.id)
                     return
             raise fuse.FuseOSError(errno.ENOENT)
 

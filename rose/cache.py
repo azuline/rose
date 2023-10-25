@@ -187,6 +187,7 @@ class CachedCollage:
 class CachedPlaylist:
     name: str
     source_mtime: str
+    cover_path: Path | None
     track_ids: list[str]
 
 
@@ -196,9 +197,8 @@ class StoredDataFile:
     added_at: str  # ISO8601 timestamp
 
 
-VALID_COVER_FILENAMES = [
-    stem + ext for stem in ["cover", "folder", "art"] for ext in [".jpg", ".jpeg", ".png"]
-]
+VALID_COVER_EXTENSIONS = [".jpg", ".jpeg", ".png"]
+VALID_COVER_FILENAMES = [x + y for x in ["cover", "folder", "art"] for y in VALID_COVER_EXTENSIONS]
 
 RELEASE_TYPE_FORMATTER = {
     "album": "Album",
@@ -1249,6 +1249,7 @@ def update_cache_for_playlists(
             SELECT
                 p.name
               , p.source_mtime
+              , p.cover_path
               , COALESCE(GROUP_CONCAT(pt.track_id, ' \\ '), '') AS track_ids
             FROM playlists p
             LEFT JOIN playlists_tracks pt ON pt.playlist_name = p.name
@@ -1259,6 +1260,7 @@ def update_cache_for_playlists(
             cached_playlists[row["name"]] = CachedPlaylist(
                 name=row["name"],
                 source_mtime=row["source_mtime"],
+                cover_path=Path(row["cover_path"]) if row["cover_path"] else None,
                 track_ids=row["track_ids"].split(r" \\ ") if row["track_ids"] else [],
             )
 
@@ -1277,8 +1279,24 @@ def update_cache_for_playlists(
                 cached_playlist = CachedPlaylist(
                     name=name,
                     source_mtime="",
+                    cover_path=None,
                     track_ids=[],
                 )
+
+            # We do a quick scan for the playlist's cover art here. We always do this check, as it
+            # amounts to ~4 getattrs. If a change is detected, we ignore the mtime optimization and
+            # always update the database.
+            dirty = False
+            if cached_playlist.cover_path and not cached_playlist.cover_path.is_file():
+                cached_playlist.cover_path = None
+                dirty = True
+            if not cached_playlist.cover_path:
+                for ext in VALID_COVER_EXTENSIONS:
+                    cover_path = source_path.with_suffix(ext)
+                    if cover_path.is_file():
+                        cached_playlist.cover_path = cover_path
+                        dirty = True
+                        break
 
             try:
                 source_mtime = str(f.stat().st_mtime)
@@ -1286,11 +1304,13 @@ def update_cache_for_playlists(
                 # Playlist was deleted... continue without doing anything. It will be cleaned up by
                 # the eviction function.
                 continue
-            if source_mtime == cached_playlist.source_mtime and not force:
+            if source_mtime == cached_playlist.source_mtime and not force and not dirty:
                 logger.debug(f"playlist cache hit (mtime) for {source_path}, reusing cached data")
                 continue
 
-            logger.debug(f"playlist cache miss (mtime) for {source_path}, reading data from disk")
+            logger.debug(
+                f"playlist cache miss (mtime/{dirty=}) for {source_path}, reading data from disk"
+            )
             cached_playlist.source_mtime = source_mtime
 
             with source_path.open("rb") as fp:
@@ -1310,10 +1330,16 @@ def update_cache_for_playlists(
             logger.info(f"Applying cache updates for playlist {cached_playlist.name}")
             conn.execute(
                 """
-                INSERT INTO playlists (name, source_mtime) VALUES (?, ?)
-                ON CONFLICT (name) DO UPDATE SET source_mtime = excluded.source_mtime
+                INSERT INTO playlists (name, source_mtime, cover_path) VALUES (?, ?, ?)
+                ON CONFLICT (name) DO UPDATE SET
+                    source_mtime = excluded.source_mtime
+                  , cover_path = excluded.cover_path
                 """,
-                (cached_playlist.name, cached_playlist.source_mtime),
+                (
+                    cached_playlist.name,
+                    cached_playlist.source_mtime,
+                    str(cached_playlist.cover_path) if cached_playlist.cover_path else None,
+                ),
             )
             conn.execute(
                 "DELETE FROM playlists_tracks WHERE playlist_name = ?",
@@ -1701,21 +1727,90 @@ def list_playlists(c: Config) -> Iterator[str]:
             yield row["name"]
 
 
-def list_playlist_tracks(c: Config, playlist_name: str) -> Iterator[tuple[int, str, str, Path]]:
-    """Returns tuples of (position, track_id, track_virtual_filename, track_source_path)."""
+def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[CachedTrack]] | None:
     with connect(c) as conn:
         cursor = conn.execute(
             """
-            SELECT pt.position, t.id, t.virtual_filename, t.source_path
-            FROM playlists_tracks pt
-            JOIN tracks t ON t.id = pt.track_id
-            WHERE pt.playlist_name = ?
-            ORDER BY pt.position
+            SELECT
+                name
+              , source_mtime
+              , cover_path
+            FROM playlists
+            WHERE name = ?
             """,
             (playlist_name,),
         )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        playlist = CachedPlaylist(
+            name=row["name"],
+            source_mtime=row["source_mtime"],
+            cover_path=Path(row["cover_path"]) if row["cover_path"] else None,
+            # Accumulated below when we query the tracks.
+            track_ids=[],
+        )
+
+        cursor = conn.execute(
+            r"""
+            WITH artists AS (
+                SELECT
+                    track_id
+                  , GROUP_CONCAT(artist, ' \\ ') AS names
+                  , GROUP_CONCAT(role, ' \\ ') AS roles
+                FROM (SELECT * FROM tracks_artists ORDER BY artist, role)
+                GROUP BY track_id
+            )
+            SELECT
+                t.id
+              , t.source_path
+              , t.source_mtime
+              , t.virtual_filename
+              , t.title
+              , t.release_id
+              , t.track_number
+              , t.disc_number
+              , t.formatted_release_position
+              , t.duration_seconds
+              , t.formatted_artists
+              , COALESCE(a.names, '') AS artist_names
+              , COALESCE(a.roles, '') AS artist_roles
+            FROM tracks t
+            JOIN playlists_tracks pt ON pt.track_id = t.id
+            LEFT JOIN artists a ON a.track_id = t.id
+            WHERE pt.playlist_name = ?
+            ORDER BY pt.position ASC
+            """,
+            (playlist_name,),
+        )
+        tracks: list[CachedTrack] = []
         for row in cursor:
-            yield (row["position"], row["id"], row["virtual_filename"], Path(row["source_path"]))
+            tartists: list[CachedArtist] = []
+            for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
+                if not n:
+                    # This can occur if there are no artist names; then we get a single iteration
+                    # with empty string.
+                    continue
+                tartists.append(CachedArtist(name=n, role=r))
+            playlist.track_ids.append(row["id"])
+            tracks.append(
+                CachedTrack(
+                    id=row["id"],
+                    source_path=Path(row["source_path"]),
+                    source_mtime=row["source_mtime"],
+                    virtual_filename=row["virtual_filename"],
+                    title=row["title"],
+                    release_id=row["release_id"],
+                    track_number=row["track_number"],
+                    disc_number=row["disc_number"],
+                    formatted_release_position=row["formatted_release_position"],
+                    duration_seconds=row["duration_seconds"],
+                    formatted_artists=row["formatted_artists"],
+                    artists=tartists,
+                )
+            )
+
+    return playlist, tracks
 
 
 def list_collages(c: Config) -> Iterator[str]:

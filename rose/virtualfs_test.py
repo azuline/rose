@@ -103,6 +103,8 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert (root / "8. Playlists" / "Turtle Rabbit").is_dir()
         assert not (root / "8. Playlists" / "lalala").exists()
         assert (root / "8. Playlists" / "Lala Lisa" / "1. 01.m4a").is_file()
+        assert (root / "8. Playlists" / "Lala Lisa" / "cover.jpg").is_file()
+        print(list((root / "8. Playlists" / "Lala Lisa").iterdir()))
         assert not (root / "8. Playlists" / "Lala Lisa" / "lalala").exists()
         assert can_read(root / "8. Playlists" / "Lala Lisa" / "1. 01.m4a")
 

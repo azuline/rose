@@ -98,6 +98,7 @@ def seeded_cache(config: Config) -> None:
     ]
     imagepaths = [
         config.music_source_dir / "r2" / "cover.jpg",
+        config.music_source_dir / "!playlists" / "Lala Lisa.jpg",
     ]
 
     with sqlite3.connect(config.cache_database_path) as conn:
@@ -154,9 +155,9 @@ VALUES ('Rose Gold' , 'r1'      , 1)
      , ('Rose Gold' , 'r2'      , 2);
 
 INSERT INTO playlists
-       (name           , source_mtime)
-VALUES ('Lala Lisa'    , '999')
-     , ('Turtle Rabbit', '999');
+       (name           , source_mtime, cover_path)
+VALUES ('Lala Lisa'    , '999',        '{imagepaths[1]}')
+     , ('Turtle Rabbit', '999',        null);
 
 INSERT INTO playlists_tracks
        (playlist_name, track_id, position)
@@ -166,8 +167,10 @@ VALUES ('Lala Lisa'  , 't1'    , 1)
         )
 
     for d in dirpaths:
+        d.parent.mkdir(parents=True, exist_ok=True)
         d.mkdir()
     for f in musicpaths + imagepaths:
+        f.parent.mkdir(parents=True, exist_ok=True)
         f.touch()
 
 

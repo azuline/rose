@@ -9,8 +9,8 @@ import tomllib
 from send2trash import send2trash
 
 from rose.cache import (
+    get_playlist,
     get_track_filename,
-    list_playlist_tracks,
     list_playlists,
     lock,
     playlist_lock_name,
@@ -121,12 +121,15 @@ def dump_playlists(c: Config) -> str:
     playlist_names = list(list_playlists(c))
     for name in playlist_names:
         out[name] = []
-        for pos, track_id, virtual_filename, _ in list_playlist_tracks(c, name):
+        cachedata = get_playlist(c, name)
+        assert cachedata is not None
+        _, tracks = cachedata
+        for idx, track in enumerate(tracks):
             out[name].append(
                 {
-                    "position": pos,
-                    "track_id": track_id,
-                    "track_filename": virtual_filename,
+                    "position": idx + 1,
+                    "track_id": track.id,
+                    "track_filename": track.virtual_filename,
                 }
             )
     return json.dumps(out)
