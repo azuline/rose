@@ -346,6 +346,63 @@ def test_update_cache_releases_uncaches_empty_directory(config: Config) -> None:
         assert cursor.fetchone()[0] == 0
 
 
+def test_update_cache_releases_evicts_relations(config: Config) -> None:
+    """
+    Test that related entities (artist, genre, label) that have been removed from the tags are
+    properly evicted from the cache on update.
+    """
+    release_dir = config.music_source_dir / TEST_RELEASE_2.name
+    shutil.copytree(TEST_RELEASE_2, release_dir)
+    # Initial cache population.
+    update_cache_for_releases(config, [release_dir])
+    # Pretend that we have more artists in the cache.
+    with connect(config) as conn:
+        conn.execute(
+            """
+            INSERT INTO releases_genres (release_id, genre, genre_sanitized)
+            VALUES ('ilovecarly', 'lalala', 'lalala')
+            """,
+        )
+        conn.execute(
+            """
+            INSERT INTO releases_labels (release_id, label, label_sanitized)
+            VALUES ('ilovecarly', 'lalala', 'lalala')
+            """,
+        )
+        conn.execute(
+            """
+            INSERT INTO releases_artists (release_id, artist, artist_sanitized, role, alias)
+            VALUES ('ilovecarly', 'lalala', 'lalala', 'main', false)
+            """,
+        )
+        conn.execute(
+            """
+            INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role, alias)
+            SELECT id, 'lalala', 'lalala', 'main', false FROM tracks
+            """,
+        )
+    # Second cache refresh.
+    update_cache_for_releases(config, [release_dir], force=True)
+    # Assert that all of the above were evicted.
+    with connect(config) as conn:
+        cursor = conn.execute(
+            "SELECT EXISTS (SELECT * FROM releases_genres WHERE genre = 'lalala')"
+        )
+        assert not cursor.fetchone()[0]
+        cursor = conn.execute(
+            "SELECT EXISTS (SELECT * FROM releases_labels WHERE label = 'lalala')"
+        )
+        assert not cursor.fetchone()[0]
+        cursor = conn.execute(
+            "SELECT EXISTS (SELECT * FROM releases_artists WHERE artist = 'lalala')"
+        )
+        assert not cursor.fetchone()[0]
+        cursor = conn.execute(
+            "SELECT EXISTS (SELECT * FROM tracks_artists WHERE artist = 'lalala')"
+        )
+        assert not cursor.fetchone()[0]
+
+
 def test_update_cache_releases_adds_aliased_artist(config: Config) -> None:
     """Test that an artist alias is properly recorded in the read cache."""
     config = Config(

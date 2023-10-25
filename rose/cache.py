@@ -849,27 +849,45 @@ def _update_cache_for_releases_executor(
         if upd_release_genre_args:
             conn.execute(
                 f"""
+                DELETE FROM releases_genres
+                WHERE release_id IN ({",".join(["?"]*len(upd_release_genre_args))})
+                """,
+                [a[0] for a in upd_release_genre_args],
+            )
+            conn.execute(
+                f"""
                 INSERT INTO releases_genres (release_id, genre, genre_sanitized)
                 VALUES {",".join(["(?,?,?)"]*len(upd_release_genre_args))}
-                ON CONFLICT (release_id, genre) DO NOTHING
                 """,
                 _flatten(upd_release_genre_args),
             )
         if upd_release_label_args:
             conn.execute(
                 f"""
+                DELETE FROM releases_labels
+                WHERE release_id IN ({",".join(["?"]*len(upd_release_label_args))})
+                """,
+                [a[0] for a in upd_release_label_args],
+            )
+            conn.execute(
+                f"""
                 INSERT INTO releases_labels (release_id, label, label_sanitized)
                 VALUES {",".join(["(?,?,?)"]*len(upd_release_label_args))}
-                ON CONFLICT (release_id, label) DO NOTHING
                 """,
                 _flatten(upd_release_label_args),
             )
         if upd_release_artist_args:
             conn.execute(
                 f"""
+                DELETE FROM releases_artists
+                WHERE release_id IN ({",".join(["?"]*len(upd_release_artist_args))})
+                """,
+                [a[0] for a in upd_release_artist_args],
+            )
+            conn.execute(
+                f"""
                 INSERT INTO releases_artists (release_id, artist, artist_sanitized, role, alias)
                 VALUES {",".join(["(?,?,?,?,?)"]*len(upd_release_artist_args))}
-                ON CONFLICT (release_id, artist) DO UPDATE SET role = excluded.role
                 """,
                 _flatten(upd_release_artist_args),
             )
@@ -905,9 +923,15 @@ def _update_cache_for_releases_executor(
         if upd_track_artist_args:
             conn.execute(
                 f"""
+                DELETE FROM tracks_artists
+                WHERE track_id IN ({",".join(["?"]*len(upd_track_artist_args))})
+                """,
+                [a[0] for a in upd_track_artist_args],
+            )
+            conn.execute(
+                f"""
                 INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role, alias)
                 VALUES {",".join(["(?,?,?,?,?)"]*len(upd_track_artist_args))}
-                ON CONFLICT (track_id, artist) DO UPDATE SET role = excluded.role
                 """,
                 _flatten(upd_track_artist_args),
             )
