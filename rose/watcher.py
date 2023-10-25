@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +24,10 @@ from rose.cache import (
 from rose.config import Config
 
 logger = logging.getLogger(__name__)
+
+# Shorten wait times if we are in a test. This way a test runs faster. This is wasteful in
+# production though.
+WAIT_DIVIDER = 1 if "pytest" not in sys.modules else 10
 
 
 # Changes to releases occur across an entire directory, but change events come in at a file
@@ -88,7 +93,7 @@ async def handle_event(
     wait: float | None = None,
 ) -> None:  # pragma: no cover
     if wait:
-        await asyncio.sleep(wait)
+        await asyncio.sleep(wait / WAIT_DIVIDER)
 
     if e.type == "created" or e.type == "modified":
         if e.collage:
@@ -112,7 +117,7 @@ async def handle_event(
 async def event_processor(c: Config, queue: Queue[WatchdogEvent]) -> None:  # pragma: no cover
     debounce_times: dict[str, float] = {}
     while True:
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.01 / WAIT_DIVIDER)
 
         try:
             event = queue.get(block=False)
@@ -139,7 +144,7 @@ async def event_processor(c: Config, queue: Queue[WatchdogEvent]) -> None:  # pr
         logger.info(
             f"Updating cache in response to {event.type} event on release {event.release.name}"
         )
-        asyncio.create_task(handle_event(c, event, 0.2))
+        asyncio.create_task(handle_event(c, event, 0.5))
 
 
 def start_watchdog(c: Config) -> None:  # pragma: no cover

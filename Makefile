@@ -7,7 +7,7 @@ test:
 	pytest -n logical --cov=. .
 	coverage html
 
-test-sync:
+test-seq:
 	pytest --cov=. .
 	coverage html
 
