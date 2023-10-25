@@ -16,8 +16,6 @@ from rose.collages import (
 )
 from rose.config import Config
 
-# TODO: Fixture for common setup.
-
 
 def test_delete_release_from_collage(config: Config, source_dir: Path) -> None:
     delete_release_from_collage(

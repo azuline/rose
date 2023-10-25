@@ -1630,6 +1630,18 @@ def get_release_source_path_from_id(c: Config, uuid: str) -> Path | None:
     return None
 
 
+def get_track_filename(c: Config, uuid: str) -> str | None:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT virtual_filename FROM tracks WHERE id = ?",
+            (uuid,),
+        )
+        if row := cursor.fetchone():
+            assert isinstance(row["virtual_filename"], str)
+            return row["virtual_filename"]
+    return None
+
+
 def list_artists(c: Config) -> Iterator[tuple[str, str]]:
     with connect(c) as conn:
         cursor = conn.execute("SELECT DISTINCT artist, artist_sanitized FROM releases_artists")

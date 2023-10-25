@@ -23,6 +23,7 @@ from rose.cache import (
     get_release_id_from_virtual_dirname,
     get_release_source_path_from_id,
     get_release_virtual_dirname_from_id,
+    get_track_filename,
     label_exists,
     list_artists,
     list_collage_releases,
@@ -809,6 +810,11 @@ def test_get_release_virtual_dirname_from_id(config: Config) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_get_release_source_path_dirname_from_id(config: Config) -> None:
     assert str(get_release_source_path_from_id(config, "r1")).endswith("/source/r1")
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_get_track_filename(config: Config) -> None:
+    assert get_track_filename(config, "t1") == "01.m4a"
 
 
 @pytest.mark.usefixtures("seeded_cache")
