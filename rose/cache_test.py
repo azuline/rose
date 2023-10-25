@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import tomllib
 
-from conftest import TEST_COLLAGE_1, TEST_RELEASE_1, TEST_RELEASE_2
+from conftest import TEST_COLLAGE_1, TEST_PLAYLIST_1, TEST_RELEASE_1, TEST_RELEASE_2
 from rose.cache import (
     CACHE_SCHEMA_PATH,
     STORED_DATA_FILE_REGEX,
@@ -29,9 +29,12 @@ from rose.cache import (
     list_collages,
     list_genres,
     list_labels,
+    list_playlist_tracks,
+    list_playlists,
     list_releases,
     lock,
     migrate_database,
+    playlist_exists,
     release_exists,
     track_exists,
     update_cache,
@@ -555,6 +558,48 @@ def test_update_cache_collages_nonexistent_release_id(config: Config) -> None:
     assert data["releases"] == []
 
 
+def test_update_cache_playlists(config: Config) -> None:
+    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+    shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
+    update_cache(config)
+
+    # Assert that the playlist metadata was read correctly.
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT name, source_mtime FROM playlists")
+        rows = cursor.fetchall()
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["name"] == "Lala Lisa"
+        assert row["source_mtime"]
+
+        cursor = conn.execute(
+            "SELECT playlist_name, track_id, position FROM playlists_tracks ORDER BY position"
+        )
+        assert [dict(r) for r in cursor] == [
+            {"playlist_name": "Lala Lisa", "track_id": "iloveloona", "position": 1},
+            {"playlist_name": "Lala Lisa", "track_id": "ilovetwice", "position": 2},
+        ]
+
+
+def test_update_cache_playlists_nonexistent_track_id(config: Config) -> None:
+    shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
+    update_cache(config)
+
+    # Assert that a nonexistent track was not read.
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT name FROM playlists")
+        assert cursor.fetchone()["name"] == "Lala Lisa"
+
+        cursor = conn.execute("SELECT playlist_name, track_id, position FROM playlists_tracks")
+        rows = cursor.fetchall()
+        assert not rows
+
+    # Assert that source file was updated to remove the track.
+    with (config.music_source_dir / "!playlists" / "Lala Lisa.toml").open("rb") as fp:
+        data = tomllib.load(fp)
+    assert data["tracks"] == []
+
+
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_releases(config: Config) -> None:
     releases = list(list_releases(config))
@@ -811,6 +856,23 @@ def test_list_collage_releases(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
+def test_list_playlists(config: Config) -> None:
+    playlists = list(list_playlists(config))
+    assert set(playlists) == {"Lala Lisa", "Turtle Rabbit"}
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_list_playlist_tracks(config: Config) -> None:
+    tracks = list(list_playlist_tracks(config, "Lala Lisa"))
+    assert set(tracks) == {
+        (0, "01.m4a", config.music_source_dir / "r1" / "01.m4a"),
+        (1, "01.m4a", config.music_source_dir / "r2" / "01.m4a"),
+    }
+    tracks = list(list_playlist_tracks(config, "Turtle Rabbit"))
+    assert tracks == []
+
+
+@pytest.mark.usefixtures("seeded_cache")
 def test_release_exists(config: Config) -> None:
     assert release_exists(config, "r1")
     assert not release_exists(config, "lalala")
@@ -852,3 +914,9 @@ def test_label_exists(config: Config) -> None:
 def test_collage_exists(config: Config) -> None:
     assert collage_exists(config, "Rose Gold")
     assert not collage_exists(config, "lalala")
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_playlist_exists(config: Config) -> None:
+    assert playlist_exists(config, "Lala Lisa")
+    assert not playlist_exists(config, "lalala")

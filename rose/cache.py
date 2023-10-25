@@ -125,6 +125,10 @@ def collage_lock_name(collage_name: str) -> str:
     return f"collage-{collage_name}"
 
 
+def playlist_lock_name(playlist_name: str) -> str:
+    return f"playlist-{playlist_name}"
+
+
 @dataclass
 class CachedArtist:
     name: str
@@ -221,6 +225,8 @@ def update_cache(c: Config, force: bool = False) -> None:
     update_cache_evict_nonexistent_releases(c)
     update_cache_for_collages(c, None, force)
     update_cache_evict_nonexistent_collages(c)
+    update_cache_for_playlists(c, None, force)
+    update_cache_evict_nonexistent_playlists(c)
 
 
 def update_cache_evict_nonexistent_releases(c: Config) -> None:
@@ -797,15 +803,8 @@ def _update_cache_for_releases_executor(
                 virtual_filename += f"{t.disc_number:0>2}-"
             if t.track_number:
                 virtual_filename += f"{t.track_number:0>2}. "
+            virtual_filename += f"{t.formatted_artists} - "
             virtual_filename += t.title or "Unknown Title"
-            if release.releasetype in [
-                "compilation",
-                "soundtrack",
-                "remix",
-                "djmix",
-                "mixtape",
-            ]:
-                virtual_filename += f" (by {t.formatted_artists})"
             virtual_filename += t.source_path.suffix
             virtual_filename = _sanitize_filename(virtual_filename)
             # And in case of a name collision, add an extra number at the end. Iterate to find
@@ -1034,11 +1033,14 @@ def update_cache_for_collages(
     """
     Update the read cache to match the data for all stored collages.
 
-    This is performance-optimized in the same way as the update releases function. We:
+    This is performance-optimized in a similar way to the update releases function. We:
 
     1. Execute one big SQL query at the start to fetch the relevant previous caches.
     2. Skip reading a file's data if the mtime has not changed since the previous cache update.
     3. Only execute a SQLite upsert if the read data differ from the previous caches.
+
+    However, we do not batch writes to the end of the function, nor do we process the collages in
+    parallel. This is because we should have far fewer collages than releases.
     """
     collage_dir = c.music_source_dir / "!collages"
     collage_dir.mkdir(exist_ok=True)
@@ -1181,6 +1183,167 @@ def update_cache_evict_nonexistent_collages(c: Config) -> None:
         )
         for row in cursor:
             logger.info(f"Evicted collage {row['name']} from cache")
+
+
+def update_cache_for_playlists(
+    c: Config,
+    # Leave as None to update all playlists.
+    playlist_names: list[str] | None = None,
+    force: bool = False,
+) -> None:
+    """
+    Update the read cache to match the data for all stored playlists.
+
+    This is performance-optimized in a similar way to the update releases function. We:
+
+    1. Execute one big SQL query at the start to fetch the relevant previous caches.
+    2. Skip reading a file's data if the mtime has not changed since the previous cache update.
+    3. Only execute a SQLite upsert if the read data differ from the previous caches.
+
+    However, we do not batch writes to the end of the function, nor do we process the playlists in
+    parallel. This is because we should have far fewer playlists than releases.
+    """
+    playlist_dir = c.music_source_dir / "!playlists"
+    playlist_dir.mkdir(exist_ok=True)
+
+    files: list[tuple[Path, str, os.DirEntry[str]]] = []
+    for f in os.scandir(str(playlist_dir)):
+        path = Path(f.path)
+        if path.suffix != ".toml":
+            continue
+        if not path.is_file():
+            logger.debug(f"Skipping processing playlist {path.name} because it is not a file")
+            continue
+        if playlist_names is None or path.stem in playlist_names:
+            files.append((path.resolve(), path.stem, f))
+    logger.info(f"Refreshing the read cache for {len(files)} playlists")
+
+    cached_playlists: dict[str, CachedPlaylist] = {}
+    with connect(c) as conn:
+        cursor = conn.execute(
+            r"""
+            SELECT
+                p.name
+              , p.source_mtime
+              , COALESCE(GROUP_CONCAT(pt.track_id, ' \\ '), '') AS track_ids
+            FROM playlists p
+            LEFT JOIN playlists_tracks pt ON pt.playlist_name = p.name
+            GROUP BY p.name
+            """,
+        )
+        for row in cursor:
+            cached_playlists[row["name"]] = CachedPlaylist(
+                name=row["name"],
+                source_mtime=row["source_mtime"],
+                track_ids=row["track_ids"].split(r" \\ ") if row["track_ids"] else [],
+            )
+
+        # We want to validate that all track IDs exist before we write them. In order to do that,
+        # we need to know which tracks exist.
+        cursor = conn.execute("SELECT id FROM tracks")
+        existing_track_ids = {row["id"] for row in cursor}
+
+    loop_start = time.time()
+    with connect(c) as conn:
+        for source_path, name, f in files:
+            try:
+                cached_playlist = cached_playlists[name]
+            except KeyError:
+                logger.debug(f"First-time unidentified playlist found at {source_path}")
+                cached_playlist = CachedPlaylist(
+                    name=name,
+                    source_mtime="",
+                    track_ids=[],
+                )
+
+            source_mtime = str(f.stat().st_mtime)
+            if source_mtime == cached_playlist.source_mtime and not force:
+                logger.debug(f"playlist cache hit (mtime) for {source_path}, reusing cached data")
+                continue
+
+            logger.debug(f"playlist cache miss (mtime) for {source_path}, reading data from disk")
+            cached_playlist.source_mtime = source_mtime
+
+            with source_path.open("rb") as fp:
+                diskdata = tomllib.load(fp)
+
+            # Track the listed tracks that no longer exist. Remove them from the playlist file
+            # after.
+            cached_playlist.track_ids = []
+            nonexistent_track_idxs: list[int] = []
+            for idx, trk in enumerate(diskdata.get("tracks", [])):
+                if trk["uuid"] not in existing_track_ids:
+                    nonexistent_track_idxs.append(idx)
+                    continue
+                cached_playlist.track_ids.append(trk["uuid"])
+            logger.debug(f"Found {len(cached_playlist.track_ids)} track(s) in {source_path}")
+
+            logger.info(f"Applying cache updates for playlist {cached_playlist.name}")
+            conn.execute(
+                """
+                INSERT INTO playlists (name, source_mtime) VALUES (?, ?)
+                ON CONFLICT (name) DO UPDATE SET source_mtime = excluded.source_mtime
+                """,
+                (cached_playlist.name, cached_playlist.source_mtime),
+            )
+            conn.execute(
+                "DELETE FROM playlists_tracks WHERE playlist_name = ?",
+                (cached_playlist.name,),
+            )
+            args: list[Any] = []
+            for position, rid in enumerate(cached_playlist.track_ids):
+                args.extend([cached_playlist.name, rid, position + 1])
+            if args:
+                conn.execute(
+                    f"""
+                    INSERT INTO playlists_tracks (playlist_name, track_id, position)
+                    VALUES {','.join(['(?, ?, ?)'] * len(cached_playlist.track_ids))}
+                    """,
+                    args,
+                )
+
+            if nonexistent_track_idxs:
+                new_diskdata_tracks: list[dict[str, str]] = []
+                removed_tracks: list[str] = []
+                with lock(c, playlist_lock_name(name)):
+                    # Re-read disk data here in case it changed. Super rare case, but better to be
+                    # correct than suffer from niche unexplainable bugs.
+                    with source_path.open("rb") as fp:
+                        diskdata = tomllib.load(fp)
+                    for idx, trk in enumerate(diskdata.get("tracks", [])):
+                        if idx in nonexistent_track_idxs:
+                            removed_tracks.append(trk["description_meta"])
+                            continue
+                        new_diskdata_tracks.append(trk)
+                    with source_path.open("wb") as fp:
+                        tomli_w.dump({"tracks": new_diskdata_tracks}, fp)
+                logger.info(
+                    f"Removing nonexistent tracks from playlist {cached_playlist.name}: "
+                    f"{','.join(removed_tracks)}"
+                )
+
+    logger.debug(f"playlist update loop time {time.time() - loop_start=}")
+
+
+def update_cache_evict_nonexistent_playlists(c: Config) -> None:
+    logger.info("Evicting cached playlists that are not on disk")
+    playlist_names: list[str] = []
+    for f in os.scandir(c.music_source_dir / "!playlists"):
+        p = Path(f.path)
+        if p.is_file() and p.suffix == ".toml":
+            playlist_names.append(p.stem)
+
+    with connect(c) as conn:
+        cursor = conn.execute(
+            f"""
+            DELETE FROM playlists
+            WHERE name NOT IN ({",".join(["?"] * len(playlist_names))})
+            RETURNING name
+            """,
+            playlist_names,
+        )
+        for row in cursor:
+            logger.info(f"Evicted playlist {row['name']} from cache")
 
 
 def list_releases(
@@ -1488,6 +1651,30 @@ def list_labels(c: Config) -> Iterator[tuple[str, str]]:
             yield row["label"], row["label_sanitized"]
 
 
+def list_playlists(c: Config) -> Iterator[str]:
+    with connect(c) as conn:
+        cursor = conn.execute("SELECT DISTINCT name FROM playlists")
+        for row in cursor:
+            yield row["name"]
+
+
+def list_playlist_tracks(c: Config, playlist_name: str) -> Iterator[tuple[int, str, Path]]:
+    """Returns tuples of (position, track_virtual_filename, track_source_path)."""
+    with connect(c) as conn:
+        cursor = conn.execute(
+            """
+            SELECT pt.position, t.virtual_filename, t.source_path
+            FROM playlists_tracks pt
+            JOIN tracks t ON t.id = pt.track_id
+            WHERE pt.playlist_name = ?
+            ORDER BY pt.position
+            """,
+            (playlist_name,),
+        )
+        for row in cursor:
+            yield (row["position"], row["virtual_filename"], Path(row["source_path"]))
+
+
 def list_collages(c: Config) -> Iterator[str]:
     with connect(c) as conn:
         cursor = conn.execute("SELECT DISTINCT name FROM collages")
@@ -1595,17 +1782,11 @@ def collage_exists(c: Config, name: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
-def collage_has_release(c: Config, collage_name: str, release_virtual_dirname: str) -> bool:
+def playlist_exists(c: Config, name: str) -> bool:
     with connect(c) as conn:
         cursor = conn.execute(
-            """
-            SELECT EXISTS(
-                SELECT *
-                FROM collages_releases cr JOIN releases r ON r.id = cr.release_id
-                WHERE cr.collage_name = ? AND r.virtual_dirname = ?
-            )
-            """,
-            (collage_name, release_virtual_dirname),
+            "SELECT EXISTS(SELECT * FROM playlists WHERE name = ?)",
+            (name,),
         )
         return bool(cursor.fetchone()[0])
 

@@ -16,7 +16,6 @@ import fuse
 from rose.cache import (
     artist_exists,
     collage_exists,
-    collage_has_release,
     cover_exists,
     genre_exists,
     get_release,
@@ -120,8 +119,12 @@ class VirtualFS(fuse.Operations):  # type: ignore
         logger.debug(f"Parsed getattr path as {p}")
 
         # Some early guards just in case.
-        if p.release and p.collage and not collage_has_release(self.config, p.collage, p.release):
-            raise fuse.FuseOSError(errno.ENOENT)
+        if p.release and p.collage:
+            for _, virtual_dirname, _ in list_collage_releases(self.config, p.collage):
+                if virtual_dirname == p.release:
+                    break
+            else:
+                raise fuse.FuseOSError(errno.ENOENT)
 
         if p.release and p.file:
             if tp := track_exists(self.config, p.release, p.file):
