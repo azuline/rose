@@ -1,5 +1,6 @@
 import hashlib
 import shutil
+import time
 from dataclasses import asdict
 from pathlib import Path
 
@@ -29,6 +30,7 @@ from rose.cache import (
     list_genres,
     list_labels,
     list_releases,
+    lock,
     migrate_database,
     release_exists,
     track_exists,
@@ -40,7 +42,7 @@ from rose.config import Config
 
 
 def test_schema(config: Config) -> None:
-    # Test that the schema successfully bootstraps.
+    """Test that the schema successfully bootstraps."""
     with CACHE_SCHEMA_PATH.open("rb") as fp:
         schema_hash = hashlib.sha256(fp.read()).hexdigest()
     migrate_database(config)
@@ -52,7 +54,7 @@ def test_schema(config: Config) -> None:
 
 
 def test_migration(config: Config) -> None:
-    # Test that "migrating" the database correctly migrates it.
+    """Test that "migrating" the database correctly migrates it."""
     config.cache_database_path.unlink()
     with connect(config) as conn:
         conn.execute(
@@ -78,6 +80,31 @@ def test_migration(config: Config) -> None:
         assert row["config_hash"] == config.hash
         cursor = conn.execute("SELECT COUNT(*) FROM _schema_hash")
         assert cursor.fetchone()[0] == 1
+
+
+def test_locks(config: Config) -> None:
+    """Test that taking locks works."""
+    lock_name = "lol"
+
+    # Test that the locking and timeout work.
+    start = time.time()
+    with lock(config, lock_name, timeout=0.2):
+        lock1_acq = time.time()
+        with lock(config, lock_name, timeout=0.2):
+            lock2_acq = time.time()
+    # Assert that we had to wait ~0.1sec to get the second lock.
+    assert lock1_acq - start < 0.05
+    assert lock2_acq - lock1_acq > 0.19
+
+    # Test that releasing a lock actually works.
+    start = time.time()
+    with lock(config, lock_name, timeout=0.2):
+        lock1_acq = time.time()
+    with lock(config, lock_name, timeout=0.2):
+        lock2_acq = time.time()
+    # Assert that we had to wait negligible time to get the second lock.
+    assert lock1_acq - start < 0.05
+    assert lock2_acq - lock1_acq < 0.05
 
 
 def test_update_cache_all(config: Config) -> None:

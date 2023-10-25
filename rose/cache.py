@@ -93,6 +93,26 @@ def migrate_database(c: Config) -> None:
         )
 
 
+@contextmanager
+def lock(c: Config, name: str, timeout: float = 1.0) -> Iterator[None]:
+    try:
+        valid_until = time.time() + timeout
+        while True:
+            with connect(c) as conn:
+                cursor = conn.execute("SELECT MAX(valid_until) FROM locks WHERE name = ?", (name,))
+                row = cursor.fetchone()
+                if not row or not row[0] or row[0] < time.time():
+                    conn.execute(
+                        "INSERT INTO locks (name, valid_until) VALUES (?, ?)", (name, valid_until)
+                    )
+                    break
+                time.sleep(max(0, row[0] - time.time()))
+        yield
+    finally:
+        with connect(c) as conn:
+            conn.execute("DELETE FROM locks WHERE name = ?", (name,))
+
+
 @dataclass
 class CachedArtist:
     name: str

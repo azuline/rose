@@ -1,3 +1,10 @@
+CREATE TABLE locks (
+    name TEXT,
+    -- Unix epoch.
+    valid_until REAL NOT NULL,
+    PRIMARY KEY (name, valid_until)
+);
+
 CREATE TABLE release_type_enum (value TEXT PRIMARY KEY);
 INSERT INTO release_type_enum (value) VALUES
     ('album'),
