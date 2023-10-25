@@ -4,6 +4,7 @@ import multiprocessing
 import os
 from collections import defaultdict
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 
 import tomllib
@@ -46,12 +47,16 @@ class Config:
     fuse_hide_genres: list[str]
     fuse_hide_labels: list[str]
 
+    hash: str
+
     @classmethod
     def read(cls, config_path_override: Path | None = None) -> Config:
         cfgpath = config_path_override or CONFIG_PATH
+        cfgtext = ""
         try:
-            with cfgpath.open("rb") as fp:
-                data = tomllib.load(fp)
+            with cfgpath.open("r") as fp:
+                cfgtext = fp.read()
+                data = tomllib.loads(cfgtext)
         except FileNotFoundError as e:
             raise ConfigNotFoundError(f"Configuration file not found ({cfgpath})") from e
 
@@ -180,4 +185,5 @@ class Config:
             fuse_hide_artists=fuse_hide_artists,
             fuse_hide_genres=fuse_hide_genres,
             fuse_hide_labels=fuse_hide_labels,
+            hash=sha256(cfgtext.encode()).hexdigest(),
         )

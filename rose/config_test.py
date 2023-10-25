@@ -43,7 +43,8 @@ def test_config_full() -> None:
                 """  # noqa: E501
             )
 
-        assert Config.read(config_path_override=path) == Config(
+        c = Config.read(config_path_override=path)
+        assert c == Config(
             music_source_dir=Path.home() / ".music-src",
             fuse_mount_dir=Path.home() / "music",
             cache_dir=cache_dir,
@@ -70,6 +71,7 @@ def test_config_full() -> None:
             fuse_hide_artists=["xxx"],
             fuse_hide_genres=["yyy"],
             fuse_hide_labels=["zzz"],
+            hash=c.hash,
         )
 
 

@@ -42,10 +42,21 @@ def config(isolated_dir: Path) -> Config:
     with sqlite3.connect(cache_database_path) as conn:
         with CACHE_SCHEMA_PATH.open("r") as fp:
             conn.executescript(fp.read())
-        conn.execute("CREATE TABLE _schema_hash (value TEXT PRIMARY KEY)")
+        conn.execute(
+            """
+            CREATE TABLE _schema_hash (
+                schema_hash TEXT
+              , config_hash TEXT
+              , PRIMARY KEY (schema_hash, config_hash)
+            )
+            """
+        )
         with CACHE_SCHEMA_PATH.open("rb") as fp:
-            latest_schema_hash = hashlib.sha256(fp.read()).hexdigest()
-        conn.execute("INSERT INTO _schema_hash (value) VALUES (?)", (latest_schema_hash,))
+            schema_hash = hashlib.sha256(fp.read()).hexdigest()
+        conn.execute(
+            "INSERT INTO _schema_hash (schema_hash, config_hash) VALUES (?, ?)",
+            (schema_hash, "00ff"),
+        )
 
     music_source_dir = isolated_dir / "source"
     music_source_dir.mkdir()
@@ -64,6 +75,7 @@ def config(isolated_dir: Path) -> Config:
         fuse_hide_artists=[],
         fuse_hide_genres=[],
         fuse_hide_labels=[],
+        hash="00ff",
     )
 
 

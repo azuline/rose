@@ -40,26 +40,40 @@ from rose.config import Config
 def test_schema(config: Config) -> None:
     # Test that the schema successfully bootstraps.
     with CACHE_SCHEMA_PATH.open("rb") as fp:
-        latest_schema_hash = hashlib.sha256(fp.read()).hexdigest()
+        schema_hash = hashlib.sha256(fp.read()).hexdigest()
     migrate_database(config)
     with connect(config) as conn:
-        cursor = conn.execute("SELECT value FROM _schema_hash")
-        assert cursor.fetchone()[0] == latest_schema_hash
+        cursor = conn.execute("SELECT schema_hash, config_hash FROM _schema_hash")
+        row = cursor.fetchone()
+        assert row["schema_hash"] == schema_hash
+        assert row["config_hash"] == config.hash
 
 
 def test_migration(config: Config) -> None:
     # Test that "migrating" the database correctly migrates it.
     config.cache_database_path.unlink()
     with connect(config) as conn:
-        conn.execute("CREATE TABLE _schema_hash (value TEXT PRIMARY KEY)")
-        conn.execute("INSERT INTO _schema_hash (value) VALUES ('haha')")
+        conn.execute(
+            """
+            CREATE TABLE _schema_hash (
+                schema_hash TEXT
+              , config_hash TEXT
+              , PRIMARY KEY (schema_hash, config_hash)
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO _schema_hash (schema_hash, config_hash) VALUES ('haha', 'lala')",
+        )
 
     with CACHE_SCHEMA_PATH.open("rb") as fp:
         latest_schema_hash = hashlib.sha256(fp.read()).hexdigest()
     migrate_database(config)
     with connect(config) as conn:
-        cursor = conn.execute("SELECT value FROM _schema_hash")
-        assert cursor.fetchone()[0] == latest_schema_hash
+        cursor = conn.execute("SELECT schema_hash, config_hash FROM _schema_hash")
+        row = cursor.fetchone()
+        assert row["schema_hash"] == latest_schema_hash
+        assert row["config_hash"] == config.hash
         cursor = conn.execute("SELECT COUNT(*) FROM _schema_hash")
         assert cursor.fetchone()[0] == 1
 

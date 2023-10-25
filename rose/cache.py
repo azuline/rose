@@ -56,7 +56,7 @@ def migrate_database(c: Config) -> None:
     its own data.
     """
     with CACHE_SCHEMA_PATH.open("rb") as fp:
-        latest_schema_hash = hashlib.sha256(fp.read()).hexdigest()
+        schema_hash = hashlib.sha256(fp.read()).hexdigest()
 
     with connect(c) as conn:
         cursor = conn.execute(
@@ -68,8 +68,9 @@ def migrate_database(c: Config) -> None:
             """
         )
         if cursor.fetchone()[0]:
-            cursor = conn.execute("SELECT value FROM _schema_hash")
-            if (row := cursor.fetchone()) and row[0] == latest_schema_hash:
+            cursor = conn.execute("SELECT schema_hash, config_hash FROM _schema_hash")
+            row = cursor.fetchone()
+            if row and row["schema_hash"] == schema_hash and row["config_hash"] == c.hash:
                 # Everything matches! Exit!
                 return
 
@@ -77,8 +78,19 @@ def migrate_database(c: Config) -> None:
     with connect(c) as conn:
         with CACHE_SCHEMA_PATH.open("r") as fp:
             conn.executescript(fp.read())
-        conn.execute("CREATE TABLE _schema_hash (value TEXT PRIMARY KEY)")
-        conn.execute("INSERT INTO _schema_hash (value) VALUES (?)", (latest_schema_hash,))
+        conn.execute(
+            """
+            CREATE TABLE _schema_hash (
+                schema_hash TEXT
+              , config_hash TEXT
+              , PRIMARY KEY (schema_hash, config_hash)
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO _schema_hash (schema_hash, config_hash) VALUES (?, ?)",
+            (schema_hash, c.hash),
+        )
 
 
 @dataclass
