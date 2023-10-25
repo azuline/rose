@@ -12,11 +12,14 @@ from rose.cache import (
     STORED_DATA_FILE_REGEX,
     CachedArtist,
     CachedRelease,
+    CachedTrack,
+    ReleaseFiles,
     artist_exists,
     collage_exists,
     connect,
     cover_exists,
     genre_exists,
+    get_release_files,
     get_release_id_from_virtual_dirname,
     get_release_source_path_from_id,
     get_release_virtual_dirname_from_id,
@@ -522,8 +525,8 @@ def test_list_releases(config: Config) -> None:
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
             artists=[
-                CachedArtist(name="Techno Man", role="main"),
                 CachedArtist(name="Bass Man", role="main"),
+                CachedArtist(name="Techno Man", role="main"),
             ],
             formatted_artists="Techno Man;Bass Man",
         ),
@@ -542,8 +545,8 @@ def test_list_releases(config: Config) -> None:
             genres=["Classical"],
             labels=["Native State"],
             artists=[
-                CachedArtist(name="Violin Woman", role="main"),
                 CachedArtist(name="Conductor Woman", role="guest"),
+                CachedArtist(name="Violin Woman", role="main"),
             ],
             formatted_artists="Violin Woman feat. Conductor Woman",
         ),
@@ -583,8 +586,8 @@ def test_list_releases(config: Config) -> None:
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
             artists=[
-                CachedArtist(name="Techno Man", role="main"),
                 CachedArtist(name="Bass Man", role="main"),
+                CachedArtist(name="Techno Man", role="main"),
             ],
             formatted_artists="Techno Man;Bass Man",
         ),
@@ -607,8 +610,8 @@ def test_list_releases(config: Config) -> None:
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
             artists=[
-                CachedArtist(name="Techno Man", role="main"),
                 CachedArtist(name="Bass Man", role="main"),
+                CachedArtist(name="Techno Man", role="main"),
             ],
             formatted_artists="Techno Man;Bass Man",
         ),
@@ -631,12 +634,53 @@ def test_list_releases(config: Config) -> None:
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
             artists=[
-                CachedArtist(name="Techno Man", role="main"),
                 CachedArtist(name="Bass Man", role="main"),
+                CachedArtist(name="Techno Man", role="main"),
             ],
             formatted_artists="Techno Man;Bass Man",
         ),
     ]
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_get_release_files(config: Config) -> None:
+    assert get_release_files(config, "r1") == ReleaseFiles(
+        tracks=[
+            CachedTrack(
+                id="t1",
+                source_path=config.music_source_dir / "r1" / "01.m4a",
+                source_mtime="999",
+                virtual_filename="01.m4a",
+                title="Track 1",
+                release_id="r1",
+                track_number="01",
+                disc_number="01",
+                duration_seconds=120,
+                artists=[
+                    CachedArtist(name="Bass Man", role="main", alias=False),
+                    CachedArtist(name="Techno Man", role="main", alias=False),
+                ],
+                formatted_artists="Techno Man;Bass Man",
+            ),
+            CachedTrack(
+                id="t2",
+                source_path=config.music_source_dir / "r1" / "02.m4a",
+                source_mtime="999",
+                virtual_filename="02.m4a",
+                title="Track 2",
+                release_id="r1",
+                track_number="02",
+                disc_number="01",
+                duration_seconds=240,
+                artists=[
+                    CachedArtist(name="Bass Man", role="main", alias=False),
+                    CachedArtist(name="Techno Man", role="main", alias=False),
+                ],
+                formatted_artists="Techno Man;Bass Man",
+            ),
+        ],
+        cover=None,
+    )
 
 
 @pytest.mark.usefixtures("seeded_cache")

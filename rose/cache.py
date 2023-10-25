@@ -1143,20 +1143,20 @@ def list_releases(
                 SELECT
                     release_id
                   , GROUP_CONCAT(genre, ' \\ ') AS genres
-                FROM releases_genres
+                FROM (SELECT * FROM releases_genres ORDER BY genre)
                 GROUP BY release_id
             ), labels AS (
                 SELECT
                     release_id
                   , GROUP_CONCAT(label, ' \\ ') AS labels
-                FROM releases_labels
+                FROM (SELECT * FROM releases_labels ORDER BY label)
                 GROUP BY release_id
             ), artists AS (
                 SELECT
                     release_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM releases_artists
+                FROM (SELECT * FROM releases_artists ORDER BY artist, role)
                 GROUP BY release_id
             )
             SELECT
@@ -1257,7 +1257,7 @@ def get_release_files(c: Config, release_virtual_dirname: str) -> ReleaseFiles:
                     track_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM tracks_artists
+                FROM (SELECT * FROM tracks_artists ORDER BY artist, role)
                 GROUP BY track_id
             )
             SELECT
