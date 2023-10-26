@@ -134,7 +134,7 @@ engine to automatically apply metadata changes based on patterns.
 
 _Demo Video TBD_
 
-## Features
+# Features
 
 This section contains a concise list of Rosé's features.
 
@@ -175,7 +175,7 @@ unsuitable for you:
   the top-level of the source directory will be ignored. This makes Rosé work
   very poorly with libraries organized as collections of tracks.
 
-## Installation
+# Installation
 
 Install Rosé with Nix Flakes. If you do not have Nix Flakes, you can install
 Nix Flakes with [this installer](https://github.com/DeterminateSystems/nix-installer).
@@ -186,7 +186,7 @@ Then, to install Rosé, run:
 $ nix profile install github:azuline/rose#rose
 ```
 
-## Quickstart
+# Quickstart
 
 Let's now get Rosé up and running!
 
@@ -289,7 +289,7 @@ finally (3) play music!
 And that's it! If desired, you can unmount the virtual filesystem with the
 `rose fs unmount` command.
 
-## Learn More
+# Learn More
 
 For additional documentation, please read the following files:
 
@@ -300,7 +300,7 @@ For additional documentation, please read the following files:
 - [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md)
 - [Architecture](./docs/ARCHITECTURE.md)
 
-## License
+# License
 
 ```
 Copyright 2023 blissful <blissful@sunsetglow.net>
@@ -318,7 +318,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-## Contributions
+# Contributions
 
 Rosé is a pet project that I developed for personal use. Rosé is designed to
 match my specific needs and constraints, and is never destined to be widely
