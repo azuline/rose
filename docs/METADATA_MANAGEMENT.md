@@ -1,17 +1,13 @@
 # Managing Your Music Metadata
 
-## Data Querying
+TODO Intro: motivations, reasons, fields we care about
 
-There are several commands that print out data from the read cache in a
-JSON-encoded format (e.g. `rose releases print` and `rose collages print`). The
-command output can be piped into tools like `jq`, `fx`, and others.
-
-## Tagging Conventions
+## Tag Conventions
 
 Rosé is lenient in the tags it ingests, but has opinionated conventions for the
-tags it writes.
+tags it writes. Impl detail: how exactly does rose edit the files?
 
-### Fields
+### Field Mappings
 
 TODO
 
@@ -39,3 +35,15 @@ The artist tag is described by the following grammar:
 <producer>   ::= ' produced by ' <name>
 <name>       ::= string ';' <name> | string
 ```
+
+## Manual Editing
+
+TODO: Text file editing
+
+## Metadata Import & Cover Downloading
+
+TBD
+
+## Rules Engine
+
+TBD
