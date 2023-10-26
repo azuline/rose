@@ -29,7 +29,6 @@ from rose.cache import (
     list_labels,
     list_playlists,
     list_releases,
-    playlist_exists,
     release_exists,
     track_exists,
 )
@@ -417,8 +416,10 @@ class VirtualFS(fuse.Operations):  # type: ignore
                     return os.open(str(track.source_path), flags)
             raise fuse.FuseOSError(err)
         if p.playlist and p.file:
-            if not playlist_exists(self.config, p.playlist):
-                raise fuse.FuseOSError(errno.ENOENT)
+            try:
+                playlist, tracks = get_playlist(self.config, p.playlist)  # type: ignore
+            except TypeError as e:
+                raise fuse.FuseOSError(errno.ENOENT) from e
             # If we are trying to create a file in the playlist, enter the "add file to playlist"
             # operation sequence. See the __init__ for more details.
             if flags & os.O_CREAT == os.O_CREAT:
@@ -430,13 +431,12 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 )
                 return fh
             # Otherwise, continue on...
-            if p.file_position and (pdata := get_playlist(self.config, p.playlist)):
-                playlist, tracks = pdata
+            if p.file_position:
                 for idx, track in enumerate(tracks):
                     if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
                         return os.open(str(track.source_path), flags)
-                if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
-                    return os.open(playlist.cover_path, flags)
+            if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
+                return os.open(playlist.cover_path, flags)
 
             raise fuse.FuseOSError(err)
 
