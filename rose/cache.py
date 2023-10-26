@@ -2020,4 +2020,4 @@ def _unpack(*xxs: str, delimiter: str = r" \\ ") -> Iterator[tuple[str, ...]]:
     # empty string, so we specially exit if we hit that case.
     if all(not xs for xs in xxs):
         return
-    yield from zip(*[xs.split(r" \\ ") for xs in xxs])
+    yield from zip(*[xs.split(delimiter) for xs in xxs])
