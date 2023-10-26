@@ -4,11 +4,11 @@ typecheck:
 	mypy .
 
 test:
-	pytest -n logical --cov=. .
+	pytest -n logical .
 	coverage html
 
 test-seq:
-	pytest --cov=. .
+	pytest .
 	coverage html
 
 lintcheck:

@@ -290,6 +290,12 @@ def update_cache_for_releases(
     # Create a queue to propagate exceptions back up to the parent.
     error_queue = manager.Queue()
 
+    # Track coverage. This won't do anything in production.
+    with contextlib.suppress(ImportError):
+        from pytest_cov.embed import cleanup_on_sigterm
+
+        cleanup_on_sigterm()
+
     with multiprocessing.Pool(processes=c.max_proc) as pool:
         # At 0, no batch. At 1, 1 batch. At 49, 1 batch. At 50, 1 batch. At 51, 2 batches.
         for i in range(0, len(release_dirs), batch_size):
@@ -314,7 +320,7 @@ def _update_cache_for_releases_process(
     force: bool,
     known_virtual_dirnames: dict[str, bool],
     error_queue: "multiprocessing.Queue[Any]",
-) -> None:
+) -> None:  # pragma: no cover
     """General error handling stuff for the cache update subprocess."""
     try:
         return _update_cache_for_releases_executor(c, release_dirs, force, known_virtual_dirnames)
@@ -329,7 +335,7 @@ def _update_cache_for_releases_executor(
     release_dirs: list[Path],
     force: bool,
     known_virtual_dirnames: dict[str, bool],
-) -> None:
+) -> None:  # pragma: no cover
     """The implementation logic, split out for multiprocessing."""
     # First, call readdir on every release directory. We store the results in a map of
     # Path Basename -> (Release ID if exists, filenames).

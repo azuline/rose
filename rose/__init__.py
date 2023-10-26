@@ -16,7 +16,7 @@ LOG_EVEN_THOUGH_WERE_IN_TEST = os.environ.get("LOG_TEST", False)
 
 # Add a logging handler for stdout unless we are testing. Pytest
 # captures logging output on its own, so by default, we do not attach our own.
-if "pytest" not in sys.modules or LOG_EVEN_THOUGH_WERE_IN_TEST:
+if "pytest" not in sys.modules or LOG_EVEN_THOUGH_WERE_IN_TEST:  # pragma: no cover
     stream_formatter = logging.Formatter(
         "[%(asctime)s] %(levelname)s: %(message)s",
         datefmt="%H:%M:%S",
