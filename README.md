@@ -8,12 +8,133 @@ Rosé is a music manager for Unix-based systems. Rosé provides a virtual FUSE
 filesystem for managing your music library and various functions for editing
 and improving your music library's metadata and tags.
 
-> [!NOTE]
-> Rosé modifies the managed audio files. If you do not want to modify your
-> audio files, for example because they are seeding in a bittorrent client, you
-> should not use Rosé.
+Rosé's core functionality is taking in a directory of music and creating a
+virtual filesystem based on the music's tags.
 
-TODO: Video
+So for example, given the following directory of music files:
+
+```
+source/
+├── !collages
+│   └── Road Trip.toml
+├── !playlists
+│   └── Shower.toml
+├── BLACKPINK - 2016. SQUARE ONE
+│   ├── 01. WHISTLE.opus
+│   ├── 02. BOOMBAYAH.opus
+│   └── cover.jpg
+├── BLACKPINK - 2016. SQUARE TWO
+│   ├── 01. PLAYING WITH FIRE.opus
+│   ├── 02. STAY.opus
+│   ├── 03. WHISTLE (acoustic ver.).opus
+│   └── cover.jpg
+├── LOOΠΔ - 2017. Kim Lip
+│   ├── 01. Eclipse.opus
+│   ├── 02. Twilight.opus
+│   └── cover.jpg
+├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
+│   ├── 01. ODD.opus
+│   ├── 02. Girl Front.opus
+│   ├── 03. LOONATIC.opus
+│   ├── 04. Chaotic.opus
+│   ├── 05. Starlight.opus
+│   └── cover.jpg
+└── YUZION - 2019. Young Trapper
+    ├── 01. Look At Me!!.mp3
+    ├── 02. In My Pocket.mp3
+    ├── 03. Henzclub.mp3
+    ├── 04. Ballin'.mp3
+    ├── 05. Jealousy.mp3
+    ├── 06. 18.mp3
+    ├── 07. Still Love.mp3
+    ├── 08. Next Up.mp3
+    └── cover.jpg
+```
+
+Rosé produces the following virtual filesystem (duplicate information has been
+omitted).
+
+```
+virtual/
+├── 1. Releases/
+│   ├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/
+│   │   ├── 01. LOOΠΔ - Eclipse.opus
+│   │   ├── 02. LOOΠΔ - Twilight.opus
+│   │   └── cover.jpg
+│   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/
+│   │   └── ...
+│   ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/
+│   │   └── ...
+│   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/
+│   │   └── ...
+│   └── YUZION - 2019. Young Trapper [Hip Hop]/
+│       └── ...
+├── 2. Releases - New/
+│   └── [2023-10-25] {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
+├── 3. Releases - Recently Added/
+│   ├── [2023-10-25] {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
+│   ├── [2023-10-01] LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+│   ├── [2022-08-22] BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
+│   ├── [2022-08-10] BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/...
+│   └── [2019-09-16] YUZION - 2019. Young Trapper [Hip Hop]/...
+├── 4. Artists/
+│   ├── BLACKPINK/
+│   │   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/...
+│   │   └── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
+│   ├── LOOΠΔ/
+│   │   ├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]
+│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+│   ├── LOOΠΔ ODD EYE CIRCLE/
+│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+│   └── YUZION/
+│       └── YUZION - 2019. Young Trapper [Hip Hop]/...
+├── 5. Genres/
+│   ├── Hip Hop/
+│   │   └── YUZION - 2019. Young Trapper [Hip Hop]/...
+│   └── K-Pop/
+│       ├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
+│       ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/...
+│       ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
+│       └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+├── 6. Labels/
+│   ├── BlockBerry Creative/
+│   │   ├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
+│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+│   └── YG Entertainment/
+│       ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/...
+│       └── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
+├── 7. Collages/
+│   └── Road Trip/
+│       ├── 1. BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
+│       └── 2. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+└── 8. Playlists/
+    └── Shower/
+        ├── 1. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
+        ├── 2. YUZION - Jealousy.mp3
+        ├── 3. BLACKPINK - PLAYING WITH FIRE.opus
+        └── 4. LOOΠΔ - Eclipse.opus
+```
+
+Rosé's virtual filesystem organizes your music library by the metadata in the
+music tags. In addition to a flat directory of all releases, Rosé creates
+additional directories based on Date Added, Artist, Genre, and Label.
+
+Rosé also provides support for creating Collages (collections of releases) and
+Playlists (collections of tracks). These are configured as TOML files in the
+source directory.
+
+Because the quality of the virtual filesystem depends on the quality of the
+tags, Rosé also provides functions for improving the tags of your music
+library. Rosé provides an easy text-based interface for manually modifying
+metadata, automatic metadata importing from third-party sources, and a rules
+system to automatically apply metadata changes based on patterns.
+
+> [!NOTE]
+> Rosé modifies the managed audio files, even on first scan. If you do not want
+> to modify your audio files, for example because they are seeding in a
+> bittorrent client, you should not use Rosé.
+
+_Demo Video TBD_
 
 ## Installation
 
@@ -29,7 +150,34 @@ dislike Python's packaging story, hence: Nix.
 
 ## Quickstart
 
-TODO
+After installing Rosé, let's first confirm that we can invoke the tool. Rosé
+provides the `rose` CLI tool, which should emit help text when ran.
+
+```bash
+$ rose
+
+Usage: rose [OPTIONS] COMMAND [ARGS]...
+
+  A virtual filesystem for music and metadata improvement tooling.
+
+Options:
+  -v, --verbose      Emit verbose logging.
+  -c, --config PATH  Override the config file location.
+  --help             Show this message and exit.
+
+Commands:
+  cache     Manage the read cache.
+  collages  Manage collages.
+  fs        Manage the virtual library.
+  releases  Manage releases.
+  playlists Manage playlists.
+```
+
+Next...
+
+- Mount
+- Play!
+- Unmount
 
 ## Features
 
@@ -37,7 +185,11 @@ TODO
 
 ## Requirements
 
-TODO
+Rosé supports `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` audio files.
+
+Rosé also supports JPEG and PNG cover art. The supported cover art file stems
+are `cover`, `folder`, and `art`. The supported cover art file extensions are
+`.jpg`, `.jpeg`, and `.png`.
 
 ## License
 
@@ -55,135 +207,3 @@ specific language governing permissions and limitations under the License.
 ## Contributions
 
 TODO
-
-# OLD
-
-## The Virtual Filesystem
-
-Rosé reads a source directory of releases like this:
-
-```tree
-.
-├── BLACKPINK - 2016. SQUARE ONE
-├── BLACKPINK - 2016. SQUARE TWO
-├── LOOΠΔ - 2019. [X X]
-├── LOOΠΔ - 2020. [#]
-├── LOOΠΔ 1_3 - 2017. Love & Evil
-├── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match
-└── YUZION - 2019. Young Trapper
-```
-
-And constructs a virtual filesystem from the source directory's audio tags. The
-virtual filesystem enables viewing various subcollections of the source
-directory based on multiple types of tags as a filesystem.
-
-While music players and music servers enable viewing releases with similar
-filters, those filters are only available in a proprietary UI. Rosé provides
-this filtering as a filesystem, which is easily composable with other tools and
-systems.
-
-The virtual filesystem constructed from the above source directory is:
-
-```tree
-.
-├── Releases
-│   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
-│   ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
-│   ├── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
-│   ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
-│   ├── LOOΠΔ - 2020. [#] [K-Pop] {BlockBerry Creative}
-│   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
-│   └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
-├── Artists
-│   ├── BLACKPINK
-│   │   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
-│   │   └── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
-│   ├── LOOΠΔ
-│   │   ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
-│   │   └── LOOΠΔ - 2020. [#] [K-Pop] {BlockBerry Creative}
-│   ├── LOOΠΔ 1_3
-│   │   └── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
-│   ├── LOOΠΔ ODD EYE CIRCLE
-│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
-│   └── YUZION
-│       └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
-├── Genres
-│   ├── Hip-Hop
-│   │   └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
-│   └── K-Pop
-│       ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
-│       ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
-│       ├── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
-│       ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
-│       ├── LOOΠΔ - 2020. [#] [K-Pop] {BlockBerry Creative}
-│       └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
-└── Labels
-    ├── BlockBerry Creative
-    │   ├── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
-    │   ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
-    │   ├── LOOΠΔ - 2021. [&] [K-Pop] {BlockBerry Creative}
-    │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
-    ├── No Label
-    │   └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
-    └── YG Entertainment
-        ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
-        └── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
-```
-
-## The Metadata Improvement Tooling
-
-Rosé constructs the virtual filesystem from the audio tags. However, audio tags
-are frequently missing or incorrect. Thus, Rosé also provides a set of tools to
-improve the audio tag metadata.
-
-Note that the metadata manager _modifies_ the source files. If you do not want
-to modify the source files, you should `chmod 444` and not use the metadata
-manager!
-
-I have yet to write this part of the tool. Please check back later!
-
-
-# Usage
-
-```
-Usage: python -m rose [OPTIONS] COMMAND [ARGS]...
-
-  A virtual filesystem for music and metadata improvement tooling.
-
-Options:
-  -v, --verbose      Emit verbose logging.
-  -c, --config PATH  Override the config file location.
-  --help             Show this message and exit.
-
-Commands:
-  cache     Manage the read cache.
-  collages  Manage collages.
-  fs        Manage the virtual library.
-  releases  Manage releases.
-  playlists Manage playlists.
-```
-
-## Supported Filetypes
-
-Rosé supports `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` audio files.
-
-Rosé also supports JPEG and PNG cover art. The supported cover art file stems
-are `cover`, `folder`, and `art`. The supported cover art file extensions are
-`.jpg`, `.jpeg`, and `.png`.
-
-## Virtual Filesystem
-
-The virtual filesystem is mounted and unmounted by `rose fs mount` and
-`rose fs unmount` respectively.
-
-TODO
-
-- document supported operations
-
-## Metadata Management
-
-TODO
-
-## Systemd Unit Files
-
-TODO; example unit files to schedule Rosé with systemd.
