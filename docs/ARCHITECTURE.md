@@ -66,10 +66,10 @@ it's a hot path and quite expensive if implemented poorly.
 
 The read cache update first pulls all relevant cached data from SQLite. Stored
 on each track is the mtime during the previous cache update. The cache update
-uses `stat` to check whether the mtime has changed and only reads the file if
-the `mtime` has changed. Throughout the update, we take note of the changes to
-apply. At the end of the update, we make a few fat SQL queries to batch the
-writes.
+checks whether any files have changed via `readdir` and `stat` calls, and only
+reads the file if the `mtime` has changed. Throughout the update, we take note
+of the changes to apply. At the end of the update, we make a few fat SQL
+queries to batch the writes.
 
 The update process is also parallelizable, so we shard workloads across
 multiple processes.

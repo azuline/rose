@@ -219,7 +219,7 @@ RELEASE_TYPE_FORMATTER = {
 STORED_DATA_FILE_REGEX = re.compile(r"\.rose\.([^.]+)\.toml")
 
 # TODO: Push this into the configuration.
-ROSE_IGNORE_DIRS = [".stversions"]
+ROSE_IGNORE_DIRS = [".stversions", "!collages", "!playlists"]
 
 
 def update_cache(c: Config, force: bool = False) -> None:

@@ -161,6 +161,20 @@ This section contains a concise list of Rosé's features.
 - Support for `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` audio
   files.
 
+And the following are opinionated decisions that might make this tool
+unsuitable for you:
+
+- Rosé modifies files in the source directory, even as early as the first
+  library scan. All mutations in Rosé are persisted by writing to the source
+  directory; Rosé maintains no state of its own outside of the source
+  directory. This makes Rosé work very poorly with files being seeded as
+  torrents.
+- Rosé expects all releases to be immediate child directories of the
+  source directory. And Rosé expects that all tracks belong to a "release"
+  (meaning an album, single, EP, etc.). This means that loose audio files at
+  the top-level of the source directory will be ignored. This makes Rosé work
+  very poorly with libraries organized as collections of tracks.
+
 ## Installation
 
 Install Rosé with Nix Flakes. If you do not have Nix Flakes, you can install
