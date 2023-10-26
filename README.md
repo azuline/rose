@@ -289,6 +289,18 @@ finally (3) play music!
 And that's it! If desired, you can unmount the virtual filesystem with the
 `rose fs unmount` command.
 
+# Recommended Usage
+
+Rosé alone is not a full-featured music system, and _that's the point_. You
+should compose Rosé with other great tools to create the music system that
+works best for you.
+
+We recommend using Rosé with:
+
+1. A file manager, such as [nnn](https://github.com/jarun/nnn),
+   [mc](https://midnight-commander.org/), and [ranger](https://github.com/ranger/ranger).
+2. A media player, such as [mpv](https://mpv.io/).
+
 # Learn More
 
 For additional documentation, please read the following files:
