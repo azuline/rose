@@ -15,6 +15,7 @@ from rose.cache import (
     CachedPlaylist,
     CachedRelease,
     CachedTrack,
+    _unpack,
     artist_exists,
     collage_exists,
     connect,
@@ -1076,3 +1077,14 @@ def test_collage_exists(config: Config) -> None:
 def test_playlist_exists(config: Config) -> None:
     assert playlist_exists(config, "Lala Lisa")
     assert not playlist_exists(config, "lalala")
+
+
+def test_unpack() -> None:
+    i = _unpack(r"Rose \\ Lisa \\ Jisoo \\ Jennie", r"vocal \\ dance \\ visual \\ vocal")
+    assert list(i) == [
+        ("Rose", "vocal"),
+        ("Lisa", "dance"),
+        ("Jisoo", "visual"),
+        ("Jennie", "vocal"),
+    ]
+    assert list(_unpack("", "")) == []

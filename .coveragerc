@@ -1,0 +1,10 @@
+[run]
+branch = True
+source = .
+omit =
+    rose/__main__.py
+    rose/virtualfs.py
+    setup.py
+    result/*
+    /nix/store/*
+# Multiprocessing/multithreading is borked; I give up.

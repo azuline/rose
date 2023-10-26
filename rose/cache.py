@@ -388,6 +388,7 @@ def _update_cache_for_releases_executor(
                     release_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
+                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
                 FROM releases_artists
                 GROUP BY release_id
             )
@@ -406,8 +407,9 @@ def _update_cache_for_releases_executor(
               , r.formatted_artists
               , COALESCE(g.genres, '') AS genres
               , COALESCE(l.labels, '') AS labels
-              , COALESCE(a.names, '') AS artist_names
-              , COALESCE(a.roles, '') AS artist_roles
+              , COALESCE(a.names, '') AS art_names
+              , COALESCE(a.roles, '') AS art_roles
+              , COALESCE(a.aliases, '') AS art_aliases
             FROM releases r
             LEFT JOIN genres g ON g.release_id = r.id
             LEFT JOIN labels l ON l.release_id = r.id
@@ -417,13 +419,10 @@ def _update_cache_for_releases_executor(
             release_uuids,
         )
         for row in cursor:
-            release_artists: list[CachedArtist] = []
-            for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
-                if not n:
-                    # This can occur if there are no artist names; then we get a single iteration
-                    # with empty string.
-                    continue
-                release_artists.append(CachedArtist(name=n, role=r))
+            release_artists = [
+                CachedArtist(name=n, role=r, alias=bool(int(a)))
+                for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+            ]
             cached_releases[row["id"]] = (
                 CachedRelease(
                     id=row["id"],
@@ -457,6 +456,7 @@ def _update_cache_for_releases_executor(
                     track_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
+                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
                 FROM tracks_artists
                 GROUP BY track_id
             )
@@ -472,8 +472,9 @@ def _update_cache_for_releases_executor(
               , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
-              , COALESCE(a.names, '') AS artist_names
-              , COALESCE(a.roles, '') AS artist_roles
+              , COALESCE(a.names, '') AS art_names
+              , COALESCE(a.roles, '') AS art_roles
+              , COALESCE(a.aliases, '') AS art_aliases
             FROM tracks t
             JOIN releases r ON r.id = t.release_id
             LEFT JOIN artists a ON a.track_id = t.id
@@ -483,13 +484,10 @@ def _update_cache_for_releases_executor(
         )
         num_tracks_found = 0
         for row in cursor:
-            track_artists: list[CachedArtist] = []
-            for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
-                if not n:
-                    # This can occur if there are no artist names; then we get a single iteration
-                    # with empty string.
-                    continue
-                track_artists.append(CachedArtist(name=n, role=r))
+            track_artists = [
+                CachedArtist(name=n, role=r, alias=bool(int(a)))
+                for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+            ]
             cached_releases[row["release_id"]][1][row["source_path"]] = CachedTrack(
                 id=row["id"],
                 source_path=Path(row["source_path"]),
@@ -1485,7 +1483,8 @@ def list_releases(
                     release_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM (SELECT * FROM releases_artists ORDER BY artist, role)
+                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
+                FROM (SELECT * FROM releases_artists ORDER BY artist, role, alias)
                 GROUP BY release_id
             )
             SELECT
@@ -1503,8 +1502,9 @@ def list_releases(
               , r.formatted_artists
               , COALESCE(g.genres, '') AS genres
               , COALESCE(l.labels, '') AS labels
-              , COALESCE(a.names, '') AS artist_names
-              , COALESCE(a.roles, '') AS artist_roles
+              , COALESCE(a.names, '') AS art_names
+              , COALESCE(a.roles, '') AS art_roles
+              , COALESCE(a.aliases, '') AS art_aliases
             FROM releases r
             LEFT JOIN genres g ON g.release_id = r.id
             LEFT JOIN labels l ON l.release_id = r.id
@@ -1543,13 +1543,10 @@ def list_releases(
 
         cursor = conn.execute(query, args)
         for row in cursor:
-            artists: list[CachedArtist] = []
-            for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
-                if not n:
-                    # This can occur if there are no artist names; then we get a single iteration
-                    # with empty string.
-                    continue
-                artists.append(CachedArtist(name=n, role=r))
+            artists = [
+                CachedArtist(name=n, role=r, alias=bool(int(a)))
+                for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+            ]
             yield CachedRelease(
                 id=row["id"],
                 source_path=Path(row["source_path"]),
@@ -1593,7 +1590,8 @@ def get_release(
                     release_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM (SELECT * FROM releases_artists ORDER BY artist, role)
+                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
+                FROM (SELECT * FROM releases_artists ORDER BY artist, role, alias)
                 GROUP BY release_id
             )
             SELECT
@@ -1611,8 +1609,9 @@ def get_release(
               , r.formatted_artists
               , COALESCE(g.genres, '') AS genres
               , COALESCE(l.labels, '') AS labels
-              , COALESCE(a.names, '') AS artist_names
-              , COALESCE(a.roles, '') AS artist_roles
+              , COALESCE(a.names, '') AS art_names
+              , COALESCE(a.roles, '') AS art_roles
+              , COALESCE(a.aliases, '') AS art_aliases
             FROM releases r
             LEFT JOIN genres g ON g.release_id = r.id
             LEFT JOIN labels l ON l.release_id = r.id
@@ -1624,13 +1623,10 @@ def get_release(
         row = cursor.fetchone()
         if not row:
             return None
-        rartists: list[CachedArtist] = []
-        for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
-            if not n:
-                # This can occur if there are no artist names; then we get a single iteration
-                # with empty string.
-                continue
-            rartists.append(CachedArtist(name=n, role=r))
+        rartists = [
+            CachedArtist(name=n, role=r, alias=bool(int(a)))
+            for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+        ]
         release = CachedRelease(
             id=row["id"],
             source_path=Path(row["source_path"]),
@@ -1657,7 +1653,8 @@ def get_release(
                     track_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM (SELECT * FROM tracks_artists ORDER BY artist, role)
+                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
+                FROM (SELECT * FROM tracks_artists ORDER BY artist, role, alias)
                 GROUP BY track_id
             )
             SELECT
@@ -1672,8 +1669,9 @@ def get_release(
               , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
-              , COALESCE(a.names, '') AS artist_names
-              , COALESCE(a.roles, '') AS artist_roles
+              , COALESCE(a.names, '') AS art_names
+              , COALESCE(a.roles, '') AS art_roles
+              , COALESCE(a.aliases, '') AS art_aliases
             FROM tracks t
             JOIN releases r ON r.id = t.release_id
             LEFT JOIN artists a ON a.track_id = t.id
@@ -1683,13 +1681,10 @@ def get_release(
             (release_id_or_virtual_dirname, release_id_or_virtual_dirname),
         )
         for row in cursor:
-            tartists: list[CachedArtist] = []
-            for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
-                if not n:
-                    # This can occur if there are no artist names; then we get a single iteration
-                    # with empty string.
-                    continue
-                tartists.append(CachedArtist(name=n, role=r))
+            tartists = [
+                CachedArtist(name=n, role=r, alias=bool(int(a)))
+                for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+            ]
             tracks.append(
                 CachedTrack(
                     id=row["id"],
@@ -1816,7 +1811,8 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
                     track_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM (SELECT * FROM tracks_artists ORDER BY artist, role)
+                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
+                FROM (SELECT * FROM tracks_artists ORDER BY artist, role, alias)
                 GROUP BY track_id
             )
             SELECT
@@ -1831,8 +1827,9 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
               , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
-              , COALESCE(a.names, '') AS artist_names
-              , COALESCE(a.roles, '') AS artist_roles
+              , COALESCE(a.names, '') AS art_names
+              , COALESCE(a.roles, '') AS art_roles
+              , COALESCE(a.aliases, '') AS art_aliases
             FROM tracks t
             JOIN playlists_tracks pt ON pt.track_id = t.id
             LEFT JOIN artists a ON a.track_id = t.id
@@ -1843,13 +1840,10 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
         )
         tracks: list[CachedTrack] = []
         for row in cursor:
-            tartists: list[CachedArtist] = []
-            for n, r in zip(row["artist_names"].split(r" \\ "), row["artist_roles"].split(r" \\ ")):
-                if not n:
-                    # This can occur if there are no artist names; then we get a single iteration
-                    # with empty string.
-                    continue
-                tartists.append(CachedArtist(name=n, role=r))
+            tartists = [
+                CachedArtist(name=n, role=r, alias=bool(int(a)))
+                for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+            ]
             playlist.track_ids.append(row["id"])
             tracks.append(
                 CachedTrack(
@@ -2009,3 +2003,21 @@ def _uniq(xs: list[T]) -> list[T]:
             rv.append(x)
             seen.add(x)
     return rv
+
+
+def _unpack(*xxs: str, delimiter: str = r" \\ ") -> Iterator[tuple[str, ...]]:
+    """
+    Unpack an arbitrary number of strings, each of which is a " \\ "-delimited list in actuality,
+    but encoded as a string. This " \\ "-delimited list-as-a-string is the convention we use to
+    return arrayed data from a SQL query without introducing additional disk accesses.
+
+    As a concrete example:
+
+        >>> _unpack(r"Rose \\ Lisa \\ Jisoo \\ Jennie", r"vocal \\ dance \\ visual \\ vocal")
+        [("Rose", "vocal"), ("Lisa", "dance"), ("Jisoo", "visual"), ("Jennie", "vocal")]
+    """
+    # If the strings are empty, then split will resolve to `[""]`. But we don't want to loop over an
+    # empty string, so we specially exit if we hit that case.
+    if all(not xs for xs in xxs):
+        return
+    yield from zip(*[xs.split(r" \\ ") for xs in xxs])
