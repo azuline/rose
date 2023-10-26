@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import tomllib
 
-from conftest import TEST_COLLAGE_1, TEST_PLAYLIST_1, TEST_RELEASE_1, TEST_RELEASE_2
+from conftest import TEST_COLLAGE_1, TEST_PLAYLIST_1, TEST_RELEASE_1, TEST_RELEASE_2, TEST_RELEASE_3
 from rose.cache import (
     CACHE_SCHEMA_PATH,
     STORED_DATA_FILE_REGEX,
@@ -601,6 +601,114 @@ def test_update_cache_playlists_nonexistent_track_id(config: Config) -> None:
     with (config.music_source_dir / "!playlists" / "Lala Lisa.toml").open("rb") as fp:
         data = tomllib.load(fp)
     assert data["tracks"] == []
+
+
+def test_update_releases_updates_collages_description_meta(config: Config) -> None:
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+    shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
+    shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
+    cpath = config.music_source_dir / "!collages" / "Rose Gold.toml"
+
+    # First cache update: releases are inserted, collage is new. This should update the collage
+    # TOML.
+    update_cache(config)
+    with cpath.open("r") as fp:
+        assert (
+            fp.read()
+            == """\
+[[releases]]
+uuid = "ilovecarly"
+description_meta = "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop] {A Cool Label}"
+
+[[releases]]
+uuid = "ilovenewjeans"
+description_meta = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
+"""
+        )
+
+    # Now prep for the second update. Reset the TOML to have garbage again, and update the database
+    # such that the virtual dirnames are also incorrect.
+    with cpath.open("w") as fp:
+        fp.write(
+            """\
+[[releases]]
+uuid = "ilovecarly"
+description_meta = "lalala"
+[[releases]]
+uuid = "ilovenewjeans"
+description_meta = "hahaha"
+"""
+        )
+    with connect(config) as conn:
+        conn.execute("UPDATE releases SET virtual_dirname = id || 'lalala'")
+
+    # Second cache update: releases exist, collages exist, release is "updated." This should also
+    # trigger a metadata update.
+    update_cache(config, force=True)
+    with cpath.open("r") as fp:
+        assert (
+            fp.read()
+            == """\
+[[releases]]
+uuid = "ilovecarly"
+description_meta = "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop] {A Cool Label}"
+
+[[releases]]
+uuid = "ilovenewjeans"
+description_meta = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
+"""
+        )
+
+
+def test_update_tracks_updates_playlists_description_meta(config: Config) -> None:
+    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+    shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
+    ppath = config.music_source_dir / "!playlists" / "Lala Lisa.toml"
+
+    # First cache update: tracks are inserted, playlist is new. This should update the playlist
+    # TOML.
+    update_cache(config)
+    with ppath.open("r") as fp:
+        assert (
+            fp.read()
+            == """\
+tracks = [
+    { uuid = "iloveloona", description_meta = "Carly Rae Jepsen - Track 1.m4a" },
+    { uuid = "ilovetwice", description_meta = "Carly Rae Jepsen - Track 2.m4a" },
+]
+"""
+        )
+
+    # Now prep for the second update. Reset the TOML to have garbage again, and update the database
+    # such that the virtual filenames are also incorrect.
+    with ppath.open("w") as fp:
+        fp.write(
+            """\
+[[tracks]]
+uuid = "iloveloona"
+description_meta = "lalala"
+[[tracks]]
+uuid = "ilovetwice"
+description_meta = "hahaha"
+"""
+        )
+    with connect(config) as conn:
+        conn.execute("UPDATE tracks SET virtual_filename = id || 'lalala'")
+
+    # Second cache update: tracks exist, playlists exist, track is "updated." This should also
+    # trigger a metadata update.
+    update_cache(config, force=True)
+    with ppath.open("r") as fp:
+        assert (
+            fp.read()
+            == """\
+tracks = [
+    { uuid = "iloveloona", description_meta = "Carly Rae Jepsen - Track 1.m4a" },
+    { uuid = "ilovetwice", description_meta = "Carly Rae Jepsen - Track 2.m4a" },
+]
+"""
+        )
 
 
 @pytest.mark.usefixtures("seeded_cache")

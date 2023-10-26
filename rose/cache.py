@@ -1,3 +1,5 @@
+import contextlib
+import copy
 import hashlib
 import logging
 import math
@@ -9,7 +11,6 @@ import sqlite3
 import time
 import traceback
 from collections.abc import Iterator
-from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -30,7 +31,7 @@ T = TypeVar("T")
 CACHE_SCHEMA_PATH = Path(__file__).resolve().parent / "cache.sql"
 
 
-@contextmanager
+@contextlib.contextmanager
 def connect(c: Config) -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(
         c.cache_database_path,
@@ -94,7 +95,7 @@ def migrate_database(c: Config) -> None:
         )
 
 
-@contextmanager
+@contextlib.contextmanager
 def lock(c: Config, name: str, timeout: float = 1.0) -> Iterator[None]:
     try:
         while True:
@@ -508,6 +509,10 @@ def _update_cache_for_releases_executor(
     upd_unknown_cached_tracks_args: list[tuple[str, list[str]]] = []
     upd_track_args: list[list[Any]] = []
     upd_track_artist_args: list[list[Any]] = []
+    # The following two variables store updates for a collage's and playlist's description_meta
+    # fields. Map of entity id -> dir/filename.
+    upd_collage_release_dirnames: dict[str, str] = {}
+    upd_playlist_track_filenames: dict[str, str] = {}
     for source_path, preexisting_release_id, files in dir_tree:
         logger.debug(f"Updating release {source_path.name}")
         # Check to see if we should even process the directory. If the directory does not have
@@ -726,9 +731,9 @@ def _update_cache_for_releases_executor(
                         release.releasetype, release.releasetype.title()
                     )
                 if release.genres:
-                    release_virtual_dirname += " [" + ";".join(release.genres) + "]"
+                    release_virtual_dirname += " [" + ";".join(sorted(release.genres)) + "]"
                 if release.labels:
-                    release_virtual_dirname += " {" + ";".join(release.labels) + "}"
+                    release_virtual_dirname += " {" + ";".join(sorted(release.labels)) + "}"
                 if release.new:
                     release_virtual_dirname = "{NEW} " + release_virtual_dirname
                 release_virtual_dirname = _sanitize_filename(release_virtual_dirname)
@@ -758,6 +763,7 @@ def _update_cache_for_releases_executor(
                     known_virtual_dirnames[release_virtual_dirname] = True
                     release.virtual_dirname = release_virtual_dirname
                     release_dirty = True
+                    upd_collage_release_dirnames[release.id] = release.virtual_dirname
 
             # Here we compute the track ID. We store the track ID on the audio file in order to
             # enable persistence. This does mutate the file!
@@ -844,6 +850,7 @@ def _update_cache_for_releases_executor(
                 )
                 tracks[i].virtual_filename = virtual_filename
                 track_ids_to_insert.add(t.id)
+                upd_playlist_track_filenames[t.id] = virtual_filename
 
         # Schedule database executions.
         if unknown_cached_tracks or release_dirty or track_ids_to_insert:
@@ -1045,6 +1052,34 @@ def _update_cache_for_releases_executor(
                 """,
                 _flatten(upd_track_artist_args),
             )
+        if upd_collage_release_dirnames:
+            cursor = conn.execute(
+                f"""
+                SELECT DISTINCT collage_name FROM collages_releases
+                WHERE release_id IN ({','.join(['?'] * len(upd_collage_release_dirnames))})
+                ORDER BY collage_name
+                """,
+                list(upd_collage_release_dirnames.keys()),
+            )
+            collages = [row["collage_name"] for row in cursor]
+            if collages:
+                # Because we force the update, the collage will query for the new dirnames and
+                # update the files.
+                update_cache_for_collages(c, collages, force=True)
+        if upd_playlist_track_filenames:
+            cursor = conn.execute(
+                f"""
+                SELECT DISTINCT playlist_name FROM playlists_tracks
+                WHERE track_id IN ({','.join(['?'] * len(upd_playlist_track_filenames))})
+                ORDER BY playlist_name
+                """,
+                list(upd_playlist_track_filenames.keys()),
+            )
+            playlists = [row["playlist_name"] for row in cursor]
+            if playlists:
+                # Because we force update, the playlist will query for the new filenames and update
+                # the files.
+                update_cache_for_playlists(c, playlists, force=True)
     logger.debug(f"Database execution loop time {time.time() - exec_start=}")
 
 
@@ -1132,63 +1167,66 @@ def update_cache_for_collages(
             logger.debug(f"Collage cache miss (mtime) for {source_path}, reading data from disk")
             cached_collage.source_mtime = source_mtime
 
-            with source_path.open("rb") as fp:
-                diskdata = tomllib.load(fp)
+            with lock(c, collage_lock_name(name)):
+                with source_path.open("rb") as fp:
+                    data = tomllib.load(fp)
+                original_releases = data.get("releases", [])
+                releases = copy.deepcopy(original_releases)
 
-            # Track the listed releases that no longer exist. Remove them from the collage file
-            # after.
-            cached_collage.release_ids = []
-            nonexistent_release_idxs: list[int] = []
-            for idx, rls in enumerate(diskdata.get("releases", [])):
-                if rls["uuid"] not in existing_release_ids:
-                    nonexistent_release_idxs.append(idx)
-                    continue
-                cached_collage.release_ids.append(rls["uuid"])
-            logger.debug(f"Found {len(cached_collage.release_ids)} release(s) in {source_path}")
+                # Filter out releases that no longer exist.
+                for rls in releases:
+                    if rls["uuid"] not in existing_release_ids:
+                        logger.info(
+                            f"Removing nonexistent release {rls['description_meta']} "
+                            f"from collage {cached_collage.name}"
+                        )
+                releases = [rls for rls in releases if rls["uuid"] in existing_release_ids]
+                cached_collage.release_ids = [r["uuid"] for r in releases]
+                logger.debug(f"Found {len(cached_collage.release_ids)} release(s) in {source_path}")
 
-            logger.info(f"Applying cache updates for collage {cached_collage.name}")
-            conn.execute(
-                """
-                INSERT INTO collages (name, source_mtime) VALUES (?, ?)
-                ON CONFLICT (name) DO UPDATE SET source_mtime = excluded.source_mtime
-                """,
-                (cached_collage.name, cached_collage.source_mtime),
-            )
-            conn.execute(
-                "DELETE FROM collages_releases WHERE collage_name = ?",
-                (cached_collage.name,),
-            )
-            args: list[Any] = []
-            for position, rid in enumerate(cached_collage.release_ids):
-                args.extend([cached_collage.name, rid, position + 1])
-            if args:
-                conn.execute(
+                # Update the description_metas.
+                cursor = conn.execute(
                     f"""
-                    INSERT INTO collages_releases (collage_name, release_id, position)
-                    VALUES {','.join(['(?, ?, ?)'] * len(cached_collage.release_ids))}
+                    SELECT id, virtual_dirname
+                    FROM releases WHERE id IN ({','.join(['?'] * len(releases))})
                     """,
-                    args,
+                    cached_collage.release_ids,
                 )
+                desc_map = {r["id"]: r["virtual_dirname"] for r in cursor}
+                for i, rls in enumerate(releases):
+                    releases[i]["description_meta"] = desc_map[rls["uuid"]]
 
-            if nonexistent_release_idxs:
-                new_diskdata_releases: list[dict[str, str]] = []
-                removed_releases: list[str] = []
-                with lock(c, collage_lock_name(name)):
-                    # Re-read disk data here in case it changed. Super rare case, but better to be
-                    # correct than suffer from niche unexplainable bugs.
-                    with source_path.open("rb") as fp:
-                        diskdata = tomllib.load(fp)
-                    for idx, rls in enumerate(diskdata.get("releases", [])):
-                        if idx in nonexistent_release_idxs:
-                            removed_releases.append(rls["description_meta"])
-                            continue
-                        new_diskdata_releases.append(rls)
+                # Update the collage on disk if we have changed information.
+                if releases != original_releases:
+                    logger.info(f"Updating release descriptions for {cached_collage.name}")
+                    data["releases"] = releases
                     with source_path.open("wb") as fp:
-                        tomli_w.dump({"releases": new_diskdata_releases}, fp)
-                logger.info(
-                    f"Removing nonexistent releases from collage {cached_collage.name}: "
-                    f"{','.join(removed_releases)}"
+                        tomli_w.dump(data, fp)
+                    cached_collage.source_mtime = str(os.stat(source_path).st_mtime)
+
+                logger.info(f"Applying cache updates for collage {cached_collage.name}")
+                conn.execute(
+                    """
+                    INSERT INTO collages (name, source_mtime) VALUES (?, ?)
+                    ON CONFLICT (name) DO UPDATE SET source_mtime = excluded.source_mtime
+                    """,
+                    (cached_collage.name, cached_collage.source_mtime),
                 )
+                conn.execute(
+                    "DELETE FROM collages_releases WHERE collage_name = ?",
+                    (cached_collage.name,),
+                )
+                args: list[Any] = []
+                for position, rid in enumerate(cached_collage.release_ids):
+                    args.extend([cached_collage.name, rid, position + 1])
+                if args:
+                    conn.execute(
+                        f"""
+                        INSERT INTO collages_releases (collage_name, release_id, position)
+                        VALUES {','.join(['(?, ?, ?)'] * len(cached_collage.release_ids))}
+                        """,
+                        args,
+                    )
 
     logger.debug(f"Collage update loop time {time.time() - loop_start=}")
 
@@ -1318,69 +1356,72 @@ def update_cache_for_playlists(
             )
             cached_playlist.source_mtime = source_mtime
 
-            with source_path.open("rb") as fp:
-                diskdata = tomllib.load(fp)
+            with lock(c, playlist_lock_name(name)):
+                with source_path.open("rb") as fp:
+                    data = tomllib.load(fp)
+                original_tracks = data.get("tracks", [])
+                tracks = copy.deepcopy(original_tracks)
 
-            # Track the listed tracks that no longer exist. Remove them from the playlist file
-            # after.
-            cached_playlist.track_ids = []
-            nonexistent_track_idxs: list[int] = []
-            for idx, trk in enumerate(diskdata.get("tracks", [])):
-                if trk["uuid"] not in existing_track_ids:
-                    nonexistent_track_idxs.append(idx)
-                    continue
-                cached_playlist.track_ids.append(trk["uuid"])
-            logger.debug(f"Found {len(cached_playlist.track_ids)} track(s) in {source_path}")
+                # Filter out tracks that no longer exist.
+                for trk in tracks:
+                    if trk["uuid"] not in existing_track_ids:
+                        logger.info(
+                            f"Removing nonexistent track {trk['description_meta']} "
+                            f"from playlist {cached_playlist.name}"
+                        )
+                tracks = [trk for trk in tracks if trk["uuid"] in existing_track_ids]
+                cached_playlist.track_ids = [r["uuid"] for r in tracks]
+                logger.debug(f"Found {len(cached_playlist.track_ids)} track(s) in {source_path}")
 
-            logger.info(f"Applying cache updates for playlist {cached_playlist.name}")
-            conn.execute(
-                """
-                INSERT INTO playlists (name, source_mtime, cover_path) VALUES (?, ?, ?)
-                ON CONFLICT (name) DO UPDATE SET
-                    source_mtime = excluded.source_mtime
-                  , cover_path = excluded.cover_path
-                """,
-                (
-                    cached_playlist.name,
-                    cached_playlist.source_mtime,
-                    str(cached_playlist.cover_path) if cached_playlist.cover_path else None,
-                ),
-            )
-            conn.execute(
-                "DELETE FROM playlists_tracks WHERE playlist_name = ?",
-                (cached_playlist.name,),
-            )
-            args: list[Any] = []
-            for position, rid in enumerate(cached_playlist.track_ids):
-                args.extend([cached_playlist.name, rid, position + 1])
-            if args:
-                conn.execute(
+                # Update the description_metas.
+                cursor = conn.execute(
                     f"""
-                    INSERT INTO playlists_tracks (playlist_name, track_id, position)
-                    VALUES {','.join(['(?, ?, ?)'] * len(cached_playlist.track_ids))}
+                    SELECT id, virtual_filename
+                    FROM tracks WHERE id IN ({','.join(['?'] * len(tracks))})
                     """,
-                    args,
+                    cached_playlist.track_ids,
                 )
+                desc_map = {r["id"]: r["virtual_filename"] for r in cursor}
+                for i, trk in enumerate(tracks):
+                    tracks[i]["description_meta"] = desc_map[trk["uuid"]]
 
-            if nonexistent_track_idxs:
-                new_diskdata_tracks: list[dict[str, str]] = []
-                removed_tracks: list[str] = []
-                with lock(c, playlist_lock_name(name)):
-                    # Re-read disk data here in case it changed. Super rare case, but better to be
-                    # correct than suffer from niche unexplainable bugs.
-                    with source_path.open("rb") as fp:
-                        diskdata = tomllib.load(fp)
-                    for idx, trk in enumerate(diskdata.get("tracks", [])):
-                        if idx in nonexistent_track_idxs:
-                            removed_tracks.append(trk["description_meta"])
-                            continue
-                        new_diskdata_tracks.append(trk)
+                # Update the playlist on disk if we have changed information.
+                if tracks != original_tracks:
+                    logger.info(f"Updating track descriptions for {cached_playlist.name}")
+                    data["tracks"] = tracks
                     with source_path.open("wb") as fp:
-                        tomli_w.dump({"tracks": new_diskdata_tracks}, fp)
-                logger.info(
-                    f"Removing nonexistent tracks from playlist {cached_playlist.name}: "
-                    f"{','.join(removed_tracks)}"
+                        tomli_w.dump(data, fp)
+                    cached_playlist.source_mtime = str(os.stat(source_path).st_mtime)
+
+                logger.info(f"Applying cache updates for playlist {cached_playlist.name}")
+                conn.execute(
+                    """
+                    INSERT INTO playlists (name, source_mtime, cover_path) VALUES (?, ?, ?)
+                    ON CONFLICT (name) DO UPDATE SET
+                        source_mtime = excluded.source_mtime
+                      , cover_path = excluded.cover_path
+                    """,
+                    (
+                        cached_playlist.name,
+                        cached_playlist.source_mtime,
+                        str(cached_playlist.cover_path) if cached_playlist.cover_path else None,
+                    ),
                 )
+                conn.execute(
+                    "DELETE FROM playlists_tracks WHERE playlist_name = ?",
+                    (cached_playlist.name,),
+                )
+                args: list[Any] = []
+                for position, rid in enumerate(cached_playlist.track_ids):
+                    args.extend([cached_playlist.name, rid, position + 1])
+                if args:
+                    conn.execute(
+                        f"""
+                        INSERT INTO playlists_tracks (playlist_name, track_id, position)
+                        VALUES {','.join(['(?, ?, ?)'] * len(cached_playlist.track_ids))}
+                        """,
+                        args,
+                    )
 
     logger.debug(f"playlist update loop time {time.time() - loop_start=}")
 

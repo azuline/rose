@@ -19,7 +19,7 @@ from rose.config import Config
 
 def test_remove_release_from_collage(config: Config, source_dir: Path) -> None:
     remove_release_from_collage(
-        config, "Rose Gold", "Carly Rae Jepsen - 1990. I Love Carly [Pop;Dream Pop] {A Cool Label}"
+        config, "Rose Gold", "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop] {A Cool Label}"
     )
 
     # Assert file is updated.
@@ -50,7 +50,7 @@ def test_collage_lifecycle(config: Config, source_dir: Path) -> None:
 
     # Add one release.
     add_release_to_collage(
-        config, "All Eyes", "Carly Rae Jepsen - 1990. I Love Carly [Pop;Dream Pop] {A Cool Label}"
+        config, "All Eyes", "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop] {A Cool Label}"
     )
     with filepath.open("rb") as fp:
         diskdata = tomllib.load(fp)
