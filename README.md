@@ -61,14 +61,10 @@ virtual/
 │   │   ├── 01. BLACKPINK - WHISTLE.opus
 │   │   ├── 02. BLACKPINK - BOOMBAYAH.opus
 │   │   └── cover.jpg
-│   ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/
-│   │   └── ...
-│   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/
-│   │   └── ...
-│   ├── YUZION - 2019. Young Trapper [Hip Hop]/
-│   │   └── ...
-│   └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/
-│       └── ...
+│   ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
+│   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+│   ├── YUZION - 2019. Young Trapper [Hip Hop]/...
+│   └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
 ├── 2. Releases - New/
 │   └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
 ├── 3. Releases - Recently Added/
@@ -82,7 +78,7 @@ virtual/
 │   │   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/...
 │   │   └── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
 │   ├── LOOΠΔ/
-│   │   ├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]
+│   │   ├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
 │   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
 │   ├── LOOΠΔ ODD EYE CIRCLE/
 │   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
@@ -129,7 +125,7 @@ And because the quality of the virtual filesystem depends on the quality of the
 tags, Rosé also provides functions for improving the tags of your music
 library. Rosé provides an easy text-based interface for manually modifying
 metadata, automatic metadata importing from third-party sources, and a rules
-system to automatically apply metadata changes based on patterns.
+engine to automatically apply metadata changes based on patterns.
 
 > [!NOTE]
 > Rosé modifies the managed audio files, even on first scan. If you do not want
@@ -137,6 +133,33 @@ system to automatically apply metadata changes based on patterns.
 > bittorrent client, you should not use Rosé.
 
 _Demo Video TBD_
+
+## Features
+
+This section contains a concise list of Rosé's features.
+
+- Virtual Filesystem
+  - Read audio files and cover art
+  - Modify files and cover art
+  - Filter releases by album artist, genre, label, and "new"-ness.
+  - Browse and edit collages and playlists
+  - Group artist aliases together
+  - Toggle release "new"-ness
+  - Whitelist/blacklist entries in the artist, genre, and label views
+- Command Line
+  - Edit release metadata as a text file.
+  - Import metadata and cover art from third-party sources: Discogs,
+    MusicBrainz, Tidal, Deezer, Apple, Junodownload, Beatport, and fanart.tv
+  - Extract embedded cover art to a file
+  - Automatically update metadata via patterns and rules
+  - Collage and playlist management
+  - Toggle release "new"-ness
+  - Create "singles" from tracks (even if currently tagged as part of an album)
+  - Update the read cache (force update supported)
+  - Watch the source directory and auto-update the cache on file modification
+  - Dump library metadata as JSON
+- Support for `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` audio
+  files.
 
 ## Installation
 
@@ -153,7 +176,8 @@ $ nix profile install github:azuline/rose#rose
 
 Let's now get Rosé up and running!
 
-First, let's confirm that the `rose` command exists and is accessible:
+Once Rosé is installed, let's first confirm that `rose` exists and is
+accessible:
 
 ```bash
 $ rose
@@ -251,17 +275,16 @@ finally (3) play music!
 And that's it! If desired, you can unmount the virtual filesystem with the
 `rose fs unmount` command.
 
-## Features
+## Learn More
 
-TODO
+For additional documentation, please read the following files:
 
-## Requirements
-
-Rosé supports `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` audio files.
-
-Rosé also supports JPEG and PNG cover art. The supported cover art file stems
-are `cover`, `folder`, and `art`. The supported cover art file extensions are
-`.jpg`, `.jpeg`, and `.png`.
+- [Configuration](./docs/CONFIGURATION.md)
+- [Browsing with the Virtual Filesystem](./docs/VIRTUAL_FILESYSTEM.md)
+- [Managing Your Music Metadata](./docs/METADATA_MANAGEMENT.md)
+- [Using Playlists & Collages](./docs/PLAYLISTS_COLLAGES.md)
+- [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md)
+- [Architecture](./docs/ARCHITECTURE.md)
 
 ## License
 
@@ -280,9 +303,9 @@ specific language governing permissions and limitations under the License.
 
 ## Contributions
 
-Rosé is a personal pet project that I developed in order to use. Rosé is
-designed to match my specific needs and constraints, and is never destined to
-be widely adopted.
+Rosé is a pet project that I developed for personal use. Rosé is designed to
+match my specific needs and constraints, and is never destined to be widely
+adopted.
 
 Bug fix contributions are happily accepted! However, please do not open a pull
 request for a new feature without prior discussion.

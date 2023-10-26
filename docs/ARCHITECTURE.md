@@ -59,6 +59,21 @@ files.
 - Each track has a custom `roseid` tag. This tag is written to the source audio
   file. Read the `tagger.py` file for the exact field name used.
 
+## Read Cache Update
+
+The read cache update is optimized to minimize the number of disk accesses, as
+it's a hot path and quite expensive if implemented poorly.
+
+The read cache update first pulls all relevant cached data from SQLite. Stored
+on each track is the mtime during the previous cache update. The cache update
+uses `stat` to check whether the mtime has changed and only reads the file if
+the `mtime` has changed. Throughout the update, we take note of the changes to
+apply. At the end of the update, we make a few fat SQL queries to batch the
+writes.
+
+The update process is also parallelizable, so we shard workloads across
+multiple processes.
+
 ## Logging
 
 Logs are written to stderr and to `${XDG_STATE_HOME:-$HOME/.local/state}/rose/rose.log`.
