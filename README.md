@@ -136,43 +136,45 @@ _Demo Video TBD_
 
 # Features
 
-This section contains a concise list of Rosé's features.
+**Virtual Filesystem:**
 
-- Virtual Filesystem
-  - Read audio files and cover art
-  - Modify files and cover art
-  - Filter releases by album artist, genre, label, and "new"-ness
-  - Browse and edit collages and playlists
-  - Group artist aliases together
-  - Toggle release "new"-ness
-  - Whitelist/blacklist entries in the artist, genre, and label views
-- Command Line
-  - Edit release metadata as a text file
-  - Import metadata and cover art from third-party sources
-  - Extract embedded cover art to a file
-  - Automatically update metadata via patterns and rules
-  - Collage and playlist management
-  - Toggle release "new"-ness
-  - Create "singles" from tracks (even if currently tagged as part of an album)
-  - Update the read cache (force update supported)
-  - Watch the source directory and auto-update the cache on file modification
-  - Dump library metadata as JSON
+- Read audio files and cover art
+- Modify audio files and cover art
+- Filter releases by album artist, genre, label, and "new"-ness
+- Browse and edit collages and playlists
+- Group artist aliases together
+- Toggle release "new"-ness
+- Whitelist/blacklist entries in the artist, genre, and label views
+
+**Command Line:**
+
+- Collage and playlist management
+- Toggle release "new"-ness
+- Edit release metadata as a text file
+- Import metadata and cover art from third-party sources
+- Extract embedded cover art to a file
+- Automatically update metadata via patterns and rules
+- Create "singles" from tracks (even if currently tagged as part of an album)
+- Watch the source directory and auto-update the cache on file modification
+- Print library metadata as JSON
+
+**General:**
+
 - Support for `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` audio
   files.
 
-And the following are opinionated decisions that might make this tool
-unsuitable for you:
+Rosé also makes some opinionated decisions. Please make sure that Rosé's
+opinions are acceptable for you:
 
 - Rosé modifies files in the source directory, even as early as the first
   library scan. All mutations in Rosé are persisted by writing to the source
   directory; Rosé maintains no state of its own outside of the source
-  directory. This makes Rosé work very poorly with files being seeded as
-  torrents.
+  directory. This makes Rosé work very poorly with torrents.
 - Rosé expects all releases to be immediate child directories of the
   source directory. And Rosé expects that all tracks belong to a "release"
   (meaning an album, single, EP, etc.). This means that loose audio files at
-  the top-level of the source directory will be ignored. This makes Rosé work
-  very poorly with libraries organized as collections of tracks.
+  the root of the source directory will be ignored. Thus, Rosé works very
+  poorly with collections of individual track files.
 
 # Installation
 
@@ -182,7 +184,7 @@ Nix Flakes with [this installer](https://github.com/DeterminateSystems/nix-insta
 Then, to install Rosé, run:
 
 ```bash
-$ nix profile install github:azuline/rose#rose
+$ nix profile install github:azuline/rose
 ```
 
 # Quickstart

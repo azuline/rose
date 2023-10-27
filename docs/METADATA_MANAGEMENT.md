@@ -47,7 +47,7 @@ Rosé supports three tag container formats:
 
 - ID3: `.mp3` files
 - MP4: `.m4a` files
-- Vorbis:`.ogg`, `.opus`, and `.flac` files
+- Vorbis: `.ogg`, `.opus`, and `.flac` files
 
 In this section, we will list out the per-container fields that we read/write.
 Rosé will only write to a single field for each tag; however, for tags with
@@ -238,10 +238,10 @@ artists = [
 
 # Metadata Import & Cover Art Downloading
 
-In Development
+_In Development_
 
 Sources: Discogs, MusicBrainz, Tidal, Deezer, Apple, Junodownload, Beatport, and fanart.tv
 
 # Rules Engine
 
-In Development
+_In Development_
