@@ -9,6 +9,8 @@ functions, which re-read the source files and write their metadata into the
 cache. All mutations in the system occur directly to the source files, not to
 the read cache.
 
+# Cache Drift
+
 So what's the problem?
 
 The read cache has the possibility of _drifting_ from the source directory. For
@@ -28,6 +30,8 @@ synchronization is entirely _one-way_: the source files update the read cache.
 The opposite direction never occurs: the read cache never updates the source
 files.
 
+# Updating the Cache
+
 The cache can be updated with the command `rose cache update`. By default, this
 command only checks files which have changed since the last cache update. It
 uses the mtime (last modified) field for this purpose. However, sometimes we
@@ -45,6 +49,8 @@ happens _through_ Rosé. That means:
 
 Rosé will also update the cache on virtual filesystem mount.
 
+# Updating on External Changes
+
 However, there is one class of updates that this does not update in response
 to, and that is updates made by external tools directly to the source
 directory. If another system updates your source directory directly, the read
@@ -56,3 +62,23 @@ file changes in the source directory. `rose cache watch` runs in the
 foreground, so it is recommended that you manage it with a service manager like
 systemd. See [Configuration](./CONFIGURATION.md) for example systemd unit
 files.
+
+# Cache Resets
+
+When Rosé detects that:
+
+1. Rosé has been upgraded to a new version,
+2. The configuration file has changed,
+3. Or the cache database schema has changed,
+
+Rosé will delete the read cache and rebuild it from scratch.
+
+A full cache rebuild is fairly performant, though an order of magnitude slower
+than a cache scan that results in no changes.
+
+Deleting the read cache is a supported operation, and it is a viable solution
+in case your cache ends up in a bad state (e.g. due to a bug or other issue).
+
+Since Rosé stores all of its state in the source directory, and merely
+replicates that state into the cache, deleting the cache will never result in a
+loss of data.

@@ -8,7 +8,8 @@ Rosé is a music manager for Unix-based systems. Rosé provides a virtual FUSE
 filesystem for managing your music library and various functions for editing
 and improving your music library's metadata and tags.
 
-For example, given the following directory of music files:
+Rosé manages a _source directory_ of music releases. Given the following source
+directory:
 
 ```
 source/
@@ -160,6 +161,8 @@ _Demo Video TBD_
 
 - Support for `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` audio
   files.
+
+# Is Rosé Right for Me?
 
 Rosé also makes some opinionated decisions. Please make sure that Rosé's
 opinions are acceptable for you:

@@ -35,16 +35,15 @@ automatically.
 
 This has some nice consequences:
 
-- External tag editing tools do not disrupt Rosé. If an external tool modifies
-  the audio tags, Rosé's cache can always update to match the newly modified
-  source files.
+- External tag editing tools do not conflict with Rosé. If an external tool
+  modifies the audio tags, Rosé will not overwrite those changes.
 - Rosé is easily synchronized across machines, for example with a tool like
   Syncthing. As long as the source files are in-sync, Rosé's read cache will
   match.
-- An inconsistent state between source files and Rosé is trivially resolved.
-  This is different from music managers that retain a separate database,
-  because conflict resolution is then ambiguous. Whereas in Rosé, there are no
-  conflicts.
+- Rosé has no ambiguous conflict resolution between audio tags and its own
+  state, because the audio tags _are_ the state. Regardless of how the cache
+  drifts from source files, that drift can always be automatically resolved
+  simply by rebuilding the cache.
 
 # Stable Release & Track Identifiers
 

@@ -26,7 +26,7 @@ if "pytest" not in sys.modules or LOG_EVEN_THOUGH_WERE_IN_TEST:  # pragma: no co
     logger.addHandler(stream_handler)
 
     file_formatter = logging.Formatter(
-        "[%(asctime)s] [%(name)s:%(lineno)s] %(levelname)s: %(message)s",
+        "[ts=%(asctime)s] [pid=%(process)d] [src=%(name)s:%(lineno)s] %(levelname)s: %(message)s",
         datefmt="%H:%M:%S",
     )
     file_handler = logging.FileHandler(LOGFILE)
