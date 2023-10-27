@@ -42,6 +42,7 @@ def create_collage(c: Config, name: str) -> None:
         if path.exists():
             raise CollageAlreadyExistsError(f"Collage {name} already exists")
         path.touch()
+    logger.info(f"Creating collage {name} in source directory")
     update_cache_for_collages(c, [name], force=True)
 
 
@@ -51,6 +52,7 @@ def delete_collage(c: Config, name: str) -> None:
         if not path.exists():
             raise CollageDoesNotExistError(f"Collage {name} does not exist")
         send2trash(path)
+    logger.info(f"Deleting collage {name} from source directory")
     update_cache_evict_nonexistent_collages(c)
 
 

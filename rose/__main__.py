@@ -13,6 +13,7 @@ from rose.collages import (
     dump_collages,
     edit_collage_in_editor,
     remove_release_from_collage,
+    rename_collage,
 )
 from rose.config import Config
 from rose.playlists import (
@@ -22,8 +23,9 @@ from rose.playlists import (
     dump_playlists,
     edit_playlist_in_editor,
     remove_track_from_playlist,
+    rename_playlist,
 )
-from rose.releases import dump_releases, edit_release, toggle_release_new
+from rose.releases import delete_release, dump_releases, edit_release, toggle_release_new
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
@@ -131,6 +133,14 @@ def toggle_new(ctx: Context, release: str) -> None:
     toggle_release_new(ctx.config, release)
 
 
+@releases.command(name="delete")
+@click.argument("release", type=str, nargs=1)
+@click.pass_obj
+def delete3(ctx: Context, release: str) -> None:
+    """Delete a release. The release is moved to the trash bin, following the freedesktop spec."""
+    delete_release(ctx.config, release)
+
+
 @cli.group()
 def collages() -> None:
     """Manage collages."""
@@ -142,6 +152,15 @@ def collages() -> None:
 def create(ctx: Context, name: str) -> None:
     """Create a new collage."""
     create_collage(ctx.config, name)
+
+
+@collages.command()
+@click.argument("old_name", type=str, nargs=1)
+@click.argument("new_name", type=str, nargs=1)
+@click.pass_obj
+def rename(ctx: Context, old_name: str, new_name: str) -> None:
+    """Rename a collage."""
+    rename_collage(ctx.config, old_name, new_name)
 
 
 @collages.command()
@@ -205,6 +224,15 @@ def playlists() -> None:
 def create2(ctx: Context, name: str) -> None:
     """Create a new playlist."""
     create_playlist(ctx.config, name)
+
+
+@playlists.command(name="rename")
+@click.argument("old_name", type=str, nargs=1)
+@click.argument("new_name", type=str, nargs=1)
+@click.pass_obj
+def rename2(ctx: Context, old_name: str, new_name: str) -> None:
+    """Rename a playlist."""
+    rename_playlist(ctx.config, old_name, new_name)
 
 
 @playlists.command(name="delete")

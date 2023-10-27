@@ -359,7 +359,8 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
         if p.view == "Collages" and p.collage:
             releases = list(list_collage_releases(self.config, p.collage))
-            pad_size = max(len(str(r[0])) for r in releases)
+            # Two zeros because `max(single_arg)` assumes that the single_arg is enumerable.
+            pad_size = max(0, 0, *[len(str(r[0])) for r in releases])
             for idx, virtual_dirname, source_dir in releases:
                 v = f"{str(idx).zfill(pad_size)}. {virtual_dirname}"
                 yield v
@@ -378,7 +379,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
             if pdata is None:
                 raise fuse.FuseOSError(errno.ENOENT)
             playlist, tracks = pdata
-            pad_size = max([len(str(i + 1)) for i, _ in enumerate(tracks)])
+            pad_size = max(0, 0, *[len(str(i + 1)) for i, _ in enumerate(tracks)])
             for idx, track in enumerate(tracks):
                 v = f"{str(idx+1).zfill(pad_size)}. {track.virtual_filename}"
                 yield v
@@ -517,7 +518,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
     def mkdir(self, path: str, mode: int) -> None:
         logger.debug(f"Received mkdir for {path=} {mode=}")
-        p = parse_virtual_path(path)
+        p = parse_virtual_path(path, parse_release_position=False)
         logger.debug(f"Parsed mkdir path as {p}")
 
         # Possible actions:
@@ -703,7 +704,7 @@ POSITION_REGEX = re.compile(r"^([^.]+)\. ")
 ADDED_AT_REGEX = re.compile(r"^\[[\d-]{10}\] ")
 
 
-def parse_virtual_path(path: str) -> ParsedPath:
+def parse_virtual_path(path: str, *, parse_release_position: bool = True) -> ParsedPath:
     parts = path.split("/")[1:]  # First part is always empty string.
 
     if len(parts) == 1 and parts[0] == "":
@@ -811,15 +812,19 @@ def parse_virtual_path(path: str) -> ParsedPath:
             return ParsedPath(
                 view="Collages",
                 collage=parts[1],
-                release=POSITION_REGEX.sub("", parts[2]),
-                release_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
+                release=POSITION_REGEX.sub("", parts[2]) if parse_release_position else parts[2],
+                release_position=m[1]
+                if parse_release_position and (m := POSITION_REGEX.match(parts[2]))
+                else None,
             )
         if len(parts) == 4:
             return ParsedPath(
                 view="Collages",
                 collage=parts[1],
-                release=POSITION_REGEX.sub("", parts[2]),
-                release_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
+                release=POSITION_REGEX.sub("", parts[2]) if parse_release_position else parts[2],
+                release_position=m[1]
+                if parse_release_position and (m := POSITION_REGEX.match(parts[2]))
+                else None,
                 file=POSITION_REGEX.sub("", parts[3]),
                 file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
             )

@@ -1,112 +1,203 @@
 # Rosé
 
-_Work in Progress. See [Issue #1](https://github.com/azuline/rose/issues/1) for
-the current state._
+> [!IMPORTANT]
+> Rosé is under active development. See [Issue #1](https://github.com/azuline/rose/issues/1)
+> for progress updates.
 
-**WARNING: Rosé modifies your audio files. If you do not want to modify your
-audio files, you should not use Rosé.**
+Rosé is a music manager for Unix-based systems. Rosé provides a virtual FUSE
+filesystem for managing your music library and various functions for editing
+and improving your music library's metadata and tags.
 
-A virtual filesystem for music and metadata improvement tooling.
+Rosé's core functionality is taking in a directory of music and creating a
+virtual filesystem based on the music's tags.
 
-## The Virtual Filesystem
+So for example, given the following directory of music files:
 
-Rosé reads a source directory of releases like this:
-
-```tree
-.
+```
+source/
+├── !collages
+│   └── Road Trip.toml
+├── !playlists
+│   └── Shower.toml
 ├── BLACKPINK - 2016. SQUARE ONE
+│   ├── 01. WHISTLE.opus
+│   ├── 02. BOOMBAYAH.opus
+│   └── cover.jpg
 ├── BLACKPINK - 2016. SQUARE TWO
-├── LOOΠΔ - 2019. [X X]
-├── LOOΠΔ - 2020. [#]
-├── LOOΠΔ 1_3 - 2017. Love & Evil
-├── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match
+│   ├── 01. PLAYING WITH FIRE.opus
+│   ├── 02. STAY.opus
+│   ├── 03. WHISTLE (acoustic ver.).opus
+│   └── cover.jpg
+├── LOOΠΔ - 2017. Kim Lip
+│   ├── 01. Eclipse.opus
+│   ├── 02. Twilight.opus
+│   └── cover.jpg
+├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
+│   ├── 01. ODD.opus
+│   ├── 02. Girl Front.opus
+│   ├── 03. LOONATIC.opus
+│   ├── 04. Chaotic.opus
+│   ├── 05. Starlight.opus
+│   └── cover.jpg
 └── YUZION - 2019. Young Trapper
+    ├── 01. Look At Me!!.mp3
+    ├── 02. In My Pocket.mp3
+    ├── 03. Henzclub.mp3
+    ├── 04. Ballin'.mp3
+    ├── 05. Jealousy.mp3
+    ├── 06. 18.mp3
+    ├── 07. Still Love.mp3
+    ├── 08. Next Up.mp3
+    └── cover.jpg
 ```
 
-And constructs a virtual filesystem from the source directory's audio tags. The
-virtual filesystem enables viewing various subcollections of the source
-directory based on multiple types of tags as a filesystem.
+Rosé produces the following virtual filesystem (duplicate information has been
+omitted).
 
-While music players and music servers enable viewing releases with similar
-filters, those filters are only available in a proprietary UI. Rosé provides
-this filtering as a filesystem, which is easily composable with other tools and
-systems.
-
-The virtual filesystem constructed from the above source directory is:
-
-```tree
-.
-├── Releases
-│   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
-│   ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
-│   ├── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
-│   ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
-│   ├── LOOΠΔ - 2020. [#] [K-Pop] {BlockBerry Creative}
-│   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
-│   └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
-├── Artists
-│   ├── BLACKPINK
-│   │   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
-│   │   └── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
-│   ├── LOOΠΔ
-│   │   ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
-│   │   └── LOOΠΔ - 2020. [#] [K-Pop] {BlockBerry Creative}
-│   ├── LOOΠΔ 1_3
-│   │   └── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
-│   ├── LOOΠΔ ODD EYE CIRCLE
-│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
-│   └── YUZION
-│       └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
-├── Genres
-│   ├── Hip-Hop
-│   │   └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
-│   └── K-Pop
-│       ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
-│       ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
-│       ├── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
-│       ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
-│       ├── LOOΠΔ - 2020. [#] [K-Pop] {BlockBerry Creative}
-│       └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
-└── Labels
-    ├── BlockBerry Creative
-    │   ├── LOOΠΔ 1_3 - 2017. Love & Evil [K-Pop] {BlockBerry Creative}
-    │   ├── LOOΠΔ - 2019. [X X] [K-Pop] {BlockBerry Creative}
-    │   ├── LOOΠΔ - 2021. [&] [K-Pop] {BlockBerry Creative}
-    │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Max & Match [K-Pop] {BlockBerry Creative}
-    ├── No Label
-    │   └── YUZION - 2019. Young Trapper [Hip Hop] {No Label}
-    └── YG Entertainment
-        ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}
-        └── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
+```
+virtual/
+├── 1. Releases/
+│   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/
+│   │   ├── 01. BLACKPINK - WHISTLE.opus
+│   │   ├── 02. BLACKPINK - BOOMBAYAH.opus
+│   │   └── cover.jpg
+│   ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
+│   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+│   ├── YUZION - 2019. Young Trapper [Hip Hop]/...
+│   └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
+├── 2. Releases - New/
+│   └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
+├── 3. Releases - Recently Added/
+│   ├── [2023-10-25] {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
+│   ├── [2023-10-01] LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+│   ├── [2022-08-22] BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
+│   ├── [2022-08-10] BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/...
+│   └── [2019-09-16] YUZION - 2019. Young Trapper [Hip Hop]/...
+├── 4. Artists/
+│   ├── BLACKPINK/
+│   │   ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/...
+│   │   └── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
+│   ├── LOOΠΔ/
+│   │   ├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
+│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+│   ├── LOOΠΔ ODD EYE CIRCLE/
+│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+│   └── YUZION/
+│       └── YUZION - 2019. Young Trapper [Hip Hop]/...
+├── 5. Genres/
+│   ├── Hip Hop/
+│   │   └── YUZION - 2019. Young Trapper [Hip Hop]/...
+│   └── K-Pop/
+│       ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/...
+│       ├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
+│       ├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+│       └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
+├── 6. Labels/
+│   ├── BlockBerry Creative/
+│   │   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+│   │   └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
+│   └── YG Entertainment/
+│       ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/...
+│       └── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
+├── 7. Collages/
+│   └── Road Trip/
+│       ├── 1. BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
+│       └── 2. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+└── 8. Playlists/
+    └── Shower/
+        ├── 1. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
+        ├── 2. YUZION - Jealousy.mp3
+        ├── 3. BLACKPINK - PLAYING WITH FIRE.opus
+        └── 4. LOOΠΔ - Eclipse.opus
 ```
 
-## The Metadata Improvement Tooling
+Rosé's virtual filesystem organizes your music library by the metadata in the
+music tags. In addition to a flat directory of all releases, Rosé creates
+additional directories based on Date Added, Artist, Genre, and Label.
 
-Rosé constructs the virtual filesystem from the audio tags. However, audio tags
-are frequently missing or incorrect. Thus, Rosé also provides a set of tools to
-improve the audio tag metadata.
+Rosé also provides a few other features designed to keep your music library organized:
 
-Note that the metadata manager _modifies_ the source files. If you do not want
-to modify the source files, you should `chmod 444` and not use the metadata
-manager!
+- **Collages:** Collections of releases.
+- **Playlists:** Collections of tracks.
+- **New release tracking:** Track new unlistened additions to the library.
 
-I have yet to write this part of the tool. Please check back later!
+And because the quality of the virtual filesystem depends on the quality of the
+tags, Rosé also provides functions for improving the tags of your music
+library. Rosé provides an easy text-based interface for manually modifying
+metadata, automatic metadata importing from third-party sources, and a rules
+engine to automatically apply metadata changes based on patterns.
+
+> [!NOTE]
+> Rosé modifies the managed audio files, even on first scan. If you do not want
+> to modify your audio files, for example because they are seeding in a
+> bittorrent client, you should not use Rosé.
+
+_Demo Video TBD_
+
+# Features
+
+**Virtual Filesystem:**
+
+- Read audio files and cover art
+- Modify audio files and cover art
+- Filter releases by album artist, genre, label, and "new"-ness
+- Browse and edit collages and playlists
+- Group artist aliases together
+- Toggle release "new"-ness
+- Whitelist/blacklist entries in the artist, genre, and label views
+
+**Command Line:**
+
+- Collage and playlist management
+- Toggle release "new"-ness
+- Edit release metadata as a text file
+- Import metadata and cover art from third-party sources
+- Extract embedded cover art to a file
+- Automatically update metadata via patterns and rules
+- Create "singles" from tracks (even if currently tagged as part of an album)
+- Watch the source directory and auto-update the cache on file modification
+- Print library metadata as JSON
+
+**General:**
+
+- Support for `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` audio
+  files.
+
+Rosé also makes some opinionated decisions. Please make sure that Rosé's
+opinions are acceptable for you:
+
+- Rosé modifies files in the source directory, even as early as the first
+  library scan. All mutations in Rosé are persisted by writing to the source
+  directory; Rosé maintains no state of its own outside of the source
+  directory. This makes Rosé work very poorly with torrents.
+- Rosé expects all releases to be immediate child directories of the
+  source directory. And Rosé expects that all tracks belong to a "release"
+  (meaning an album, single, EP, etc.). This means that loose audio files at
+  the root of the source directory will be ignored. Thus, Rosé works very
+  poorly with collections of individual track files.
 
 # Installation
 
-Install with Nix Flakes:
+Install Rosé with Nix Flakes. If you do not have Nix Flakes, you can install
+Nix Flakes with [this installer](https://github.com/DeterminateSystems/nix-installer).
+
+Then, to install Rosé, run:
 
 ```bash
-$ nix profile install github:azuline/rose#rose
+$ nix profile install github:azuline/rose
 ```
 
-You can install Nix and Nix Flakes with
-[this installer](https://github.com/DeterminateSystems/nix-installer).
+# Quickstart
 
-# Usage
+Let's now get Rosé up and running!
 
-```
-Usage: python -m rose [OPTIONS] COMMAND [ARGS]...
+Once Rosé is installed, let's first confirm that `rose` exists and is
+accessible:
+
+```bash
+$ rose
+
+Usage: rose [OPTIONS] COMMAND [ARGS]...
 
   A virtual filesystem for music and metadata improvement tooling.
 
@@ -123,206 +214,158 @@ Commands:
   playlists Manage playlists.
 ```
 
-## Configuration
+Great! Next, we'll (1) configure Rosé, (2) mount the virtual filesystem, and
+finally (3) play music!
 
-Rosé must be configured prior to use. Rosé is configured via a TOML file
-located at `${XDG_CONFIG_HOME:-$HOME/.config}/rose/config.toml`.
+1. Rosé requires a configuration file. The configuration file is located at
+   `$XDG_CONFIG_HOME/rose/config.toml`. If you've not done anything weird with
+   your system, it should be located at `~/.config/rose/config.toml`.
 
-The configuration parameters, with examples, are:
+   Only two configuration options are required:
 
-```toml
-# === Required values ===
+   ```toml
+   # The directory of music to manage.
+   # WARNING: The files in this directory WILL be modified by Rosé!
+   music_source_dir = "~/.music-source"
+   # The mountpoint for the virtual filesystem.
+   fuse_mount_dir = "~/music"
+   ```
 
-# The directory containing the music to manage. This source directory WILL be
-# modified by Rosé; if you do not want the files in directory to be modified,
-# use another tool!
-music_source_dir = "~/.music-source"
-# The directory to mount the library's virtual filesystem on. This is the
-# primary "user interface" of Rosé, and the directory in which you will be able
-# to browse your music library.
-fuse_mount_dir = "~/music"
+   The full configuration specification is documented in
+   [Configuration](./docs/CONFIGURATION.md).
 
-# === Optional values ===
+2. Now let's mount the virtual filesystem:
 
-# The directory to write the cache to. Defaults to
-# `${XDG_CACHE_HOME:-$HOME/.cache}/rose`.
-cache_dir = "~/.cache/rose"
-# Maximum parallel processes that the cache updater can spawn. Defaults to
-# nproc/2. The higher this number is; the more performant the cache update will
-# be.
-max_proc = 4
-# Artist aliases: Releases belonging to an alias will also "belong" to the main
-# artist. This option improves the Artist browsing view by showing the aliased
-# releases in the main artist's releases list.
-artist_aliases = [
-  { artist = "Abakus", aliases = ["Cinnamon Chasers"] },
-  { artist = "tripleS", aliases = ["EVOLution", "LOVElution", "+(KR)ystal Eyes", "Acid Angel From Asia", "Acid Eyes"] },
-]
-# Artists, genres, and labels to show in the virtual filesystem navigation. By
-# default, all artists, genres, and labels are shown. However, these values can
-# be used to filter the listed values to a specific few. This is useful e.g. if
-# you only care to browse your favorite genres and labels.
-fuse_artists_whitelist = [ "xxx", "yyy" ]
-fuse_genres_whitelist = [ "xxx", "yyy" ]
-fuse_labels_whitelist = [ "xxx", "yyy" ]
-# Artists, genres, and labels to hide from the virtual filesystem navigation.
-# These options remove specific entities from the default policy of listing all
-# entities. These options are mutually exclusive with the fuse_*_whitelist
-# options; if both are specified for a given entity type, the configuration
-# will not validate.
-fuse_artists_blacklist = [ "xxx" ]
-fuse_genres_blacklist = [ "xxx" ]
-fuse_labels_blacklist = [ "xxx" ]
+   ```bash
+   $ rose fs mount
+   [15:41:13] INFO: Refreshing the read cache for 5 releases
+   [15:41:13] INFO: Applying cache updates for release BLACKPINK - 2016. SQUARE TWO
+   [15:41:13] INFO: Applying cache updates for release BLACKPINK - 2016. SQUARE ONE
+   [15:41:13] INFO: Applying cache updates for release LOOΠΔ - 2017. Kim Lip
+   [15:41:13] INFO: Applying cache updates for release YUZION - 2019. Young Trapper
+   [15:41:13] INFO: Applying cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
+   [15:41:13] INFO: Evicting cached releases that are not on disk
+   [15:41:13] INFO: Refreshing the read cache for 1 collages
+   [15:41:13] INFO: Applying cache updates for collage Road Trip
+   [15:41:13] INFO: Evicting cached collages that are not on disk
+   [15:41:13] INFO: Refreshing the read cache for 1 playlists
+   [15:41:13] INFO: Applying cache updates for playlist Shower
+   [15:41:13] INFO: Evicting cached playlists that are not on disk
+   ```
+
+   Expect to see log lines emitted to stderr on filesystem mount. This is
+   because, at startup, the `rose fs mount` command indexes the
+   `music_source_dir` to populate the read cache.
+
+   The virtual filesystem uses the read cache to determine the available music
+   and its metadata. It's possible for the cache to get out of sync from the
+   source music files. If that happens, the `rose cache update` is guaranteed to
+   resynchronize them. See [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md)
+   for additional documentation on cache updates and synchronization.
+
+   Now that the virtual filesystem is mounted, let's go take a look! Navigate
+   to the configured `fuse_mount_dir`, and you should see your music available
+   in the virtual filesystem!
+
+   ```bash
+   $ cd $fuse_mount_dir
+
+   $ ls -1
+   '1. Releases'
+   '2. Releases - New'
+   '3. Releases - Recently Added'
+   '4. Artists'
+   '5. Genres'
+   '6. Labels'
+   '7. Collages'
+   '8. Playlists'
+
+   $ ls -1 "1. Releases/"
+   'BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}'
+   'BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}'
+   'LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}'
+   'YUZION - 2019. Young Trapper [Hip Hop]'
+   '{NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]'
+   ```
+
+3. Let's play some music! You should be able to open a music file in your music
+   player of choice.
+
+   Mine is `mpv`:
+
+   ```bash
+   $ mpv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus"
+    (+) Audio --aid=1 'Chaotic' (opus 2ch 48000Hz)
+   File tags:
+    Artist: LOOΠΔ ODD EYE CIRCLE
+    Album: Mix & Match
+    Album_Artist: LOOΠΔ ODD EYE CIRCLE
+    Comment: Cat #: WMED0709
+    Date: 2017
+    Genre: K-Pop
+    Title: Chaotic
+    Track: 4
+   AO: [pipewire] 48000Hz stereo 2ch floatp
+   ```
+
+And that's it! If desired, you can unmount the virtual filesystem with the
+`rose fs unmount` command.
+
+# Recommended Usage
+
+Rosé alone is not a full-featured music system, and _that's the point_. You
+should compose Rosé with other great tools to create the music system that
+works best for you.
+
+We recommend using Rosé with:
+
+1. A file manager, such as [nnn](https://github.com/jarun/nnn),
+   [mc](https://midnight-commander.org/), and [ranger](https://github.com/ranger/ranger).
+2. A media player, such as [mpv](https://mpv.io/).
+
+You also need not use the complete feature set of Rosé. Everything will
+continue to work if you only use the virtual filesystem and ignore the
+metatdata tooling, and vice versa.
+
+# Learn More
+
+For additional documentation, please read the following files:
+
+- [Configuration](./docs/CONFIGURATION.md)
+- [Browsing with the Virtual Filesystem](./docs/VIRTUAL_FILESYSTEM.md)
+- [Managing Your Music Metadata](./docs/METADATA_MANAGEMENT.md)
+- [Using Playlists & Collages](./docs/PLAYLISTS_COLLAGES.md)
+- [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md)
+- [Architecture](./docs/ARCHITECTURE.md)
+
+# License
+
+```
+Copyright 2023 blissful <blissful@sunsetglow.net>
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 ```
 
-The `--config/-c` flag overrides the config location.
+# Contributions
 
-## Music Source Dir
+Bug fixes are happily accepted!
 
-The `music_source_dir` must be a flat directory of releases, meaning all releases
-must be top-level directories inside `music_source_dir`. Each release should also
-be a single directory in `music_source_dir`.
+However, please do not open a pull request for a new feature without prior
+discussion.
 
-Every directory should follow the format: `$music_source_dir/$release_name/**/$track.mp3`.
-A release can have arbitrarily many nested subdirectories.
+Rosé is a pet project that I developed for personal use. Rosé is designed to
+match my specific needs and constraints, and is never destined to be widely
+adopted. Therefore, I will lean towards keeping the feature set focused and
+small, and will not add too many features over the lifetime of the project.
 
-So for example: `$music_source_dir/BLACKPINK - 2016. SQUARE ONE/*.mp3`.
-
-Rosé writes playlist and collage files to the `$music_source_dir/.playlists`
-and `$music_source_dir/.collages` directories. Each file is a human-readable
-TOML file.
-
-## Supported Filetypes
-
-Rosé supports `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` audio files.
-
-Rosé also supports JPEG and PNG cover art. The supported cover art file stems
-are `cover`, `folder`, and `art`. The supported cover art file extensions are
-`.jpg`, `.jpeg`, and `.png`.
-
-## Virtual Filesystem
-
-The virtual filesystem is mounted and unmounted by `rose fs mount` and
-`rose fs unmount` respectively.
-
-TODO
-
-- document supported operations
-
-## Metadata Management
-
-TODO
-
-## Data Querying
-
-There are several commands that print out data from the read cache in a
-JSON-encoded format (e.g. `rose releases print` and `rose collages print`). The
-command output can be piped into tools like `jq`, `fx`, and others.
-
-## Tagging Conventions
-
-Rosé is lenient in the tags it ingests, but has opinionated conventions for the
-tags it writes.
-
-### Multi-Valued Tags
-
-Rosé supports multiple values for the artists, genres, and labels tags. Rosé
-uses the `;` character as a tag delimiter. For example, `genre=Deep House;Techno`.
-
-Rosé also preserves the artists' role in the artist tag by using specialized
-delimiters. for example, `artist=Pyotr Ilyich Tchaikovsky performed by André Previn;London Symphony Orchestra feat. Barack Obama`.
-
-The artist tag is described by the following grammar:
-
-```
-artist-tag ::= composer dj main guest remixer producer
-composer   ::= name ' performed by '
-dj         ::= name ' pres. '
-main       ::= name
-guest      ::= ' feat. ' name
-remixer    ::= ' remixed by ' name
-producer   ::= ' produced by ' name
-name       ::= string ';' name | string
-```
-
-## New Releases
-
-TODO
-
-## Artist Aliases
-
-TODO
-
-## The Read Cache
-
-For performance, Rosé stores a copy of every source file's metadata in a SQLite
-read cache. The read cache does not accept writes; thus it can always be fully
-recreated from the source files. It can be freely deleted and recreated without
-consequence.
-
-The cache can be updated with the command `rose cache update`. By default, the
-cache updater will only recheck files that have changed since the last run. To
-override this behavior and always re-read file tags, run `rose cache update
---force`.
-
-By default, the cache is updated on `rose fs mount` and when files are changed
-through the virtual filesystem. However, if the `music_source_dir` is changed
-directly, Rosé does not automatically update the cache, which can lead to cache
-drifts.
-
-You can solve this problem by running `rose cache watch`. This starts a watcher
-that triggers a cache update whenever a source file changes. This can be useful
-if you synchronize your music library between two computers, or use another
-tool to directly modify the `music_source_dir`.
-
-## Systemd Unit Files
-
-TODO; example unit files to schedule Rosé with systemd.
-
-## Logging
-
-Logs are written to stderr and to `${XDG_STATE_HOME:-$HOME/.local/state}/rose/rose.log`.
-
-# Architecture
-
-Rosé has a simple uni-directional looping architecture.
-
-1. The source files: audio+playlists+collages, are the single source of truth
-   for your music library.
-2. The read cache is transient and deterministically derived from source
-   files. It can always be deleted and fully recreated from source files.
-3. The virtual filesystem uses the read cache (for performance). Writes to the
-   virtual filesystem update the source files and then refresh the read cache.
-4. The metadata tooling writes to the source files directly, which in turn
-   refreshes the read cache. The metadata tooling reads from the read cache for
-   performance.
-
-```mermaid
-flowchart BT
-    S[Source Files]
-    C[Read Cache]
-    M[Metadata Tooling]
-    V[Virtual Filesystem]
-    S -->|Populates| C
-    M -->|Reads| C
-    M -->|Writes| S
-    V -->|Writes| S
-    V -->|Reads| C
-```
-
-This architecture takes care to ensure that there is a single source of truth
-and uni-directional mutations. This has a few benefits:
-
-- Rosé and the source files always have the same metadata. If they drift, `rose
-  cache update` will rebuild the cache such that it fully matches the source
-  files. And if `rose cache watch` is running, there should not be any drift.
-- Rosé is easily synchronized across machines. As long as the source
-  files are synchronized, Rosé will rebuild the exact same cache regardless of
-  machine.
-
-Rosé writes `.rose.{uuid}.toml` files into each release's directory as a way to
-preserve release-level state and keep release UUIDs consistent across full
-cache rebuilds.
-
-Tracks are uniquely identified by the `(release_uuid, discnumber, tracknumber)`
-tuple, which are also consistent across rebuilds.
+Rosé is provided as-is: I may not maintain it in the future.

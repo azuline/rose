@@ -42,6 +42,7 @@ def create_playlist(c: Config, name: str) -> None:
         if path.exists():
             raise PlaylistAlreadyExistsError(f"Playlist {name} already exists")
         path.touch()
+    logger.info(f"Creating playlist {name} in source directory")
     update_cache_for_playlists(c, [name], force=True)
 
 
@@ -51,6 +52,7 @@ def delete_playlist(c: Config, name: str) -> None:
         if not path.exists():
             raise PlaylistDoesNotExistError(f"Playlist {name} does not exist")
         send2trash(path)
+    logger.info(f"Deleting playlist {name} from source directory")
     update_cache_evict_nonexistent_playlists(c)
 
 
