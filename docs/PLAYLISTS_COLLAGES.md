@@ -233,6 +233,10 @@ $ tree "8. Playlists/Shower"
 
 ## Deleting a Collage/Playlist
 
+_Deletion will move the collage/playlist into the trashbin, following the
+[freedesktop spec](https://freedesktop.org/wiki/Specifications/trash-spec/).
+The collage/playlist can be restored later if the deletion was accidental._
+
 Command line:
 
 ```bash

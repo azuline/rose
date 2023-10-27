@@ -57,7 +57,7 @@ files.
   contents for improved performance: we can collect the UUID via a `readdir`
   call instead of an expensive file read.
 - Each track has a custom `roseid` tag. This tag is written to the source audio
-  file. Read the `tagger.py` file for the exact field name used.
+  file.
 
 # Read Cache Update
 

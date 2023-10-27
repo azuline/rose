@@ -25,7 +25,7 @@ from rose.playlists import (
     remove_track_from_playlist,
     rename_playlist,
 )
-from rose.releases import dump_releases, edit_release, toggle_release_new
+from rose.releases import delete_release, dump_releases, edit_release, toggle_release_new
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
@@ -131,6 +131,14 @@ def toggle_new(ctx: Context, release: str) -> None:
     accepted).
     """
     toggle_release_new(ctx.config, release)
+
+
+@releases.command(name="delete")
+@click.argument("release", type=str, nargs=1)
+@click.pass_obj
+def delete3(ctx: Context, release: str) -> None:
+    """Delete a release. The release is moved to the trash bin, following the freedesktop spec."""
+    delete_release(ctx.config, release)
 
 
 @cli.group()
