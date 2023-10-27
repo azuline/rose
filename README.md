@@ -111,18 +111,17 @@ virtual/
         └── 4. LOOΠΔ - Eclipse.opus
 ```
 
-Rosé's virtual filesystem organizes your music library by the metadata in the
-music tags. In addition to a flat directory of all releases, Rosé creates
-additional directories based on Date Added, Artist, Genre, and Label.
-
-Rosé also provides a few other features designed to keep your music library organized:
+In addition to a flat directory of all releases, Rosé creates
+additional directories based on Date Added, Artist, Genre, and Label. Rosé also
+provides a few other features designed to keep your music library organized:
 
 - **Collages:** Collections of releases.
 - **Playlists:** Collections of tracks.
 - **New release tracking:** Track new unlistened additions to the library.
 
-And because the quality of the virtual filesystem depends on the quality of the
-tags, Rosé also provides functions for improving the tags of your music
+Rosé's virtual filesystem organizes your music library by the metadata in the
+music tags. Thus, the quality of the virtual filesystem depends on the quality
+of the tags, Rosé also provides functions for improving the tags of your music
 library. Rosé provides an easy text-based interface for manually modifying
 metadata, automatic metadata importing from third-party sources, and a rules
 engine to automatically apply metadata changes based on patterns.
@@ -317,7 +316,7 @@ Rosé alone is not a full-featured music system, and _that's the point_. You
 should compose Rosé with other great tools to create the music system that
 works best for you.
 
-We recommend using Rosé with:
+We recommend pairing Rosé with:
 
 1. A file manager, such as [nnn](https://github.com/jarun/nnn),
    [mc](https://midnight-commander.org/), and [ranger](https://github.com/ranger/ranger).
@@ -329,7 +328,7 @@ metatdata tooling, and vice versa.
 
 # Learn More
 
-For additional documentation, please read the following files:
+For additional documentation, please refer to the following files:
 
 - [Configuration](./docs/CONFIGURATION.md)
 - [Browsing with the Virtual Filesystem](./docs/VIRTUAL_FILESYSTEM.md)
@@ -368,4 +367,4 @@ match my specific needs and constraints, and is never destined to be widely
 adopted. Therefore, I will lean towards keeping the feature set focused and
 small, and will not add too many features over the lifetime of the project.
 
-Rosé is provided as-is: I may not maintain it in the future.
+Rosé is provided as-is, really!

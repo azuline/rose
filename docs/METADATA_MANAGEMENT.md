@@ -106,8 +106,9 @@ from additional fields.
 
 Rosé supports multiple values for the artists, genres, and labels tags. Rosé
 writes a single tag field and with fields concatenated together with a `;`
-delimiter. For example, `genre=Deep House;Techno`. Rosé does not write one tag
-per frame due to inconsistent support by other useful programs.
+delimiter. For example, `genre=Deep House;Techno`. Rosé does not write multiple
+frames for a single tag (where each value gets one frame) due to inconsistent
+support by other useful programs.
 
 ## Artist Tags
 
