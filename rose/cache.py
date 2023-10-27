@@ -794,6 +794,8 @@ def _update_cache_for_releases_executor(
                     track_id = str(uuid6.uuid7())
                     tags.id = track_id
                     tags.flush()
+                # And refresh the mtime because we've just written to the file.
+                track_mtime = str(os.stat(f).st_mtime)
 
             # And now create the cached track.
             track = CachedTrack(
