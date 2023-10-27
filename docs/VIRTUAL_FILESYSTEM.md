@@ -1,26 +1,21 @@
 # Browsing the Virtual Filesystem
 
-The virtual filesystem is the "User Interface" of Rosé.
-
-The virtual filesystem exposes a rich and meaningful music library organization
-as a standard API, which other systems can easily compose with. Contrast this
-with "normal" music players: other programs cannot easily interact with their
-music organization patterns.
-
-Therefore, the Virtual Filesystem is designed to be used by other programs. A
-powerful combination is to combine the Virtual Filesystem with a file manager
-like [nnn](https://github.com/jarun/nnn).
+The virtual filesystem is the primary "User Interface" of Rosé. It exposes a
+meaningful music library organization as the filesystem. Since the filesystem
+is a foundational API, other programs can trivially integrate with Rosé. For
+example, Rosé can used with a file manager like [nnn](https://github.com/jarun/nnn)
+and a media player like [mpv](https://mpv.io/).
 
 # Mounting & Unmounting
 
-The Virtual Filesystem is mounted with the `rose fs mount` command. By default,
-this command starts a backgrounded daemon. You can run the filesystem in the
-foreground with the `--foreground/-f` flag.
+You can mount the virtual filesystem `rose fs mount` command. By default, this
+starts a backgrounded daemon. You can run the filesystem in the foreground with
+the `--foreground/-f` flag.
 
-The Virtual Filesystem is unmounted with the `rose fs unmount` command. This
-command is a thin wrapper around `umount`. Note that this is subject to all the
-restrictions of `umount`: If the Virtual Filesystem is currently in use, the
-command will fail.
+You can unmount the virtual filesystem with the `rose fs unmount` command. This
+command simply calls `umount` under the hood. Thus, this command is subject to
+the restrictions of `umount`. Including: if the virtual filesystem is currently
+in use, unmounting command will fail.
 
 # Directory Structure
 
@@ -36,26 +31,26 @@ library. They are:
 7. `Collages`
 8. `Playlists`
 
-They should be fairly intuitive. They are numbered in the filesystem for the
-sake of ordering.
+Each directory should be fairly intuitive. They are numbered in the filesystem
+to create an intentional ordering.
 
 # Directory and File Names
 
 Rosé constructs a "virtual" directory name for each release and "virtual" file
-name for each track. These virtual names are constructed from the music
-metadata. When the metadata is updated, the virtual names auto-update in
-response.
+name for each track. Rosé uses the source directory's metadata tags to do so.
+When the source directory changes, the virtual names auto-update in response.
 
-The release template is:
+The release directory name template is:
 
 ```
 %ALBUM_ARTISTS% - %YEAR%. %ALBUM_TITLE% - %RELEASE_TYPE% [%GENRE%]
 ```
 
-But the `- %RELEASE_TYPE%` field is omitted when the release is of type `album`,
-`other`, or `unknown`.
+> [!NOTE]
+> The `- %RELEASE_TYPE%` field is omitted when the release is of type `album`,
+> `other`, or `unknown`.
 
-The file template is:
+The track file name template is:
 
 ```
 %TRACK_ARTISTS% - %TRACK_TITLE%.%EXTENSION%
@@ -66,19 +61,22 @@ position prefix is of the format `%POSITION%. `. For example, tracks in a
 release have a prefix of `%DISC_NUMBER%-%TRACK_NUMBER%. `. Collages and playlists
 also apply a position prefix to each release/track in them.
 
+Rosé exposes all cover art under the filename `cover.{ext}`, regardless of the
+filename in the source directory.
+
 # New Releases
 
 Rose supports flagging releases as "NEW" and making that evident in the virtual
 directory name. NEW releases have their virtual directory name prefixed with
 `{NEW}`.
 
-By default, releases are flagged as NEW when first imported into Rosé.
+By default, Rosé flags releases as new when they are first imported.
 
 NEW-ness has no effects besides prefixing the directory name with `{NEW}` and
 adding the release to the `2. Releases - New` top-level directory. NEW-ness is
 designed for you, the human operator, to edit manually.
 
-NEW-ness is tracked within a release's `.rose.{uuid}.toml` file. See
+Rosé tracks NEW-ness within a release's `.rose.{uuid}.toml` file. See
 [Architecture](./ARCHITECTURE.md) for more information about this file.
 
 # Operations
@@ -100,7 +98,7 @@ Command line:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rose releases toggle-new "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
+$ rose releases toggle-new "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
 [21:47:52] INFO: Refreshing the read cache for 1 releases
 [21:47:52] INFO: Applying cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [21:47:52] INFO: Refreshing the read cache for 1 collages
@@ -110,9 +108,9 @@ $ rose releases toggle-new "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-P
 $ tree "2. Releases - New/"
 2. Releases - New/
 ├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
-└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
+└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
 
-$ rose releases toggle-new "{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
+$ rose releases toggle-new "{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
 [21:49:36] INFO: Refreshing the read cache for 1 releases
 [21:49:36] INFO: Applying cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [21:49:36] INFO: Refreshing the read cache for 1 collages
@@ -129,14 +127,14 @@ Virtual filesystem:
 ```bash
 $ cd $fuse_mount_dir
 
-$ mv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]" "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
+$ mv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]" "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
 
 $ tree "2. Releases - New/"
 2. Releases - New/
 ├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
-└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
+└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
 
-$ mv "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
+$ mv "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
 
 $ tree "2. Releases - New/"
 2. Releases - New/
@@ -155,12 +153,12 @@ Command line:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rose releases delete "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
-[21:56:25] INFO: Trashed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]
+$ rose releases delete "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
+[21:56:25] INFO: Trashed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]
 [21:56:25] INFO: Evicting cached releases that are not on disk
 [21:56:25] INFO: Evicted release /home/blissful/demo/source/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match from cache
 [21:56:25] INFO: Refreshing the read cache for 1 collages
-[21:56:25] INFO: Removing nonexistent release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] from collage Long Flight
+[21:56:25] INFO: Removing nonexistent release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop] from collage Long Flight
 [21:56:25] INFO: Updating release descriptions for Long Flight
 [21:56:25] INFO: Applying cache updates for collage Long Flight
 
@@ -177,7 +175,7 @@ Virtual filesystem:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rmdir "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
+$ rmdir "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
 
 $ tree "1. Releases/"
 1. Releases/

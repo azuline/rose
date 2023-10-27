@@ -1,67 +1,60 @@
 # Maintaining the Cache
 
 The read cache is a SQLite database that replicates the metadata in
-`music_source_dir`. The read cache exists to improve performance: it can be
-read from far more performantly than the `music_source_dir` can.
+`music_source_dir`. The read cache exists solely to improve performance: it can
+be read from far more performantly than the `music_source_dir` can.
 
-The read cache is never written to directly, outside of the `update_cache_*`
-functions, which re-read the source files and write their metadata into the
-cache. All mutations in the system occur directly to the source files, not to
-the read cache.
+The read cache does not have any state of its own. _All_ of the data in the read
+cache is replicated from the `music_source_dir`. Hence, we never write to the
+read cache. Instead, all updates write to the source files, which then triggers
+the cache update function. The cache update function updates the cache to match
+the source directory's state.
+
+> [!NOTE]
+> To better understand how the read cache fits into Rosé, we recommend reading
+> [Architecture](./ARCHITECTURE.md).
 
 # Cache Drift
 
-So what's the problem?
+Assuming you only modify your music library through Rosé, the cache will always
+remain up to date, since Rosé triggers a cache update whenever it is aware of
+an update to the source directory.
 
-The read cache has the possibility of _drifting_ from the source directory. For
-example, let's say that I move files around in the source directory, modify
-tags directly, or even delete a release. After those actions, the read cache
-will still reflect the previous state, and thus we say that the cache has
-_drifted_.
+However, that assumption does not hold. If changes are made directly to the
+source directory, and Rosé is not "informed," Rosé's cache will contain the
+previous state of the source directory. We call this a _cache drift_.
 
-This is problematic because some operations in the virtual filesystem will
-begin to fail. For example, if a file is moved in the source directory, and the
-virtual filesystem then attempts to read from its previous path, it will hit a
-FileNotFound (ENOENT) error.
-
-Thus, after changes to the source directory, we need to update the cache so
-that it _synchronizes_ with the source directory. Note that this
-synchronization is entirely _one-way_: the source files update the read cache.
-The opposite direction never occurs: the read cache never updates the source
-files.
+This is problematic because Rosé may attempt to read files that no longer exist
+or display old metadata. Thus, we should inform Rosé whenever a change is made
+to the source directory.
 
 # Updating the Cache
 
-The cache can be updated with the command `rose cache update`. By default, this
-command only checks files which have changed since the last cache update. It
-uses the mtime (last modified) field for this purpose. However, sometimes we
-want to refresh the cache regardless of mtimes. In that case, we can run `rose
-cache update --force`.
+A cache update can be performed manually with the `rose cache update` command.
+In this command, Rosé will identify any files that changed and update the read
+cache accordingly. In other words, this command informs Rosé that something
+changed in the source directory.
 
-It would be pretty annoying if you had to run this command by hand after each
-metadata update. So Rosé will automatically run this command whenever an update
-happens _through_ Rosé. That means:
+For performance reasons, the `rose cache update` command only checks files with
+a different Last Modified (mtime) from the last cache update. To disable this
+behavior and recheck every file, pass the `--force/-f` flag.
 
-- If a file is modified in the virtual filesystem, a cache update is
-  triggered when the file handle closes.
-- If a release is modified by the command line, a cache update is triggered at
-  the end of the command.
+It would be annoying if you had to run `rose cache upate` by hand after each
+metadata change. Rosé thus automatically updates the cache in response to
+changes made _through_ Rosé. Any updates made through the virtual filesystem or
+command line automatically trigger a cache update for the changed files. Rosé
+will also update the cache when the virtual filesystem is mounted.
 
-Rosé will also update the cache on virtual filesystem mount.
+However, even with that improvement, you would still need to run `rose cache
+update` automatically whenever changes are made directly to the source
+directory. Thus, Rosé provides the `rose cache watch` command, which runs a
+watcher that listens for file update events in the source directory. This
+watcher will trigger a cache update whenever a file in the source directory
+changes.
 
-# Updating on External Changes
-
-However, there is one class of updates that this does not update in response
-to, and that is updates made by external tools directly to the source
-directory. If another system updates your source directory directly, the read
-cache will drift.
-
-To update in response to those external changes, you can run `rose cache
-watch`. This command starts a watcher that triggers a cache update whenever a
-file changes in the source directory. `rose cache watch` runs in the
-foreground, so it is recommended that you manage it with a service manager like
-systemd. See [Configuration](./CONFIGURATION.md) for example systemd unit
-files.
+By default, the watcher runs in the foreground. We recommend backgrounding it
+with a service manager, such as systemd. See
+[Configuration](./CONFIGURATION.md) for sample systemd unit files.
 
 # Cache Resets
 
@@ -71,14 +64,9 @@ When Rosé detects that:
 2. The configuration file has changed,
 3. Or the cache database schema has changed,
 
-Rosé will delete the read cache and rebuild it from scratch.
+Rosé will delete the read cache and rebuild it from scratch. A full cache
+rebuild is fairly performant, though an order of magnitude slower than a cache
+scan that results in no changes.
 
-A full cache rebuild is fairly performant, though an order of magnitude slower
-than a cache scan that results in no changes.
-
-Deleting the read cache is a supported operation, and it is a viable solution
-in case your cache ends up in a bad state (e.g. due to a bug or other issue).
-
-Since Rosé stores all of its state in the source directory, and merely
-replicates that state into the cache, deleting the cache will never result in a
-loss of data.
+Deleting the read cache does not result in any loss of data, and is a viable
+solution if your cache ends up in a bad state (e.g. due to a bug).

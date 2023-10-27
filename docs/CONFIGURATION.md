@@ -16,10 +16,10 @@ The configuration parameters, with examples, are:
 # The directory containing the music to manage. Rosé has strong expectations
 # towards the organization of this directory.
 #
-# All releases are expected to be immediate child directories of the
-# music_source_dir. And Rosé expects that all tracks belong to a "release"
-# (meaning an album, single, EP, etc.). Therefore, loose audio files at the
-# top-level of the source directory will be ignored.
+# All releases must be immediate child directories of the music_source_dir. And
+# Rosé expects that all tracks belong to a "release" (meaning an album, single,
+# EP, etc.). Therefore, loose audio files at the top-level of the source
+# directory will be ignored.
 #
 # Rosé also writes collages and playlists to this directory, as `!collages` and
 # `!playlists` subdirectories.

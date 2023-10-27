@@ -45,11 +45,12 @@ This has some nice consequences:
   drifts from source files, that drift can always be automatically resolved
   simply by rebuilding the cache.
 
-# Stable Release & Track Identifiers
+# Release & Track Identifiers
 
-Rosé assigns UUIDs to each release and track in order to identify them across
-arbitrarily large metadata changes. These UUIDs are persisted to the source
-files.
+Rosé assigns a stable UUID to each release and track in order to identify them.
+The UUIDs are also used to track membership in collages and playlists.
+
+These UUIDs are persisted to the source files:
 
 - Each release has a `.rose.{uuid}.toml` file, which preserves release-level
   state, such as `New`. The UUID is in the filename instead of the file
@@ -57,6 +58,13 @@ files.
   call instead of an expensive file read.
 - Each track has a custom `roseid` tag. This tag is written to the source audio
   file.
+
+Therefore, provided that other programs do not erase the UUID, Rosé will be
+able to identify releases and tracks across arbitrarily drastic directory and
+file renames and tag changes. Rosé does not depend on the source directory's
+filenames or tags remaining static; the source directory can be freely
+modified. The only constraint is that each release must be a directory in the
+root of the `music_source_dir`.
 
 # Read Cache Update
 

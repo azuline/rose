@@ -70,7 +70,7 @@ The artist tag is described by the following grammar:
 <name>       ::= string ';' <name> | string
 ```
 
-Rosé only supports the artist roles:
+Rosé supports the following artist roles:
 
 - `main`
 - `guest`
@@ -111,16 +111,17 @@ Virtual Filesystem Directory Name.
 So for example:
 
 ```bash
-$ rose releases edit "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
+$ rose releases edit "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
 $ rose releases edit "018b4ff1-acdf-7ff1-bcd6-67757aea0fed"
 ```
 
 This command opens up a TOML representation of the release's metadata in your
 `$EDITOR`. Upon save and exit, the TOML's metadata is written to the file tags.
 
-Rosé validates the Artist Role and Release Type fields. The values provided
-must be one of the supported values. The supported values are documented in
-[Artist Tags](#artist-tags) and [Release Type Tags](#release-type-tags).
+> [!NOTE]
+> Rosé validates the Artist Role and Release Type fields upon metadata edit.
+> The values provided must be one of the supported values. The supported values
+> are documented in [Artist Tags](#artist-tags) and [Release Type Tags](#release-type-tags).
 
 An example of the TOML representation is:
 
@@ -197,7 +198,7 @@ Rosé supports three tag container formats:
 - MP4: `.m4a` files
 - Vorbis: `.ogg`, `.opus`, and `.flac` files
 
-In this section, we will list out the per-container fields that we read/write.
+In this section, we list out the per-container field names that we read/write.
 Rosé will only write to a single field for each tag; however, for tags with
 multiple conventions out in the rest of the world, Rosé will support reading
 from additional fields.

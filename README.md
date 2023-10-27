@@ -53,14 +53,14 @@ virtual/
 │   │   ├── 02. BLACKPINK - BOOMBAYAH.opus
 │   │   └── cover.jpg
 │   ├── BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]/...
-│   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
+│   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
 │   ├── NewJeans - 2022. Ditto - Single [Contemporary R&B;K-Pop]/...
 │   └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
 ├── 2. Releases - New/
 │   └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
 ├── 3. Releases - Recently Added/
 │   ├── [2023-10-25] LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
-│   ├── [2023-10-01] LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
+│   ├── [2023-10-01] LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
 │   └── [2023-02-28] NewJeans - 2022. Ditto - Single [Contemporary R&B;K-Pop]/...
 │   ├── [2022-08-22] BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]/...
 │   ├── [2022-08-10] BLACKPINK - 2016. SQUARE ONE - Single [Big Room House;Dance-Pop;K-Pop]/...
@@ -70,9 +70,9 @@ virtual/
 │   │   └── BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]/...
 │   ├── LOOΠΔ/
 │   │   ├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
-│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
+│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
 │   ├── LOOΠΔ ODD EYE CIRCLE/
-│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
+│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
 │   └── NewJeans/
 │       └── NewJeans - 2022. Ditto - Single [Contemporary R&B;K-Pop]/...
 ├── 5. Genres/
@@ -81,20 +81,23 @@ virtual/
 │   ├── Contemporary R&B/
 │   │   ├── NewJeans - 2022. Ditto - Single [Contemporary R&B;K-Pop]/...
 │   │   └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
+│   ├── Future Bass/
+│   │   └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
 │   ├── Dance-Pop/
 │   │   ├── BLACKPINK - 2016. SQUARE ONE - Single [Big Room House;Dance-Pop;K-Pop]/...
 │   │   ├── BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]/...
+│   │   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
 │   │   └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
 │   └── K-Pop/
 │       ├── BLACKPINK - 2016. SQUARE ONE - Single [Big Room House;Dance-Pop;K-Pop]/...
 │       ├── BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]/...
-│       ├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
+│       ├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
 │       └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
 ├── 6. Labels/
 │   ├── ADOR/
 │   │   └── NewJeans - 2022. Ditto - Single [Contemporary R&B;K-Pop]/...
 │   ├── BlockBerry Creative/
-│   │   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
+│   │   ├── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
 │   │   └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
 │   └── YG Entertainment/
 │       ├── BLACKPINK - 2016. SQUARE ONE - Single [Big Room House;Dance-Pop;K-Pop]/...
@@ -102,7 +105,7 @@ virtual/
 ├── 7. Collages/
 │   └── Road Trip/
 │       ├── 1. BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]/...
-│       └── 2. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
+│       └── 2. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
 └── 8. Playlists/
     └── Shower/
         ├── 1. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
@@ -111,17 +114,19 @@ virtual/
         └── 4. LOOΠΔ - Eclipse.opus
 ```
 
-In addition to a flat directory of all releases, Rosé creates
-additional directories based on Date Added, Artist, Genre, and Label. Rosé also
-provides a few other features designed to keep your music library organized:
+In addition to a flat directory of all releases, Rosé creates directories based
+on Date Added, Artist, Genre, and Label. Rosé also provides a few other
+concepts for organizing your music library:
 
 - **Collages:** Collections of releases.
 - **Playlists:** Collections of tracks.
 - **New release tracking:** Track new unlistened additions to the library.
 
 Rosé's virtual filesystem organizes your music library by the metadata in the
-music tags. Thus, the quality of the virtual filesystem depends on the quality
-of the tags, Rosé also provides functions for improving the tags of your music
+music tags. The quality of the virtual filesystem depends on the quality of the
+tags.
+
+Thus, Rosé also provides functions for improving the tags of your music
 library. Rosé provides an easy text-based interface for manually modifying
 metadata, automatic metadata importing from third-party sources, and a rules
 engine to automatically apply metadata changes based on patterns.
@@ -162,20 +167,31 @@ _Demo Video TBD_
 - Support for `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` audio
   files.
 
-# Is Rosé Right for Me?
+# Is Rosé For You?
 
-Rosé also makes some opinionated decisions. Please make sure that Rosé's
-opinions are acceptable for you:
+Rosé expects users to be comfortable with the shell and general software
+concepts. Rosé assumes general technical competency in its documentation and
+user interface.
 
-- Rosé modifies files in the source directory, even as early as the first
-  library scan. All mutations in Rosé are persisted by writing to the source
-  directory; Rosé maintains no state of its own outside of the source
-  directory. This makes Rosé work very poorly with torrents.
-- Rosé expects all releases to be immediate child directories of the
-  source directory. And Rosé expects that all tracks belong to a "release"
-  (meaning an album, single, EP, etc.). This means that loose audio files at
-  the root of the source directory will be ignored. Thus, Rosé works very
-  poorly with collections of individual track files.
+Rosé provides several parts of a complete music system, but not a complete
+music system. The user can then construct their own complete music system by
+composing multiple programs. For example, Rosé+nnn+mpv.
+
+Rosé creates the most value when used with a large music library. For small
+libraries of several hundred releases or less, Rosé's organization is
+unnecessary, as the entire library is easily browsed via a flat view over all
+releases.
+
+Rosé modifies files in the source directory, even as early as the first library
+scan. All mutations in Rosé are persisted by writing to the source directory;
+Rosé maintains no state of its own outside of the source directory. If your
+music library is immutable, or should be treated as immutable, Rosé will not
+work.
+
+Rosé expects all releases to be immediate child directories of the source
+directory. And Rosé expects that all tracks belong to a "release" (meaning an
+album, single, EP, etc.). Rosé is designed for release-oriented libraries, not
+track-oriented libraries.
 
 # Installation
 
@@ -284,7 +300,7 @@ finally (3) play music!
    $ ls -1 "1. Releases/"
    'BLACKPINK - 2016. SQUARE ONE - Single [Big Room House;Dance-Pop;K-Pop]'
    'BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]'
-   'LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]'
+   'LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]'
    'NewJeans - 2022. Ditto - Single [Contemporary R&B;K-Pop]'
    '{NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]'
    ```
@@ -295,7 +311,7 @@ finally (3) play music!
    Mine is `mpv`:
 
    ```bash
-   $ mpv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus"
+   $ mpv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus"
     (+) Audio --aid=1 'Chaotic' (opus 2ch 48000Hz)
    File tags:
     Artist: LOOΠΔ ODD EYE CIRCLE
