@@ -130,12 +130,14 @@ Virtual filesystem:
 $ cd $fuse_mount_dir
 
 $ mv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}" "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}"
+
 $ tree "2. Releases - New/"
 2. Releases - New/
 ├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
 └── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
 
 $ mv "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}"
+
 $ tree "2. Releases - New/"
 2. Releases - New/
 └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
@@ -176,6 +178,7 @@ Virtual filesystem:
 $ cd $fuse_mount_dir
 
 $ rmdir "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}"
+
 $ tree "1. Releases/"
 1. Releases/
 ├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/...
