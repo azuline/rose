@@ -151,7 +151,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
         #    add it to the playlist.
         #
         # The state is a mapping of (path, fh) -> (playlist_name, ext, bytes).
-        self.playlist_additions_in_progress: dict[tuple[str, int], tuple[str, str, bytes]] = {}
+        self.playlist_additions_in_progress: dict[tuple[str, int], tuple[str, str, bytearray]] = {}
         self.fhgen = FileDescriptorGenerator()
         super().__init__()
 
@@ -428,7 +428,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 self.playlist_additions_in_progress[(path, fh)] = (
                     p.playlist,
                     Path(p.file).suffix,
-                    b"",
+                    bytearray(),
                 )
                 return fh
             # Otherwise, continue on...
@@ -459,8 +459,9 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
         if pap := self.playlist_additions_in_progress.get((path, fh), None):
             logger.debug("Matched write to an in-progress playlist addition.")
-            playlist, ext, b = pap
-            self.playlist_additions_in_progress[(path, fh)] = (playlist, ext, b[:offset] + data)
+            _, _, b = pap
+            del b[offset:]
+            b.extend(data)
             return len(data)
 
         os.lseek(fh, offset, os.SEEK_SET)
@@ -472,8 +473,8 @@ class VirtualFS(fuse.Operations):  # type: ignore
         if fh:
             if pap := self.playlist_additions_in_progress.get((path, fh), None):
                 logger.debug("Matched truncate to an in-progress playlist addition.")
-                playlist, ext, b = pap
-                self.playlist_additions_in_progress[(path, fh)] = (playlist, ext, b[:length])
+                _, _, b = pap
+                del b[length:]
                 return
             return os.ftruncate(fh, length)
 
