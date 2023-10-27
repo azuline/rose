@@ -676,17 +676,20 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
 @dataclass
 class ParsedPath:
-    view: Literal[
-        "Root",
-        "Releases",
-        "Artists",
-        "Genres",
-        "Labels",
-        "Collages",
-        "Playlists",
-        "New",
-        "Recently Added",
-    ] | None
+    view: (
+        Literal[
+            "Root",
+            "Releases",
+            "Artists",
+            "Genres",
+            "Labels",
+            "Collages",
+            "Playlists",
+            "New",
+            "Recently Added",
+        ]
+        | None
+    )
     artist: str | None = None
     genre: str | None = None
     label: str | None = None

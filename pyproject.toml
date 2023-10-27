@@ -1,20 +1,3 @@
-[tool.black]
-line-length = 100
-force-exclude = '''
-(
-  /(
-      \.git          # exclude a few common directories in the
-    | \.mypy_cache   # root of the project
-    | \.ruff_cache
-    | \.tox
-    | \.venv
-    | _build
-    | build
-    | dist
-  )/
-)
-'''
-
 [tool.ruff]
 select = [
   # pycodestyle
@@ -53,7 +36,13 @@ ignore = [
   "PT004",
 ]
 line-length = 100
-exclude = [".venv"]
+exclude = [
+  ".git",
+  ".mypy_cache",
+  ".ruff_cache",
+  ".venv",
+]
+
 unfixable = [
   # Remove unused variables.
   "F841",

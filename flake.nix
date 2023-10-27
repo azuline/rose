@@ -37,8 +37,6 @@
         watchdog
       ];
       dev-deps = with python.pkgs; [
-        black
-        flake8
         mypy
         pytest
         pytest-cov
@@ -60,10 +58,6 @@
             echo "$path"
           }
           export ROSE_ROOT="$(find-up flake.nix)"
-          # We intentionally do not allow installing Python packages to the
-          # global Python environment. Mutable Python installations should be
-          # handled via a virtualenv.
-          export PIP_CONFIG_FILE="$ROSE_ROOT"/.pip
         '';
         buildInputs = [
           (pkgs.buildEnv {

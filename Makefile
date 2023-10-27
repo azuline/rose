@@ -12,11 +12,11 @@ test-seq:
 	coverage html
 
 lintcheck:
-	black --check .
 	ruff .
+	ruff format --check .
 
 lint:
-	black .
 	ruff --fix .
+	ruff format .
 
 .PHONY: check test typecheck lintcheck lint
