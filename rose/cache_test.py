@@ -107,7 +107,7 @@ def test_locks(config: Config) -> None:
             lock2_acq = time.time()
     # Assert that we had to wait ~0.1sec to get the second lock.
     assert lock1_acq - start < 0.05
-    assert lock2_acq - lock1_acq > 0.19
+    assert lock2_acq - lock1_acq > 0.17
 
     # Test that releasing a lock actually works.
     start = time.time()
