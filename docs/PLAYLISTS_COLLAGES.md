@@ -29,11 +29,11 @@ An example of the contents of the `.toml` file are, for a collage:
 
 [[releases]]
 uuid = "018b268e-ef68-7180-a01e-19bc3fdf970e"
-description_meta = "BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}"
+description_meta = "BLACKPINK - 2016. SQUARE TWO - Single [K-Pop]"
 
 [[releases]]
 uuid = "018b4ff1-acdf-7ff1-bcd6-67757aea0fed"
-description_meta = "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}"
+description_meta = "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
 ```
 
 and for a playlist:
@@ -109,13 +109,13 @@ added by UUID. This is because the release virtual directory name is globally
 unique, while track virtual filenames are not globally unique._
 
 ```bash
-$ rose collages add-release "Morning" "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}"
-[17:59:38] INFO: Added release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative} to collage Morning
+$ rose collages add-release "Morning" "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
+[17:59:38] INFO: Added release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] to collage Morning
 [17:59:38] INFO: Refreshing the read cache for 1 collages
 [17:59:38] INFO: Applying cache updates for collage Morning
 
 $ rose collages add-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
-[17:59:44] INFO: Added release BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment} to collage Morning
+[17:59:44] INFO: Added release BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] to collage Morning
 [17:59:44] INFO: Refreshing the read cache for 1 collages
 [17:59:44] INFO: Applying cache updates for collage Morning
 
@@ -136,15 +136,15 @@ too. We will try to fix this later._
 ```bash
 $ cd $fuse_mount_dir
 
-$ cp -r "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}" "7. Collages/Morning/"
-cp: cannot create directory '7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}': No such file or directory
+$ cp -r "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]" "7. Collages/Morning/"
+cp: cannot create directory '7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]': No such file or directory
 
 $ tree "7. Collages/Morning/"
 7. Collages/Morning/
-├── 1. BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
-└── 2. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+├── 1. BLACKPINK - 2016. SQUARE TWO - Single [K-Pop]/...
+└── 2. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
 
-$ cp "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus" "8. Playlists/Evening/"
+$ cp "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus" "8. Playlists/Evening/"
 
 $ tree "8. Playlists/Evening/"
 8. Playlists/Evening/
@@ -160,13 +160,13 @@ removed by UUID. This is because the release virtual directory name is globally
 unique, while track virtual filenames are not globally unique._
 
 ```bash
-$ rose collages remove-release "Morning" "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}"
-[18:11:43] INFO: Removed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative} from collage Morning
+$ rose collages remove-release "Morning" "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
+[18:11:43] INFO: Removed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] from collage Morning
 [18:11:43] INFO: Refreshing the read cache for 1 collages
 [18:11:43] INFO: Applying cache updates for collage Morning
 
 $ rose collages remove-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
-[18:12:03] INFO: Removed release BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment} from collage Morning
+[18:12:03] INFO: Removed release BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] from collage Morning
 [18:12:03] INFO: Refreshing the read cache for 1 collages
 [18:12:03] INFO: Applying cache updates for collage Morning
 
@@ -181,13 +181,13 @@ Virtual filesystem:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rmdir "7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}"
+$ rmdir "7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
 
 $ tree "7. Collages/Morning/"
 7. Collages/Morning/
 0 directories, 0 files
 
-$ rm "8. Playlists/Evening/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus"
+$ rm "8. Playlists/Evening/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus"
 
 $ tree "8. Playlists/Evening/"
 8. Playlists/Evening/
@@ -204,11 +204,11 @@ deleting their line entry from the text file._
 ```bash
 $ rose collages edit "Road Trip"
 # Opens the following text in $EDITOR:
-BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
-LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}
+BLACKPINK - 2016. SQUARE TWO - Single [K-Pop]
+LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]
 # We will save the following text:
-LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}
-BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
+LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]
+BLACKPINK - 2016. SQUARE TWO - Single [K-Pop]
 # And the logs printed to stderr are:
 [18:20:53] INFO: Edited collage Road Trip from EDITOR
 [18:20:53] INFO: Refreshing the read cache for 1 collages
@@ -216,13 +216,13 @@ BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}
 
 $ tree "7. Collages/Road Trip"
 7. Collages/Road Trip/
-├── 1. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
-└── 2. BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
+├── 1. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
+└── 2. BLACKPINK - 2016. SQUARE TWO - Single [K-Pop]/...
 
 $ rose playlists edit "Shower"
 # Opens the following text in $EDITOR:
 LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
-YUZION - Jealousy.mp3
+NewJeans - Ditto.opus
 BLACKPINK - PLAYING WITH FIRE.opus
 LOOΠΔ - Eclipse.opus
 # We will save the following text:

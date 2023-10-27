@@ -157,9 +157,7 @@ def test_virtual_filesystem_playlist_actions(
     root = config.fuse_mount_dir
     src = config.music_source_dir
 
-    release_dir = (
-        root / "1. Releases" / "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop] {A Cool Label}"
-    )
+    release_dir = root / "1. Releases" / "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop]"
     filename = "01. BLACKPINK - Track 1.m4a"
 
     with startfs(config):
@@ -186,7 +184,7 @@ def test_virtual_filesystem_playlist_actions(
 
 
 def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> None:
-    dirname = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
+    dirname = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
     root = config.fuse_mount_dir
     with startfs(config):
         # Fix: If we return EACCES from unlink, then `rm -r` fails despite `rmdir` succeeding. Thus
@@ -199,7 +197,7 @@ def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> 
 
 
 def test_virtual_filesystem_toggle_new(config: Config, source_dir: Path) -> None:  # noqa: ARG001
-    dirname = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
+    dirname = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
     root = config.fuse_mount_dir
     with startfs(config):
         (root / "1. Releases" / dirname).rename(root / "1. Releases" / f"{{NEW}} {dirname}")

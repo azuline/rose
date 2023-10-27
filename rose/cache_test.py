@@ -238,9 +238,9 @@ def test_update_cache_releases_duplicate_collision(config: Config) -> None:
         rows = cursor.fetchall()
         assert len({r["id"] for r in rows}) == 3
         assert {r["virtual_dirname"] for r in rows} == {
-            "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop] {A Cool Label}",
-            "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop] {A Cool Label} [2]",
-            "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop] {A Cool Label} [3]",
+            "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop]",
+            "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop] [2]",
+            "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop] [3]",
         }
 
 
@@ -627,11 +627,11 @@ def test_update_releases_updates_collages_description_meta(config: Config) -> No
             == """\
 [[releases]]
 uuid = "ilovecarly"
-description_meta = "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop] {A Cool Label}"
+description_meta = "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop]"
 
 [[releases]]
 uuid = "ilovenewjeans"
-description_meta = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
+description_meta = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
 """
         )
 
@@ -660,11 +660,11 @@ description_meta = "hahaha"
             == """\
 [[releases]]
 uuid = "ilovecarly"
-description_meta = "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop] {A Cool Label}"
+description_meta = "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop]"
 
 [[releases]]
 uuid = "ilovenewjeans"
-description_meta = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
+description_meta = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
 """
         )
 

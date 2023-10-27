@@ -750,8 +750,6 @@ def _update_cache_for_releases_executor(
                     )
                 if release.genres:
                     release_virtual_dirname += " [" + ";".join(sorted(release.genres)) + "]"
-                if release.labels:
-                    release_virtual_dirname += " {" + ";".join(sorted(release.labels)) + "}"
                 if release.new:
                     release_virtual_dirname = "{NEW} " + release_virtual_dirname
                 release_virtual_dirname = _sanitize_filename(release_virtual_dirname)

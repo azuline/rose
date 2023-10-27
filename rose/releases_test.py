@@ -117,7 +117,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         cover_image_path=None,
         added_at=release.added_at,
         datafile_mtime=release.datafile_mtime,
-        virtual_dirname="{NEW} BLACKPINK;JISOO - 2222. I Really Love Blackpink - Single [J-Pop;Pop-Rap] {YG Entertainment}",  # noqa: E501
+        virtual_dirname="{NEW} BLACKPINK;JISOO - 2222. I Really Love Blackpink - Single [J-Pop;Pop-Rap]",  # noqa: E501
         title="I Really Love Blackpink",
         releasetype="single",
         year=2222,

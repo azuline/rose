@@ -19,7 +19,7 @@ from rose.config import Config
 
 def test_remove_release_from_collage(config: Config, source_dir: Path) -> None:
     remove_release_from_collage(
-        config, "Rose Gold", "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop] {A Cool Label}"
+        config, "Rose Gold", "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop]"
     )
 
     # Assert file is updated.
@@ -50,7 +50,7 @@ def test_collage_lifecycle(config: Config, source_dir: Path) -> None:
 
     # Add one release.
     add_release_to_collage(
-        config, "All Eyes", "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop] {A Cool Label}"
+        config, "All Eyes", "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop]"
     )
     with filepath.open("rb") as fp:
         diskdata = tomllib.load(fp)
@@ -62,9 +62,7 @@ def test_collage_lifecycle(config: Config, source_dir: Path) -> None:
         assert {r["release_id"] for r in cursor} == {"ilovecarly"}
 
     # Add another release.
-    add_release_to_collage(
-        config, "All Eyes", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
-    )
+    add_release_to_collage(config, "All Eyes", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]")
     with (source_dir / "!collages" / "All Eyes.toml").open("rb") as fp:
         diskdata = tomllib.load(fp)
         assert {r["uuid"] for r in diskdata["releases"]} == {"ilovecarly", "ilovenewjeans"}
@@ -75,9 +73,7 @@ def test_collage_lifecycle(config: Config, source_dir: Path) -> None:
         assert {r["release_id"] for r in cursor} == {"ilovecarly", "ilovenewjeans"}
 
     # Delete one release.
-    remove_release_from_collage(
-        config, "All Eyes", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
-    )
+    remove_release_from_collage(config, "All Eyes", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]")
     with filepath.open("rb") as fp:
         diskdata = tomllib.load(fp)
         assert {r["uuid"] for r in diskdata["releases"]} == {"ilovecarly"}
@@ -97,12 +93,8 @@ def test_collage_lifecycle(config: Config, source_dir: Path) -> None:
 
 def test_collage_add_duplicate(config: Config, source_dir: Path) -> None:
     create_collage(config, "All Eyes")
-    add_release_to_collage(
-        config, "All Eyes", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
-    )
-    add_release_to_collage(
-        config, "All Eyes", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B] {A Cool Label}"
-    )
+    add_release_to_collage(config, "All Eyes", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]")
+    add_release_to_collage(config, "All Eyes", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]")
     with (source_dir / "!collages" / "All Eyes.toml").open("rb") as fp:
         diskdata = tomllib.load(fp)
         assert len(diskdata["releases"]) == 1

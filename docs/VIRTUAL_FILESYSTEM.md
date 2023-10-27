@@ -49,7 +49,7 @@ response.
 The release template is:
 
 ```
-%ALBUM_ARTISTS% - %YEAR%. %ALBUM_TITLE% - %RELEASE_TYPE% [%GENRE%] {%LABEL%}
+%ALBUM_ARTISTS% - %YEAR%. %ALBUM_TITLE% - %RELEASE_TYPE% [%GENRE%]
 ```
 
 But the `- %RELEASE_TYPE%` field is omitted when the release is of type `album`,
@@ -100,7 +100,7 @@ Command line:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rose releases toggle-new "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}"
+$ rose releases toggle-new "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
 [21:47:52] INFO: Refreshing the read cache for 1 releases
 [21:47:52] INFO: Applying cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [21:47:52] INFO: Refreshing the read cache for 1 collages
@@ -110,9 +110,9 @@ $ rose releases toggle-new "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-P
 $ tree "2. Releases - New/"
 2. Releases - New/
 ├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
-└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
 
-$ rose releases toggle-new "{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}"
+$ rose releases toggle-new "{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
 [21:49:36] INFO: Refreshing the read cache for 1 releases
 [21:49:36] INFO: Applying cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [21:49:36] INFO: Refreshing the read cache for 1 collages
@@ -129,14 +129,14 @@ Virtual filesystem:
 ```bash
 $ cd $fuse_mount_dir
 
-$ mv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}" "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}"
+$ mv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]" "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
 
 $ tree "2. Releases - New/"
 2. Releases - New/
 ├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
-└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/...
+└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
 
-$ mv "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}"
+$ mv "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
 
 $ tree "2. Releases - New/"
 2. Releases - New/
@@ -155,20 +155,20 @@ Command line:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rose releases delete "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}"
-[21:56:25] INFO: Trashed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}
+$ rose releases delete "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
+[21:56:25] INFO: Trashed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]
 [21:56:25] INFO: Evicting cached releases that are not on disk
 [21:56:25] INFO: Evicted release /home/blissful/demo/source/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match from cache
 [21:56:25] INFO: Refreshing the read cache for 1 collages
-[21:56:25] INFO: Removing nonexistent release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative} from collage Long Flight
+[21:56:25] INFO: Removing nonexistent release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] from collage Long Flight
 [21:56:25] INFO: Updating release descriptions for Long Flight
 [21:56:25] INFO: Applying cache updates for collage Long Flight
 
 $ tree "1. Releases/"
 1. Releases/
-├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/...
-├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
-├── YUZION - 2019. Young Trapper [Hip Hop]/...
+├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop]/...
+├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop]/...
+├── NewJeans - 2022. Ditto [K-Pop]/...
 └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
 ```
 
@@ -177,12 +177,12 @@ Virtual filesystem:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rmdir "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}"
+$ rmdir "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
 
 $ tree "1. Releases/"
 1. Releases/
-├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}/...
-├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}/...
-├── YUZION - 2019. Young Trapper [Hip Hop]/...
+├── BLACKPINK - 2016. SQUARE ONE - Single [K-Pop]/...
+├── BLACKPINK - 2016. SQUARE TWO - Single [K-Pop]/...
+├── NewJeans - 2022. Ditto [K-Pop]/...
 └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]/...
 ```
