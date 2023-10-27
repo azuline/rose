@@ -152,7 +152,11 @@ class MetadataRelease:
         )
 
     def serialize(self) -> str:
-        return tomli_w.dumps(asdict(self))
+        # LOL TOML DOESN'T HAVE A NULL TYPE. Use -9999 as sentinel. If your music is legitimately
+        # released in -9999, you should probably lay off the shrooms.
+        data = asdict(self)
+        data["year"] = self.year or -9999
+        return tomli_w.dumps(data)
 
     @classmethod
     def from_toml(cls, toml: str) -> MetadataRelease:
@@ -160,7 +164,7 @@ class MetadataRelease:
         return cls(
             title=d["title"],
             releasetype=d["releasetype"],
-            year=d["year"],
+            year=d["year"] if d["year"] != -9999 else None,
             genres=d["genres"],
             labels=d["labels"],
             artists=[MetadataArtist(name=a["name"], role=a["role"]) for a in d["artists"]],
