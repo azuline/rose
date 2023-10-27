@@ -21,6 +21,7 @@ import tomllib
 import uuid6
 
 from rose.artiststr import format_artist_string
+from rose.common import VERSION
 from rose.config import Config
 from rose.tagger import SUPPORTED_EXTENSIONS, AudioFile
 
@@ -70,9 +71,14 @@ def migrate_database(c: Config) -> None:
             """
         )
         if cursor.fetchone()[0]:
-            cursor = conn.execute("SELECT schema_hash, config_hash FROM _schema_hash")
+            cursor = conn.execute("SELECT schema_hash, config_hash, version FROM _schema_hash")
             row = cursor.fetchone()
-            if row and row["schema_hash"] == schema_hash and row["config_hash"] == c.hash:
+            if (
+                row
+                and row["schema_hash"] == schema_hash
+                and row["config_hash"] == c.hash
+                and row["version"] == VERSION
+            ):
                 # Everything matches! Exit!
                 return
 
@@ -85,13 +91,14 @@ def migrate_database(c: Config) -> None:
             CREATE TABLE _schema_hash (
                 schema_hash TEXT
               , config_hash TEXT
-              , PRIMARY KEY (schema_hash, config_hash)
+              , version TEXT
+              , PRIMARY KEY (schema_hash, config_hash, version)
             )
             """
         )
         conn.execute(
-            "INSERT INTO _schema_hash (schema_hash, config_hash) VALUES (?, ?)",
-            (schema_hash, c.hash),
+            "INSERT INTO _schema_hash (schema_hash, config_hash, version) VALUES (?, ?, ?)",
+            (schema_hash, c.hash, VERSION),
         )
 
 

@@ -1,7 +1,7 @@
 import setuptools
 
-with open("version") as f:
-    version = f.read()
+with open("rose/.version") as f:
+    version = f.read().strip()
 
 setuptools.setup(
     name="rose",
@@ -12,7 +12,7 @@ setuptools.setup(
     license="Apache-2.0",
     entry_points={"console_scripts": ["rose = rose.__main__:cli"]},
     packages=setuptools.find_namespace_packages(where="."),
-    package_data={"rose": ["*.sql"]},
+    package_data={"rose": ["*.sql", ".version"]},
     install_requires=[
         "click",
         "fusepy",

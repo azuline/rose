@@ -1,4 +1,8 @@
 import uuid
+from pathlib import Path
+
+with (Path(__file__).parent / ".version").open("r") as fp:
+    VERSION = fp.read().strip()
 
 
 class RoseError(Exception):

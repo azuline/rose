@@ -80,7 +80,7 @@
       packages = rec {
         rose = python.pkgs.buildPythonPackage {
           pname = "rose";
-          version = builtins.readFile ./version;
+          version = nixpkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./rose/.version);
           src = ./.;
           propagatedBuildInputs = prod-deps;
           doCheck = false;

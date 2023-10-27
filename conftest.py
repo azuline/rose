@@ -9,6 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 from rose.cache import CACHE_SCHEMA_PATH, update_cache
+from rose.common import VERSION
 from rose.config import Config
 
 logger = logging.getLogger(__name__)
@@ -47,15 +48,16 @@ def config(isolated_dir: Path) -> Config:
             CREATE TABLE _schema_hash (
                 schema_hash TEXT
               , config_hash TEXT
-              , PRIMARY KEY (schema_hash, config_hash)
+              , version TEXT
+              , PRIMARY KEY (schema_hash, config_hash, version)
             )
             """
         )
         with CACHE_SCHEMA_PATH.open("rb") as fp:
             schema_hash = hashlib.sha256(fp.read()).hexdigest()
         conn.execute(
-            "INSERT INTO _schema_hash (schema_hash, config_hash) VALUES (?, ?)",
-            (schema_hash, "00ff"),
+            "INSERT INTO _schema_hash (schema_hash, config_hash, version) VALUES (?, ?, ?)",
+            (schema_hash, "00ff", VERSION),
         )
 
     music_source_dir = isolated_dir / "source"
