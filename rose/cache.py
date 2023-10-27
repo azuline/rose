@@ -857,7 +857,9 @@ def _update_cache_for_releases_executor(
             while True:
                 if virtual_filename not in seen_track_names:
                     break
-                virtual_filename = f"{original_virtual_filename} [{collision_no}]"
+                # Write the collision number before the file extension.
+                povf = Path(original_virtual_filename)
+                virtual_filename = f"{povf.stem} [{collision_no}]{povf.suffix}"
                 collision_no += 1
             seen_track_names.add(virtual_filename)
             if virtual_filename != t.virtual_filename:
