@@ -29,7 +29,7 @@ An example of the contents of the `.toml` file are, for a collage:
 
 [[releases]]
 uuid = "018b268e-ef68-7180-a01e-19bc3fdf970e"
-description_meta = "BLACKPINK - 2016. SQUARE TWO - Single [K-Pop]"
+description_meta = "BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]"
 
 [[releases]]
 uuid = "018b4ff1-acdf-7ff1-bcd6-67757aea0fed"
@@ -115,7 +115,7 @@ $ rose collages add-release "Morning" "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Matc
 [17:59:38] INFO: Applying cache updates for collage Morning
 
 $ rose collages add-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
-[17:59:44] INFO: Added release BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] to collage Morning
+[17:59:44] INFO: Added release BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop] to collage Morning
 [17:59:44] INFO: Refreshing the read cache for 1 collages
 [17:59:44] INFO: Applying cache updates for collage Morning
 
@@ -141,7 +141,7 @@ cp: cannot create directory '7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. 
 
 $ tree "7. Collages/Morning/"
 7. Collages/Morning/
-├── 1. BLACKPINK - 2016. SQUARE TWO - Single [K-Pop]/...
+├── 1. BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]/...
 └── 2. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
 
 $ cp "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus" "8. Playlists/Evening/"
@@ -166,7 +166,7 @@ $ rose collages remove-release "Morning" "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & M
 [18:11:43] INFO: Applying cache updates for collage Morning
 
 $ rose collages remove-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
-[18:12:03] INFO: Removed release BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] from collage Morning
+[18:12:03] INFO: Removed release BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop] from collage Morning
 [18:12:03] INFO: Refreshing the read cache for 1 collages
 [18:12:03] INFO: Applying cache updates for collage Morning
 
@@ -204,11 +204,11 @@ deleting their line entry from the text file._
 ```bash
 $ rose collages edit "Road Trip"
 # Opens the following text in $EDITOR:
-BLACKPINK - 2016. SQUARE TWO - Single [K-Pop]
+BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]
 LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]
 # We will save the following text:
 LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]
-BLACKPINK - 2016. SQUARE TWO - Single [K-Pop]
+BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]
 # And the logs printed to stderr are:
 [18:20:53] INFO: Edited collage Road Trip from EDITOR
 [18:20:53] INFO: Refreshing the read cache for 1 collages
@@ -217,7 +217,7 @@ BLACKPINK - 2016. SQUARE TWO - Single [K-Pop]
 $ tree "7. Collages/Road Trip"
 7. Collages/Road Trip/
 ├── 1. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/...
-└── 2. BLACKPINK - 2016. SQUARE TWO - Single [K-Pop]/...
+└── 2. BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]/...
 
 $ rose playlists edit "Shower"
 # Opens the following text in $EDITOR:
