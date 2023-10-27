@@ -249,6 +249,8 @@ class VirtualFS(fuse.Operations):  # type: ignore
 
         # {1,2,3}. Releases
         if p.release:
+            if p.view == "New" and not p.release.startswith("{NEW} "):
+                raise fuse.FuseOSError(errno.ENOENT)
             if rp := release_exists(self.config, p.release):
                 return getattr_release(rp)
             raise fuse.FuseOSError(errno.ENOENT)
@@ -728,9 +730,9 @@ def parse_virtual_path(path: str, *, parse_release_position: bool = True) -> Par
     if parts[0] == "2. Releases - New":
         if len(parts) == 1:
             return ParsedPath(view="New")
-        if len(parts) == 2 and parts[1].startswith("{NEW} "):
+        if len(parts) == 2:
             return ParsedPath(view="New", release=parts[1])
-        if len(parts) == 3 and parts[1].startswith("{NEW} "):
+        if len(parts) == 3:
             return ParsedPath(
                 view="New",
                 release=parts[1],
