@@ -113,15 +113,15 @@ class AudioFile:
                 track_number=_parse_num(_get_tag(m.tags, ["TRCK"], first=True)),
                 disc_number=_parse_num(_get_tag(m.tags, ["TPOS"], first=True)),
                 album=_get_tag(m.tags, ["TALB"]),
-                genre=_split_tag(_get_tag(m.tags, ["TCON"])),
-                label=_split_tag(_get_tag(m.tags, ["TPUB"])),
+                genre=_split_tag(_get_tag(m.tags, ["TCON"], split=True)),
+                label=_split_tag(_get_tag(m.tags, ["TPUB"], split=True)),
                 release_type=_normalize_rtype(_get_tag(m.tags, ["TXXX:RELEASETYPE"], first=True)),
-                album_artists=parse_artist_string(main=_get_tag(m.tags, ["TPE2"])),
+                album_artists=parse_artist_string(main=_get_tag(m.tags, ["TPE2"], split=True)),
                 artists=parse_artist_string(
-                    main=_get_tag(m.tags, ["TPE1"]),
-                    remixer=_get_tag(m.tags, ["TPE4"]),
-                    composer=_get_tag(m.tags, ["TCOM"]),
-                    conductor=_get_tag(m.tags, ["TPE3"]),
+                    main=_get_tag(m.tags, ["TPE1"], split=True),
+                    remixer=_get_tag(m.tags, ["TPE4"], split=True),
+                    composer=_get_tag(m.tags, ["TCOM"], split=True),
+                    conductor=_get_tag(m.tags, ["TPE3"], split=True),
                     producer=_get_paired_frame("producer"),
                     dj=_get_paired_frame("DJ-mix"),
                 ),
@@ -136,19 +136,19 @@ class AudioFile:
                 track_number=_get_tag(m.tags, ["trkn"], first=True),
                 disc_number=_get_tag(m.tags, ["disk"], first=True),
                 album=_get_tag(m.tags, ["\xa9alb"]),
-                genre=_split_tag(_get_tag(m.tags, ["\xa9gen"])),
-                label=_split_tag(_get_tag(m.tags, ["----:com.apple.iTunes:LABEL"])),
+                genre=_split_tag(_get_tag(m.tags, ["\xa9gen"], split=True)),
+                label=_split_tag(_get_tag(m.tags, ["----:com.apple.iTunes:LABEL"], split=True)),
                 release_type=_normalize_rtype(
                     _get_tag(m.tags, ["----:com.apple.iTunes:RELEASETYPE"], first=True)
                 ),
-                album_artists=parse_artist_string(main=_get_tag(m.tags, ["aART"])),
+                album_artists=parse_artist_string(main=_get_tag(m.tags, ["aART"], split=True)),
                 artists=parse_artist_string(
-                    main=_get_tag(m.tags, ["\xa9ART"]),
-                    remixer=_get_tag(m.tags, ["----:com.apple.iTunes:REMIXER"]),
-                    producer=_get_tag(m.tags, ["----:com.apple.iTunes:PRODUCER"]),
-                    composer=_get_tag(m.tags, ["\xa9wrt"]),
-                    conductor=_get_tag(m.tags, ["----:com.apple.iTunes:CONDUCTOR"]),
-                    dj=_get_tag(m.tags, ["----:com.apple.iTunes:DJMIXER"]),
+                    main=_get_tag(m.tags, ["\xa9ART"], split=True),
+                    remixer=_get_tag(m.tags, ["----:com.apple.iTunes:REMIXER"], split=True),
+                    producer=_get_tag(m.tags, ["----:com.apple.iTunes:PRODUCER"], split=True),
+                    composer=_get_tag(m.tags, ["\xa9wrt"], split=True),
+                    conductor=_get_tag(m.tags, ["----:com.apple.iTunes:CONDUCTOR"], split=True),
+                    dj=_get_tag(m.tags, ["----:com.apple.iTunes:DJMIXER"], split=True),
                 ),
                 duration_sec=round(m.info.length),  # type: ignore
                 _m=m,
@@ -161,17 +161,21 @@ class AudioFile:
                 track_number=_get_tag(m.tags, ["tracknumber"], first=True),
                 disc_number=_get_tag(m.tags, ["discnumber"], first=True),
                 album=_get_tag(m.tags, ["album"]),
-                genre=_split_tag(_get_tag(m.tags, ["genre"])),
-                label=_split_tag(_get_tag(m.tags, ["organization", "label", "recordlabel"])),
+                genre=_split_tag(_get_tag(m.tags, ["genre"], split=True)),
+                label=_split_tag(
+                    _get_tag(m.tags, ["organization", "label", "recordlabel"], split=True)
+                ),
                 release_type=_normalize_rtype(_get_tag(m.tags, ["releasetype"], first=True)),
-                album_artists=parse_artist_string(main=_get_tag(m.tags, ["albumartist"])),
+                album_artists=parse_artist_string(
+                    main=_get_tag(m.tags, ["albumartist"], split=True)
+                ),
                 artists=parse_artist_string(
-                    main=_get_tag(m.tags, ["artist"]),
-                    remixer=_get_tag(m.tags, ["remixer"]),
-                    producer=_get_tag(m.tags, ["producer"]),
-                    composer=_get_tag(m.tags, ["composer"]),
-                    conductor=_get_tag(m.tags, ["conductor"]),
-                    dj=_get_tag(m.tags, ["djmixer"]),
+                    main=_get_tag(m.tags, ["artist"], split=True),
+                    remixer=_get_tag(m.tags, ["remixer"], split=True),
+                    producer=_get_tag(m.tags, ["producer"], split=True),
+                    composer=_get_tag(m.tags, ["composer"], split=True),
+                    conductor=_get_tag(m.tags, ["conductor"], split=True),
+                    dj=_get_tag(m.tags, ["djmixer"], split=True),
                 ),
                 duration_sec=round(m.info.length),  # type: ignore
                 _m=m,
@@ -323,7 +327,7 @@ def _split_tag(t: str | None) -> list[str]:
     return TAG_SPLITTER_REGEX.split(t) if t else []
 
 
-def _get_tag(t: Any, keys: list[str], *, first: bool = False) -> str | None:
+def _get_tag(t: Any, keys: list[str], *, split: bool = False, first: bool = False) -> str | None:
     if not t:
         return None
     for k in keys:
@@ -332,14 +336,14 @@ def _get_tag(t: Any, keys: list[str], *, first: bool = False) -> str | None:
             raw_values = t[k].text if isinstance(t, mutagen.id3.ID3) else t[k]
             for val in raw_values:
                 if isinstance(val, str):
-                    values.extend(_split_tag(val))
+                    values.extend(_split_tag(val) if split else [val])
                 elif isinstance(val, bytes):
-                    values.extend(_split_tag(val.decode()))
+                    values.extend(_split_tag(val.decode()) if split else [val.decode()])
                 elif isinstance(val, mutagen.id3.ID3TimeStamp):  # type: ignore
-                    values.append(val.text)
+                    values.extend(_split_tag(val.text) if split else [val.text])
                 elif isinstance(val, tuple):
                     for v in val:
-                        values.extend(_split_tag(str(v)))
+                        values.extend(_split_tag(str(v)) if split else [str(v)])
                 else:
                     raise UnsupportedTagValueTypeError(
                         f"Encountered a tag value of type {type(val)}"
