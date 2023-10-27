@@ -46,7 +46,7 @@ This has some nice consequences:
   because conflict resolution is then ambiguous. Whereas in Rosé, there are no
   conflicts.
 
-## Stable Release & Track Identifiers
+# Stable Release & Track Identifiers
 
 Rosé assigns UUIDs to each release and track in order to identify them across
 arbitrarily large metadata changes. These UUIDs are persisted to the source
@@ -59,7 +59,7 @@ files.
 - Each track has a custom `roseid` tag. This tag is written to the source audio
   file. Read the `tagger.py` file for the exact field name used.
 
-## Read Cache Update
+# Read Cache Update
 
 The read cache update is optimized to minimize the number of disk accesses, as
 it's a hot path and quite expensive if implemented poorly.
@@ -74,7 +74,7 @@ queries to batch the writes.
 The update process is also parallelizable, so we shard workloads across
 multiple processes.
 
-## Logging
+# Logging
 
 Logs are written to stderr and to `${XDG_STATE_HOME:-$HOME/.local/state}/rose/rose.log`.
 Debug logging can be turned on with the `--verbose/-v` option. Rosé is heavily

@@ -40,8 +40,9 @@ SUPPORTED_RELEASE_TYPES = [
     "remix",
     "djmix",
     "mixtape",
-    "other",
     "bootleg",
+    "demo",
+    "other",
     "unknown",
 ]
 
@@ -184,6 +185,7 @@ class AudioFile:
         if not validate and "pytest" not in sys.modules:
             raise Exception("Validate can only be turned off by tests.")
 
+        self.release_type = (self.release_type or "unknown").lower()
         if validate and self.release_type not in SUPPORTED_RELEASE_TYPES:
             raise UnsupportedTagValueTypeError(
                 f"Release type {self.release_type} is not a supported release type.\n"
@@ -242,7 +244,7 @@ class AudioFile:
             m.tags["\xa9alb"] = self.album or ""
             m.tags["\xa9gen"] = ";".join(self.genre)
             m.tags["----:com.apple.iTunes:LABEL"] = ";".join(self.label).encode()
-            m.tags["----:com.apple.iTunes:RELEASETYPE"] = (self.release_type or "").encode()
+            m.tags["----:com.apple.iTunes:RELEASETYPE"] = self.release_type.encode()
             m.tags["aART"] = format_artist_string(self.album_artists, self.genre)
             m.tags["\xa9ART"] = format_artist_string(self.artists, self.genre)
             # Wipe the alt. role artist tags, since we encode the full artist into the main tag.
@@ -297,7 +299,7 @@ class AudioFile:
             m.tags["album"] = self.album or ""
             m.tags["genre"] = ";".join(self.genre)
             m.tags["organization"] = ";".join(self.label)
-            m.tags["releasetype"] = self.release_type or ""
+            m.tags["releasetype"] = self.release_type
             m.tags["albumartist"] = format_artist_string(self.album_artists, self.genre)
             m.tags["artist"] = format_artist_string(self.artists, self.genre)
             # Wipe the alt. role artist tags, since we encode the full artist into the main tag.

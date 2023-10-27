@@ -7,7 +7,7 @@ As Rosé implements playlists and collages in almost the same way, except that
 one tracks releases and the other tracks tracks, we discuss both collages and
 playlists together.
 
-## Storage Format
+# Storage Format
 
 Collages and playlists are stored on-disk in the source directory, in the
 `!collages` and `!playlists` directories, respectively. Each collage and
@@ -56,6 +56,8 @@ update, so that they remain meaningful.
 
 The ordering of the releases/tracks is meaningful: they represent the
 ordering of releases/tracks in the collage/playlist.
+
+# Operations
 
 However, working with this file directly is quite annoying, so Rosé allows you
 to manage collages and playlists via the command line and the virtual

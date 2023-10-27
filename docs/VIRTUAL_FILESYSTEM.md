@@ -2,17 +2,17 @@
 
 TODO: Intro??
 
-## Mounting & Unmounting
+# Mounting & Unmounting
 
 troubleshooting... edge cases
 
-## Directory Structure
+# Directory Structure
 
-## Directory and File Names
+# Directory and File Names
 
-## New Releases
+# New Releases
 
-## Operations
+# Operations
 
 > [!NOTE]
 > Operations on collages and playlists are documented in

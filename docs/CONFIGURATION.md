@@ -58,7 +58,7 @@ fuse_labels_whitelist = [ "xxx", "yyy" ]
 # These options remove specific entities from their respective top-level
 # virtual filesystem directories. This is useful if there are a few values you
 # don't find useful, e.g. a random featuring artist or one super niche genre.
-# 
+#
 # These options are mutually exclusive with the fuse_*_whitelist options; if
 # both are specified for a given entity type, the configuration will not
 # validate.
@@ -77,7 +77,7 @@ max_proc = 4
 
 ```
 
-## Systemd Unit Files
+# Systemd
 
 If you want Rosé to always be on, you can configure systemd to manage Rosé.
 Systemd can ensure that Rosé starts on boot and restarts on failure.

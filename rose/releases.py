@@ -101,7 +101,7 @@ class MetadataArtist:
         m = ArtistMapping()
         for a in artists:
             try:
-                getattr(m, a.role).append(a.name)
+                getattr(m, a.role.lower()).append(a.name)
             except AttributeError as e:
                 raise UnknownArtistRoleError(
                     f"Failed to write tags: Unknown role for artist {a.name}: {a.role}"
@@ -226,7 +226,7 @@ def edit_release(c: Config, release_id_or_virtual_dirname: str) -> None:
                 dirty = True
                 logger.debug(f"Modified tag detected for {t.source_path}: album")
             if tags.release_type != release_meta.releasetype:
-                tags.release_type = release_meta.releasetype
+                tags.release_type = release_meta.releasetype.lower()
                 dirty = True
                 logger.debug(f"Modified tag detected for {t.source_path}: release_type")
             if tags.year != release_meta.year:

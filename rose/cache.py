@@ -213,6 +213,7 @@ RELEASE_TYPE_FORMATTER = {
     "djmix": "DJ-Mix",
     "mixtape": "Mixtape",
     "other": "Other",
+    "demo": "Demo",
     "unknown": "Unknown",
 }
 

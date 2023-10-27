@@ -141,15 +141,14 @@ This section contains a concise list of Rosé's features.
 - Virtual Filesystem
   - Read audio files and cover art
   - Modify files and cover art
-  - Filter releases by album artist, genre, label, and "new"-ness.
+  - Filter releases by album artist, genre, label, and "new"-ness
   - Browse and edit collages and playlists
   - Group artist aliases together
   - Toggle release "new"-ness
   - Whitelist/blacklist entries in the artist, genre, and label views
 - Command Line
-  - Edit release metadata as a text file.
-  - Import metadata and cover art from third-party sources: Discogs,
-    MusicBrainz, Tidal, Deezer, Apple, Junodownload, Beatport, and fanart.tv
+  - Edit release metadata as a text file
+  - Import metadata and cover art from third-party sources
   - Extract embedded cover art to a file
   - Automatically update metadata via patterns and rules
   - Collage and playlist management
@@ -266,13 +265,34 @@ finally (3) play music!
    to the configured `fuse_mount_dir`, and you should see your music available
    in the virtual filesystem!
 
+   ```bash
+   $ cd $fuse_mount_dir
+
+   $ ls -1
+   '1. Releases'
+   '2. Releases - New'
+   '3. Releases - Recently Added'
+   '4. Artists'
+   '5. Genres'
+   '6. Labels'
+   '7. Collages'
+   '8. Playlists'
+
+   $ ls -1 "1. Releases/"
+   'BLACKPINK - 2016. SQUARE ONE - Single [K-Pop] {YG Entertainment}'
+   'BLACKPINK - 2016. SQUARE TWO - Single [K-Pop] {YG Entertainment}'
+   'LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}'
+   'YUZION - 2019. Young Trapper [Hip Hop]'
+   '{NEW} LOOΠΔ - 2017. Kim Lip - Single [K-Pop]'
+   ```
+
 3. Let's play some music! You should be able to open a music file in your music
    player of choice.
 
    Mine is `mpv`:
 
    ```bash
-   $ mpv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus" 
+   $ mpv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop] {BlockBerry Creative}/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus"
     (+) Audio --aid=1 'Chaotic' (opus 2ch 48000Hz)
    File tags:
     Artist: LOOΠΔ ODD EYE CIRCLE
@@ -300,6 +320,10 @@ We recommend using Rosé with:
 1. A file manager, such as [nnn](https://github.com/jarun/nnn),
    [mc](https://midnight-commander.org/), and [ranger](https://github.com/ranger/ranger).
 2. A media player, such as [mpv](https://mpv.io/).
+
+You also need not use the complete feature set of Rosé. Everything will
+continue to work if you only use the virtual filesystem and ignore the
+metatdata tooling, and vice versa.
 
 # Learn More
 
@@ -332,12 +356,14 @@ limitations under the License.
 
 # Contributions
 
+Bug fixes are happily accepted!
+
+However, please do not open a pull request for a new feature without prior
+discussion.
+
 Rosé is a pet project that I developed for personal use. Rosé is designed to
 match my specific needs and constraints, and is never destined to be widely
-adopted.
+adopted. Therefore, I will lean towards keeping the feature set focused and
+small, and will not add too many features over the lifetime of the project.
 
-Bug fix contributions are happily accepted! However, please do not open a pull
-request for a new feature without prior discussion.
-
-Rose is provided as-is: there are no promises of future maintenance or feature
-development.
+Rosé is provided as-is: I may not maintain it in the future.

@@ -36,7 +36,7 @@ cache update --force`.
 
 It would be pretty annoying if you had to run this command by hand after each
 metadata update. So Rosé will automatically run this command whenever an update
-happens _through_ Rosé. That means: 
+happens _through_ Rosé. That means:
 
 - If a file is modified in the virtual filesystem, a cache update is
   triggered when the file handle closes.
