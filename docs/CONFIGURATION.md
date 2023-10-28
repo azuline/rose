@@ -108,10 +108,14 @@ max_proc = 4
 
 # Systemd
 
-If you want Rosé to always be on, you can configure systemd to manage Rosé.
-Systemd can ensure that Rosé starts on boot and restarts on failure.
+By default, the `rose fs mount` and `rose cache watch` commands spawn daemons
+that run in the background.
 
-Some systemd unit files are:
+However, these daemons do not recover from failure or start on boot. If you
+would like them to, you can manage Rosé's processes with a service manager such
+as systemd.
+
+Some sample systemd service files for managing Rosé are:
 
 ```ini
 TODO

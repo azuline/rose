@@ -14,9 +14,10 @@ setuptools.setup(
     packages=setuptools.find_namespace_packages(where="."),
     package_data={"rose": ["*.sql", ".version"]},
     install_requires=[
+        "cachetools",
         "click",
-        "fusepy",
         "mutagen",
+        "llfuse",
         "send2trash",
         "tomli-w",
         "uuid6",

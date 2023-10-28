@@ -63,7 +63,13 @@ ignore_missing_imports = true
 module = "pytest_cov.embed"
 ignore_missing_imports = true
 [[tool.mypy.overrides]]
+module = "llfuse"
+ignore_missing_imports = true
+[[tool.mypy.overrides]]
 module = "send2trash"
+ignore_missing_imports = true
+[[tool.mypy.overrides]]
+module = "cachetools.*"
 ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "watchdog.*"

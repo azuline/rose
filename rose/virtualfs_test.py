@@ -15,7 +15,7 @@ from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
 @contextmanager
 def start_virtual_fs(c: Config) -> Iterator[None]:
-    p = Process(target=mount_virtualfs, args=[c, True, True, False])
+    p = Process(target=mount_virtualfs, args=[c, True])
     try:
         p.start()
         time.sleep(0.1)
@@ -191,8 +191,8 @@ def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> 
         # we no-op if we cannot unlink a file. And we test the real tool we want to use in
         # production.
         subprocess.run(["rm", "-r", str(root / "1. Releases" / dirname)], check=True)
-        assert not (root / "1. Releases" / f"{{NEW}} {dirname}").is_dir()
         assert not (root / "1. Releases" / dirname).exists()
+        assert not (root / "1. Releases" / f"{{NEW}} {dirname}").is_dir()
         assert not (source_dir / "Test Release 3").exists()
 
 

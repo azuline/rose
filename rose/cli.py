@@ -1,4 +1,5 @@
 import logging
+import os
 from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
@@ -26,7 +27,7 @@ from rose.playlists import (
     rename_playlist,
 )
 from rose.releases import delete_release, dump_releases, edit_release, toggle_release_new
-from rose.virtualfs import mount_virtualfs, parse_virtual_path, unmount_virtualfs
+from rose.virtualfs import VirtualPath, mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
 
@@ -69,10 +70,16 @@ def update(ctx: Context, force: bool) -> None:
     update_cache(ctx.config, force)
 
 
+# fmt: off
 @cache.command()
+@click.option("--foreground", "-f", is_flag=True, help="Run the filesystem watcher in the foreground (default: daemon).")  # noqa: E501
 @click.pass_obj
-def watch(ctx: Context) -> None:
+# fmt: on
+def watch(ctx: Context, foreground: bool) -> None:
     """Start a watchdog that will auto-refresh the cache on changes in music_source_dir."""
+    if not foreground:
+        daemonize()
+
     start_watchdog(ctx.config)
 
 
@@ -81,18 +88,25 @@ def fs() -> None:
     """Manage the virtual library."""
 
 
-@fs.command(context_settings={"ignore_unknown_options": True})
-@click.option("--foreground", "-f", is_flag=True, help="Foreground the FUSE controller.")
+# fmt: off
+@fs.command()
+@click.option("--foreground", "-f", is_flag=True, help="Run the FUSE controller in the foreground (default: daemon).")  # noqa: E501
 @click.pass_obj
+# fmt: on
 def mount(ctx: Context, foreground: bool) -> None:
     """Mount the virtual library."""
+    if not foreground:
+        daemonize()
+
     # Trigger a cache refresh in the background when we first mount the filesystem.
     p = Process(target=update_cache, args=[ctx.config, False])
+    debug = logging.getLogger().getEffectiveLevel() == logging.DEBUG
     try:
         p.start()
-        mount_virtualfs(ctx.config, foreground)
+        mount_virtualfs(ctx.config, debug=debug)
     finally:
         p.join(timeout=1)
+    return
 
 
 @fs.command()
@@ -304,11 +318,20 @@ def parse_release_from_potential_path(c: Config, r: str) -> str:
         return r
 
     # Parse the virtual path with the standard function.
-    virtual_path = str(p).removeprefix(str(c.fuse_mount_dir))
-    parsed_path = parse_virtual_path(virtual_path)
+    vpath = VirtualPath.parse(Path(str(p).removeprefix(str(c.fuse_mount_dir))))
     # If there is no release, or there is a file, abort lol.
-    if not parsed_path.release or parsed_path.file:
+    if not vpath.release or vpath.file:
         return r
 
     # Otherwise return the parsed release.
-    return parsed_path.release
+    return vpath.release
+
+
+def daemonize() -> None:
+    pid = os.fork()
+    if pid == 0:
+        # Child process. Detach and keep going!
+        os.setsid()
+        return
+    # Parent process, let's exit now!
+    os._exit(0)

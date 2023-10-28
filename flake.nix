@@ -27,9 +27,10 @@
         doCheck = false;
       };
       prod-deps = with python.pkgs; [
+        cachetools
         click
-        fusepy
         mutagen
+        llfuse
         send2trash
         setuptools
         tomli-w
