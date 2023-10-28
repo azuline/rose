@@ -1072,6 +1072,11 @@ def _update_cache_for_releases_executor(
                 """,
                 _flatten(upd_track_artist_args),
             )
+
+        # Here, identify the collages and playlists to update the description_meta fields for. We
+        # will then invoke the update functions after we close the current database connection.
+        update_collages = None
+        update_playlists = None
         if upd_collage_release_dirnames:
             cursor = conn.execute(
                 f"""
@@ -1081,11 +1086,7 @@ def _update_cache_for_releases_executor(
                 """,
                 list(upd_collage_release_dirnames.keys()),
             )
-            collages = [row["collage_name"] for row in cursor]
-            if collages:
-                # Because we force the update, the collage will query for the new dirnames and
-                # update the files.
-                update_cache_for_collages(c, collages, force=True)
+            update_collages = [row["collage_name"] for row in cursor]
         if upd_playlist_track_filenames:
             cursor = conn.execute(
                 f"""
@@ -1095,11 +1096,13 @@ def _update_cache_for_releases_executor(
                 """,
                 list(upd_playlist_track_filenames.keys()),
             )
-            playlists = [row["playlist_name"] for row in cursor]
-            if playlists:
-                # Because we force update, the playlist will query for the new filenames and update
-                # the files.
-                update_cache_for_playlists(c, playlists, force=True)
+            update_playlists = [row["playlist_name"] for row in cursor]
+
+    if update_collages:
+        update_cache_for_collages(c, update_collages, force=True)
+    if update_playlists:
+        update_cache_for_playlists(c, update_playlists, force=True)
+
     logger.debug(f"Database execution loop time {time.time() - exec_start=}")
 
 
