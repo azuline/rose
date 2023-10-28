@@ -9,12 +9,12 @@ import re
 import stat
 import subprocess
 import tempfile
-import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+import cachetools
 import llfuse
 
 from rose.cache import (
@@ -835,27 +835,42 @@ class VirtualFS(llfuse.Operations):  # type: ignore
     """
 
     def __init__(self, config: Config):
-        fhgen = FileDescriptorGenerator()
-        self.rose = RoseLogicalFS(config, fhgen)
+        self.fhgen = FileDescriptorGenerator()
+        self.rose = RoseLogicalFS(config, self.fhgen)
         self.inodes = INodeManager(config)
         self.default_attrs = {
             # TODO: Well, this should be ok for now.
             "generation": random.randint(0, 1000000),
             "entry_timeout": 0,
         }
-        # We cache some items for getattr for performance reasons--after a ls, getattr is serially
-        # called for each item in the directory, and sequential 1k SQLite reads is quite slow in any
-        # universe. So whenever we have a readdir, we do a batch read and populate the getattr
-        # cache. The getattr cache is valid for only 5 seconds, which prevents stale results from
-        # being read from it.
+        # We cache some items for getattr and lookup for performance reasons--after a ls, getattr is
+        # serially called for each item in the directory, and sequential 1k SQLite reads is quite
+        # slow in any universe. So whenever we have a readdir, we do a batch read and populate the
+        # getattr and lookup caches. The cache is valid for only 2 seconds, which prevents stale
+        # results from being read from it.
         #
-        # The dict is a map of paths to (timestamp, mkstat_args). The timestamp should be checked
-        # upon access. If the cache entry is valid, mkstat should be called with the provided args.
-        # TODO: Periodic cleanup. cachetools?
-        self.getattr_cache: dict[int, tuple[float, llfuse.EntryAttributes]] = {}
+        # The dict is a map of paths to entry attributes.
+        self.getattr_cache: cachetools.TTLCache[int, llfuse.EntryAttributes]
+        self.lookup_cache: cachetools.TTLCache[tuple[int, bytes], llfuse.EntryAttributes]
+        self.reset_getattr_caches()
+
+        # We handle state for readdir calls here. Because programs invoke readdir multiple times
+        # with offsets, we end up with many readdir calls for a single directory. However, we do not
+        # want to actually invoke the logical Rose readdir call that many times. So we load it once
+        # in `opendir`, associate the results with a file handle, and yield results from that handle
+        # in `readdir`. We delete the state in `releasedir`.
+        #
+        # Map of file handle -> (parent inode, child name, child attributes).
+        self.readdir_cache: dict[int, list[tuple[int, bytes, llfuse.EntryAttributes]]] = {}
+
+    def reset_getattr_caches(self) -> None:
+        self.getattr_cache = cachetools.TTLCache(maxsize=99999, ttl=2)
+        self.lookup_cache = cachetools.TTLCache(maxsize=99999, ttl=2)
 
     def make_entry_attributes(self, attrs: dict[str, Any]) -> llfuse.EntryAttributes:
-        attrs.update(self.default_attrs)
+        for k, v in self.default_attrs.items():
+            if k not in attrs:
+                attrs[k] = v
         entry = llfuse.EntryAttributes()
         for k, v in attrs.items():
             setattr(entry, k, v)
@@ -865,10 +880,9 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Received getattr for {inode=}")
         # For performance, pull from the getattr cache if possible.
         with contextlib.suppress(KeyError):
-            ts, attrs = self.getattr_cache[inode]
-            if time.time() - ts < 5.0:
-                logger.debug(f"FUSE: Returning cached getattr result for {inode=}")
-                return attrs
+            attrs = self.getattr_cache[inode]
+            logger.debug(f"FUSE: Resolved getattr for {inode=} to {attrs.__getstate__()=}.")
+            return attrs
 
         path = self.inodes.get_path(inode)
         logger.debug(f"FUSE: Resolved getattr {inode=} to {path=}")
@@ -878,6 +892,14 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
     def lookup(self, parent_inode: int, name: bytes, _: Any) -> llfuse.EntryAttributes:
         logger.debug(f"FUSE: Received lookup for {parent_inode=}/{name=}")
+        # For performance, pull from the lookup cache if possible.
+        with contextlib.suppress(KeyError):
+            attrs = self.lookup_cache[(parent_inode, name)]
+            logger.debug(
+                f"FUSE: Resolved lookup for {parent_inode=}/{name=} to {attrs.__getstate__()=}."
+            )
+            return attrs
+
         path = self.inodes.get_path(parent_inode, name)
         logger.debug(f"FUSE: Resolved lookup for {parent_inode=}/{name=} to {path=}")
         attrs = self.rose.getattr(path)
@@ -885,31 +907,39 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         return self.make_entry_attributes(attrs)
 
     def opendir(self, inode: int, _: Any) -> int:
-        # This should return a file handle, but we simply re-use the inode as the fh.
-        return inode
+        logger.debug(f"FUSE: Received opendir for {inode=}")
+        path = self.inodes.get_path(inode)
+        logger.debug(f"FUSE: Resolved opendir for {inode=} to {path=}")
+        entries: list[tuple[int, bytes, llfuse.EntryAttributes]] = []
+        for namestr, attrs in self.rose.readdir(path):
+            name = namestr.encode()
+            attrs["st_ino"] = self.inodes.calc_inode(path / namestr)
+            entry = self.make_entry_attributes(attrs)
+            entries.append((inode, name, entry))
+        fh = self.fhgen.next()
+        self.readdir_cache[fh] = entries
+        logger.debug(f"FUSE: Stored {len(entries)=} nodes into the readdir cache for {fh=}")
+        return fh
 
-    def releasedir(self, _: int) -> None:
-        # No op; since we are using the inode as the fh, we have nothing to release.
-        pass
+    def releasedir(self, fh: int) -> None:
+        with contextlib.suppress(KeyError):
+            del self.readdir_cache[fh]
 
     def readdir(
         self,
-        inode: int,
+        fd: int,
         offset: int = 0,
     ) -> Iterator[tuple[bytes, llfuse.EntryAttributes, int]]:
-        logger.debug(f"FUSE: Received readdir for {inode=} {offset=}")
-        path = self.inodes.get_path(inode)
-        logger.debug(f"FUSE: Resolved readdir for {inode=} to {path=}")
-        now = time.time()
-        for i, (name, attrs) in enumerate(self.rose.readdir(path)):
-            if i < offset:
-                continue
-            inode = self.inodes.calc_inode(path)
-            attrs["st_ino"] = inode
-            entry = self.make_entry_attributes(attrs)
-            self.getattr_cache[inode] = (now, entry)
-            yield name.encode(), entry, i + 1
-            logger.debug(f"FUSE: Yielded entry {i=} in readdir of {path=}")
+        logger.debug(f"FUSE: Received readdir for {fd=} {offset=}")
+        try:
+            entries = self.readdir_cache[fd]
+        except KeyError:
+            return
+        for i, (parent_inode, name, entry) in enumerate(entries[offset:]):
+            self.getattr_cache[entry.st_ino] = entry
+            self.lookup_cache[(parent_inode, name)] = entry
+            yield name, entry, i + offset + 1
+            logger.debug(f"FUSE: Yielded entry {i + offset=} in readdir of {fd=}")
 
     def open(self, inode: int, flags: int, _: Any) -> int:
         logger.debug(f"FUSE: Received open for {inode=} {flags=}")
@@ -949,8 +979,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Created inode {inode=} for {path=}; now delegating to open call")
         fh = self.open(inode, flags, ctx)
         # Avoid zombies coming back from an old cache.
-        with contextlib.suppress(KeyError):
-            del self.getattr_cache[parent_inode]
+        self.reset_getattr_caches()
 
         attrs = self.rose.stat("file")
         attrs["st_ino"] = inode
@@ -962,8 +991,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Resolved unlink for {parent_inode=}/{name=} to {path=}")
         self.rose.unlink(path)
         # Avoid zombies coming back from an old cache.
-        with contextlib.suppress(KeyError):
-            del self.getattr_cache[parent_inode]
+        self.reset_getattr_caches()
 
     def mkdir(self, parent_inode: int, name: bytes, _mode: int, _: Any) -> llfuse.EntryAttributes:
         logger.debug(f"FUSE: Received mkdir for {parent_inode=}/{name=}")
@@ -971,8 +999,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Resolved mkdir for {parent_inode=}/{name=} to {path=}")
         self.rose.mkdir(path)
         # Avoid zombies coming back from an old cache.
-        with contextlib.suppress(KeyError):
-            del self.getattr_cache[parent_inode]
+        self.reset_getattr_caches()
         attrs = self.rose.stat("dir")
         attrs["st_ino"] = self.inodes.calc_inode(path)
         return self.make_entry_attributes(attrs)
@@ -983,8 +1010,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Resolved rmdir for {parent_inode=}/{name=} to {path=}")
         self.rose.rmdir(path)
         # Avoid zombies coming back from an old cache.
-        with contextlib.suppress(KeyError):
-            del self.getattr_cache[parent_inode]
+        self.reset_getattr_caches()
 
     def rename(
         self,
@@ -1006,10 +1032,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         )
         self.rose.rename(old_path, new_path)
         # Avoid zombies coming back from an old cache.
-        with contextlib.suppress(KeyError):
-            del self.getattr_cache[old_parent_inode]
-        with contextlib.suppress(KeyError):
-            del self.getattr_cache[new_parent_inode]
+        self.reset_getattr_caches()
 
     # ============================================================================================
     # Unimplemented stubs. Tools expect these syscalls to exist, so we implement versions of them
@@ -1019,11 +1042,9 @@ class VirtualFS(llfuse.Operations):  # type: ignore
     def forget(self, inode_list: list[tuple[int, int]]) -> None:
         logger.debug(f"FUSE: Received forget for {inode_list=}")
         # Clear the cache in case someone makes a request later...
-        for inode, _ in inode_list:
-            with contextlib.suppress(KeyError):
-                del self.getattr_cache[inode]
+        self.reset_getattr_caches()
 
-    def mknod(self, parent_inode: int, name: bytes, mode: int, _: Any) -> llfuse.EntryAttributes:
+    def mknod(self, parent_inode: int, name: bytes, _mode: int, _: Any) -> llfuse.EntryAttributes:
         logger.debug(f"FUSE: Received mknod for {parent_inode=}/{name=}")
         attrs = self.rose.stat("file")
         attrs["st_ino"] = self.inodes.calc_inode(self.inodes.get_path(parent_inode, name))
@@ -1053,7 +1074,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
     def listxattr(self, inode: int, _: Any) -> Iterator[bytes]:
         logger.debug(f"FUSE: Received listxattr for {inode=}")
-        raise StopIteration
+        return iter([])
 
     def removexattr(self, inode: int, name: bytes, _: Any) -> None:
         logger.debug(f"FUSE: Received removexattr for {inode=} {name=}")

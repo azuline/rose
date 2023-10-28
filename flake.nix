@@ -27,6 +27,7 @@
         doCheck = false;
       };
       prod-deps = with python.pkgs; [
+        cachetools
         click
         mutagen
         llfuse
