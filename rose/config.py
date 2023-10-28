@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import multiprocessing
 import os
 from collections import defaultdict
@@ -29,7 +30,7 @@ class MissingConfigKeyError(RoseError):
     pass
 
 
-class InvalidConfigValueError(RoseError):
+class InvalidConfigValueError(RoseError, ValueError):
     pass
 
 
@@ -53,6 +54,9 @@ class Config:
     fuse_artists_blacklist: list[str] | None
     fuse_genres_blacklist: list[str] | None
     fuse_labels_blacklist: list[str] | None
+
+    cover_art_stems: list[str]
+    valid_art_exts: list[str]
 
     hash: str
 
@@ -256,6 +260,37 @@ class Config:
                 f"configuration file ({cfgpath}): must specify only one or the other"
             )
 
+        try:
+            cover_art_stems = data.get("cover_art_stems", ["folder", "cover", "art", "front"])
+            if not isinstance(cover_art_stems, list):
+                raise ValueError(
+                    f"cover_art_stems must be a list[str]: got {type(cover_art_stems)}"
+                )
+            for s in cover_art_stems:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each cover art stem must be of type str: got {type(s)}")
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for cover_art_stems in configuration file ({cfgpath}): "
+                "must be a list of strings"
+            ) from e
+
+        try:
+            valid_art_exts = data.get("valid_art_exts", ["jpg", "jpeg", "png"])
+            if not isinstance(valid_art_exts, list):
+                raise ValueError(f"valid_art_exts must be a list[str]: got {type(valid_art_exts)}")
+            for s in valid_art_exts:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each art extension must be of type str: got {type(s)}")
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for valid_art_exts in configuration file ({cfgpath}): "
+                "must be a list of strings"
+            ) from e
+
+        cover_art_stems = [x.lower() for x in cover_art_stems]
+        valid_art_exts = [x.lower() for x in valid_art_exts]
+
         return cls(
             music_source_dir=music_source_dir,
             fuse_mount_dir=fuse_mount_dir,
@@ -270,5 +305,11 @@ class Config:
             fuse_artists_blacklist=fuse_artists_blacklist,
             fuse_genres_blacklist=fuse_genres_blacklist,
             fuse_labels_blacklist=fuse_labels_blacklist,
+            cover_art_stems=cover_art_stems,
+            valid_art_exts=valid_art_exts,
             hash=sha256(cfgtext.encode()).hexdigest(),
         )
+
+    @functools.cached_property
+    def valid_cover_arts(self) -> list[str]:
+        return [s + "." + e for s in self.cover_art_stems for e in self.valid_art_exts]

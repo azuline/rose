@@ -40,6 +40,8 @@ def test_config_full() -> None:
                 fuse_artists_blacklist = [ "xxx" ]
                 fuse_genres_blacklist = [ "yyy" ]
                 fuse_labels_blacklist = [ "zzz" ]
+                cover_art_stems = [ "aa", "bb" ]
+                valid_art_exts = [ "tiff" ]
                 """  # noqa: E501
             )
 
@@ -74,6 +76,8 @@ def test_config_full() -> None:
             fuse_artists_blacklist=["xxx"],
             fuse_genres_blacklist=["yyy"],
             fuse_labels_blacklist=["zzz"],
+            cover_art_stems=["aa", "bb"],
+            valid_art_exts=["tiff"],
             hash=c.hash,
         )
 
@@ -334,3 +338,37 @@ def test_config_value_validation() -> None:
             str(excinfo.value)
             == f"Cannot specify both fuse_labels_whitelist and fuse_labels_blacklist in configuration file ({path}): must specify only one or the other"  # noqa: E501
         )
+
+        # cover_art_stems
+        write(config + '\ncover_art_stems = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for cover_art_stems in configuration file ({path}): must be a list of strings"  # noqa
+        )
+        write(config + "\ncover_art_stems = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for cover_art_stems in configuration file ({path}): must be a list of strings"  # noqa
+        )
+        config += '\ncover_art_stems = [ "cover" ]'
+
+        # valid_art_exts
+        write(config + '\nvalid_art_exts = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for valid_art_exts in configuration file ({path}): must be a list of strings"  # noqa
+        )
+        write(config + "\nvalid_art_exts = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for valid_art_exts in configuration file ({path}): must be a list of strings"  # noqa
+        )
+        config += '\nvalid_art_exts = [ "jpg" ]'

@@ -206,9 +206,6 @@ class StoredDataFile:
     added_at: str  # ISO8601 timestamp
 
 
-VALID_COVER_EXTENSIONS = [".jpg", ".jpeg", ".png"]
-VALID_COVER_FILENAMES = [x + y for x in ["cover", "folder", "art"] for y in VALID_COVER_EXTENSIONS]
-
 RELEASE_TYPE_FORMATTER = {
     "album": "Album",
     "single": "Single",
@@ -636,7 +633,7 @@ def _update_cache_for_releases_executor(
         # Handle cover art change.
         try:
             cover = next(
-                Path(f).resolve() for f in files if os.path.basename(f) in VALID_COVER_FILENAMES
+                Path(f).resolve() for f in files if os.path.basename(f).lower() in c.valid_art_exts
             )
         except StopIteration:  # No cover art in directory.
             cover = None
@@ -1301,8 +1298,10 @@ def update_cache_for_playlists(
     playlist_dir.mkdir(exist_ok=True)
 
     files: list[tuple[Path, str, os.DirEntry[str]]] = []
+    all_files_in_dir: list[Path] = []
     for f in os.scandir(str(playlist_dir)):
         path = Path(f.path)
+        all_files_in_dir.append(path)
         if path.suffix != ".toml":
             continue
         if not path.is_file():
@@ -1361,10 +1360,9 @@ def update_cache_for_playlists(
                 cached_playlist.cover_path = None
                 dirty = True
             if not cached_playlist.cover_path:
-                for ext in VALID_COVER_EXTENSIONS:
-                    cover_path = source_path.with_suffix(ext)
-                    if cover_path.is_file():
-                        cached_playlist.cover_path = cover_path
+                for potential_art_file in all_files_in_dir:
+                    if potential_art_file.suffix.lower().lstrip(".") in c.valid_art_exts:
+                        cached_playlist.cover_path = potential_art_file.resolve()
                         dirty = True
                         break
 

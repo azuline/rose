@@ -66,6 +66,24 @@ fuse_artists_blacklist = [ "xxx" ]
 fuse_genres_blacklist = [ "xxx" ]
 fuse_labels_blacklist = [ "xxx" ]
 
+# When Rosé scans a release directory, it looks for cover art that matches:
+#
+# 1. A supported file "stem" (the filename excluding the extension).
+# 2. A supported file "extension" (the file type basically).
+#
+# And when Rosé scans the playlists directory, it looks for art files that
+# match a supported file extension (but not the name, as the name should match
+# the playlist name).
+#
+# By default, Rosé matches the stems "folder", "cover", "art", and "front"; and
+# the extensions "jpg", "jpeg", and "png". Comparisons are case insensitive,
+# meaning Rosé will also match FOLDER.PNG.
+#
+# If you wish to recognize additional file stems and/or extensions, you can set
+# the below two variables.
+cover_art_stems = [ "folder", "cover", "art", "front" ]
+valid_art_exts = [ "jpg", "jpeg", "png" ]
+
 # The directory to write the cache to. Defaults to
 # `${XDG_CACHE_HOME:-$HOME/.cache}/rose`.
 cache_dir = "~/.cache/rose"
