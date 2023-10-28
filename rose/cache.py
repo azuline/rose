@@ -1368,7 +1368,10 @@ def update_cache_for_playlists(
                 dirty = True
             if not cached_playlist.cover_path:
                 for potential_art_file in all_files_in_dir:
-                    if potential_art_file.suffix.lower().lstrip(".") in c.valid_art_exts:
+                    if (
+                        potential_art_file.stem == name
+                        and potential_art_file.suffix.lower().lstrip(".") in c.valid_art_exts
+                    ):
                         cached_playlist.cover_path = potential_art_file.resolve()
                         dirty = True
                         break
