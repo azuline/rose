@@ -671,7 +671,11 @@ def _update_cache_for_releases_executor(
         for f in files:
             if not any(os.path.basename(f).lower().endswith(ext) for ext in SUPPORTED_EXTENSIONS):
                 continue
+
             cached_track = cached_tracks.get(f, None)
+            with contextlib.suppress(KeyError):
+                unknown_cached_tracks.remove(f)
+
             track_mtime = str(os.stat(f).st_mtime)
             # Skip re-read if we can reuse a cached entry.
             if cached_track and track_mtime == cached_track.source_mtime and not force:
@@ -679,7 +683,6 @@ def _update_cache_for_releases_executor(
                     f"Track cache hit (mtime) for {os.path.basename(f)}, reusing cached data"
                 )
                 tracks.append(cached_track)
-                unknown_cached_tracks.remove(f)
                 continue
 
             # Otherwise, read tags from disk and construct a new cached_track.
@@ -933,6 +936,10 @@ def _update_cache_for_releases_executor(
     logger.debug(f"Release update scheduling loop time {time.time() - loop_start=}")
 
     exec_start = time.time()
+    # During execution, identify the collages and playlists to update afterwards. We will invoke an
+    # update for those collages and playlists with force=True after updating the release tables.
+    update_collages = None
+    update_playlists = None
     with connect(c) as conn:
         if upd_delete_source_paths:
             conn.execute(
@@ -1073,10 +1080,7 @@ def _update_cache_for_releases_executor(
                 _flatten(upd_track_artist_args),
             )
 
-        # Here, identify the collages and playlists to update the description_meta fields for. We
-        # will then invoke the update functions after we close the current database connection.
-        update_collages = None
-        update_playlists = None
+        # Schedule collage/playlist updates in order to update description_meta.
         if upd_collage_release_dirnames:
             cursor = conn.execute(
                 f"""
