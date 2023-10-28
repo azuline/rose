@@ -90,7 +90,7 @@ def mount(ctx: Context, foreground: bool) -> None:
     p = Process(target=update_cache, args=[ctx.config, False])
     try:
         p.start()
-        mount_virtualfs(ctx.config, foreground)
+        mount_virtualfs(ctx.config, debug=logging.getLogger().getEffectiveLevel() == logging.DEBUG)
     finally:
         p.join(timeout=1)
 

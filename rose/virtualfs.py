@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import contextlib
 import errno
 import logging
 import os
+import random
 import re
 import stat
 import subprocess
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -103,7 +106,7 @@ class VirtualPath:
                     file=POSITION_REGEX.sub("", parts[2]),
                     file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
                 )
-            raise llfuse.FuseError(errno.ENOENT)
+            raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "2. Releases - New":
             if len(parts) == 1:
@@ -117,7 +120,7 @@ class VirtualPath:
                     file=POSITION_REGEX.sub("", parts[2]),
                     file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
                 )
-            raise llfuse.FuseError(errno.ENOENT)
+            raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "3. Releases - Recently Added":
             if len(parts) == 1:
@@ -131,7 +134,7 @@ class VirtualPath:
                     file=POSITION_REGEX.sub("", parts[2]),
                     file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
                 )
-            raise llfuse.FuseError(errno.ENOENT)
+            raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "4. Artists":
             if len(parts) == 1:
@@ -148,7 +151,7 @@ class VirtualPath:
                     file=POSITION_REGEX.sub("", parts[3]),
                     file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
                 )
-            raise llfuse.FuseError(errno.ENOENT)
+            raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "5. Genres":
             if len(parts) == 1:
@@ -165,7 +168,7 @@ class VirtualPath:
                     file=POSITION_REGEX.sub("", parts[3]),
                     file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
                 )
-            raise llfuse.FuseError(errno.ENOENT)
+            raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "6. Labels":
             if len(parts) == 1:
@@ -182,7 +185,7 @@ class VirtualPath:
                     file=POSITION_REGEX.sub("", parts[3]),
                     file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
                 )
-            raise llfuse.FuseError(errno.ENOENT)
+            raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "7. Collages":
             if len(parts) == 1:
@@ -213,7 +216,7 @@ class VirtualPath:
                     file=POSITION_REGEX.sub("", parts[3]),
                     file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
                 )
-            raise llfuse.FuseError(errno.ENOENT)
+            raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "8. Playlists":
             if len(parts) == 1:
@@ -227,9 +230,9 @@ class VirtualPath:
                     file=POSITION_REGEX.sub("", parts[2]),
                     file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
                 )
-            raise llfuse.FuseError(errno.ENOENT)
+            raise llfuse.FUSEError(errno.ENOENT)
 
-        raise llfuse.FuseError(errno.ENOENT)
+        raise llfuse.FUSEError(errno.ENOENT)
 
 
 class CanShower:
@@ -327,21 +330,21 @@ class RoseLogicalFS:
     @staticmethod
     def stat(mode: Literal["dir", "file"], realpath: Path | None = None) -> dict[str, Any]:
         attrs: dict[str, Any] = {}
-        attrs["st_nlink"] = 4
         attrs["st_mode"] = (stat.S_IFDIR | 0o755) if mode == "dir" else (stat.S_IFREG | 0o644)
+        attrs["st_nlink"] = 4
         attrs["st_uid"] = os.getuid()
         attrs["st_gid"] = os.getgid()
 
         attrs["st_size"] = 4096
-        attrs["st_atime"] = 0.0
-        attrs["st_mtime"] = 0.0
-        attrs["st_ctime"] = 0.0
+        attrs["st_atime_ns"] = 0.0
+        attrs["st_mtime_ns"] = 0.0
+        attrs["st_ctime_ns"] = 0.0
         if realpath:
             s = realpath.stat()
             attrs["st_size"] = s.st_size
-            attrs["st_atime"] = s.st_atime
-            attrs["st_mtime"] = s.st_mtime
-            attrs["st_ctime"] = s.st_ctime
+            attrs["st_atime_ns"] = s.st_atime
+            attrs["st_mtime_ns"] = s.st_mtime
+            attrs["st_ctime_ns"] = s.st_ctime
 
         return attrs
 
@@ -368,14 +371,14 @@ class RoseLogicalFS:
             if cp := cover_exists(self.config, p.release, p.file):
                 return self.stat("file", cp)
             # If no file matches, return errno.ENOENT.
-            raise llfuse.FuseError(errno.ENOENT)
+            raise llfuse.FUSEError(errno.ENOENT)
 
         # 8. Playlists
         if p.playlist:
             try:
                 playlist, tracks = get_playlist(self.config, p.playlist)  # type: ignore
             except TypeError as e:
-                raise llfuse.FuseError(errno.ENOENT) from e
+                raise llfuse.FUSEError(errno.ENOENT) from e
             if p.file:
                 if p.file_position:
                     for idx, track in enumerate(tracks):
@@ -383,67 +386,67 @@ class RoseLogicalFS:
                             return self.stat("file", track.source_path)
                 if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
                     return self.stat("file", playlist.cover_path)
-                raise llfuse.FuseError(errno.ENOENT)
+                raise llfuse.FUSEError(errno.ENOENT)
             return self.stat("dir")
 
         # 7. Collages
         if p.collage:
             if not collage_exists(self.config, p.collage):
-                raise llfuse.FuseError(errno.ENOENT)
+                raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 for _, virtual_dirname, src_path in list_collage_releases(self.config, p.collage):
                     if virtual_dirname == p.release:
                         return getattr_release(src_path)
-                raise llfuse.FuseError(errno.ENOENT)
+                raise llfuse.FUSEError(errno.ENOENT)
             return self.stat("dir")
 
         # 6. Labels
         if p.label:
             if not label_exists(self.config, p.label) or not self.can_show.label(p.label):
-                raise llfuse.FuseError(errno.ENOENT)
+                raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 for r in list_releases(self.config, sanitized_label_filter=p.label):
                     if r.virtual_dirname == p.release:
                         return getattr_release(r.source_path)
-                raise llfuse.FuseError(errno.ENOENT)
+                raise llfuse.FUSEError(errno.ENOENT)
             return self.stat("dir")
 
         # 5. Genres
         if p.genre:
             if not genre_exists(self.config, p.genre) or not self.can_show.genre(p.genre):
-                raise llfuse.FuseError(errno.ENOENT)
+                raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 for r in list_releases(self.config, sanitized_genre_filter=p.genre):
                     if r.virtual_dirname == p.release:
                         return getattr_release(r.source_path)
-                raise llfuse.FuseError(errno.ENOENT)
+                raise llfuse.FUSEError(errno.ENOENT)
             return self.stat("dir")
 
         # 4. Artists
         if p.artist:
             if not artist_exists(self.config, p.artist) or not self.can_show.artist(p.artist):
-                raise llfuse.FuseError(errno.ENOENT)
+                raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 for r in list_releases(self.config, sanitized_artist_filter=p.artist):
                     if r.virtual_dirname == p.release:
                         return getattr_release(r.source_path)
-                raise llfuse.FuseError(errno.ENOENT)
+                raise llfuse.FUSEError(errno.ENOENT)
             return self.stat("dir")
 
         # {1,2,3}. Releases
         if p.release:
             if p.view == "New" and not p.release.startswith("{NEW} "):
-                raise llfuse.FuseError(errno.ENOENT)
+                raise llfuse.FUSEError(errno.ENOENT)
             if rp := release_exists(self.config, p.release):
                 return getattr_release(rp)
-            raise llfuse.FuseError(errno.ENOENT)
+            raise llfuse.FUSEError(errno.ENOENT)
 
         # 0. Root
         elif p.view:
             return self.stat("dir")
 
         # -1. Wtf are you doing here?
-        raise llfuse.FuseError(errno.ENOENT)
+        raise llfuse.FUSEError(errno.ENOENT)
 
     def readdir(self, path: Path) -> Iterator[tuple[str, dict[str, Any]]]:
         logger.debug(f"Received readdir for {path=}")
@@ -483,7 +486,7 @@ class RoseLogicalFS:
                 if release.cover_image_path:
                     yield release.cover_image_path.name, self.stat("file", release.cover_image_path)
                 return
-            raise llfuse.FuseError(errno.ENOENT)
+            raise llfuse.FUSEError(errno.ENOENT)
 
         if p.artist or p.genre or p.label or p.view == "Releases" or p.view == "New":
             for release in list_releases(
@@ -541,7 +544,7 @@ class RoseLogicalFS:
         if p.view == "Playlists" and p.playlist:
             pdata = get_playlist(self.config, p.playlist)
             if pdata is None:
-                raise llfuse.FuseError(errno.ENOENT)
+                raise llfuse.FUSEError(errno.ENOENT)
             playlist, tracks = pdata
             pad_size = max(0, 0, *[len(str(i + 1)) for i, _ in enumerate(tracks)])
             for idx, track in enumerate(tracks):
@@ -558,7 +561,7 @@ class RoseLogicalFS:
                 yield pname, self.stat("dir")
             return
 
-        raise llfuse.FuseError(errno.ENOENT)
+        raise llfuse.FUSEError(errno.ENOENT)
 
     def open(self, path: Path, flags: int) -> int:
         logger.debug(f"Received open for {path=} {flags=}")
@@ -576,12 +579,12 @@ class RoseLogicalFS:
             for track in tracks:
                 if track.virtual_filename == p.file:
                     return os.open(str(track.source_path), flags)
-            raise llfuse.FuseError(err)
+            raise llfuse.FUSEError(err)
         if p.playlist and p.file:
             try:
                 playlist, tracks = get_playlist(self.config, p.playlist)  # type: ignore
             except TypeError as e:
-                raise llfuse.FuseError(errno.ENOENT) from e
+                raise llfuse.FUSEError(errno.ENOENT) from e
             # If we are trying to create a file in the playlist, enter the "add file to playlist"
             # operation sequence. See the __init__ for more details.
             if flags & os.O_CREAT == os.O_CREAT:
@@ -599,9 +602,9 @@ class RoseLogicalFS:
                         return os.open(str(track.source_path), flags)
             if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
                 return os.open(playlist.cover_path, flags)
-            raise llfuse.FuseError(err)
+            raise llfuse.FUSEError(err)
 
-        raise llfuse.FuseError(err)
+        raise llfuse.FUSEError(err)
 
     def unlink(self, path: Path) -> None:
         logger.debug(f"Received unlink for {path=}")
@@ -625,7 +628,7 @@ class RoseLogicalFS:
                 if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
                     remove_track_from_playlist(self.config, p.playlist, track.id)
                     return
-            raise llfuse.FuseError(errno.ENOENT)
+            raise llfuse.FUSEError(errno.ENOENT)
 
         # Otherwise, noop. If we return an error, that prevents rmdir from being called when we rm.
 
@@ -649,12 +652,12 @@ class RoseLogicalFS:
                 logger.debug(
                     f"Failed adding release {p.release} to collage {p.collage}: release not found."
                 )
-                raise llfuse.FuseError(errno.ENOENT) from e
+                raise llfuse.FUSEError(errno.ENOENT) from e
         if p.playlist and p.file is None:
             create_playlist(self.config, p.playlist)
             return
 
-        raise llfuse.FuseError(errno.EACCES)
+        raise llfuse.FUSEError(errno.EACCES)
 
     def rmdir(self, path: Path) -> None:
         logger.debug(f"Received rmdir for {path=}")
@@ -679,7 +682,7 @@ class RoseLogicalFS:
             delete_release(self.config, p.release)
             return
 
-        raise llfuse.FuseError(errno.EACCES)
+        raise llfuse.FUSEError(errno.EACCES)
 
     def rename(self, old: Path, new: Path) -> None:
         logger.debug(f"Received rename for {old=} {new=}")
@@ -720,7 +723,7 @@ class RoseLogicalFS:
             rename_playlist(self.config, op.playlist, np.playlist)
             return
 
-        raise llfuse.FuseError(errno.EACCES)
+        raise llfuse.FUSEError(errno.EACCES)
 
 
 class INodeManager:
@@ -736,26 +739,36 @@ class INodeManager:
         self._path_to_inode_map: dict[str, int] = {"/": llfuse.ROOT_INODE}
         self._next_inode_ctr: int = llfuse.ROOT_INODE + 1
 
+        # We cache some items for getattr for performance reasons--after a ls, getattr is serially
+        # called for each item in the directory, and sequential 1k SQLite reads is quite slow in any
+        # universe. So whenever we have a readdir, we do a batch read and populate the getattr
+        # cache. The getattr cache is valid for only 1 second, which prevents stale results from
+        # being read from it.
+        #
+        # The dict is a map of paths to (timestamp, mkstat_args). The timestamp should be checked
+        # upon access. If the cache entry is valid, mkstat should be called with the provided args.
+        self.getattr_cache: dict[int, tuple[float, llfuse.EntryAttributes]] = {}
+
     def _next_inode(self) -> int:
         # Increment to infinity.
         cur = self._next_inode_ctr
         self._next_inode_ctr += 1
         return cur
 
-    def get_path(self, inode: int, name: str | None = None) -> Path:
+    def get_path(self, inode: int, name: bytes | None = None) -> Path:
         """
         Raises ENOENT if the inode doesn't exist. If the inode is of a directory, you can optionally
         pass `name`, which will be concatenated to the directory.
         """
         try:
             path = self._inode_to_path_map[inode]
-            if not name or name == ".":
+            if not name or name == b".":
                 return path
-            if name == "..":
+            if name == b"..":
                 path = path.parent
-            return path / name
+            return path / name.decode()
         except KeyError as e:
-            raise llfuse.FuseError(errno.ENOENT) from e
+            raise llfuse.FUSEError(errno.ENOENT) from e
 
     def calc_inode(self, path: Path) -> int:
         """
@@ -785,17 +798,37 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         fhgen = FileDescriptorGenerator()
         self.rose = RoseLogicalFS(config, fhgen)
         self.inodes = INodeManager(config)
+        self.default_attrs = {
+            # TODO: Well, this should be ok for now.
+            "generation": random.randint(0, 1000000),
+        }
+
+    @staticmethod
+    def make_entry_attributes(attrs: dict[str, Any]) -> llfuse.EntryAttributes:
+        entry = llfuse.EntryAttributes()
+        for k, v in attrs.items():
+            setattr(entry, k, v)
+        return entry
 
     def getattr(self, inode: int, _: Any) -> llfuse.EntryAttributes:
+        # For performance, pull from the getattr cache if possible.
+        with contextlib.suppress(KeyError):
+            ts, attrs = self.getattr_cache[inode]
+            if time.time() - ts < 1.0:
+                logger.debug(f"Returning cached getattr result for {inode=}")
+                return attrs
+
         attrs = self.rose.getattr(self.inodes.get_path(inode))
         attrs["st_ino"] = inode
-        return llfuse.EntryAttributes(**attrs)
+        attrs.update(self.default_attrs)
+        return self.make_entry_attributes(attrs)
 
-    def lookup(self, parent_inode: int, name: str, _: Any) -> llfuse.EntryAttributes:
+    def lookup(self, parent_inode: int, name: bytes, _: Any) -> llfuse.EntryAttributes:
         path = self.inodes.get_path(parent_inode, name)
         attrs = self.rose.getattr(path)
         attrs["st_ino"] = self.inodes.calc_inode(path)
-        return llfuse.EntryAttributes(**attrs)
+        attrs.update(self.default_attrs)
+        return self.make_entry_attributes(attrs)
 
     def opendir(self, inode: int, _: Any) -> int:
         # This should return a file handle, but we simply re-use the inode as the fh.
@@ -809,12 +842,15 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         self,
         inode: int,
         offset: int = 0,
-    ) -> Iterator[tuple[str, llfuse.EntryAttributes, int]]:
+    ) -> Iterator[tuple[bytes, llfuse.EntryAttributes, int]]:
         path = self.inodes.get_path(inode)
         for i, (name, attrs) in enumerate(self.rose.readdir(path)):
             if i < offset:
                 continue
-            yield name, attrs, i
+            attrs["st_ino"] = self.inodes.calc_inode(path)
+            attrs.update(self.default_attrs)
+            entry = self.make_entry_attributes(attrs)
+            yield name.encode(), entry, i + 1
 
     def open(self, inode: int, flags: int, _: Any) -> int:
         path = self.inodes.get_path(inode)
@@ -872,7 +908,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
     def create(
         self,
         parent_inode: int,
-        name: str,
+        name: bytes,
         _mode: int,
         flags: int,
         ctx: Any,
@@ -882,24 +918,24 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         fh = self.open(inode, flags, ctx)
         return fh, self.rose.stat("file")
 
-    def unlink(self, parent_inode: int, name: str, _: Any) -> None:
+    def unlink(self, parent_inode: int, name: bytes, _: Any) -> None:
         path = self.inodes.get_path(parent_inode, name)
         self.rose.unlink(path)
 
-    def mkdir(self, parent_inode: int, name: str, _mode: int, _: Any) -> llfuse.EntryAttributes:
+    def mkdir(self, parent_inode: int, name: bytes, _mode: int, _: Any) -> llfuse.EntryAttributes:
         path = self.inodes.get_path(parent_inode, name)
         self.rose.mkdir(path)
 
-    def rmdir(self, parent_inode: int, name: str, _: Any) -> None:
+    def rmdir(self, parent_inode: int, name: bytes, _: Any) -> None:
         path = self.inodes.get_path(parent_inode, name)
         self.rose.rmdir(path)
 
     def rename(
         self,
         old_parent_inode: int,
-        old_name: str,
+        old_name: bytes,
         new_parent_inode: int,
-        new_name: str,
+        new_name: bytes,
         _: Any,
     ) -> None:
         old_path = self.inodes.get_path(old_parent_inode, old_name)
