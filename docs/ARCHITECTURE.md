@@ -86,3 +86,6 @@ multiple processes.
 Logs are written to stderr and to `${XDG_STATE_HOME:-$HOME/.local/state}/rose/rose.log`.
 Debug logging can be turned on with the `--verbose/-v` option. Rosé is heavily
 instrumented with debug logging.
+
+Logs are configured to rotate once the log file reaches 20MB. The previous 10
+rotations are kept; all older rotations are deleted.

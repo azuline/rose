@@ -1,4 +1,5 @@
 import logging
+import logging.handlers
 import os
 import sys
 from pathlib import Path
@@ -29,6 +30,10 @@ if "pytest" not in sys.modules or LOG_EVEN_THOUGH_WERE_IN_TEST:  # pragma: no co
         "[ts=%(asctime)s] [pid=%(process)d] [src=%(name)s:%(lineno)s] %(levelname)s: %(message)s",
         datefmt="%H:%M:%S",
     )
-    file_handler = logging.FileHandler(LOGFILE)
+    file_handler = logging.handlers.RotatingFileHandler(
+        LOGFILE,
+        maxBytes=20 * 1024 * 1024,
+        backupCount=10,
+    )
     file_handler.setFormatter(file_formatter)
     logger.addHandler(file_handler)
