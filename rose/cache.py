@@ -1692,7 +1692,7 @@ def get_release(
             JOIN releases r ON r.id = t.release_id
             LEFT JOIN artists a ON a.track_id = t.id
             WHERE r.id = ? OR r.virtual_dirname = ?
-            ORDER BY t.disc_number, t.track_number
+            ORDER BY t.formatted_release_position
             """,
             (release_id_or_virtual_dirname, release_id_or_virtual_dirname),
         )
