@@ -144,7 +144,7 @@ async def handle_event(
 
 
 async def event_processor(c: Config, queue: Queue[WatchdogEvent]) -> None:  # pragma: no cover
-    debounce_times: dict[str, float] = {}
+    debounce_times: dict[int, float] = {}
     while True:
         await asyncio.sleep(0.5 / WAIT_DIVIDER)
 
@@ -152,6 +152,14 @@ async def event_processor(c: Config, queue: Queue[WatchdogEvent]) -> None:  # pr
             event = queue.get(block=False)
         except Empty:
             continue
+
+        # Debounce events.
+        key = hash(event)
+        last = debounce_times.get(key, None)
+        if last and time.time() - last < 0.2:
+            logger.debug(f"Skipped event {key} due to debouncer")
+            continue
+        debounce_times[key] = time.time()
 
         if event.collage:
             logger.info(
@@ -168,13 +176,6 @@ async def event_processor(c: Config, queue: Queue[WatchdogEvent]) -> None:  # pr
             continue
 
         assert event.release is not None
-        # Debounce releases. Reason is documented at top of module.
-        key = event.type + "|" + str(event.release)
-        last = debounce_times.get(key, None)
-        if last and time.time() - last < 0.2:
-            logger.debug(f"Skipped event {key} due to debouncer")
-            continue
-        debounce_times[key] = time.time()
         # Launch the handler with the sleep asynchronously. This allows us to not block the main
         # thread, but insert a delay before processing the release.
         logger.info(

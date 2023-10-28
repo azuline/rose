@@ -313,12 +313,6 @@ def update_cache_for_releases(
     # Create a queue to propagate exceptions back up to the parent.
     error_queue = manager.Queue()
 
-    # Track coverage. This won't do anything in production.
-    with contextlib.suppress(ImportError):
-        from pytest_cov.embed import cleanup_on_sigterm
-
-        cleanup_on_sigterm()
-
     with multiprocessing.Pool(processes=c.max_proc) as pool:
         # At 0, no batch. At 1, 1 batch. At 49, 1 batch. At 50, 1 batch. At 51, 2 batches.
         for i in range(0, len(release_dirs), batch_size):
