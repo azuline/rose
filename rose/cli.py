@@ -359,9 +359,24 @@ def parse_release_from_potential_path(c: Config, r: str) -> str:
 
 def daemonize(pid_path: Path | None = None) -> None:
     if pid_path and pid_path.exists():
-        with pid_path.open("r") as fp:
-            existing_pid = fp.read()
-        raise DaemonAlreadyRunningError(f"Daemon is already running in process {existing_pid}")
+        # Parse the PID. If it's not a valid integer, just skip and move on.
+        try:
+            with pid_path.open("r") as fp:
+                existing_pid = int(fp.read())
+        except ValueError:
+            logger.debug(f"Ignoring improperly formatted pid file at {pid_path}")
+            pass
+        else:
+            # Otherwise, Check to see if existing_pid is running. Kill 0 does nothing, but errors if
+            # the process doesn't exist.
+            try:
+                os.kill(existing_pid, 0)
+            except OSError:
+                logger.debug(f"Ignoring pid file with a pid that isn't running: {existing_pid}")
+            else:
+                raise DaemonAlreadyRunningError(
+                    f"Daemon is already running in process {existing_pid}"
+                )
 
     pid = os.fork()
     if pid == 0:

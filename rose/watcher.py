@@ -146,7 +146,8 @@ async def handle_event(
 async def event_processor(c: Config, queue: Queue[WatchdogEvent]) -> None:  # pragma: no cover
     debounce_times: dict[int, float] = {}
     while True:
-        await asyncio.sleep(0.5 / WAIT_DIVIDER)
+        if queue.empty():
+            await asyncio.sleep(0.5 / WAIT_DIVIDER)
 
         try:
             event = queue.get(block=False)
