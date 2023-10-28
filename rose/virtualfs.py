@@ -1088,7 +1088,7 @@ def mount_virtualfs(c: Config, debug: bool = False) -> None:
         options.add("debug")
     llfuse.init(VirtualFS(c), str(c.fuse_mount_dir), options)
     try:
-        llfuse.main(workers=1)
+        llfuse.main()
     except:
         llfuse.close()
         raise

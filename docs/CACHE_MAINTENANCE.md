@@ -52,10 +52,6 @@ watcher that listens for file update events in the source directory. This
 watcher will trigger a cache update whenever a file in the source directory
 changes.
 
-By default, the watcher runs in the foreground. We recommend backgrounding it
-with a service manager, such as systemd. See
-[Configuration](./CONFIGURATION.md) for sample systemd unit files.
-
 # Cache Resets
 
 When Rosé detects that:
