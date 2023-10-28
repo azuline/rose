@@ -5,6 +5,7 @@ dedicated to parsing and delegating.
 
 import logging
 import os
+import signal
 from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
@@ -21,6 +22,7 @@ from rose.collages import (
     remove_release_from_collage,
     rename_collage,
 )
+from rose.common import RoseError
 from rose.config import Config
 from rose.playlists import (
     add_track_to_playlist,
@@ -34,6 +36,12 @@ from rose.playlists import (
 from rose.releases import delete_release, dump_releases, edit_release, toggle_release_new
 from rose.virtualfs import VirtualPath, mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
+
+logger = logging.getLogger(__name__)
+
+
+class DaemonAlreadyRunningError(RoseError):
+    pass
 
 
 @dataclass
@@ -83,9 +91,26 @@ def update(ctx: Context, force: bool) -> None:
 def watch(ctx: Context, foreground: bool) -> None:
     """Start a watchdog that will auto-refresh the cache on changes in music_source_dir."""
     if not foreground:
-        daemonize()
+        daemonize(pid_path=ctx.config.watchdog_pid_path)
 
     start_watchdog(ctx.config)
+
+
+@cache.command()
+@click.pass_obj
+def unwatch(ctx: Context) -> None:
+    """Stop the running watchdog."""
+    if not ctx.config.watchdog_pid_path.exists():
+        logger.info("No-Op: No known watchdog running")
+        exit(1)
+    with ctx.config.watchdog_pid_path.open("r") as fp:
+        pid = int(fp.read())
+    logger.info(f"Killing watchdog at process {pid}")
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        logger.info(f"No-Op: Process {pid} not found")
+    ctx.config.watchdog_pid_path.unlink()
 
 
 @cli.group()
@@ -332,11 +357,19 @@ def parse_release_from_potential_path(c: Config, r: str) -> str:
     return vpath.release
 
 
-def daemonize() -> None:
+def daemonize(pid_path: Path | None = None) -> None:
+    if pid_path and pid_path.exists():
+        with pid_path.open("r") as fp:
+            existing_pid = fp.read()
+        raise DaemonAlreadyRunningError(f"Daemon is already running in process {existing_pid}")
+
     pid = os.fork()
     if pid == 0:
         # Child process. Detach and keep going!
         os.setsid()
         return
     # Parent process, let's exit now!
+    if pid_path:
+        with pid_path.open("w") as fp:
+            fp.write(str(pid))
     os._exit(0)

@@ -339,3 +339,7 @@ class Config:
     @functools.cached_property
     def cache_database_path(self) -> Path:
         return self.cache_dir / "cache.sqlite3"
+
+    @functools.cached_property
+    def watchdog_pid_path(self) -> Path:
+        return self.cache_dir / "watchdog.pid"
