@@ -182,6 +182,12 @@ class MetadataRelease:
 
 def edit_release(c: Config, release_id_or_virtual_dirname: str) -> None:
     release_id, _ = resolve_release_ids(c, release_id_or_virtual_dirname)
+
+    # Trigger a quick cache update to ensure we are reading the liveliest data.
+    source_path = get_release_source_path_from_id(c, release_id)
+    assert source_path is not None
+    update_cache_for_releases(c, [source_path])
+
     with lock(c, release_lock_name(release_id)):
         cachedata = get_release(c, release_id_or_virtual_dirname)
         if not cachedata:

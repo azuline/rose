@@ -96,8 +96,12 @@ def remove_track_from_playlist(
     with lock(c, playlist_lock_name(playlist_name)):
         with path.open("rb") as fp:
             data = tomllib.load(fp)
-        data["tracks"] = data.get("tracks", [])
-        data["tracks"] = [r for r in data.get("tracks", []) if r["uuid"] != track_id]
+        old_tracks = data.get("tracks", [])
+        new_tracks = [r for r in old_tracks if r["uuid"] != track_id]
+        if old_tracks == new_tracks:
+            logger.info(f"No-Op: track {track_filename} not in playlist {playlist_name}")
+            return
+        data["tracks"] = new_tracks
         with path.open("wb") as fp:
             tomli_w.dump(data, fp)
     logger.info(f"Removed track {track_filename} from playlist {playlist_name}")
@@ -121,9 +125,7 @@ def add_track_to_playlist(
         # duplicate playlist entries.
         for r in data["tracks"]:
             if r["uuid"] == track_id:
-                logger.debug(
-                    f"No-Opping: Track {track_filename} already in playlist {playlist_name}"
-                )
+                logger.info(f"No-Op: Track {track_filename} already in playlist {playlist_name}")
                 return
         data["tracks"].append({"uuid": track_id, "description_meta": track_filename})
         with path.open("wb") as fp:

@@ -634,7 +634,9 @@ def _update_cache_for_releases_executor(
         # Handle cover art change.
         try:
             cover = next(
-                Path(f).resolve() for f in files if os.path.basename(f).lower() in c.valid_art_exts
+                Path(f).resolve()
+                for f in files
+                if os.path.basename(f).lower() in c.valid_cover_arts
             )
         except StopIteration:  # No cover art in directory.
             cover = None

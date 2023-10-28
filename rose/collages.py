@@ -95,8 +95,12 @@ def remove_release_from_collage(
     with lock(c, collage_lock_name(collage_name)):
         with path.open("rb") as fp:
             data = tomllib.load(fp)
-        data["releases"] = data.get("releases", [])
-        data["releases"] = [r for r in data.get("releases", []) if r["uuid"] != release_id]
+        old_releases = data.get("releases", [])
+        new_releases = [r for r in old_releases if r["uuid"] != release_id]
+        if old_releases == new_releases:
+            logger.info(f"No-Op: Release {release_dirname} not in collage {collage_name}")
+            return
+        data["releases"] = new_releases
         with path.open("wb") as fp:
             tomli_w.dump(data, fp)
     logger.info(f"Removed release {release_dirname} from collage {collage_name}")
@@ -120,9 +124,7 @@ def add_release_to_collage(
         # duplicate collage entries.
         for r in data["releases"]:
             if r["uuid"] == release_id:
-                logger.debug(
-                    f"No-Opping: Release {release_dirname} already in collage {collage_name}"
-                )
+                logger.info(f"No-Op: Release {release_dirname} already in collage {collage_name}")
                 return
         data["releases"].append({"uuid": release_id, "description_meta": release_dirname})
         with path.open("wb") as fp:
