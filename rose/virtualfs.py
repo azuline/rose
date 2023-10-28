@@ -854,6 +854,34 @@ class INodeManager:
             self._inode_to_path_map[inode] = path
             return inode
 
+    def remove_inode(self, inode: int) -> None:
+        try:
+            path = self._inode_to_path_map[inode]
+        except KeyError:
+            return
+        del self._path_to_inode_map[str(path)]
+        del self._inode_to_path_map[inode]
+
+    def remove_path(self, path: Path) -> None:
+        spath = str(path.resolve())
+        try:
+            inode = self._path_to_inode_map[spath]
+        except KeyError:
+            return
+        del self._path_to_inode_map[spath]
+        del self._inode_to_path_map[inode]
+
+    def rename_path(self, old_path: Path, new_path: Path) -> None:
+        sold = str(old_path.resolve())
+        snew = str(new_path.resolve())
+        try:
+            inode = self._path_to_inode_map[sold]
+        except KeyError:
+            return
+        self._inode_to_path_map[inode] = new_path
+        self._path_to_inode_map[snew] = inode
+        del self._path_to_inode_map[sold]
+
 
 class VirtualFS(llfuse.Operations):  # type: ignore
     """
@@ -868,9 +896,11 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         self.rose = RoseLogicalFS(config, self.fhgen)
         self.inodes = INodeManager(config)
         self.default_attrs = {
-            # TODO: Well, this should be ok for now.
+            # Well, this should be ok for now. I really don't want to track this... we indeed change
+            # inodes across FS restarts.
             "generation": random.randint(0, 1000000),
-            "entry_timeout": 0,
+            # Have a 15 second metadata timeout by default.
+            "entry_timeout": 15,
         }
         # We cache some items for getattr and lookup for performance reasons--after a ls, getattr is
         # serially called for each item in the directory, and sequential 1k SQLite reads is quite
@@ -893,6 +923,8 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         self.readdir_cache: dict[int, list[tuple[int, bytes, llfuse.EntryAttributes]]] = {}
 
     def reset_getattr_caches(self) -> None:
+        # When a write happens, clear these caches. These caches are very short-lived and intended
+        # to make readdir's subsequent getattrs more performant, so this is harmless.
         self.getattr_cache = cachetools.TTLCache(maxsize=99999, ttl=2)
         self.lookup_cache = cachetools.TTLCache(maxsize=99999, ttl=2)
 
@@ -1021,6 +1053,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         self.rose.unlink(path)
         # Avoid zombies coming back from an old cache.
         self.reset_getattr_caches()
+        self.inodes.remove_path(path)
 
     def mkdir(self, parent_inode: int, name: bytes, _mode: int, _: Any) -> llfuse.EntryAttributes:
         logger.debug(f"FUSE: Received mkdir for {parent_inode=}/{name=}")
@@ -1040,6 +1073,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         self.rose.rmdir(path)
         # Avoid zombies coming back from an old cache.
         self.reset_getattr_caches()
+        self.inodes.remove_path(path)
 
     def rename(
         self,
@@ -1060,8 +1094,8 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             f"and for {new_parent_inode=}/{new_name=} to {new_path=}"
         )
         self.rose.rename(old_path, new_path)
-        # Avoid zombies coming back from an old cache.
         self.reset_getattr_caches()
+        self.inodes.rename_path(old_path, new_path)
 
     # ============================================================================================
     # Unimplemented stubs. Tools expect these syscalls to exist, so we implement versions of them
