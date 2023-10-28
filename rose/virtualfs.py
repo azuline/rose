@@ -8,6 +8,7 @@ import random
 import re
 import stat
 import subprocess
+import tempfile
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -43,12 +44,14 @@ from rose.collages import (
 )
 from rose.config import Config
 from rose.playlists import (
+    add_track_to_playlist,
     create_playlist,
     delete_playlist,
     remove_track_from_playlist,
     rename_playlist,
 )
 from rose.releases import ReleaseDoesNotExistError, delete_release, toggle_release_new
+from rose.tagger import AudioFile
 
 logger = logging.getLogger(__name__)
 
@@ -322,8 +325,8 @@ class RoseLogicalFS:
         #    AudioFile dataclass (which parses tags). Look for the track ID tag, and if it exists,
         #    add it to the playlist.
         #
-        # The state is a mapping of (path, fh) -> (playlist_name, ext, bytes).
-        self.playlist_additions_in_progress: dict[tuple[str, int], tuple[str, str, bytearray]] = {}
+        # The state is a mapping of fh -> (playlist_name, ext, bytes).
+        self.playlist_additions_in_progress: dict[int, tuple[str, str, bytearray]] = {}
         self.fhgen = fhgen
         super().__init__()
 
@@ -563,49 +566,6 @@ class RoseLogicalFS:
 
         raise llfuse.FUSEError(errno.ENOENT)
 
-    def open(self, path: Path, flags: int) -> int:
-        logger.debug(f"LOGICAL: Received open for {path=} {flags=}")
-        p = VirtualPath.parse(path)
-        logger.debug(f"LOGICAL: Parsed open path as {p}")
-
-        err = errno.ENOENT
-        if flags & os.O_CREAT == os.O_CREAT:
-            err = errno.EACCES
-
-        if p.release and p.file and (rdata := get_release(self.config, p.release)):
-            release, tracks = rdata
-            if release.cover_image_path and p.file == release.cover_image_path.name:
-                return os.open(str(release.cover_image_path), flags)
-            for track in tracks:
-                if track.virtual_filename == p.file:
-                    return os.open(str(track.source_path), flags)
-            raise llfuse.FUSEError(err)
-        if p.playlist and p.file:
-            try:
-                playlist, tracks = get_playlist(self.config, p.playlist)  # type: ignore
-            except TypeError as e:
-                raise llfuse.FUSEError(errno.ENOENT) from e
-            # If we are trying to create a file in the playlist, enter the "add file to playlist"
-            # operation sequence. See the __init__ for more details.
-            if flags & os.O_CREAT == os.O_CREAT:
-                fh = self.fhgen.next()
-                self.playlist_additions_in_progress[(str(path), fh)] = (
-                    p.playlist,
-                    Path(p.file).suffix,
-                    bytearray(),
-                )
-                return fh
-            # Otherwise, continue on...
-            if p.file_position:
-                for idx, track in enumerate(tracks):
-                    if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
-                        return os.open(str(track.source_path), flags)
-            if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
-                return os.open(playlist.cover_path, flags)
-            raise llfuse.FUSEError(err)
-
-        raise llfuse.FUSEError(err)
-
     def unlink(self, path: Path) -> None:
         logger.debug(f"LOGICAL: Received unlink for {path=}")
         p = VirtualPath.parse(path)
@@ -725,6 +685,96 @@ class RoseLogicalFS:
 
         raise llfuse.FUSEError(errno.EACCES)
 
+    def open(self, path: Path, flags: int) -> int:
+        logger.debug(f"LOGICAL: Received open for {path=} {flags=}")
+        p = VirtualPath.parse(path)
+        logger.debug(f"LOGICAL: Parsed open path as {p}")
+
+        err = errno.ENOENT
+        if flags & os.O_CREAT == os.O_CREAT:
+            err = errno.EACCES
+
+        if p.release and p.file and (rdata := get_release(self.config, p.release)):
+            release, tracks = rdata
+            if release.cover_image_path and p.file == release.cover_image_path.name:
+                return os.open(str(release.cover_image_path), flags)
+            for track in tracks:
+                if track.virtual_filename == p.file:
+                    return os.open(str(track.source_path), flags)
+            raise llfuse.FUSEError(err)
+        if p.playlist and p.file:
+            try:
+                playlist, tracks = get_playlist(self.config, p.playlist)  # type: ignore
+            except TypeError as e:
+                raise llfuse.FUSEError(errno.ENOENT) from e
+            # If we are trying to create a file in the playlist, enter the "add file to playlist"
+            # operation sequence. See the __init__ for more details.
+            if flags & os.O_CREAT == os.O_CREAT:
+                fh = self.fhgen.next()
+                logger.debug(f"Begin playlist addition operation sequence for {p.file=} and {fh=}")
+                self.playlist_additions_in_progress[fh] = (
+                    p.playlist,
+                    Path(p.file).suffix,
+                    bytearray(),
+                )
+                return fh
+            # Otherwise, continue on...
+            if p.file_position:
+                for idx, track in enumerate(tracks):
+                    if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
+                        return os.open(str(track.source_path), flags)
+            if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
+                return os.open(playlist.cover_path, flags)
+            raise llfuse.FUSEError(err)
+
+        raise llfuse.FUSEError(err)
+
+    def read(self, fh: int, offset: int, length: int) -> bytes:
+        logger.debug(f"LOGICAL: Received read for {fh=} {offset=} {length=}")
+        os.lseek(fh, offset, os.SEEK_SET)
+        return os.read(fh, length)
+
+    def write(self, fh: int, offset: int, data: bytes) -> int:
+        logger.debug(f"LOGICAL: Received write for {fh=} {offset=} {len(data)=}")
+        if pap := self.playlist_additions_in_progress.get(fh, None):
+            logger.debug("Matched write to an in-progress playlist addition.")
+            _, _, b = pap
+            del b[offset:]
+            b.extend(data)
+            return len(data)
+        os.lseek(fh, offset, os.SEEK_SET)
+        return os.write(fh, data)
+
+    def release(self, fh: int) -> None:
+        if pap := self.playlist_additions_in_progress.get(fh, None):
+            logger.debug("Matched release to an in-progress playlist addition.")
+            playlist, ext, b = pap
+            if not b:
+                logger.debug("Aborting playlist addition release: no bytes to write.")
+                return
+            with tempfile.TemporaryDirectory() as tmpdir:
+                audiopath = Path(tmpdir) / f"f{ext}"
+                with audiopath.open("wb") as fp:
+                    fp.write(b)
+                audiofile = AudioFile.from_file(audiopath)
+                track_id = audiofile.id
+            if not track_id:
+                logger.warning(
+                    "Failed to parse track_id from file in playlist addition operation "
+                    f"sequence: {track_id=} {fh=} {playlist=} {audiofile}"
+                )
+                return
+            add_track_to_playlist(self.config, playlist, track_id)
+            del self.playlist_additions_in_progress[fh]
+            return
+        logger.debug(f"FUSE: Received release for {fh=}")
+        os.close(fh)
+
+    def ftruncate(self, fh: int, length: int = 0) -> None:
+        # TODO: IN PROGRESS PLAYLIST ADDITION
+        logger.debug(f"FUSE: Received ftruncate for {fh=} {length=}")
+        return os.ftruncate(fh, length)
+
 
 class INodeManager:
     """
@@ -801,10 +851,11 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         #
         # The dict is a map of paths to (timestamp, mkstat_args). The timestamp should be checked
         # upon access. If the cache entry is valid, mkstat should be called with the provided args.
+        # TODO: Periodic cleanup. cachetools?
         self.getattr_cache: dict[int, tuple[float, llfuse.EntryAttributes]] = {}
 
-    @staticmethod
-    def make_entry_attributes(attrs: dict[str, Any]) -> llfuse.EntryAttributes:
+    def make_entry_attributes(self, attrs: dict[str, Any]) -> llfuse.EntryAttributes:
+        attrs.update(self.default_attrs)
         entry = llfuse.EntryAttributes()
         for k, v in attrs.items():
             setattr(entry, k, v)
@@ -823,7 +874,6 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Resolved getattr {inode=} to {path=}")
         attrs = self.rose.getattr(path)
         attrs["st_ino"] = inode
-        attrs.update(self.default_attrs)
         return self.make_entry_attributes(attrs)
 
     def lookup(self, parent_inode: int, name: bytes, _: Any) -> llfuse.EntryAttributes:
@@ -832,7 +882,6 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Resolved lookup for {parent_inode=}/{name=} to {path=}")
         attrs = self.rose.getattr(path)
         attrs["st_ino"] = self.inodes.calc_inode(path)
-        attrs.update(self.default_attrs)
         return self.make_entry_attributes(attrs)
 
     def opendir(self, inode: int, _: Any) -> int:
@@ -857,7 +906,6 @@ class VirtualFS(llfuse.Operations):  # type: ignore
                 continue
             inode = self.inodes.calc_inode(path)
             attrs["st_ino"] = inode
-            attrs.update(self.default_attrs)
             entry = self.make_entry_attributes(attrs)
             self.getattr_cache[inode] = (now, entry)
             yield name.encode(), entry, i + 1
@@ -870,52 +918,16 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         return self.rose.open(path, flags)
 
     def read(self, fh: int, offset: int, length: int) -> bytes:
-        # TODO: IN PROGRESS PLAYLIST ADDITION
-        # if pap := self.playlist_additions_in_progress.get((path, fh), None):
-        #     logger.debug("Matched read to an in-progress playlist addition.")
-        #     _, _, b = pap
-        #     return b[offset : offset + length]
         logger.debug(f"FUSE: Received read for {fh=} {offset=} {length=}")
-        os.lseek(fh, offset, os.SEEK_SET)
-        return os.read(fh, length)
+        return self.rose.read(fh, offset, length)
 
     def write(self, fh: int, offset: int, data: bytes) -> int:
-        # TODO: IN PROGRESS PLAYLIST ADDITION
-        # if pap := self.playlist_additions_in_progress.get((path, fh), None):
-        #     logger.debug("Matched write to an in-progress playlist addition.")
-        #     _, _, b = pap
-        #     del b[offset:]
-        #     b.extend(data)
-        #     return len(data)
         logger.debug(f"FUSE: Received write for {fh=} {offset=} {len(data)=}")
-        os.lseek(fh, offset, os.SEEK_SET)
-        return os.write(fh, data)
+        return self.rose.write(fh, offset, data)
 
     def release(self, fh: int) -> None:
-        # TODO:
-        # if pap := self.playlist_additions_in_progress.get((path, fh), None):
-        #     logger.debug("Matched release to an in-progress playlist addition.")
-        #     playlist, ext, b = pap
-        #     if not b:
-        #         logger.debug("Aborting playlist addition release: no bytes to write.")
-        #         return
-        #     with tempfile.TemporaryDirectory() as tmpdir:
-        #         audiopath = Path(tmpdir) / f"f{ext}"
-        #         with audiopath.open("wb") as fp:
-        #             fp.write(b)
-        #         audiofile = AudioFile.from_file(audiopath)
-        #         track_id = audiofile.id
-        #     if not track_id:
-        #         logger.warning(
-        #             "Failed to parse track_id from file in playlist addition operation "
-        #             f"sequence: {path} {audiofile}"
-        #         )
-        #         return
-        #     add_track_to_playlist(self.config, playlist, track_id)
-        #     del self.playlist_additions_in_progress[(path, fh)]
-        #     return
         logger.debug(f"FUSE: Received release for {fh=}")
-        os.close(fh)
+        self.rose.release(fh)
 
     def ftruncate(self, fh: int, length: int = 0) -> None:
         # TODO: IN PROGRESS PLAYLIST ADDITION
@@ -1017,6 +1029,10 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         attrs["st_ino"] = self.inodes.calc_inode(self.inodes.get_path(parent_inode, name))
         return self.make_entry_attributes(attrs)
 
+    def flush(self, fh: int) -> None:
+        logger.debug(f"FUSE: Received flush for {fh=}")
+        pass
+
     def setattr(
         self,
         inode: int,
@@ -1034,6 +1050,10 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
     def setxattr(self, inode: int, name: bytes, value: bytes, _: Any) -> None:
         logger.debug(f"FUSE: Received setxattr for {inode=} {name=} {value=}")
+
+    def listxattr(self, inode: int, _: Any) -> Iterator[bytes]:
+        logger.debug(f"FUSE: Received listxattr for {inode=}")
+        raise StopIteration
 
     def removexattr(self, inode: int, name: bytes, _: Any) -> None:
         logger.debug(f"FUSE: Received removexattr for {inode=} {name=}")
