@@ -1,3 +1,7 @@
+"""
+The releases module encapsulates all mutations that can occur on release and track entities.
+"""
+
 from __future__ import annotations
 
 import json

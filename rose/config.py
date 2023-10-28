@@ -1,3 +1,8 @@
+"""
+The config module encapsulates the configuration parsing logic. The config module is written with
+special care to provide early and comprehensible errors when the configuration is invalid.
+"""
+
 from __future__ import annotations
 
 import functools
@@ -63,7 +68,7 @@ class Config:
     hash: str
 
     @classmethod
-    def read(cls, config_path_override: Path | None = None) -> Config:
+    def parse(cls, config_path_override: Path | None = None) -> Config:
         cfgpath = config_path_override or CONFIG_PATH
         cfgtext = ""
         try:

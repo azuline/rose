@@ -1,3 +1,24 @@
+"""
+The watcher module is architected to decouple the event listener from the event processor.
+
+This is because we must introduce a wait into the event processor, but we do not want to block the
+event listener. In order to performantly introduce such a wait, we've made the event processor
+async. However, the event listener uses a non-async library, so the event listener is sync.
+
+Why do we need to introduce a wait time into the event processor? Changes to releases occur across
+an entire directory, but change events come in one file at a time. If we respond to a file event too
+early, we may do silly things like write a new `.rose.{uuid}.toml` file, only to have a pre-existing
+one suddenly appear after. We only want to operate on a release once all files have finished
+changing.
+
+Let's dive down into the details. The watcher is a process that spawns a background thread and then
+runs an event loop. Hierarchically:
+
+Process
+    Thread -> watchdog/inotify listener that enqueues events
+    Event Loop -> processes+debounces events asynchronously from the queue
+"""
+
 import asyncio
 import contextlib
 import logging
@@ -30,19 +51,6 @@ logger = logging.getLogger(__name__)
 # Shorten wait times if we are in a test. This way a test runs faster. This is wasteful in
 # production though.
 WAIT_DIVIDER = 1 if "pytest" not in sys.modules else 10
-
-
-# Changes to releases occur across an entire directory, but change events come in at a file
-# granularity. We only want to operate on a release once all files have finished changing.
-# Otherwise, we may observe effects like a `.rose.{uuid}.toml` file being created for a "new"
-# release, and afterwards an existing `.rose.{uuid}.toml` file gets copied in by the trailing
-# filesystem operation.
-#
-# Therefore, we architect the watcher like so:
-#
-# Process
-#   Thread -> watchdog/inotify listener that enqueues events
-#   Event Loop -> processes+debounces events asynchronously from the queue
 
 
 EventType = Literal["created", "deleted", "modified", "moved"]

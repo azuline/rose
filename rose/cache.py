@@ -1,3 +1,14 @@
+"""
+The cache module encapsulates the read cache and exposes handles for working with the read cache. It
+also exposes a locking mechanism that uses the read cache for synchronization.
+
+The SQLite database is considered part of the cache, and so this module encapsulates the SQLite
+database too. Though we cheap out a bit, so all the tests freely read from the SQLite database. No
+budget!
+
+The read cache is crucial to Rose. See `docs/CACHE_MAINTENANCE.md` for more information.
+"""
+
 import contextlib
 import copy
 import hashlib

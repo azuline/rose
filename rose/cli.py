@@ -1,3 +1,8 @@
+"""
+The cli module defines Rose's CLI interface. It does not have any business logic of its own. It is
+dedicated to parsing and delegating.
+"""
+
 import logging
 import os
 from dataclasses import dataclass
@@ -45,7 +50,7 @@ class Context:
 def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
     """A virtual filesystem for music and metadata improvement tooling."""
     cc.obj = Context(
-        config=Config.read(config_path_override=config),
+        config=Config.parse(config_path_override=config),
     )
 
     if verbose:

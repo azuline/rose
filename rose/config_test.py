@@ -17,7 +17,7 @@ def test_config_minimal() -> None:
                 """
             )
 
-        c = Config.read(config_path_override=path)
+        c = Config.parse(config_path_override=path)
         assert c.music_source_dir == Path.home() / ".music-src"
         assert c.fuse_mount_dir == Path.home() / "music"
 
@@ -46,7 +46,7 @@ def test_config_full() -> None:
                 """  # noqa: E501
             )
 
-        c = Config.read(config_path_override=path)
+        c = Config.parse(config_path_override=path)
         assert c == Config(
             music_source_dir=Path.home() / ".music-src",
             fuse_mount_dir=Path.home() / "music",
@@ -99,7 +99,7 @@ def test_config_whitelist() -> None:
                 """
             )
 
-        c = Config.read(config_path_override=path)
+        c = Config.parse(config_path_override=path)
         assert c.fuse_artists_whitelist == ["xxx"]
         assert c.fuse_genres_whitelist == ["yyy"]
         assert c.fuse_labels_whitelist == ["zzz"]
@@ -112,7 +112,7 @@ def test_config_not_found() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "config.toml"
         with pytest.raises(ConfigNotFoundError):
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
 
 
 def test_config_missing_key_validation() -> None:
@@ -126,7 +126,7 @@ def test_config_missing_key_validation() -> None:
 
         append('music_source_dir = "/"')
         with pytest.raises(MissingConfigKeyError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert str(excinfo.value) == f"Missing key fuse_mount_dir in configuration file ({path})"
 
 
@@ -143,7 +143,7 @@ def test_config_value_validation() -> None:
         # music_source_dir
         write("music_source_dir = 123")
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for music_source_dir in configuration file ({path}): must be a path"
@@ -153,7 +153,7 @@ def test_config_value_validation() -> None:
         # fuse_mount_dir
         write(config + "\nfuse_mount_dir = 123")
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_mount_dir in configuration file ({path}): must be a path"
@@ -163,7 +163,7 @@ def test_config_value_validation() -> None:
         # cache_dir
         write(config + "\ncache_dir = 123")
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for cache_dir in configuration file ({path}): must be a path"
@@ -173,7 +173,7 @@ def test_config_value_validation() -> None:
         # max_proc
         write(config + '\nmax_proc = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for max_proc in configuration file ({path}): must be a positive integer"  # noqa
@@ -183,35 +183,35 @@ def test_config_value_validation() -> None:
         # artist_aliases
         write(config + '\nartist_aliases = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
         )
         write(config + '\nartist_aliases = ["lalala"]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
         )
         write(config + '\nartist_aliases = [["lalala"]]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
         )
         write(config + '\nartist_aliases = [{artist="lalala", aliases="lalala"}]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
         )
         write(config + '\nartist_aliases = [{artist="lalala", aliases=[123]}]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
@@ -221,14 +221,14 @@ def test_config_value_validation() -> None:
         # fuse_artists_whitelist
         write(config + '\nfuse_artists_whitelist = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_artists_whitelist in configuration file ({path}): must be a list of strings"  # noqa
         )
         write(config + "\nfuse_artists_whitelist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_artists_whitelist in configuration file ({path}): must be a list of strings"  # noqa
@@ -237,14 +237,14 @@ def test_config_value_validation() -> None:
         # fuse_genres_whitelist
         write(config + '\nfuse_genres_whitelist = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_genres_whitelist in configuration file ({path}): must be a list of strings"  # noqa
         )
         write(config + "\nfuse_genres_whitelist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_genres_whitelist in configuration file ({path}): must be a list of strings"  # noqa
@@ -253,14 +253,14 @@ def test_config_value_validation() -> None:
         # fuse_labels_whitelist
         write(config + '\nfuse_labels_whitelist = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_labels_whitelist in configuration file ({path}): must be a list of strings"  # noqa
         )
         write(config + "\nfuse_labels_whitelist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_labels_whitelist in configuration file ({path}): must be a list of strings"  # noqa
@@ -269,14 +269,14 @@ def test_config_value_validation() -> None:
         # fuse_artists_blacklist
         write(config + '\nfuse_artists_blacklist = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_artists_blacklist in configuration file ({path}): must be a list of strings"  # noqa
         )
         write(config + "\nfuse_artists_blacklist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_artists_blacklist in configuration file ({path}): must be a list of strings"  # noqa
@@ -285,14 +285,14 @@ def test_config_value_validation() -> None:
         # fuse_genres_blacklist
         write(config + '\nfuse_genres_blacklist = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_genres_blacklist in configuration file ({path}): must be a list of strings"  # noqa
         )
         write(config + "\nfuse_genres_blacklist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_genres_blacklist in configuration file ({path}): must be a list of strings"  # noqa
@@ -301,14 +301,14 @@ def test_config_value_validation() -> None:
         # fuse_labels_blacklist
         write(config + '\nfuse_labels_blacklist = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_labels_blacklist in configuration file ({path}): must be a list of strings"  # noqa
         )
         write(config + "\nfuse_labels_blacklist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_labels_blacklist in configuration file ({path}): must be a list of strings"  # noqa
@@ -317,7 +317,7 @@ def test_config_value_validation() -> None:
         # fuse_artists_whitelist + fuse_artists_blacklist
         write(config + '\nfuse_artists_whitelist = ["a"]\nfuse_artists_blacklist = ["b"]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Cannot specify both fuse_artists_whitelist and fuse_artists_blacklist in configuration file ({path}): must specify only one or the other"  # noqa: E501
@@ -326,7 +326,7 @@ def test_config_value_validation() -> None:
         # fuse_genres_whitelist + fuse_genres_blacklist
         write(config + '\nfuse_genres_whitelist = ["a"]\nfuse_genres_blacklist = ["b"]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Cannot specify both fuse_genres_whitelist and fuse_genres_blacklist in configuration file ({path}): must specify only one or the other"  # noqa: E501
@@ -335,7 +335,7 @@ def test_config_value_validation() -> None:
         # fuse_labels_whitelist + fuse_labels_blacklist
         write(config + '\nfuse_labels_whitelist = ["a"]\nfuse_labels_blacklist = ["b"]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Cannot specify both fuse_labels_whitelist and fuse_labels_blacklist in configuration file ({path}): must specify only one or the other"  # noqa: E501
@@ -344,14 +344,14 @@ def test_config_value_validation() -> None:
         # cover_art_stems
         write(config + '\ncover_art_stems = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for cover_art_stems in configuration file ({path}): must be a list of strings"  # noqa
         )
         write(config + "\ncover_art_stems = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for cover_art_stems in configuration file ({path}): must be a list of strings"  # noqa
@@ -361,14 +361,14 @@ def test_config_value_validation() -> None:
         # valid_art_exts
         write(config + '\nvalid_art_exts = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for valid_art_exts in configuration file ({path}): must be a list of strings"  # noqa
         )
         write(config + "\nvalid_art_exts = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for valid_art_exts in configuration file ({path}): must be a list of strings"  # noqa
@@ -378,14 +378,14 @@ def test_config_value_validation() -> None:
         # ignore_release_directories
         write(config + '\nignore_release_directories = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for ignore_release_directories in configuration file ({path}): must be a list of strings"  # noqa
         )
         write(config + "\nignore_release_directories = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.read(config_path_override=path)
+            Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
             == f"Invalid value for ignore_release_directories in configuration file ({path}): must be a list of strings"  # noqa

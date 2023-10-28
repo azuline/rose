@@ -1,3 +1,32 @@
+"""
+The virtualfs module renders a virtual filesystem from the read cache. It is written in an
+Object-Oriented style, against my typical sensibilities, because that's how the FUSE libraries tend
+to be implemented. But it's OK :)
+
+Since this is a pretty hefty module, we'll cover the organization. This module contains 6 classes:
+
+1. VirtualPath: A semantic representation of a path in the virtual filesystem along with a parser.
+   All virtual filesystem paths are parsed by this class into a far more ergonomic dataclass.
+
+2. "CanShow"er: An abstraction that encapsulates the logic of whether an artist, genre, or label
+   should be shown in their respective virtual views, based on the whitelist/blacklist configuration
+   parameters.
+
+3. FileHandleGenerator: A class that keeps generates new file handles. It is a counter that wraps
+   back to 4 when the file handles exceed ~10k, as to avoid any overflows.
+
+4. RoseLogicalFS: A logical representation of Rose's filesystem logic, freed from the annoying
+   implementation details that a low-level library like `llfuse` comes with.
+
+5. INodeManager: A class that tracks the INode <-> Path mappings. It is used to convert inodes to
+   paths in VirtualFS.
+
+6. VirtualFS: The main Virtual Filesystem class, which manages the annoying implementation details
+   of a low-level virtual filesystem, and delegates logic to the above classes. It uses INodeManager
+   and VirtualPath to translate inodes into semantically useful dataclasses, and then passes them
+   into RoseLogicalFS.
+"""
+
 from __future__ import annotations
 
 import contextlib
@@ -288,7 +317,7 @@ class CanShower:
         return True
 
 
-class FileDescriptorGenerator:
+class FileHandleGenerator:
     """
     FileDescriptorGenerator generates file descriptors and handles wrapping so that we do not go
     over the int size. Assumes that we do not cycle 10k file descriptors before the first descriptor
@@ -304,7 +333,7 @@ class FileDescriptorGenerator:
 
 
 class RoseLogicalFS:
-    def __init__(self, config: Config, fhgen: FileDescriptorGenerator):
+    def __init__(self, config: Config, fhgen: FileHandleGenerator):
         self.config = config
         # We use this object to determine whether we should show an artist/genre/label
         self.can_show = CanShower(config)
@@ -835,7 +864,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
     """
 
     def __init__(self, config: Config):
-        self.fhgen = FileDescriptorGenerator()
+        self.fhgen = FileHandleGenerator()
         self.rose = RoseLogicalFS(config, self.fhgen)
         self.inodes = INodeManager(config)
         self.default_attrs = {

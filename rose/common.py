@@ -1,3 +1,8 @@
+"""
+The common module is our ugly grab bag of miscellaneous things. Though a fully generalized common
+module is _typically_ a bad idea, we have few enough things in it that it's OK for now.
+"""
+
 import uuid
 from pathlib import Path
 

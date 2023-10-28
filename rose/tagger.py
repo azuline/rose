@@ -1,3 +1,11 @@
+"""
+The tagger module abstracts over tag reading and writing for five different audio formats, exposing
+a single standard interface for all audio files.
+
+The tagger module also handles Rose-specific tagging semantics, such as multi-valued tags,
+normalization, and enum validation.
+"""
+
 from __future__ import annotations
 
 import contextlib

@@ -1,3 +1,7 @@
+"""
+The collages module encapsulates all mutations that can occur on collages.
+"""
+
 import json
 import logging
 from pathlib import Path

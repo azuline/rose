@@ -1,3 +1,7 @@
+"""
+The playlists module encapsulates all mutations that can occur on playlists.
+"""
+
 import json
 import logging
 from collections import Counter
