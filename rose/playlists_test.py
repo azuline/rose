@@ -1,10 +1,12 @@
+import shutil
 from pathlib import Path
 from typing import Any
 
 import pytest
 import tomllib
 
-from rose.cache import connect
+from conftest import TEST_RELEASE_1
+from rose.cache import connect, update_cache
 from rose.config import Config
 from rose.playlists import (
     add_track_to_playlist,
@@ -137,3 +139,40 @@ def test_edit_playlists_remove_track(monkeypatch: Any, config: Config, source_di
     with filepath.open("rb") as fp:
         data = tomllib.load(fp)
     assert len(data["tracks"]) == 1
+
+
+def test_edit_playlists_duplicate_track_name(monkeypatch: Any, config: Config) -> None:
+    """
+    When there are duplicate virtual filenames, we append UUID. Check that it works by asserting on
+    the seen text and checking that reversing the order works.
+    """
+    # Generate conflicting virtual tracknames by having two copies of a release in the library.
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "a")
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "b")
+    update_cache(config)
+
+    with connect(config) as conn:
+        # Get the first track of each release.
+        cursor = conn.execute("SELECT id FROM tracks WHERE source_path LIKE '%01.m4a'")
+        track_ids = [r["id"] for r in cursor]
+        assert len(track_ids) == 2
+
+    create_playlist(config, "You & Me")
+    for tid in track_ids:
+        add_track_to_playlist(config, "You & Me", tid)
+
+    seen = ""
+    def editfn(x: str) -> str:
+        nonlocal seen
+        seen = x
+        return "\n".join(reversed(x.split("\n")))
+
+    monkeypatch.setattr("rose.playlists.click.edit", editfn)
+    edit_playlist_in_editor(config, "You & Me")
+
+    assert seen == "\n".join([f"BLACKPINK - Track 1.m4a [{tid}]" for tid in track_ids])
+
+    with (config.music_source_dir / "!playlists" / "You & Me.toml").open("rb") as fp:
+        data = tomllib.load(fp)
+    assert data["tracks"][0]["uuid"] == track_ids[1]
+    assert data["tracks"][1]["uuid"] == track_ids[0]

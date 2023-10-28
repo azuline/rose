@@ -1,5 +1,6 @@
 import json
 import logging
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -145,13 +146,24 @@ def edit_playlist_in_editor(c: Config, playlist_name: str) -> None:
         with path.open("rb") as fp:
             data = tomllib.load(fp)
         raw_tracks = data.get("tracks", [])
-        edited_track_descriptions = click.edit(
-            "\n".join([r["description_meta"] for r in raw_tracks])
-        )
+
+        # Because tracks are not globally unique, we append the UUID if there are any conflicts.
+        # discriminator.
+        lines_to_edit: list[str] = []
+        uuid_mapping: dict[str, str] = {}
+        line_occurrences = Counter([r["description_meta"] for r in raw_tracks])
+        for r in raw_tracks:
+            if line_occurrences[r["description_meta"]] > 1:
+                line = f'{r["description_meta"]} [{r["uuid"]}]'
+            else:
+                line = r["description_meta"]
+            lines_to_edit.append(line)
+            uuid_mapping[line] = r["uuid"]
+
+        edited_track_descriptions = click.edit("\n".join(lines_to_edit))
         if edited_track_descriptions is None:
             logger.info("Aborting: metadata file not submitted.")
             return
-        uuid_mapping = {r["description_meta"]: r["uuid"] for r in raw_tracks}
 
         edited_tracks: list[dict[str, Any]] = []
         for desc in edited_track_descriptions.strip().split("\n"):
