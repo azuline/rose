@@ -526,6 +526,24 @@ def test_update_cache_releases_adds_aliased_artist(config: Config) -> None:
             }
 
 
+def test_update_cache_releases_ignores_directories(config: Config) -> None:
+    """Test that the ignore_release_directories configuration value works."""
+    config = Config(**{**asdict(config), "ignore_release_directories": ["lalala"]})
+    release_dir = config.music_source_dir / "lalala"
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+
+    # Test that both arg+no-arg ignore the directory.
+    update_cache_for_releases(config)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        assert cursor.fetchone()[0] == 0
+
+    update_cache_for_releases(config)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        assert cursor.fetchone()[0] == 0
+
+
 def test_update_cache_collages(config: Config) -> None:
     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
     shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")

@@ -84,6 +84,17 @@ fuse_labels_blacklist = [ "xxx" ]
 cover_art_stems = [ "folder", "cover", "art", "front" ]
 valid_art_exts = [ "jpg", "jpeg", "png" ]
 
+# You may have some directories in your music source directory that should not
+# be treated like releases. You can make Rosé ignore them by adding the
+# directory names to this configuration variable. For example, if you use
+# Syncthing versioning, the `.stversions` directory will contain music files,
+# but Rosé should not scan them.
+#
+# By default, `!collages` and # `!playlists` are ignored. You do not need to
+# add them to your ignore list: they will be ignored regardless of this
+# configuration variable.
+ignore_release_directories = [ ".stversions" ]
+
 # The directory to write the cache to. Defaults to
 # `${XDG_CACHE_HOME:-$HOME/.cache}/rose`.
 cache_dir = "~/.cache/rose"

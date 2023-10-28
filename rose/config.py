@@ -58,6 +58,8 @@ class Config:
     cover_art_stems: list[str]
     valid_art_exts: list[str]
 
+    ignore_release_directories: list[str]
+
     hash: str
 
     @classmethod
@@ -291,6 +293,22 @@ class Config:
         cover_art_stems = [x.lower() for x in cover_art_stems]
         valid_art_exts = [x.lower() for x in valid_art_exts]
 
+        try:
+            ignore_release_directories = data.get("ignore_release_directories", [])
+            if not isinstance(ignore_release_directories, list):
+                raise ValueError(
+                    "ignore_release_directories must be a list[str]: "
+                    f"got {type(ignore_release_directories)}"
+                )
+            for s in ignore_release_directories:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each release directory must be of type str: got {type(s)}")
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for ignore_release_directories in configuration file ({cfgpath}): "
+                "must be a list of strings"
+            ) from e
+
         return cls(
             music_source_dir=music_source_dir,
             fuse_mount_dir=fuse_mount_dir,
@@ -307,6 +325,7 @@ class Config:
             fuse_labels_blacklist=fuse_labels_blacklist,
             cover_art_stems=cover_art_stems,
             valid_art_exts=valid_art_exts,
+            ignore_release_directories=ignore_release_directories,
             hash=sha256(cfgtext.encode()).hexdigest(),
         )
 

@@ -42,6 +42,7 @@ def test_config_full() -> None:
                 fuse_labels_blacklist = [ "zzz" ]
                 cover_art_stems = [ "aa", "bb" ]
                 valid_art_exts = [ "tiff" ]
+                ignore_release_directories = [ "dummy boy" ]
                 """  # noqa: E501
             )
 
@@ -78,6 +79,7 @@ def test_config_full() -> None:
             fuse_labels_blacklist=["zzz"],
             cover_art_stems=["aa", "bb"],
             valid_art_exts=["tiff"],
+            ignore_release_directories=["dummy boy"],
             hash=c.hash,
         )
 
@@ -372,3 +374,20 @@ def test_config_value_validation() -> None:
             == f"Invalid value for valid_art_exts in configuration file ({path}): must be a list of strings"  # noqa
         )
         config += '\nvalid_art_exts = [ "jpg" ]'
+
+        # ignore_release_directories
+        write(config + '\nignore_release_directories = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for ignore_release_directories in configuration file ({path}): must be a list of strings"  # noqa
+        )
+        write(config + "\nignore_release_directories = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.read(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for ignore_release_directories in configuration file ({path}): must be a list of strings"  # noqa
+        )
+        config += '\nignore_release_directories = [ ".stversions" ]'

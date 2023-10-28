@@ -223,9 +223,6 @@ RELEASE_TYPE_FORMATTER = {
 
 STORED_DATA_FILE_REGEX = re.compile(r"\.rose\.([^.]+)\.toml")
 
-# TODO: Push this into the configuration.
-ROSE_IGNORE_DIRS = [".stversions", "!collages", "!playlists"]
-
 
 def update_cache(c: Config, force: bool = False) -> None:
     """
@@ -279,10 +276,14 @@ def update_cache_for_releases(
     We also shard the directories across multiple processes and execute them simultaneously.
     """
     release_dirs = release_dirs or [
-        Path(d.path)
-        for d in os.scandir(c.music_source_dir)
-        if d.is_dir()
-        if d.name not in ROSE_IGNORE_DIRS
+        Path(d.path) for d in os.scandir(c.music_source_dir) if d.is_dir()
+    ]
+    release_dirs = [
+        d
+        for d in release_dirs
+        if d.name != "!collages"
+        and d.name != "!playlists"
+        and d.name not in c.ignore_release_directories
     ]
     logger.info(f"Refreshing the read cache for {len(release_dirs)} releases")
     logger.debug(f"Refreshing cached data for {', '.join([r.name for r in release_dirs])}")
