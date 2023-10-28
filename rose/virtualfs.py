@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-import fuse
+import llfuse
 
 from rose.cache import (
     artist_exists,
@@ -118,8 +118,25 @@ class FileDescriptorGenerator:
         return self._state
 
 
+class INodeManager:
+    """
+    INodeManager manages the mapping of inodes to paths in our filesystem.
+    """
+
+    def __init__(self, config: Config):
+        self.config = config
+        self.map = {llfuse.ROOT_INODE: "/"}
+
+    def lookup(self, inode: int) -> str:
+        """Raises llfuse.FuseError(errno.ENOENT) if the inode doesn't exist."""
+        try:
+            return self.map[inode]
+        except KeyError as e:
+            raise llfuse.FuseError(errno.ENOENT) from e
+
+
 # IDK how to get coverage on this thing.
-class VirtualFS(fuse.Operations):  # type: ignore
+class VirtualFS(llfuse.Operations):  # type: ignore
     def __init__(self, config: Config):
         self.config = config
         # We cache some items for getattr for performance reasons--after a ls, getattr is serially
@@ -152,11 +169,17 @@ class VirtualFS(fuse.Operations):  # type: ignore
         #
         # The state is a mapping of (path, fh) -> (playlist_name, ext, bytes).
         self.playlist_additions_in_progress: dict[tuple[str, int], tuple[str, str, bytearray]] = {}
+        self.inodes = INodeManager(config)
         self.fhgen = FileDescriptorGenerator()
         super().__init__()
 
-    def getattr(self, path: str, fh: int | None) -> dict[str, Any]:
-        logger.debug(f"Received getattr for {path=} {fh=}")
+    def getattr(
+        self,
+        inode: int,
+        ctx: llfuse.RequestContext,
+    ) -> llfuse.EntryAttributes:
+        path = self.inodes.lookup(inode)
+        logger.debug(f"Received getattr for {inode=} {path=} {ctx=}")
 
         with contextlib.suppress(KeyError):
             ts, mkstat_args = self.getattr_cache[path]
@@ -185,14 +208,14 @@ class VirtualFS(fuse.Operations):  # type: ignore
             if cp := cover_exists(self.config, p.release, p.file):
                 return mkstat("file", cp)
             # If no file matches, return errno.ENOENT.
-            raise fuse.FuseOSError(errno.ENOENT)
+            raise llfuse.FuseError(errno.ENOENT)
 
         # 8. Playlists
         if p.playlist:
             try:
                 playlist, tracks = get_playlist(self.config, p.playlist)  # type: ignore
             except TypeError as e:
-                raise fuse.FuseOSError(errno.ENOENT) from e
+                raise llfuse.FuseError(errno.ENOENT) from e
             if p.file:
                 if p.file_position:
                     for idx, track in enumerate(tracks):
@@ -200,67 +223,67 @@ class VirtualFS(fuse.Operations):  # type: ignore
                             return mkstat("file", track.source_path)
                 if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
                     return mkstat("file", playlist.cover_path)
-                raise fuse.FuseOSError(errno.ENOENT)
+                raise llfuse.FuseError(errno.ENOENT)
             return mkstat("dir")
 
         # 7. Collages
         if p.collage:
             if not collage_exists(self.config, p.collage):
-                raise fuse.FuseOSError(errno.ENOENT)
+                raise llfuse.FuseError(errno.ENOENT)
             if p.release:
                 for _, virtual_dirname, src_path in list_collage_releases(self.config, p.collage):
                     if virtual_dirname == p.release:
                         return getattr_release(src_path)
-                raise fuse.FuseOSError(errno.ENOENT)
+                raise llfuse.FuseError(errno.ENOENT)
             return mkstat("dir")
 
         # 6. Labels
         if p.label:
             if not label_exists(self.config, p.label) or not self.can_show.label(p.label):
-                raise fuse.FuseOSError(errno.ENOENT)
+                raise llfuse.FuseError(errno.ENOENT)
             if p.release:
                 for r in list_releases(self.config, sanitized_label_filter=p.label):
                     if r.virtual_dirname == p.release:
                         return getattr_release(r.source_path)
-                raise fuse.FuseOSError(errno.ENOENT)
+                raise llfuse.FuseError(errno.ENOENT)
             return mkstat("dir")
 
         # 5. Genres
         if p.genre:
             if not genre_exists(self.config, p.genre) or not self.can_show.genre(p.genre):
-                raise fuse.FuseOSError(errno.ENOENT)
+                raise llfuse.FuseError(errno.ENOENT)
             if p.release:
                 for r in list_releases(self.config, sanitized_genre_filter=p.genre):
                     if r.virtual_dirname == p.release:
                         return getattr_release(r.source_path)
-                raise fuse.FuseOSError(errno.ENOENT)
+                raise llfuse.FuseError(errno.ENOENT)
             return mkstat("dir")
 
         # 4. Artists
         if p.artist:
             if not artist_exists(self.config, p.artist) or not self.can_show.artist(p.artist):
-                raise fuse.FuseOSError(errno.ENOENT)
+                raise llfuse.FuseError(errno.ENOENT)
             if p.release:
                 for r in list_releases(self.config, sanitized_artist_filter=p.artist):
                     if r.virtual_dirname == p.release:
                         return getattr_release(r.source_path)
-                raise fuse.FuseOSError(errno.ENOENT)
+                raise llfuse.FuseError(errno.ENOENT)
             return mkstat("dir")
 
         # {1,2,3}. Releases
         if p.release:
             if p.view == "New" and not p.release.startswith("{NEW} "):
-                raise fuse.FuseOSError(errno.ENOENT)
+                raise llfuse.FuseError(errno.ENOENT)
             if rp := release_exists(self.config, p.release):
                 return getattr_release(rp)
-            raise fuse.FuseOSError(errno.ENOENT)
+            raise llfuse.FuseError(errno.ENOENT)
 
         # 0. Root
         elif p.view:
             return mkstat("dir")
 
         # -1. Wtf are you doing here?
-        raise fuse.FuseOSError(errno.ENOENT)
+        raise llfuse.FuseError(errno.ENOENT)
 
     def readdir(self, path: str, _: int) -> Iterator[str]:
         logger.debug(f"Received readdir for {path}")
@@ -308,7 +331,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
                         ("file", release.cover_image_path),
                     )
                 return
-            raise fuse.FuseOSError(errno.ENOENT)
+            raise llfuse.FuseError(errno.ENOENT)
 
         if p.artist or p.genre or p.label or p.view == "Releases" or p.view == "New":
             for release in list_releases(
@@ -379,7 +402,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
         if p.view == "Playlists" and p.playlist:
             pdata = get_playlist(self.config, p.playlist)
             if pdata is None:
-                raise fuse.FuseOSError(errno.ENOENT)
+                raise llfuse.FuseError(errno.ENOENT)
             playlist, tracks = pdata
             pad_size = max(0, 0, *[len(str(i + 1)) for i, _ in enumerate(tracks)])
             for idx, track in enumerate(tracks):
@@ -399,7 +422,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 self.getattr_cache[path + "/" + pname] = (time.time(), ("dir",))
             return
 
-        raise fuse.FuseOSError(errno.ENOENT)
+        raise llfuse.FuseError(errno.ENOENT)
 
     def open(self, path: str, flags: int) -> int:
         logger.debug(f"Received open for {path=} {flags=}")
@@ -417,12 +440,12 @@ class VirtualFS(fuse.Operations):  # type: ignore
             for track in tracks:
                 if track.virtual_filename == p.file:
                     return os.open(str(track.source_path), flags)
-            raise fuse.FuseOSError(err)
+            raise llfuse.FuseError(err)
         if p.playlist and p.file:
             try:
                 playlist, tracks = get_playlist(self.config, p.playlist)  # type: ignore
             except TypeError as e:
-                raise fuse.FuseOSError(errno.ENOENT) from e
+                raise llfuse.FuseError(errno.ENOENT) from e
             # If we are trying to create a file in the playlist, enter the "add file to playlist"
             # operation sequence. See the __init__ for more details.
             if flags & os.O_CREAT == os.O_CREAT:
@@ -441,9 +464,9 @@ class VirtualFS(fuse.Operations):  # type: ignore
             if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
                 return os.open(playlist.cover_path, flags)
 
-            raise fuse.FuseOSError(err)
+            raise llfuse.FuseError(err)
 
-        raise fuse.FuseOSError(err)
+        raise llfuse.FuseError(err)
 
     def read(self, path: str, length: int, offset: int, fh: int) -> bytes:
         logger.debug(f"Received read for {path=} {length=} {offset=} {fh=}")
@@ -490,9 +513,9 @@ class VirtualFS(fuse.Operations):  # type: ignore
             for track in tracks:
                 if track.virtual_filename == p.file:
                     return os.truncate(str(track.source_path), length)
-            raise fuse.FuseOSError(errno.ENOENT)
+            raise llfuse.FuseError(errno.ENOENT)
 
-        raise fuse.FuseOSError(errno.ENOENT)
+        raise llfuse.FuseError(errno.ENOENT)
 
     def release(self, path: str, fh: int) -> None:
         logger.debug(f"Received release for {path=} {fh=}")
@@ -539,12 +562,12 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 logger.debug(
                     f"Failed adding release {p.release} to collage {p.collage}: release not found."
                 )
-                raise fuse.FuseOSError(errno.ENOENT) from e
+                raise llfuse.FuseError(errno.ENOENT) from e
         if p.playlist and p.file is None:
             create_playlist(self.config, p.playlist)
             return
 
-        raise fuse.FuseOSError(errno.EACCES)
+        raise llfuse.FuseError(errno.EACCES)
 
     def rmdir(self, path: str) -> None:
         logger.debug(f"Received rmdir for {path=}")
@@ -569,7 +592,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
             delete_release(self.config, p.release)
             return
 
-        raise fuse.FuseOSError(errno.EACCES)
+        raise llfuse.FuseError(errno.EACCES)
 
     def unlink(self, path: str) -> None:
         logger.debug(f"Received unlink for {path=}")
@@ -593,7 +616,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
                 if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
                     remove_track_from_playlist(self.config, p.playlist, track.id)
                     return
-            raise fuse.FuseOSError(errno.ENOENT)
+            raise llfuse.FuseError(errno.ENOENT)
 
         # Otherwise, noop. If we return an error, that prevents rmdir from being called when we rm.
 
@@ -636,7 +659,7 @@ class VirtualFS(fuse.Operations):  # type: ignore
             rename_playlist(self.config, op.playlist, np.playlist)
             return
 
-        raise fuse.FuseOSError(errno.EACCES)
+        raise llfuse.FuseError(errno.EACCES)
 
     # Unimplemented:
     # - readlink
@@ -728,7 +751,7 @@ def parse_virtual_path(path: str, *, parse_release_position: bool = True) -> Par
                 file=POSITION_REGEX.sub("", parts[2]),
                 file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
             )
-        raise fuse.FuseOSError(errno.ENOENT)
+        raise llfuse.FuseError(errno.ENOENT)
 
     if parts[0] == "2. Releases - New":
         if len(parts) == 1:
@@ -742,7 +765,7 @@ def parse_virtual_path(path: str, *, parse_release_position: bool = True) -> Par
                 file=POSITION_REGEX.sub("", parts[2]),
                 file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
             )
-        raise fuse.FuseOSError(errno.ENOENT)
+        raise llfuse.FuseError(errno.ENOENT)
 
     if parts[0] == "3. Releases - Recently Added":
         if len(parts) == 1:
@@ -756,7 +779,7 @@ def parse_virtual_path(path: str, *, parse_release_position: bool = True) -> Par
                 file=POSITION_REGEX.sub("", parts[2]),
                 file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
             )
-        raise fuse.FuseOSError(errno.ENOENT)
+        raise llfuse.FuseError(errno.ENOENT)
 
     if parts[0] == "4. Artists":
         if len(parts) == 1:
@@ -773,7 +796,7 @@ def parse_virtual_path(path: str, *, parse_release_position: bool = True) -> Par
                 file=POSITION_REGEX.sub("", parts[3]),
                 file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
             )
-        raise fuse.FuseOSError(errno.ENOENT)
+        raise llfuse.FuseError(errno.ENOENT)
 
     if parts[0] == "5. Genres":
         if len(parts) == 1:
@@ -790,7 +813,7 @@ def parse_virtual_path(path: str, *, parse_release_position: bool = True) -> Par
                 file=POSITION_REGEX.sub("", parts[3]),
                 file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
             )
-        raise fuse.FuseOSError(errno.ENOENT)
+        raise llfuse.FuseError(errno.ENOENT)
 
     if parts[0] == "6. Labels":
         if len(parts) == 1:
@@ -807,7 +830,7 @@ def parse_virtual_path(path: str, *, parse_release_position: bool = True) -> Par
                 file=POSITION_REGEX.sub("", parts[3]),
                 file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
             )
-        raise fuse.FuseOSError(errno.ENOENT)
+        raise llfuse.FuseError(errno.ENOENT)
 
     if parts[0] == "7. Collages":
         if len(parts) == 1:
@@ -834,7 +857,7 @@ def parse_virtual_path(path: str, *, parse_release_position: bool = True) -> Par
                 file=POSITION_REGEX.sub("", parts[3]),
                 file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
             )
-        raise fuse.FuseOSError(errno.ENOENT)
+        raise llfuse.FuseError(errno.ENOENT)
 
     if parts[0] == "8. Playlists":
         if len(parts) == 1:
@@ -848,9 +871,9 @@ def parse_virtual_path(path: str, *, parse_release_position: bool = True) -> Par
                 file=POSITION_REGEX.sub("", parts[2]),
                 file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
             )
-        raise fuse.FuseOSError(errno.ENOENT)
+        raise llfuse.FuseError(errno.ENOENT)
 
-    raise fuse.FuseOSError(errno.ENOENT)
+    raise llfuse.FuseError(errno.ENOENT)
 
 
 def mkstat(mode: Literal["dir", "file"], file: Path | None = None) -> dict[str, Any]:
@@ -878,19 +901,18 @@ def mkstat(mode: Literal["dir", "file"], file: Path | None = None) -> dict[str, 
     }
 
 
-def mount_virtualfs(
-    c: Config,
-    foreground: bool = False,
-    nothreads: bool = False,
-    debug: bool = False,
-) -> None:
-    fuse.FUSE(
-        VirtualFS(c),
-        str(c.fuse_mount_dir),
-        foreground=foreground,
-        nothreads=nothreads,
-        debug=debug,
-    )
+def mount_virtualfs(c: Config, debug: bool = False) -> None:
+    options = set(llfuse.default_options)
+    options.add("fsname=rose")
+    if debug:
+        options.add("debug")
+    llfuse.init(VirtualFS(c), str(c.fuse_mount_dir), options)
+    try:
+        llfuse.main(workers=1)
+    except:
+        llfuse.close()
+        raise
+    llfuse.close()
 
 
 def unmount_virtualfs(c: Config) -> None:

@@ -15,8 +15,8 @@ setuptools.setup(
     package_data={"rose": ["*.sql", ".version"]},
     install_requires=[
         "click",
-        "fusepy",
         "mutagen",
+        "llfuse",
         "send2trash",
         "tomli-w",
         "uuid6",

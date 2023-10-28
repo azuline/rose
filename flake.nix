@@ -28,8 +28,8 @@
       };
       prod-deps = with python.pkgs; [
         click
-        fusepy
         mutagen
+        llfuse
         send2trash
         setuptools
         tomli-w
