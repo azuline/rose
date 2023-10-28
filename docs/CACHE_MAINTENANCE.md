@@ -68,5 +68,7 @@ Rosé will delete the read cache and rebuild it from scratch. A full cache
 rebuild is fairly performant, though an order of magnitude slower than a cache
 scan that results in no changes.
 
-Deleting the read cache does not result in any loss of data, and is a viable
-solution if your cache ends up in a bad state (e.g. due to a bug).
+Deleting the read cache does not result in any loss of data and is a viable
+solution if your cache ends up in a really bad state that `rose cache update
+--force` does not resolve. This should not be necessary normally, but may occur
+from a surprise bug.

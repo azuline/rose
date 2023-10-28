@@ -43,7 +43,7 @@ When the source directory changes, the virtual names auto-update in response.
 The release directory name template is:
 
 ```
-%ALBUM_ARTISTS% - %YEAR%. %ALBUM_TITLE% - %RELEASE_TYPE% [%GENRE%]
+%NEWNESS% %ALBUM_ARTISTS% - %YEAR%. %ALBUM_TITLE% - %RELEASE_TYPE% [%GENRE%]
 ```
 
 > [!NOTE]
@@ -56,13 +56,19 @@ The track file name template is:
 %TRACK_ARTISTS% - %TRACK_TITLE%.%EXTENSION%
 ```
 
-Depending on the view, the virtual names may have a position prefix. The
-position prefix is of the format `%POSITION%. `. For example, tracks in a
-release have a prefix of `%DISC_NUMBER%-%TRACK_NUMBER%. `. Collages and playlists
-also apply a position prefix to each release/track in them.
+Depending on the view, the virtual names may have a _prefix_. The prefix is of
+the format `%PREFIX%. `. For example, tracks in a release have a position
+prefix of `%DISC_NUMBER%-%TRACK_NUMBER%. `. Collages and playlists apply a
+position prefix to each release/track in them. The Recently Added Releases view
+adds a date prefix to each release.
 
-Rosé exposes all cover art under the filename `cover.{ext}`, regardless of the
-filename in the source directory.
+> [!NOTE]
+> The command line commands accept a release's virtual directory name as a
+> valid method of identifying a release. The virtual directory name passed to
+> those commands should not contain any date or position prefixes.
+
+Rosé also exposes all cover art under the filename `cover.{ext}`, regardless of
+the filename in the source directory.
 
 # New Releases
 
@@ -89,7 +95,12 @@ The virtual filesystem makes some actions available as filesystem operations.
 All actions available in the Virtual Filesystem are also available as a CLI
 operation.
 
-Let's go through them!
+All command line commands accept releases in three formats:
+
+1. The release's UUID.
+2. The release's virtual directory name, excluding prefixes.
+3. The path to the release in the virtual filesystem. The virtual filesystem
+   must be mounted for this format to work.
 
 ## Toggle NEW-ness
 

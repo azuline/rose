@@ -109,9 +109,10 @@ $ tree "8. Playlists"
 
 Command line:
 
-_Releases can be added by UUID or virtual directory name. Tracks can only be
-added by UUID. This is because the release virtual directory name is globally
-unique, while track virtual filenames are not globally unique._
+_Releases can be added by UUID, virtual directory name, or virtual filesystem
+path. Tracks can only be added by UUID. This is because the release virtual
+directory name is globally unique, while track virtual filenames are not
+globally unique._
 
 ```bash
 $ rose collages add-release "Morning" "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
@@ -160,9 +161,10 @@ $ tree "8. Playlists/Evening/"
 
 Command line:
 
-_Releases can be removed by UUID or virtual directory name. Tracks can only be
-removed by UUID. This is because the release virtual directory name is globally
-unique, while track virtual filenames are not globally unique._
+_Releases can be removed by UUID, virtual directory name, or virtual filesystem
+path. Tracks can only be removed by UUID. This is because the release virtual
+directory name is globally unique, while track virtual filenames are not
+globally unique._
 
 ```bash
 $ rose collages remove-release "Morning" "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"

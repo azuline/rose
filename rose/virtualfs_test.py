@@ -14,7 +14,7 @@ from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
 
 @contextmanager
-def startfs(c: Config) -> Iterator[None]:
+def start_virtual_fs(c: Config) -> Iterator[None]:
     p = Process(target=mount_virtualfs, args=[c, True, True, False])
     try:
         p.start()
@@ -34,7 +34,7 @@ def test_virtual_filesystem_reads(config: Config) -> None:
             return fp.read(256) != b"\x00" * 256
 
     root = config.fuse_mount_dir
-    with startfs(config):
+    with start_virtual_fs(config):
         assert not (root / "lalala").exists()
 
         assert (root / "1. Releases").is_dir()
@@ -112,7 +112,7 @@ def test_virtual_filesystem_reads(config: Config) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_virtual_filesystem_write_files(config: Config) -> None:
     root = config.fuse_mount_dir
-    with startfs(config):
+    with start_virtual_fs(config):
         with (root / "1. Releases" / "r1" / "01.m4a").open("w") as fp:
             fp.write("abc")
         with (root / "1. Releases" / "r1" / "01.m4a").open("r") as fp:
@@ -126,7 +126,7 @@ def test_virtual_filesystem_collage_actions(config: Config) -> None:
     root = config.fuse_mount_dir
     src = config.music_source_dir
 
-    with startfs(config):
+    with start_virtual_fs(config):
         # Create collage.
         (root / "7. Collages" / "New Tee").mkdir(parents=True)
         assert (src / "!collages" / "New Tee.toml").is_file()
@@ -160,7 +160,7 @@ def test_virtual_filesystem_playlist_actions(
     release_dir = root / "1. Releases" / "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop]"
     filename = "01. BLACKPINK - Track 1.m4a"
 
-    with startfs(config):
+    with start_virtual_fs(config):
         # Create playlist.
         (root / "8. Playlists" / "New Tee").mkdir(parents=True)
         assert (src / "!playlists" / "New Tee.toml").is_file()
@@ -186,7 +186,7 @@ def test_virtual_filesystem_playlist_actions(
 def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> None:
     dirname = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
     root = config.fuse_mount_dir
-    with startfs(config):
+    with start_virtual_fs(config):
         # Fix: If we return EACCES from unlink, then `rm -r` fails despite `rmdir` succeeding. Thus
         # we no-op if we cannot unlink a file. And we test the real tool we want to use in
         # production.
@@ -199,7 +199,7 @@ def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> 
 def test_virtual_filesystem_toggle_new(config: Config, source_dir: Path) -> None:  # noqa: ARG001
     dirname = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
     root = config.fuse_mount_dir
-    with startfs(config):
+    with start_virtual_fs(config):
         (root / "1. Releases" / dirname).rename(root / "1. Releases" / f"{{NEW}} {dirname}")
         assert (root / "1. Releases" / f"{{NEW}} {dirname}").is_dir()
         assert not (root / "1. Releases" / dirname).exists()
@@ -221,7 +221,7 @@ def test_virtual_filesystem_blacklist(config: Config) -> None:
         },
     )
     root = config.fuse_mount_dir
-    with startfs(new_config):
+    with start_virtual_fs(new_config):
         assert (root / "4. Artists" / "Techno Man").is_dir()
         assert (root / "5. Genres" / "Deep House").is_dir()
         assert (root / "6. Labels" / "Native State").is_dir()
@@ -241,7 +241,7 @@ def test_virtual_filesystem_whitelist(config: Config) -> None:
         },
     )
     root = config.fuse_mount_dir
-    with startfs(new_config):
+    with start_virtual_fs(new_config):
         assert not (root / "4. Artists" / "Techno Man").exists()
         assert not (root / "5. Genres" / "Deep House").exists()
         assert not (root / "6. Labels" / "Native State").exists()
