@@ -1,12 +1,11 @@
-import contextlib
+from __future__ import annotations
+
 import errno
 import logging
 import os
 import re
 import stat
 import subprocess
-import tempfile
-import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,16 +40,196 @@ from rose.collages import (
 )
 from rose.config import Config
 from rose.playlists import (
-    add_track_to_playlist,
     create_playlist,
     delete_playlist,
     remove_track_from_playlist,
     rename_playlist,
 )
 from rose.releases import ReleaseDoesNotExistError, delete_release, toggle_release_new
-from rose.tagger import AudioFile
 
 logger = logging.getLogger(__name__)
+
+# In collages, playlists, and releases, we print directories with position of the release/track in
+# the collage. When parsing, strip it out. Otherwise we will have to handle this parsing in every
+# method.
+POSITION_REGEX = re.compile(r"^([^.]+)\. ")
+# In recently added, we print the date that the release was added to the library. When parsing,
+# strip it out.
+ADDED_AT_REGEX = re.compile(r"^\[[\d-]{10}\] ")
+
+
+@dataclass
+class VirtualPath:
+    view: (
+        Literal[
+            "Root",
+            "Releases",
+            "Artists",
+            "Genres",
+            "Labels",
+            "Collages",
+            "Playlists",
+            "New",
+            "Recently Added",
+        ]
+        | None
+    )
+    artist: str | None = None
+    genre: str | None = None
+    label: str | None = None
+    collage: str | None = None
+    playlist: str | None = None
+    release: str | None = None
+    release_position: str | None = None
+    file: str | None = None
+    file_position: str | None = None
+
+    @classmethod
+    def parse(cls, path: Path, *, parse_release_position: bool = True) -> VirtualPath:
+        parts = str(path.resolve()).split("/")[1:]  # First part is always empty string.
+
+        if len(parts) == 1 and parts[0] == "":
+            return VirtualPath(view="Root")
+
+        if parts[0] == "1. Releases":
+            if len(parts) == 1:
+                return VirtualPath(view="Releases")
+            if len(parts) == 2:
+                return VirtualPath(view="Releases", release=parts[1])
+            if len(parts) == 3:
+                return VirtualPath(
+                    view="Releases",
+                    release=parts[1],
+                    file=POSITION_REGEX.sub("", parts[2]),
+                    file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
+                )
+            raise llfuse.FuseError(errno.ENOENT)
+
+        if parts[0] == "2. Releases - New":
+            if len(parts) == 1:
+                return VirtualPath(view="New")
+            if len(parts) == 2:
+                return VirtualPath(view="New", release=parts[1])
+            if len(parts) == 3:
+                return VirtualPath(
+                    view="New",
+                    release=parts[1],
+                    file=POSITION_REGEX.sub("", parts[2]),
+                    file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
+                )
+            raise llfuse.FuseError(errno.ENOENT)
+
+        if parts[0] == "3. Releases - Recently Added":
+            if len(parts) == 1:
+                return VirtualPath(view="Recently Added")
+            if len(parts) == 2 and ADDED_AT_REGEX.match(parts[1]):
+                return VirtualPath(view="Recently Added", release=ADDED_AT_REGEX.sub("", parts[1]))
+            if len(parts) == 3 and ADDED_AT_REGEX.match(parts[1]):
+                return VirtualPath(
+                    view="Recently Added",
+                    release=ADDED_AT_REGEX.sub("", parts[1]),
+                    file=POSITION_REGEX.sub("", parts[2]),
+                    file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
+                )
+            raise llfuse.FuseError(errno.ENOENT)
+
+        if parts[0] == "4. Artists":
+            if len(parts) == 1:
+                return VirtualPath(view="Artists")
+            if len(parts) == 2:
+                return VirtualPath(view="Artists", artist=parts[1])
+            if len(parts) == 3:
+                return VirtualPath(view="Artists", artist=parts[1], release=parts[2])
+            if len(parts) == 4:
+                return VirtualPath(
+                    view="Artists",
+                    artist=parts[1],
+                    release=parts[2],
+                    file=POSITION_REGEX.sub("", parts[3]),
+                    file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
+                )
+            raise llfuse.FuseError(errno.ENOENT)
+
+        if parts[0] == "5. Genres":
+            if len(parts) == 1:
+                return VirtualPath(view="Genres")
+            if len(parts) == 2:
+                return VirtualPath(view="Genres", genre=parts[1])
+            if len(parts) == 3:
+                return VirtualPath(view="Genres", genre=parts[1], release=parts[2])
+            if len(parts) == 4:
+                return VirtualPath(
+                    view="Genres",
+                    genre=parts[1],
+                    release=parts[2],
+                    file=POSITION_REGEX.sub("", parts[3]),
+                    file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
+                )
+            raise llfuse.FuseError(errno.ENOENT)
+
+        if parts[0] == "6. Labels":
+            if len(parts) == 1:
+                return VirtualPath(view="Labels")
+            if len(parts) == 2:
+                return VirtualPath(view="Labels", label=parts[1])
+            if len(parts) == 3:
+                return VirtualPath(view="Labels", label=parts[1], release=parts[2])
+            if len(parts) == 4:
+                return VirtualPath(
+                    view="Labels",
+                    label=parts[1],
+                    release=parts[2],
+                    file=POSITION_REGEX.sub("", parts[3]),
+                    file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
+                )
+            raise llfuse.FuseError(errno.ENOENT)
+
+        if parts[0] == "7. Collages":
+            if len(parts) == 1:
+                return VirtualPath(view="Collages")
+            if len(parts) == 2:
+                return VirtualPath(view="Collages", collage=parts[1])
+            if len(parts) == 3:
+                return VirtualPath(
+                    view="Collages",
+                    collage=parts[1],
+                    release=POSITION_REGEX.sub("", parts[2])
+                    if parse_release_position
+                    else parts[2],
+                    release_position=m[1]
+                    if parse_release_position and (m := POSITION_REGEX.match(parts[2]))
+                    else None,
+                )
+            if len(parts) == 4:
+                return VirtualPath(
+                    view="Collages",
+                    collage=parts[1],
+                    release=POSITION_REGEX.sub("", parts[2])
+                    if parse_release_position
+                    else parts[2],
+                    release_position=m[1]
+                    if parse_release_position and (m := POSITION_REGEX.match(parts[2]))
+                    else None,
+                    file=POSITION_REGEX.sub("", parts[3]),
+                    file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
+                )
+            raise llfuse.FuseError(errno.ENOENT)
+
+        if parts[0] == "8. Playlists":
+            if len(parts) == 1:
+                return VirtualPath(view="Playlists")
+            if len(parts) == 2:
+                return VirtualPath(view="Playlists", playlist=parts[1])
+            if len(parts) == 3:
+                return VirtualPath(
+                    view="Playlists",
+                    playlist=parts[1],
+                    file=POSITION_REGEX.sub("", parts[2]),
+                    file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
+                )
+            raise llfuse.FuseError(errno.ENOENT)
+
+        raise llfuse.FuseError(errno.ENOENT)
 
 
 class CanShower:
@@ -111,43 +290,16 @@ class FileDescriptorGenerator:
     """
 
     def __init__(self) -> None:
-        self._state = 0
+        self._state = 10
 
     def next(self) -> int:
-        self._state = self._state + 1 % 10_000
+        self._state = (self._state + 1 % 10_000) + 10
         return self._state
 
 
-class INodeManager:
-    """
-    INodeManager manages the mapping of inodes to paths in our filesystem.
-    """
-
-    def __init__(self, config: Config):
+class RoseLogicalFS:
+    def __init__(self, config: Config, fhgen: FileDescriptorGenerator):
         self.config = config
-        self.map = {llfuse.ROOT_INODE: "/"}
-
-    def lookup(self, inode: int) -> str:
-        """Raises llfuse.FuseError(errno.ENOENT) if the inode doesn't exist."""
-        try:
-            return self.map[inode]
-        except KeyError as e:
-            raise llfuse.FuseError(errno.ENOENT) from e
-
-
-# IDK how to get coverage on this thing.
-class VirtualFS(llfuse.Operations):  # type: ignore
-    def __init__(self, config: Config):
-        self.config = config
-        # We cache some items for getattr for performance reasons--after a ls, getattr is serially
-        # called for each item in the directory, and sequential 1k SQLite reads is quite slow in any
-        # universe. So whenever we have a readdir, we do a batch read and populate the getattr
-        # cache. The getattr cache is valid for only 1 second, which prevents stale results from
-        # being read from it.
-        #
-        # The dict is a map of paths to (timestamp, mkstat_args). The timestamp should be checked
-        # upon access. If the cache entry is valid, mkstat should be called with the provided args.
-        self.getattr_cache: dict[str, tuple[float, Any]] = {}
         # We use this object to determine whether we should show an artist/genre/label
         self.can_show = CanShower(config)
         # We implement the "add track to playlist" operation in a slightly special way. Unlike
@@ -169,44 +321,52 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         #
         # The state is a mapping of (path, fh) -> (playlist_name, ext, bytes).
         self.playlist_additions_in_progress: dict[tuple[str, int], tuple[str, str, bytearray]] = {}
-        self.inodes = INodeManager(config)
-        self.fhgen = FileDescriptorGenerator()
+        self.fhgen = fhgen
         super().__init__()
 
-    def getattr(
-        self,
-        inode: int,
-        ctx: llfuse.RequestContext,
-    ) -> llfuse.EntryAttributes:
-        path = self.inodes.lookup(inode)
-        logger.debug(f"Received getattr for {inode=} {path=} {ctx=}")
+    @staticmethod
+    def stat(mode: Literal["dir", "file"], realpath: Path | None = None) -> dict[str, Any]:
+        attrs: dict[str, Any] = {}
+        attrs["st_nlink"] = 4
+        attrs["st_mode"] = (stat.S_IFDIR | 0o755) if mode == "dir" else (stat.S_IFREG | 0o644)
+        attrs["st_uid"] = os.getuid()
+        attrs["st_gid"] = os.getgid()
 
-        with contextlib.suppress(KeyError):
-            ts, mkstat_args = self.getattr_cache[path]
-            if time.time() - ts < 1.0:
-                logger.debug(f"Returning cached getattr result for {path=}")
-                return mkstat(*mkstat_args)
+        attrs["st_size"] = 4096
+        attrs["st_atime"] = 0.0
+        attrs["st_mtime"] = 0.0
+        attrs["st_ctime"] = 0.0
+        if realpath:
+            s = realpath.stat()
+            attrs["st_size"] = s.st_size
+            attrs["st_atime"] = s.st_atime
+            attrs["st_mtime"] = s.st_mtime
+            attrs["st_ctime"] = s.st_ctime
 
-        logger.debug(f"Handling uncached getattr for {path=}")
-        p = parse_virtual_path(path)
+        return attrs
+
+    def getattr(self, path: Path) -> dict[str, Any]:
+        logger.debug(f"Received getattr for {path=}")
+        p = VirtualPath.parse(path)
         logger.debug(f"Parsed getattr path as {p}")
 
-        # We need this here in order to support fgetattr during the file write operation.
-        if fh and self.playlist_additions_in_progress.get((path, fh), None):
-            logger.debug("Matched read to an in-progress playlist addition.")
-            return mkstat("file")
+        # TODO: IN PROGRESS PLAYLIST ADDITION
+        # # We need this here in order to support fgetattr during the file write operation.
+        # if fh and self.playlist_additions_in_progress.get((path, fh), None):
+        #     logger.debug("Matched read to an in-progress playlist addition.")
+        #     return mkstat("file")
 
         # Common logic that gets called for each release.
         def getattr_release(rp: Path) -> dict[str, Any]:
             assert p.release is not None
             # If no file, return stat for the release dir.
             if not p.file:
-                return mkstat("dir", rp)
+                return self.stat("dir", rp)
             # If there is a file, getattr the file.
             if tp := track_exists(self.config, p.release, p.file):
-                return mkstat("file", tp)
+                return self.stat("file", tp)
             if cp := cover_exists(self.config, p.release, p.file):
-                return mkstat("file", cp)
+                return self.stat("file", cp)
             # If no file matches, return errno.ENOENT.
             raise llfuse.FuseError(errno.ENOENT)
 
@@ -220,11 +380,11 @@ class VirtualFS(llfuse.Operations):  # type: ignore
                 if p.file_position:
                     for idx, track in enumerate(tracks):
                         if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
-                            return mkstat("file", track.source_path)
+                            return self.stat("file", track.source_path)
                 if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
-                    return mkstat("file", playlist.cover_path)
+                    return self.stat("file", playlist.cover_path)
                 raise llfuse.FuseError(errno.ENOENT)
-            return mkstat("dir")
+            return self.stat("dir")
 
         # 7. Collages
         if p.collage:
@@ -235,7 +395,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
                     if virtual_dirname == p.release:
                         return getattr_release(src_path)
                 raise llfuse.FuseError(errno.ENOENT)
-            return mkstat("dir")
+            return self.stat("dir")
 
         # 6. Labels
         if p.label:
@@ -246,7 +406,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
                     if r.virtual_dirname == p.release:
                         return getattr_release(r.source_path)
                 raise llfuse.FuseError(errno.ENOENT)
-            return mkstat("dir")
+            return self.stat("dir")
 
         # 5. Genres
         if p.genre:
@@ -257,7 +417,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
                     if r.virtual_dirname == p.release:
                         return getattr_release(r.source_path)
                 raise llfuse.FuseError(errno.ENOENT)
-            return mkstat("dir")
+            return self.stat("dir")
 
         # 4. Artists
         if p.artist:
@@ -268,7 +428,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
                     if r.virtual_dirname == p.release:
                         return getattr_release(r.source_path)
                 raise llfuse.FuseError(errno.ENOENT)
-            return mkstat("dir")
+            return self.stat("dir")
 
         # {1,2,3}. Releases
         if p.release:
@@ -280,37 +440,37 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
         # 0. Root
         elif p.view:
-            return mkstat("dir")
+            return self.stat("dir")
 
         # -1. Wtf are you doing here?
         raise llfuse.FuseError(errno.ENOENT)
 
-    def readdir(self, path: str, _: int) -> Iterator[str]:
-        logger.debug(f"Received readdir for {path}")
-        p = parse_virtual_path(path)
+    def readdir(self, path: Path) -> Iterator[tuple[str, dict[str, Any]]]:
+        logger.debug(f"Received readdir for {path=}")
+        p = VirtualPath.parse(path)
         logger.debug(f"Parsed readdir path as {p}")
-
-        # Outside of yielding the strings, we also populate the getattr cache here. See the comment
-        # in __init__ for documentation.
 
         # Call getattr to validate existence. We can now assume that the provided path exists. This
         # for example includes checks that a given album belongs to the artist/genre/label/collage
         # its nested under.
         logger.debug(f"Invoking getattr in readdir to validate existence of {path}")
-        self.getattr(path, None)
+        self.getattr(path)
 
-        yield from [".", ".."]
+        yield from [
+            (".", self.stat("dir")),
+            ("..", self.stat("dir")),
+        ]
 
         if p.view == "Root":
             yield from [
-                "1. Releases",
-                "2. Releases - New",
-                "3. Releases - Recently Added",
-                "4. Artists",
-                "5. Genres",
-                "6. Labels",
-                "7. Collages",
-                "8. Playlists",
+                ("1. Releases", self.stat("dir")),
+                ("2. Releases - New", self.stat("dir")),
+                ("3. Releases - Recently Added", self.stat("dir")),
+                ("4. Artists", self.stat("dir")),
+                ("5. Genres", self.stat("dir")),
+                ("6. Labels", self.stat("dir")),
+                ("7. Collages", self.stat("dir")),
+                ("8. Playlists", self.stat("dir")),
             ]
             return
 
@@ -319,17 +479,9 @@ class VirtualFS(llfuse.Operations):  # type: ignore
                 release, tracks = cachedata
                 for track in tracks:
                     filename = f"{track.formatted_release_position}. {track.virtual_filename}"
-                    yield filename
-                    self.getattr_cache[path + "/" + filename] = (
-                        time.time(),
-                        ("file", track.source_path),
-                    )
+                    yield filename, self.stat("file", track.source_path)
                 if release.cover_image_path:
-                    yield release.cover_image_path.name
-                    self.getattr_cache[path + "/" + release.cover_image_path.name] = (
-                        time.time(),
-                        ("file", release.cover_image_path),
-                    )
+                    yield release.cover_image_path.name, self.stat("file", release.cover_image_path)
                 return
             raise llfuse.FuseError(errno.ENOENT)
 
@@ -341,45 +493,34 @@ class VirtualFS(llfuse.Operations):  # type: ignore
                 sanitized_label_filter=p.label,
                 new=True if p.view == "New" else None,
             ):
-                yield release.virtual_dirname
-                self.getattr_cache[path + "/" + release.virtual_dirname] = (
-                    time.time(),
-                    ("dir", release.source_path),
-                )
+                yield release.virtual_dirname, self.stat("dir", release.source_path)
             return
 
         if p.view == "Recently Added":
             for release in list_releases(self.config):
                 dirname = f"[{release.added_at[:10]}] {release.virtual_dirname}"
-                yield dirname
-                self.getattr_cache[path + "/" + dirname] = (
-                    time.time(),
-                    ("dir", release.source_path),
-                )
+                yield dirname, self.stat("dir", release.source_path)
             return
 
         elif p.view == "Artists":
             for artist, sanitized_artist in list_artists(self.config):
                 if not self.can_show.artist(artist):
                     continue
-                yield sanitized_artist
-                self.getattr_cache[path + "/" + sanitized_artist] = (time.time(), ("dir",))
+                yield sanitized_artist, self.stat("dir")
             return
 
         if p.view == "Genres":
             for genre, sanitized_genre in list_genres(self.config):
                 if not self.can_show.genre(genre):
                     continue
-                yield sanitized_genre
-                self.getattr_cache[path + "/" + sanitized_genre] = (time.time(), ("dir",))
+                yield sanitized_genre, self.stat("dir")
             return
 
         if p.view == "Labels":
             for label, sanitized_label in list_labels(self.config):
                 if not self.can_show.label(label):
                     continue
-                yield sanitized_label
-                self.getattr_cache[path + "/" + sanitized_label] = (time.time(), ("dir",))
+                yield sanitized_label, self.stat("dir")
             return
 
         if p.view == "Collages" and p.collage:
@@ -388,15 +529,13 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             pad_size = max(0, 0, *[len(str(r[0])) for r in releases])
             for idx, virtual_dirname, source_dir in releases:
                 v = f"{str(idx).zfill(pad_size)}. {virtual_dirname}"
-                yield v
-                self.getattr_cache[path + "/" + v] = (time.time(), ("dir", source_dir))
+                yield v, self.stat("dir", source_dir)
             return
 
         if p.view == "Collages":
             # Don't need to sanitize because the collage names come from filenames.
             for collage in list_collages(self.config):
-                yield collage
-                self.getattr_cache[path + "/" + collage] = (time.time(), ("dir",))
+                yield collage, self.stat("dir")
             return
 
         if p.view == "Playlists" and p.playlist:
@@ -407,26 +546,23 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             pad_size = max(0, 0, *[len(str(i + 1)) for i, _ in enumerate(tracks)])
             for idx, track in enumerate(tracks):
                 v = f"{str(idx+1).zfill(pad_size)}. {track.virtual_filename}"
-                yield v
-                self.getattr_cache[path + "/" + v] = (time.time(), ("file", track.source_path))
+                yield v, self.stat("file", track.source_path)
             if playlist.cover_path:
                 v = f"cover{playlist.cover_path.suffix}"
-                yield v
-                self.getattr_cache[path + "/" + v] = (time.time(), ("file", playlist.cover_path))
+                yield v, self.stat("file", playlist.cover_path)
             return
 
         if p.view == "Playlists":
             # Don't need to sanitize because the playlist names come from filenames.
             for pname in list_playlists(self.config):
-                yield pname
-                self.getattr_cache[path + "/" + pname] = (time.time(), ("dir",))
+                yield pname, self.stat("dir")
             return
 
         raise llfuse.FuseError(errno.ENOENT)
 
-    def open(self, path: str, flags: int) -> int:
+    def open(self, path: Path, flags: int) -> int:
         logger.debug(f"Received open for {path=} {flags=}")
-        p = parse_virtual_path(path)
+        p = VirtualPath.parse(path)
         logger.debug(f"Parsed open path as {p}")
 
         err = errno.ENOENT
@@ -450,7 +586,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             # operation sequence. See the __init__ for more details.
             if flags & os.O_CREAT == os.O_CREAT:
                 fh = self.fhgen.next()
-                self.playlist_additions_in_progress[(path, fh)] = (
+                self.playlist_additions_in_progress[(str(path), fh)] = (
                     p.playlist,
                     Path(p.file).suffix,
                     bytearray(),
@@ -463,88 +599,39 @@ class VirtualFS(llfuse.Operations):  # type: ignore
                         return os.open(str(track.source_path), flags)
             if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
                 return os.open(playlist.cover_path, flags)
-
             raise llfuse.FuseError(err)
 
         raise llfuse.FuseError(err)
 
-    def read(self, path: str, length: int, offset: int, fh: int) -> bytes:
-        logger.debug(f"Received read for {path=} {length=} {offset=} {fh=}")
+    def unlink(self, path: Path) -> None:
+        logger.debug(f"Received unlink for {path=}")
+        p = VirtualPath.parse(path)
+        logger.debug(f"Parsed unlink path as {p}")
 
-        if pap := self.playlist_additions_in_progress.get((path, fh), None):
-            logger.debug("Matched read to an in-progress playlist addition.")
-            _, _, b = pap
-            return b[offset : offset + length]
-
-        os.lseek(fh, offset, os.SEEK_SET)
-        return os.read(fh, length)
-
-    def write(self, path: str, data: bytes, offset: int, fh: int) -> int:
-        logger.debug(f"Received write for {path=} {data=} {offset=} {fh=}")
-
-        if pap := self.playlist_additions_in_progress.get((path, fh), None):
-            logger.debug("Matched write to an in-progress playlist addition.")
-            _, _, b = pap
-            del b[offset:]
-            b.extend(data)
-            return len(data)
-
-        os.lseek(fh, offset, os.SEEK_SET)
-        return os.write(fh, data)
-
-    def truncate(self, path: str, length: int, fh: int | None = None) -> None:
-        logger.debug(f"Received truncate for {path=} {length=} {fh=}")
-
-        if fh:
-            if pap := self.playlist_additions_in_progress.get((path, fh), None):
-                logger.debug("Matched truncate to an in-progress playlist addition.")
-                _, _, b = pap
-                del b[length:]
-                return
-            return os.ftruncate(fh, length)
-
-        p = parse_virtual_path(path)
-        logger.debug(f"Parsed truncate path as {p}")
-
-        if p.release and p.file and (rdata := get_release(self.config, p.release)):
-            release, tracks = rdata
-            if release.cover_image_path and p.file == release.cover_image_path.name:
-                return os.truncate(str(release.cover_image_path), length)
-            for track in tracks:
-                if track.virtual_filename == p.file:
-                    return os.truncate(str(track.source_path), length)
+        # Possible actions:
+        # 1. Delete a playlist.
+        # 2. Delete a track from a playlist.
+        if p.view == "Playlists" and p.playlist and p.file is None:
+            delete_playlist(self.config, p.playlist)
+            return
+        if (
+            p.view == "Playlists"
+            and p.playlist
+            and p.file
+            and p.file_position
+            and (pdata := get_playlist(self.config, p.playlist))
+        ):
+            for idx, track in enumerate(pdata[1]):
+                if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
+                    remove_track_from_playlist(self.config, p.playlist, track.id)
+                    return
             raise llfuse.FuseError(errno.ENOENT)
 
-        raise llfuse.FuseError(errno.ENOENT)
+        # Otherwise, noop. If we return an error, that prevents rmdir from being called when we rm.
 
-    def release(self, path: str, fh: int) -> None:
-        logger.debug(f"Received release for {path=} {fh=}")
-        if pap := self.playlist_additions_in_progress.get((path, fh), None):
-            logger.debug("Matched release to an in-progress playlist addition.")
-            playlist, ext, b = pap
-            if not b:
-                logger.debug("Aborting playlist addition release: no bytes to write.")
-                return
-            with tempfile.TemporaryDirectory() as tmpdir:
-                audiopath = Path(tmpdir) / f"f{ext}"
-                with audiopath.open("wb") as fp:
-                    fp.write(b)
-                audiofile = AudioFile.from_file(audiopath)
-                track_id = audiofile.id
-            if not track_id:
-                logger.warning(
-                    "Failed to parse track_id from file in playlist addition operation "
-                    f"sequence: {path} {audiofile}"
-                )
-                return
-            add_track_to_playlist(self.config, playlist, track_id)
-            del self.playlist_additions_in_progress[(path, fh)]
-            return
-        os.close(fh)
-
-    def mkdir(self, path: str, mode: int) -> None:
-        logger.debug(f"Received mkdir for {path=} {mode=}")
-        p = parse_virtual_path(path, parse_release_position=False)
+    def mkdir(self, path: Path) -> None:
+        logger.debug(f"Received mkdir for {path=}")
+        p = VirtualPath.parse(path, parse_release_position=False)
         logger.debug(f"Parsed mkdir path as {p}")
 
         # Possible actions:
@@ -569,9 +656,9 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
         raise llfuse.FuseError(errno.EACCES)
 
-    def rmdir(self, path: str) -> None:
+    def rmdir(self, path: Path) -> None:
         logger.debug(f"Received rmdir for {path=}")
-        p = parse_virtual_path(path)
+        p = VirtualPath.parse(path)
         logger.debug(f"Parsed rmdir path as {p}")
 
         # Possible actions:
@@ -594,37 +681,11 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
         raise llfuse.FuseError(errno.EACCES)
 
-    def unlink(self, path: str) -> None:
-        logger.debug(f"Received unlink for {path=}")
-        p = parse_virtual_path(path)
-        logger.debug(f"Parsed unlink path as {p}")
-
-        # Possible actions:
-        # 1. Delete a playlist.
-        # 2. Delete a track from a playlist.
-        if p.view == "Playlists" and p.playlist and p.file is None:
-            delete_playlist(self.config, p.playlist)
-            return
-        if (
-            p.view == "Playlists"
-            and p.playlist
-            and p.file
-            and p.file_position
-            and (pdata := get_playlist(self.config, p.playlist))
-        ):
-            for idx, track in enumerate(pdata[1]):
-                if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
-                    remove_track_from_playlist(self.config, p.playlist, track.id)
-                    return
-            raise llfuse.FuseError(errno.ENOENT)
-
-        # Otherwise, noop. If we return an error, that prevents rmdir from being called when we rm.
-
-    def rename(self, old: str, new: str) -> None:
+    def rename(self, old: Path, new: Path) -> None:
         logger.debug(f"Received rename for {old=} {new=}")
-        op = parse_virtual_path(old)
+        op = VirtualPath.parse(old)
         logger.debug(f"Parsed rename old path as {op}")
-        np = parse_virtual_path(new)
+        np = VirtualPath.parse(new)
         logger.debug(f"Parsed rename new path as {np}")
 
         # Possible actions:
@@ -661,244 +722,189 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
         raise llfuse.FuseError(errno.EACCES)
 
-    # Unimplemented:
-    # - readlink
-    # - mknod
-    # - symlink
-    # - link
-    # - opendir
-    # - releasedir
-    # - chmod
-    # - chown
-    # - statfs
-    # - flush
-    # - fsync
-    # - readdir
-    # - fsyncdir
-    # - destroy
-    # - access
-    # - create
-    # - ftruncate
-    # - fgetattr
-    # - lock
-    # - ioctl
-    # - utimens
-    #
-    # Dummy implementations below:
 
-    def create(self, path: str, mode: int) -> int:
-        logger.debug(f"Received create for {path=} {mode=}")
-        return self.open(path, os.O_CREAT | os.O_WRONLY)
+class INodeManager:
+    """
+    INodeManager manages the mapping of inodes to paths in our filesystem. We have this because the
+    llfuse library makes us manage the inodes...
+    """
 
-    def chmod(self, *_, **__) -> None:  # type: ignore
+    def __init__(self, config: Config):
+        self.config = config
+
+        self._inode_to_path_map: dict[int, Path] = {llfuse.ROOT_INODE: Path("/")}
+        self._path_to_inode_map: dict[str, int] = {"/": llfuse.ROOT_INODE}
+        self._next_inode_ctr: int = llfuse.ROOT_INODE + 1
+
+    def _next_inode(self) -> int:
+        # Increment to infinity.
+        cur = self._next_inode_ctr
+        self._next_inode_ctr += 1
+        return cur
+
+    def get_path(self, inode: int, name: str | None = None) -> Path:
+        """
+        Raises ENOENT if the inode doesn't exist. If the inode is of a directory, you can optionally
+        pass `name`, which will be concatenated to the directory.
+        """
+        try:
+            path = self._inode_to_path_map[inode]
+            if not name or name == ".":
+                return path
+            if name == "..":
+                path = path.parent
+            return path / name
+        except KeyError as e:
+            raise llfuse.FuseError(errno.ENOENT) from e
+
+    def calc_inode(self, path: Path) -> int:
+        """
+        Get the inode of a path. If we've seen the path before, return the cached inode. Otherwise,
+        generate a new inode and cache it for future accesses.
+        """
+        path = path.resolve()
+        spath = str(path)
+        try:
+            return self._path_to_inode_map[spath]
+        except KeyError:
+            inode = self._next_inode()
+            self._path_to_inode_map[spath] = inode
+            self._inode_to_path_map[inode] = path
+            return inode
+
+
+class VirtualFS(llfuse.Operations):  # type: ignore
+    """
+    This is the virtual filesystem class, which implements commands by delegating the Rose-specific
+    logic to RoseLogicalFS and the inode/fd<->path tracking to INodeManager. This architecture
+    allows us to have a fairly clean logical implementation for Rose despite a fairly low-level
+    llfuse library.
+    """
+
+    def __init__(self, config: Config):
+        fhgen = FileDescriptorGenerator()
+        self.rose = RoseLogicalFS(config, fhgen)
+        self.inodes = INodeManager(config)
+
+    def getattr(self, inode: int, _: Any) -> llfuse.EntryAttributes:
+        attrs = self.rose.getattr(self.inodes.get_path(inode))
+        attrs["st_ino"] = inode
+        return llfuse.EntryAttributes(**attrs)
+
+    def lookup(self, parent_inode: int, name: str, _: Any) -> llfuse.EntryAttributes:
+        path = self.inodes.get_path(parent_inode, name)
+        attrs = self.rose.getattr(path)
+        attrs["st_ino"] = self.inodes.calc_inode(path)
+        return llfuse.EntryAttributes(**attrs)
+
+    def opendir(self, inode: int, _: Any) -> int:
+        # This should return a file handle, but we simply re-use the inode as the fh.
+        return inode
+
+    def releasedir(self, _: int) -> None:
+        # No op; since we are using the inode as the fh, we have nothing to release.
         pass
 
-    def chown(self, *_, **__) -> None:  # type: ignore
-        pass
+    def readdir(
+        self,
+        inode: int,
+        offset: int = 0,
+    ) -> Iterator[tuple[str, llfuse.EntryAttributes, int]]:
+        path = self.inodes.get_path(inode)
+        for i, (name, attrs) in enumerate(self.rose.readdir(path)):
+            if i < offset:
+                continue
+            yield name, attrs, i
 
+    def open(self, inode: int, flags: int, _: Any) -> int:
+        path = self.inodes.get_path(inode)
+        return self.rose.open(path, flags)
 
-@dataclass
-class ParsedPath:
-    view: (
-        Literal[
-            "Root",
-            "Releases",
-            "Artists",
-            "Genres",
-            "Labels",
-            "Collages",
-            "Playlists",
-            "New",
-            "Recently Added",
-        ]
-        | None
-    )
-    artist: str | None = None
-    genre: str | None = None
-    label: str | None = None
-    collage: str | None = None
-    playlist: str | None = None
-    release: str | None = None
-    release_position: str | None = None
-    file: str | None = None
-    file_position: str | None = None
+    def read(self, fh: int, offset: int, length: int) -> bytes:
+        # TODO: IN PROGRESS PLAYLIST ADDITION
+        # if pap := self.playlist_additions_in_progress.get((path, fh), None):
+        #     logger.debug("Matched read to an in-progress playlist addition.")
+        #     _, _, b = pap
+        #     return b[offset : offset + length]
+        os.lseek(fh, offset, os.SEEK_SET)
+        return os.read(fh, length)
 
+    def write(self, fh: int, offset: int, data: bytes) -> int:
+        # TODO: IN PROGRESS PLAYLIST ADDITION
+        # if pap := self.playlist_additions_in_progress.get((path, fh), None):
+        #     logger.debug("Matched write to an in-progress playlist addition.")
+        #     _, _, b = pap
+        #     del b[offset:]
+        #     b.extend(data)
+        #     return len(data)
+        os.lseek(fh, offset, os.SEEK_SET)
+        return os.write(fh, data)
 
-# In collages, playlists, and releases, we print directories with position of the release/track in
-# the collage. When parsing, strip it out. Otherwise we will have to handle this parsing in every
-# method.
-POSITION_REGEX = re.compile(r"^([^.]+)\. ")
-# In recently added, we print the date that the release was added to the library. When parsing,
-# strip it out.
-ADDED_AT_REGEX = re.compile(r"^\[[\d-]{10}\] ")
+    def release(self, fh: int) -> None:
+        # TODO:
+        # if pap := self.playlist_additions_in_progress.get((path, fh), None):
+        #     logger.debug("Matched release to an in-progress playlist addition.")
+        #     playlist, ext, b = pap
+        #     if not b:
+        #         logger.debug("Aborting playlist addition release: no bytes to write.")
+        #         return
+        #     with tempfile.TemporaryDirectory() as tmpdir:
+        #         audiopath = Path(tmpdir) / f"f{ext}"
+        #         with audiopath.open("wb") as fp:
+        #             fp.write(b)
+        #         audiofile = AudioFile.from_file(audiopath)
+        #         track_id = audiofile.id
+        #     if not track_id:
+        #         logger.warning(
+        #             "Failed to parse track_id from file in playlist addition operation "
+        #             f"sequence: {path} {audiofile}"
+        #         )
+        #         return
+        #     add_track_to_playlist(self.config, playlist, track_id)
+        #     del self.playlist_additions_in_progress[(path, fh)]
+        #     return
+        os.close(fh)
 
+    def ftruncate(self, fh: int, length: int = 0) -> None:
+        # TODO: IN PROGRESS PLAYLIST ADDITION
+        return os.ftruncate(fh, length)
 
-def parse_virtual_path(path: str, *, parse_release_position: bool = True) -> ParsedPath:
-    parts = path.split("/")[1:]  # First part is always empty string.
+    def create(
+        self,
+        parent_inode: int,
+        name: str,
+        _mode: int,
+        flags: int,
+        ctx: Any,
+    ) -> tuple[int, llfuse.EntryAttributes]:
+        path = self.inodes.get_path(parent_inode, name)
+        inode = self.inodes.calc_inode(path)
+        fh = self.open(inode, flags, ctx)
+        return fh, self.rose.stat("file")
 
-    if len(parts) == 1 and parts[0] == "":
-        return ParsedPath(view="Root")
+    def unlink(self, parent_inode: int, name: str, _: Any) -> None:
+        path = self.inodes.get_path(parent_inode, name)
+        self.rose.unlink(path)
 
-    if parts[0] == "1. Releases":
-        if len(parts) == 1:
-            return ParsedPath(view="Releases")
-        if len(parts) == 2:
-            return ParsedPath(view="Releases", release=parts[1])
-        if len(parts) == 3:
-            return ParsedPath(
-                view="Releases",
-                release=parts[1],
-                file=POSITION_REGEX.sub("", parts[2]),
-                file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
-            )
-        raise llfuse.FuseError(errno.ENOENT)
+    def mkdir(self, parent_inode: int, name: str, _mode: int, _: Any) -> llfuse.EntryAttributes:
+        path = self.inodes.get_path(parent_inode, name)
+        self.rose.mkdir(path)
 
-    if parts[0] == "2. Releases - New":
-        if len(parts) == 1:
-            return ParsedPath(view="New")
-        if len(parts) == 2:
-            return ParsedPath(view="New", release=parts[1])
-        if len(parts) == 3:
-            return ParsedPath(
-                view="New",
-                release=parts[1],
-                file=POSITION_REGEX.sub("", parts[2]),
-                file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
-            )
-        raise llfuse.FuseError(errno.ENOENT)
+    def rmdir(self, parent_inode: int, name: str, _: Any) -> None:
+        path = self.inodes.get_path(parent_inode, name)
+        self.rose.rmdir(path)
 
-    if parts[0] == "3. Releases - Recently Added":
-        if len(parts) == 1:
-            return ParsedPath(view="Recently Added")
-        if len(parts) == 2 and ADDED_AT_REGEX.match(parts[1]):
-            return ParsedPath(view="Recently Added", release=ADDED_AT_REGEX.sub("", parts[1]))
-        if len(parts) == 3 and ADDED_AT_REGEX.match(parts[1]):
-            return ParsedPath(
-                view="Recently Added",
-                release=ADDED_AT_REGEX.sub("", parts[1]),
-                file=POSITION_REGEX.sub("", parts[2]),
-                file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
-            )
-        raise llfuse.FuseError(errno.ENOENT)
-
-    if parts[0] == "4. Artists":
-        if len(parts) == 1:
-            return ParsedPath(view="Artists")
-        if len(parts) == 2:
-            return ParsedPath(view="Artists", artist=parts[1])
-        if len(parts) == 3:
-            return ParsedPath(view="Artists", artist=parts[1], release=parts[2])
-        if len(parts) == 4:
-            return ParsedPath(
-                view="Artists",
-                artist=parts[1],
-                release=parts[2],
-                file=POSITION_REGEX.sub("", parts[3]),
-                file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
-            )
-        raise llfuse.FuseError(errno.ENOENT)
-
-    if parts[0] == "5. Genres":
-        if len(parts) == 1:
-            return ParsedPath(view="Genres")
-        if len(parts) == 2:
-            return ParsedPath(view="Genres", genre=parts[1])
-        if len(parts) == 3:
-            return ParsedPath(view="Genres", genre=parts[1], release=parts[2])
-        if len(parts) == 4:
-            return ParsedPath(
-                view="Genres",
-                genre=parts[1],
-                release=parts[2],
-                file=POSITION_REGEX.sub("", parts[3]),
-                file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
-            )
-        raise llfuse.FuseError(errno.ENOENT)
-
-    if parts[0] == "6. Labels":
-        if len(parts) == 1:
-            return ParsedPath(view="Labels")
-        if len(parts) == 2:
-            return ParsedPath(view="Labels", label=parts[1])
-        if len(parts) == 3:
-            return ParsedPath(view="Labels", label=parts[1], release=parts[2])
-        if len(parts) == 4:
-            return ParsedPath(
-                view="Labels",
-                label=parts[1],
-                release=parts[2],
-                file=POSITION_REGEX.sub("", parts[3]),
-                file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
-            )
-        raise llfuse.FuseError(errno.ENOENT)
-
-    if parts[0] == "7. Collages":
-        if len(parts) == 1:
-            return ParsedPath(view="Collages")
-        if len(parts) == 2:
-            return ParsedPath(view="Collages", collage=parts[1])
-        if len(parts) == 3:
-            return ParsedPath(
-                view="Collages",
-                collage=parts[1],
-                release=POSITION_REGEX.sub("", parts[2]) if parse_release_position else parts[2],
-                release_position=m[1]
-                if parse_release_position and (m := POSITION_REGEX.match(parts[2]))
-                else None,
-            )
-        if len(parts) == 4:
-            return ParsedPath(
-                view="Collages",
-                collage=parts[1],
-                release=POSITION_REGEX.sub("", parts[2]) if parse_release_position else parts[2],
-                release_position=m[1]
-                if parse_release_position and (m := POSITION_REGEX.match(parts[2]))
-                else None,
-                file=POSITION_REGEX.sub("", parts[3]),
-                file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
-            )
-        raise llfuse.FuseError(errno.ENOENT)
-
-    if parts[0] == "8. Playlists":
-        if len(parts) == 1:
-            return ParsedPath(view="Playlists")
-        if len(parts) == 2:
-            return ParsedPath(view="Playlists", playlist=parts[1])
-        if len(parts) == 3:
-            return ParsedPath(
-                view="Playlists",
-                playlist=parts[1],
-                file=POSITION_REGEX.sub("", parts[2]),
-                file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
-            )
-        raise llfuse.FuseError(errno.ENOENT)
-
-    raise llfuse.FuseError(errno.ENOENT)
-
-
-def mkstat(mode: Literal["dir", "file"], file: Path | None = None) -> dict[str, Any]:
-    st_size = 4096
-    st_atime = 0.0
-    st_mtime = 0.0
-    st_ctime = 0.0
-
-    if file:
-        s = file.stat()
-        st_size = s.st_size
-        st_atime = s.st_atime
-        st_mtime = s.st_mtime
-        st_ctime = s.st_ctime
-
-    return {
-        "st_nlink": 4,
-        "st_mode": (stat.S_IFDIR | 0o755) if mode == "dir" else (stat.S_IFREG | 0o644),
-        "st_size": st_size,
-        "st_uid": os.getuid(),
-        "st_gid": os.getgid(),
-        "st_atime": st_atime,
-        "st_mtime": st_mtime,
-        "st_ctime": st_ctime,
-    }
+    def rename(
+        self,
+        old_parent_inode: int,
+        old_name: str,
+        new_parent_inode: int,
+        new_name: str,
+        _: Any,
+    ) -> None:
+        old_path = self.inodes.get_path(old_parent_inode, old_name)
+        new_path = self.inodes.get_path(new_parent_inode, new_name)
+        self.rose.rename(old_path, new_path)
 
 
 def mount_virtualfs(c: Config, debug: bool = False) -> None:

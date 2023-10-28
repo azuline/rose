@@ -26,7 +26,7 @@ from rose.playlists import (
     rename_playlist,
 )
 from rose.releases import delete_release, dump_releases, edit_release, toggle_release_new
-from rose.virtualfs import mount_virtualfs, parse_virtual_path, unmount_virtualfs
+from rose.virtualfs import VirtualPath, mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
 
@@ -304,11 +304,10 @@ def parse_release_from_potential_path(c: Config, r: str) -> str:
         return r
 
     # Parse the virtual path with the standard function.
-    virtual_path = str(p).removeprefix(str(c.fuse_mount_dir))
-    parsed_path = parse_virtual_path(virtual_path)
+    vpath = VirtualPath.parse(Path(str(p).removeprefix(str(c.fuse_mount_dir))))
     # If there is no release, or there is a file, abort lol.
-    if not parsed_path.release or parsed_path.file:
+    if not vpath.release or vpath.file:
         return r
 
     # Otherwise return the parsed release.
-    return parsed_path.release
+    return vpath.release

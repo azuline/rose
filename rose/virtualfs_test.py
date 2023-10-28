@@ -15,7 +15,7 @@ from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
 @contextmanager
 def start_virtual_fs(c: Config) -> Iterator[None]:
-    p = Process(target=mount_virtualfs, args=[c, True, True, False])
+    p = Process(target=mount_virtualfs, args=[c, True])
     try:
         p.start()
         time.sleep(0.1)
