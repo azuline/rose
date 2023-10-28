@@ -349,14 +349,14 @@ class RoseLogicalFS:
         return attrs
 
     def getattr(self, path: Path) -> dict[str, Any]:
-        logger.debug(f"Received getattr for {path=}")
+        logger.debug(f"LOGICAL: Received getattr for {path=}")
         p = VirtualPath.parse(path)
-        logger.debug(f"Parsed getattr path as {p}")
+        logger.debug(f"LOGICAL: Parsed getattr path as {p}")
 
         # TODO: IN PROGRESS PLAYLIST ADDITION
         # # We need this here in order to support fgetattr during the file write operation.
         # if fh and self.playlist_additions_in_progress.get((path, fh), None):
-        #     logger.debug("Matched read to an in-progress playlist addition.")
+        #     logger.debug("LOGICAL: Matched read to an in-progress playlist addition.")
         #     return mkstat("file")
 
         # Common logic that gets called for each release.
@@ -449,14 +449,14 @@ class RoseLogicalFS:
         raise llfuse.FUSEError(errno.ENOENT)
 
     def readdir(self, path: Path) -> Iterator[tuple[str, dict[str, Any]]]:
-        logger.debug(f"Received readdir for {path=}")
+        logger.debug(f"LOGICAL: Received readdir for {path=}")
         p = VirtualPath.parse(path)
-        logger.debug(f"Parsed readdir path as {p}")
+        logger.debug(f"LOGICAL: Parsed readdir path as {p}")
 
         # Call getattr to validate existence. We can now assume that the provided path exists. This
         # for example includes checks that a given album belongs to the artist/genre/label/collage
         # its nested under.
-        logger.debug(f"Invoking getattr in readdir to validate existence of {path}")
+        logger.debug(f"LOGICAL: Invoking getattr in readdir to validate existence of {path}")
         self.getattr(path)
 
         yield from [
@@ -564,9 +564,9 @@ class RoseLogicalFS:
         raise llfuse.FUSEError(errno.ENOENT)
 
     def open(self, path: Path, flags: int) -> int:
-        logger.debug(f"Received open for {path=} {flags=}")
+        logger.debug(f"LOGICAL: Received open for {path=} {flags=}")
         p = VirtualPath.parse(path)
-        logger.debug(f"Parsed open path as {p}")
+        logger.debug(f"LOGICAL: Parsed open path as {p}")
 
         err = errno.ENOENT
         if flags & os.O_CREAT == os.O_CREAT:
@@ -607,9 +607,9 @@ class RoseLogicalFS:
         raise llfuse.FUSEError(err)
 
     def unlink(self, path: Path) -> None:
-        logger.debug(f"Received unlink for {path=}")
+        logger.debug(f"LOGICAL: Received unlink for {path=}")
         p = VirtualPath.parse(path)
-        logger.debug(f"Parsed unlink path as {p}")
+        logger.debug(f"LOGICAL: Parsed unlink path as {p}")
 
         # Possible actions:
         # 1. Delete a playlist.
@@ -633,9 +633,9 @@ class RoseLogicalFS:
         # Otherwise, noop. If we return an error, that prevents rmdir from being called when we rm.
 
     def mkdir(self, path: Path) -> None:
-        logger.debug(f"Received mkdir for {path=}")
+        logger.debug(f"LOGICAL: Received mkdir for {path=}")
         p = VirtualPath.parse(path, parse_release_position=False)
-        logger.debug(f"Parsed mkdir path as {p}")
+        logger.debug(f"LOGICAL: Parsed mkdir path as {p}")
 
         # Possible actions:
         # 1. Add a release to an existing collage.
@@ -660,9 +660,9 @@ class RoseLogicalFS:
         raise llfuse.FUSEError(errno.EACCES)
 
     def rmdir(self, path: Path) -> None:
-        logger.debug(f"Received rmdir for {path=}")
+        logger.debug(f"LOGICAL: Received rmdir for {path=}")
         p = VirtualPath.parse(path)
-        logger.debug(f"Parsed rmdir path as {p}")
+        logger.debug(f"LOGICAL: Parsed rmdir path as {p}")
 
         # Possible actions:
         # 1. Delete a collage.
@@ -685,11 +685,11 @@ class RoseLogicalFS:
         raise llfuse.FUSEError(errno.EACCES)
 
     def rename(self, old: Path, new: Path) -> None:
-        logger.debug(f"Received rename for {old=} {new=}")
+        logger.debug(f"LOGICAL: Received rename for {old=} {new=}")
         op = VirtualPath.parse(old)
-        logger.debug(f"Parsed rename old path as {op}")
+        logger.debug(f"LOGICAL: Parsed rename old path as {op}")
         np = VirtualPath.parse(new)
-        logger.debug(f"Parsed rename new path as {np}")
+        logger.debug(f"LOGICAL: Parsed rename new path as {np}")
 
         # Possible actions:
         # 1. Toggle a release's new status.
@@ -738,16 +738,6 @@ class INodeManager:
         self._inode_to_path_map: dict[int, Path] = {llfuse.ROOT_INODE: Path("/")}
         self._path_to_inode_map: dict[str, int] = {"/": llfuse.ROOT_INODE}
         self._next_inode_ctr: int = llfuse.ROOT_INODE + 1
-
-        # We cache some items for getattr for performance reasons--after a ls, getattr is serially
-        # called for each item in the directory, and sequential 1k SQLite reads is quite slow in any
-        # universe. So whenever we have a readdir, we do a batch read and populate the getattr
-        # cache. The getattr cache is valid for only 1 second, which prevents stale results from
-        # being read from it.
-        #
-        # The dict is a map of paths to (timestamp, mkstat_args). The timestamp should be checked
-        # upon access. If the cache entry is valid, mkstat should be called with the provided args.
-        self.getattr_cache: dict[int, tuple[float, llfuse.EntryAttributes]] = {}
 
     def _next_inode(self) -> int:
         # Increment to infinity.
@@ -802,6 +792,15 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             # TODO: Well, this should be ok for now.
             "generation": random.randint(0, 1000000),
         }
+        # We cache some items for getattr for performance reasons--after a ls, getattr is serially
+        # called for each item in the directory, and sequential 1k SQLite reads is quite slow in any
+        # universe. So whenever we have a readdir, we do a batch read and populate the getattr
+        # cache. The getattr cache is valid for only 5 seconds, which prevents stale results from
+        # being read from it.
+        #
+        # The dict is a map of paths to (timestamp, mkstat_args). The timestamp should be checked
+        # upon access. If the cache entry is valid, mkstat should be called with the provided args.
+        self.getattr_cache: dict[int, tuple[float, llfuse.EntryAttributes]] = {}
 
     @staticmethod
     def make_entry_attributes(attrs: dict[str, Any]) -> llfuse.EntryAttributes:
@@ -811,20 +810,25 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         return entry
 
     def getattr(self, inode: int, _: Any) -> llfuse.EntryAttributes:
+        logger.debug(f"FUSE: Received getattr for {inode=}")
         # For performance, pull from the getattr cache if possible.
         with contextlib.suppress(KeyError):
             ts, attrs = self.getattr_cache[inode]
-            if time.time() - ts < 1.0:
-                logger.debug(f"Returning cached getattr result for {inode=}")
+            if time.time() - ts < 5.0:
+                logger.debug(f"FUSE: Returning cached getattr result for {inode=}")
                 return attrs
 
-        attrs = self.rose.getattr(self.inodes.get_path(inode))
+        path = self.inodes.get_path(inode)
+        logger.debug(f"FUSE: Resolved getattr {inode=} to {path=}")
+        attrs = self.rose.getattr(path)
         attrs["st_ino"] = inode
         attrs.update(self.default_attrs)
         return self.make_entry_attributes(attrs)
 
     def lookup(self, parent_inode: int, name: bytes, _: Any) -> llfuse.EntryAttributes:
+        logger.debug(f"FUSE: Received lookup for {parent_inode=}/{name=}")
         path = self.inodes.get_path(parent_inode, name)
+        logger.debug(f"FUSE: Resolved lookup for {parent_inode=}/{name=} to {path=}")
         attrs = self.rose.getattr(path)
         attrs["st_ino"] = self.inodes.calc_inode(path)
         attrs.update(self.default_attrs)
@@ -843,17 +847,25 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         inode: int,
         offset: int = 0,
     ) -> Iterator[tuple[bytes, llfuse.EntryAttributes, int]]:
+        logger.debug(f"FUSE: Received readdir for {inode=} {offset=}")
         path = self.inodes.get_path(inode)
+        logger.debug(f"FUSE: Resolved readdir for {inode=} to {path=}")
+        now = time.time()
         for i, (name, attrs) in enumerate(self.rose.readdir(path)):
             if i < offset:
                 continue
-            attrs["st_ino"] = self.inodes.calc_inode(path)
+            inode = self.inodes.calc_inode(path)
+            attrs["st_ino"] = inode
             attrs.update(self.default_attrs)
             entry = self.make_entry_attributes(attrs)
+            self.getattr_cache[inode] = (now, entry)
             yield name.encode(), entry, i + 1
+            logger.debug(f"FUSE: Yielded entry {i+1=} in readdir of {path=}")
 
     def open(self, inode: int, flags: int, _: Any) -> int:
+        logger.debug(f"FUSE: Received open for {inode=} {flags=}")
         path = self.inodes.get_path(inode)
+        logger.debug(f"FUSE: Resolved open for {inode=} to {path=}")
         return self.rose.open(path, flags)
 
     def read(self, fh: int, offset: int, length: int) -> bytes:
@@ -862,6 +874,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         #     logger.debug("Matched read to an in-progress playlist addition.")
         #     _, _, b = pap
         #     return b[offset : offset + length]
+        logger.debug(f"FUSE: Received read for {fh=} {offset=} {length=}")
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)
 
@@ -873,6 +886,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         #     del b[offset:]
         #     b.extend(data)
         #     return len(data)
+        logger.debug(f"FUSE: Received write for {fh=} {offset=} {len(data)=}")
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, data)
 
@@ -899,10 +913,12 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         #     add_track_to_playlist(self.config, playlist, track_id)
         #     del self.playlist_additions_in_progress[(path, fh)]
         #     return
+        logger.debug(f"FUSE: Received release for {fh=}")
         os.close(fh)
 
     def ftruncate(self, fh: int, length: int = 0) -> None:
         # TODO: IN PROGRESS PLAYLIST ADDITION
+        logger.debug(f"FUSE: Received ftruncate for {fh=} {length=}")
         return os.ftruncate(fh, length)
 
     def create(
@@ -913,21 +929,30 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         flags: int,
         ctx: Any,
     ) -> tuple[int, llfuse.EntryAttributes]:
+        logger.debug(f"FUSE: Received create for {parent_inode=}/{name=} {flags=}")
         path = self.inodes.get_path(parent_inode, name)
+        logger.debug(f"FUSE: Resolved create for {parent_inode=}/{name=} to {path=}")
         inode = self.inodes.calc_inode(path)
+        logger.debug(f"FUSE: Created inode {inode=} for {path=}; now delegating to open call")
         fh = self.open(inode, flags, ctx)
         return fh, self.rose.stat("file")
 
     def unlink(self, parent_inode: int, name: bytes, _: Any) -> None:
+        logger.debug(f"FUSE: Received unlink for {parent_inode=}/{name=}")
         path = self.inodes.get_path(parent_inode, name)
+        logger.debug(f"FUSE: Resolved unlink for {parent_inode=}/{name=} to {path=}")
         self.rose.unlink(path)
 
     def mkdir(self, parent_inode: int, name: bytes, _mode: int, _: Any) -> llfuse.EntryAttributes:
+        logger.debug(f"FUSE: Received mkdir for {parent_inode=}/{name=}")
         path = self.inodes.get_path(parent_inode, name)
+        logger.debug(f"FUSE: Resolved mkdir for {parent_inode=}/{name=} to {path=}")
         self.rose.mkdir(path)
 
     def rmdir(self, parent_inode: int, name: bytes, _: Any) -> None:
+        logger.debug(f"FUSE: Received rmdir for {parent_inode=}/{name=}")
         path = self.inodes.get_path(parent_inode, name)
+        logger.debug(f"FUSE: Resolved rmdir for {parent_inode=}/{name=} to {path=}")
         self.rose.rmdir(path)
 
     def rename(
@@ -938,8 +963,16 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         new_name: bytes,
         _: Any,
     ) -> None:
+        logger.debug(
+            f"FUSE: Received rename for {old_parent_inode=}/{old_name=} "
+            f"to {new_parent_inode=}/{new_name=}"
+        )
         old_path = self.inodes.get_path(old_parent_inode, old_name)
         new_path = self.inodes.get_path(new_parent_inode, new_name)
+        logger.debug(
+            f"FUSE: Received rename for {old_parent_inode=}/{old_name=} to {old_path=}"
+            f"and for {new_parent_inode=}/{new_name=} to {new_path=}"
+        )
         self.rose.rename(old_path, new_path)
 
 
