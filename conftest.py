@@ -70,7 +70,6 @@ def config(isolated_dir: Path) -> Config:
         music_source_dir=music_source_dir,
         fuse_mount_dir=mount_dir,
         cache_dir=cache_dir,
-        cache_database_path=cache_database_path,
         max_proc=2,
         artist_aliases_map={},
         artist_aliases_parents_map={},

@@ -44,7 +44,6 @@ class Config:
     music_source_dir: Path
     fuse_mount_dir: Path
     cache_dir: Path
-    cache_database_path: Path
     # Maximum parallel processes for cache updates. Defaults to nproc/2.
     max_proc: int
 
@@ -318,7 +317,6 @@ class Config:
             music_source_dir=music_source_dir,
             fuse_mount_dir=fuse_mount_dir,
             cache_dir=cache_dir,
-            cache_database_path=cache_dir / "cache.sqlite3",
             max_proc=max_proc,
             artist_aliases_map=artist_aliases_map,
             artist_aliases_parents_map=artist_aliases_parents_map,
@@ -337,3 +335,7 @@ class Config:
     @functools.cached_property
     def valid_cover_arts(self) -> list[str]:
         return [s + "." + e for s in self.cover_art_stems for e in self.valid_art_exts]
+
+    @functools.cached_property
+    def cache_database_path(self) -> Path:
+        return self.cache_dir / "cache.sqlite3"

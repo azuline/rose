@@ -51,7 +51,6 @@ def test_config_full() -> None:
             music_source_dir=Path.home() / ".music-src",
             fuse_mount_dir=Path.home() / "music",
             cache_dir=cache_dir,
-            cache_database_path=cache_dir / "cache.sqlite3",
             max_proc=8,
             artist_aliases_map={
                 "Abakus": ["Cinnamon Chasers"],
