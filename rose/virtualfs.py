@@ -755,7 +755,7 @@ class INodeManager:
             if not name or name == b".":
                 return path
             if name == b"..":
-                path = path.parent
+                return path.parent
             return path / name.decode()
         except KeyError as e:
             raise llfuse.FUSEError(errno.ENOENT) from e
@@ -791,6 +791,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         self.default_attrs = {
             # TODO: Well, this should be ok for now.
             "generation": random.randint(0, 1000000),
+            "entry_timeout": 0,
         }
         # We cache some items for getattr for performance reasons--after a ls, getattr is serially
         # called for each item in the directory, and sequential 1k SQLite reads is quite slow in any
@@ -860,7 +861,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             entry = self.make_entry_attributes(attrs)
             self.getattr_cache[inode] = (now, entry)
             yield name.encode(), entry, i + 1
-            logger.debug(f"FUSE: Yielded entry {i+1=} in readdir of {path=}")
+            logger.debug(f"FUSE: Yielded entry {i=} in readdir of {path=}")
 
     def open(self, inode: int, flags: int, _: Any) -> int:
         logger.debug(f"FUSE: Received open for {inode=} {flags=}")
@@ -935,25 +936,43 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         inode = self.inodes.calc_inode(path)
         logger.debug(f"FUSE: Created inode {inode=} for {path=}; now delegating to open call")
         fh = self.open(inode, flags, ctx)
-        return fh, self.rose.stat("file")
+        # Avoid zombies coming back from an old cache.
+        with contextlib.suppress(KeyError):
+            del self.getattr_cache[parent_inode]
+
+        attrs = self.rose.stat("file")
+        attrs["st_ino"] = inode
+        return fh, self.make_entry_attributes(attrs)
 
     def unlink(self, parent_inode: int, name: bytes, _: Any) -> None:
         logger.debug(f"FUSE: Received unlink for {parent_inode=}/{name=}")
         path = self.inodes.get_path(parent_inode, name)
         logger.debug(f"FUSE: Resolved unlink for {parent_inode=}/{name=} to {path=}")
         self.rose.unlink(path)
+        # Avoid zombies coming back from an old cache.
+        with contextlib.suppress(KeyError):
+            del self.getattr_cache[parent_inode]
 
     def mkdir(self, parent_inode: int, name: bytes, _mode: int, _: Any) -> llfuse.EntryAttributes:
         logger.debug(f"FUSE: Received mkdir for {parent_inode=}/{name=}")
         path = self.inodes.get_path(parent_inode, name)
         logger.debug(f"FUSE: Resolved mkdir for {parent_inode=}/{name=} to {path=}")
         self.rose.mkdir(path)
+        # Avoid zombies coming back from an old cache.
+        with contextlib.suppress(KeyError):
+            del self.getattr_cache[parent_inode]
+        attrs = self.rose.stat("dir")
+        attrs["st_ino"] = self.inodes.calc_inode(path)
+        return self.make_entry_attributes(attrs)
 
     def rmdir(self, parent_inode: int, name: bytes, _: Any) -> None:
         logger.debug(f"FUSE: Received rmdir for {parent_inode=}/{name=}")
         path = self.inodes.get_path(parent_inode, name)
         logger.debug(f"FUSE: Resolved rmdir for {parent_inode=}/{name=} to {path=}")
         self.rose.rmdir(path)
+        # Avoid zombies coming back from an old cache.
+        with contextlib.suppress(KeyError):
+            del self.getattr_cache[parent_inode]
 
     def rename(
         self,
@@ -974,6 +993,51 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             f"and for {new_parent_inode=}/{new_name=} to {new_path=}"
         )
         self.rose.rename(old_path, new_path)
+        # Avoid zombies coming back from an old cache.
+        with contextlib.suppress(KeyError):
+            del self.getattr_cache[old_parent_inode]
+        with contextlib.suppress(KeyError):
+            del self.getattr_cache[new_parent_inode]
+
+    # ============================================================================================
+    # Unimplemented stubs. Tools expect these syscalls to exist, so we implement versions of them
+    # that do not error, but also do not do anything.
+    # ============================================================================================
+
+    def forget(self, inode_list: list[tuple[int, int]]) -> None:
+        logger.debug(f"FUSE: Received forget for {inode_list=}")
+        # Clear the cache in case someone makes a request later...
+        for inode, _ in inode_list:
+            with contextlib.suppress(KeyError):
+                del self.getattr_cache[inode]
+
+    def mknod(self, parent_inode: int, name: bytes, mode: int, _: Any) -> llfuse.EntryAttributes:
+        logger.debug(f"FUSE: Received mknod for {parent_inode=}/{name=}")
+        attrs = self.rose.stat("file")
+        attrs["st_ino"] = self.inodes.calc_inode(self.inodes.get_path(parent_inode, name))
+        return self.make_entry_attributes(attrs)
+
+    def setattr(
+        self,
+        inode: int,
+        attr: llfuse.EntryAttributes,
+        fields: llfuse.SetattrFields,
+        fh: int | None,
+        ctx: Any,
+    ) -> llfuse.EntryAttributes:
+        logger.debug(f"FUSE: Received setattr for {inode=} {attr=} {fields=} {fh=}")
+        return self.getattr(inode, ctx)
+
+    def getxattr(self, inode: int, name: bytes, _: Any) -> bytes:
+        logger.debug(f"FUSE: Received getxattr for {inode=} {name=}")
+        raise llfuse.FUSEError(llfuse.ENOATTR)
+
+    def setxattr(self, inode: int, name: bytes, value: bytes, _: Any) -> None:
+        logger.debug(f"FUSE: Received setxattr for {inode=} {name=} {value=}")
+
+    def removexattr(self, inode: int, name: bytes, _: Any) -> None:
+        logger.debug(f"FUSE: Received removexattr for {inode=} {name=}")
+        raise llfuse.FUSEError(llfuse.ENOATTR)
 
 
 def mount_virtualfs(c: Config, debug: bool = False) -> None:

@@ -191,8 +191,8 @@ def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> 
         # we no-op if we cannot unlink a file. And we test the real tool we want to use in
         # production.
         subprocess.run(["rm", "-r", str(root / "1. Releases" / dirname)], check=True)
-        assert not (root / "1. Releases" / f"{{NEW}} {dirname}").is_dir()
         assert not (root / "1. Releases" / dirname).exists()
+        assert not (root / "1. Releases" / f"{{NEW}} {dirname}").is_dir()
         assert not (source_dir / "Test Release 3").exists()
 
 
