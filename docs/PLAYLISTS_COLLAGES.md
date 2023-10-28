@@ -284,6 +284,11 @@ $ tree "8. Playlists"
 
 ## Renaming a Collage/Playlist
 
+_Renaming a collage/playlist will also rename "adjacent" files (including
+playlist cover art). Adjacent files are files with the same stem as the
+collage/playlist, but a different file extension. For example, `Shower.toml`
+and `Shower.jpg`._
+
 Command line:
 
 ```bash

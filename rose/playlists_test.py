@@ -102,12 +102,20 @@ def test_playlist_add_duplicate(config: Config, source_dir: Path) -> None:
 
 
 def test_rename_playlist(config: Config, source_dir: Path) -> None:
+    # And check that auxiliary files were renamed. Create an aux cover art here.
+    (source_dir / "!playlists" / "Lala Lisa.jpg").touch()
+
     rename_playlist(config, "Lala Lisa", "Turtle Rabbit")
     assert not (source_dir / "!playlists" / "Lala Lisa.toml").exists()
+    assert not (source_dir / "!playlists" / "Lala Lisa.jpg").exists()
     assert (source_dir / "!playlists" / "Turtle Rabbit.toml").exists()
+    assert (source_dir / "!playlists" / "Turtle Rabbit.jpg").exists()
+
     with connect(config) as conn:
         cursor = conn.execute("SELECT EXISTS(SELECT * FROM playlists WHERE name = 'Turtle Rabbit')")
         assert cursor.fetchone()[0]
+        cursor = conn.execute("SELECT cover_path FROM playlists WHERE name = 'Turtle Rabbit'")
+        assert Path(cursor.fetchone()[0]) == source_dir / "!playlists" / "Turtle Rabbit.jpg"
         cursor = conn.execute("SELECT EXISTS(SELECT * FROM playlists WHERE name = 'Lala Lisa')")
         assert not cursor.fetchone()[0]
 
@@ -162,6 +170,7 @@ def test_edit_playlists_duplicate_track_name(monkeypatch: Any, config: Config) -
         add_track_to_playlist(config, "You & Me", tid)
 
     seen = ""
+
     def editfn(x: str) -> str:
         nonlocal seen
         seen = x

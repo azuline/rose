@@ -67,6 +67,19 @@ def rename_playlist(c: Config, old_name: str, new_name: str) -> None:
         if new_path.exists():
             raise PlaylistAlreadyExistsError(f"Playlist {new_name} already exists")
         old_path.rename(new_path)
+        # And also rename all files with the same stem (e.g. cover arts).
+        for old_adjacent_file in (c.music_source_dir / "!playlists").iterdir():
+            if old_adjacent_file.stem != old_path.stem:
+                continue
+            new_adjacent_file = old_adjacent_file.with_name(
+                new_path.stem + old_adjacent_file.suffix
+            )
+            if new_adjacent_file.exists():
+                continue
+            old_adjacent_file.rename(new_adjacent_file)
+            logger.debug(
+                "Renaming playlist-adjacent file {old_adjacent_file} to {new_adjacent_file}"
+            )
     update_cache_for_playlists(c, [new_name], force=True)
     update_cache_evict_nonexistent_playlists(c)
 

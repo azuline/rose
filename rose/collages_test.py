@@ -104,9 +104,15 @@ def test_collage_add_duplicate(config: Config, source_dir: Path) -> None:
 
 
 def test_rename_collage(config: Config, source_dir: Path) -> None:
+    # And check that auxiliary files were renamed. Create an aux .txt file here.
+    (source_dir / "!collages" / "Rose Gold.txt").touch()
+
     rename_collage(config, "Rose Gold", "Black Pink")
     assert not (source_dir / "!collages" / "Rose Gold.toml").exists()
+    assert not (source_dir / "!collages" / "Rose Gold.txt").exists()
     assert (source_dir / "!collages" / "Black Pink.toml").exists()
+    assert (source_dir / "!collages" / "Black Pink.txt").exists()
+
     with connect(config) as conn:
         cursor = conn.execute("SELECT EXISTS(SELECT * FROM collages WHERE name = 'Black Pink')")
         assert cursor.fetchone()[0]
