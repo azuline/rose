@@ -94,12 +94,6 @@ def test_watchdog_events(config: Config) -> None:
                 cursor = conn.execute("SELECT id FROM releases")
                 if {r["id"] for r in cursor.fetchall()} != {"ilovenewjeans"}:
                     continue
-                cursor = conn.execute("SELECT release_id FROM collages_releases")
-                if {r["release_id"] for r in cursor.fetchall()} != {"ilovenewjeans"}:
-                    continue
-                cursor = conn.execute("SELECT track_id FROM playlists_tracks")
-                if len(cursor.fetchall()):
-                    continue
                 break
         else:
             raise AssertionError("Failed to see release deletion in cache.")

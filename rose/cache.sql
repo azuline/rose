@@ -122,7 +122,10 @@ CREATE TABLE collages (
 
 CREATE TABLE collages_releases (
     collage_name TEXT REFERENCES collages(name) ON DELETE CASCADE,
-    release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
+    -- We used to have a foreign key here with ON DELETE CASCADE, but we now do
+    -- not, because not having one makes Rose resilient to temporary track
+    -- deletion and reinsertion.
+    release_id TEXT,
     position INTEGER NOT NULL
 );
 CREATE INDEX collages_releases_collage_name ON collages_releases(collage_name);
@@ -136,7 +139,11 @@ CREATE TABLE playlists (
 
 CREATE TABLE playlists_tracks (
     playlist_name TEXT REFERENCES playlists(name) ON DELETE CASCADE,
-    track_id TEXT REFERENCES tracks(id) ON DELETE CASCADE,
+    -- We used to have a foreign key here with ON DELETE CASCADE, but we now do
+    -- not, because not having one makes Rose resilient to temporary track
+    -- deletion and reinsertion, which happens during the cache update process
+    -- if a release is renamed.
+    track_id TEXT,
     position INTEGER NOT NULL
 );
 CREATE INDEX playlists_tracks_playlist_name ON playlists_tracks(playlist_name);

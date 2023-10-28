@@ -586,6 +586,35 @@ def test_update_cache_collages_nonexistent_release_id(config: Config) -> None:
     assert data["releases"] == []
 
 
+def test_update_cache_collages_on_release_rename(config: Config) -> None:
+    """
+    Test that a renamed release source directory does not remove the release from any collages. This
+    can occur because the rename operation is executed in SQL as release deletion followed by
+    release creation.
+    """
+    shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
+    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+    shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
+    update_cache(config)
+
+    (config.music_source_dir / TEST_RELEASE_2.name).rename(config.music_source_dir / "lalala")
+    update_cache(config)
+
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT collage_name, release_id, position FROM collages_releases")
+        rows = [dict(r) for r in cursor]
+        assert rows == [
+            {"collage_name": "Rose Gold", "release_id": "ilovecarly", "position": 1},
+            {"collage_name": "Rose Gold", "release_id": "ilovenewjeans", "position": 2},
+        ]
+
+    # Assert that source file was not updated to remove the release.
+    with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
+        data = tomllib.load(fp)
+    # TODO: Next PR: Assert not missing.
+    assert len(data["releases"]) == 2
+
+
 def test_update_cache_playlists(config: Config) -> None:
     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
     shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
@@ -735,6 +764,34 @@ tracks = [
 ]
 """
         )
+
+
+def test_update_cache_playlists_on_release_rename(config: Config) -> None:
+    """
+    Test that a renamed release source directory does not remove any of its tracks any playlists.
+    This can occur because when a release is renamed, we remove all tracks from the database and
+    then reinsert them.
+    """
+    shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
+    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+    update_cache(config)
+
+    (config.music_source_dir / TEST_RELEASE_2.name).rename(config.music_source_dir / "lalala")
+    update_cache(config)
+
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT playlist_name, track_id, position FROM playlists_tracks")
+        rows = [dict(r) for r in cursor]
+        assert rows == [
+            {"playlist_name": "Lala Lisa", "track_id": "iloveloona", "position": 1},
+            {"playlist_name": "Lala Lisa", "track_id": "ilovetwice", "position": 2},
+        ]
+
+    # Assert that source file was not updated to remove the track.
+    with (config.music_source_dir / "!playlists" / "Lala Lisa.toml").open("rb") as fp:
+        data = tomllib.load(fp)
+    # TODO: Next PR: Assert not missing.
+    assert len(data["tracks"]) == 2
 
 
 @pytest.mark.usefixtures("seeded_cache")

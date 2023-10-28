@@ -103,7 +103,7 @@ def test_playlist_add_duplicate(config: Config, source_dir: Path) -> None:
 
 def test_rename_playlist(config: Config, source_dir: Path) -> None:
     # And check that auxiliary files were renamed. Create an aux cover art here.
-    (source_dir / "!playlists" / "Lala Lisa.jpg").touch()
+    (source_dir / "!playlists" / "Lala Lisa.jpg").touch(exist_ok=True)
 
     rename_playlist(config, "Lala Lisa", "Turtle Rabbit")
     assert not (source_dir / "!playlists" / "Lala Lisa.toml").exists()

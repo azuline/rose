@@ -1082,9 +1082,11 @@ def _update_cache_for_releases_executor(
         if upd_collage_release_dirnames:
             cursor = conn.execute(
                 f"""
-                SELECT DISTINCT collage_name FROM collages_releases
-                WHERE release_id IN ({','.join(['?'] * len(upd_collage_release_dirnames))})
-                ORDER BY collage_name
+                SELECT DISTINCT cr.collage_name
+                FROM collages_releases cr
+                JOIN releases r ON r.id = cr.release_id
+                WHERE cr.release_id IN ({','.join(['?'] * len(upd_collage_release_dirnames))})
+                ORDER BY cr.collage_name
                 """,
                 list(upd_collage_release_dirnames.keys()),
             )
@@ -1092,9 +1094,11 @@ def _update_cache_for_releases_executor(
         if upd_playlist_track_filenames:
             cursor = conn.execute(
                 f"""
-                SELECT DISTINCT playlist_name FROM playlists_tracks
-                WHERE track_id IN ({','.join(['?'] * len(upd_playlist_track_filenames))})
-                ORDER BY playlist_name
+                SELECT DISTINCT pt.playlist_name
+                FROM playlists_tracks pt
+                JOIN tracks t ON t.id = pt.track_id
+                WHERE pt.track_id IN ({','.join(['?'] * len(upd_playlist_track_filenames))})
+                ORDER BY pt.playlist_name
                 """,
                 list(upd_playlist_track_filenames.keys()),
             )
