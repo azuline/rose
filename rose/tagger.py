@@ -76,6 +76,7 @@ class UnsupportedTagValueTypeError(RoseError):
 @dataclass
 class AudioFile:
     id: str | None
+    release_id: str | None
     title: str | None
     year: int | None
     track_number: str | None
@@ -116,6 +117,7 @@ class AudioFile:
 
             return AudioFile(
                 id=_get_tag(m.tags, ["TXXX:ROSEID"]),
+                release_id=_get_tag(m.tags, ["TXXX:ROSERELEASEID"]),
                 title=_get_tag(m.tags, ["TIT2"]),
                 year=_parse_year(_get_tag(m.tags, ["TDRC", "TYER"])),
                 track_number=_parse_num(_get_tag(m.tags, ["TRCK"], first=True)),
@@ -139,6 +141,7 @@ class AudioFile:
         if isinstance(m, mutagen.mp4.MP4):
             return AudioFile(
                 id=_get_tag(m.tags, ["----:net.sunsetglow.rose:ID"]),
+                release_id=_get_tag(m.tags, ["----:net.sunsetglow.rose:RELEASEID"]),
                 title=_get_tag(m.tags, ["\xa9nam"]),
                 year=_parse_year(_get_tag(m.tags, ["\xa9day"])),
                 track_number=_get_tag(m.tags, ["trkn"], first=True),
@@ -164,6 +167,7 @@ class AudioFile:
         if isinstance(m, (mutagen.flac.FLAC, mutagen.oggvorbis.OggVorbis, mutagen.oggopus.OggOpus)):
             return AudioFile(
                 id=_get_tag(m.tags, ["roseid"]),
+                release_id=_get_tag(m.tags, ["rosereleaseid"]),
                 title=_get_tag(m.tags, ["title"]),
                 year=_parse_year(_get_tag(m.tags, ["date", "year"])),
                 track_number=_get_tag(m.tags, ["tracknumber"], first=True),
@@ -227,6 +231,7 @@ class AudioFile:
                     m.tags.add(f)
 
             _write_tag_with_description("TXXX:ROSEID", self.id)
+            _write_tag_with_description("TXXX:ROSERELEASEID", self.release_id)
             _write_standard_tag("TIT2", self.title)
             _write_standard_tag("TDRC", str(self.year))
             _write_standard_tag("TRCK", self.track_number)
@@ -251,6 +256,7 @@ class AudioFile:
             if m.tags is None:
                 m.tags = mutagen.mp4.MP4Tags()
             m.tags["----:net.sunsetglow.rose:ID"] = (self.id or "").encode()
+            m.tags["----:net.sunsetglow.rose:RELEASEID"] = (self.release_id or "").encode()
             m.tags["\xa9nam"] = self.title or ""
             m.tags["\xa9day"] = str(self.year)
             m.tags["\xa9alb"] = self.album or ""
@@ -304,6 +310,7 @@ class AudioFile:
                     m.tags = mutagen.oggopus.OggOpusVComment()
             assert not isinstance(m.tags, mutagen.flac.MetadataBlock)
             m.tags["roseid"] = self.id or ""
+            m.tags["rosereleaseid"] = self.release_id or ""
             m.tags["title"] = self.title or ""
             m.tags["date"] = str(self.year)
             m.tags["tracknumber"] = self.track_number or ""

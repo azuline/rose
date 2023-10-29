@@ -46,6 +46,7 @@ from rose.cache import (
 )
 from rose.common import VERSION
 from rose.config import Config
+from rose.tagger import AudioFile
 
 
 def test_schema(config: Config) -> None:
@@ -272,8 +273,8 @@ def test_update_cache_releases_uncached_with_existing_id(config: Config) -> None
 
 def test_update_cache_releases_preserves_track_ids_across_rebuilds(config: Config) -> None:
     """Test that track IDs are preserved across cache rebuilds."""
-    release_dir = config.music_source_dir / TEST_RELEASE_2.name
-    shutil.copytree(TEST_RELEASE_2, release_dir)
+    release_dir = config.music_source_dir / TEST_RELEASE_3.name
+    shutil.copytree(TEST_RELEASE_3, release_dir)
     update_cache_for_releases(config, [release_dir])
     with connect(config) as conn:
         cursor = conn.execute("SELECT id FROM tracks")
@@ -291,6 +292,28 @@ def test_update_cache_releases_preserves_track_ids_across_rebuilds(config: Confi
 
     # Assert IDs are equivalent.
     assert first_track_ids == second_track_ids
+
+
+def test_update_cache_releases_writes_ids_to_tags(config: Config) -> None:
+    """Test that track IDs and release IDs are written to files."""
+    release_dir = config.music_source_dir / TEST_RELEASE_3.name
+    shutil.copytree(TEST_RELEASE_3, release_dir)
+
+    af = AudioFile.from_file(release_dir / "01.m4a")
+    assert af.id is None
+    assert af.release_id is None
+    af = AudioFile.from_file(release_dir / "02.m4a")
+    assert af.id is None
+    assert af.release_id is None
+
+    update_cache_for_releases(config, [release_dir])
+
+    af = AudioFile.from_file(release_dir / "01.m4a")
+    assert af.id is not None
+    assert af.release_id is not None
+    af = AudioFile.from_file(release_dir / "02.m4a")
+    assert af.id is not None
+    assert af.release_id is not None
 
 
 def test_update_cache_releases_already_fully_cached(config: Config) -> None:

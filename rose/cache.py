@@ -812,13 +812,18 @@ def _update_cache_for_releases_executor(
             # so, since this occurs once over the lifetime of the track's existence in Rose. We
             # optimize this function because it is called repeatedly upon every metadata edit, but
             # in this case, we skip this code path once an ID is generated.
+            #
+            # We also write the release ID to the tags. This is not needed in normal operations
+            # (since we have .rose.{uuid}.toml!), but provides a layer of defense in situations like
+            # a directory being written file-by-file and being processed in a half-written state.
             track_id = tags.id
-            if not track_id:
+            if not track_id or not tags.release_id:
                 with lock(c, release_lock_name(release.id)):
-                    track_id = str(uuid6.uuid7())
-                    tags.id = track_id
+                    tags.id = tags.id or str(uuid6.uuid7())
+                    tags.release_id = release.id
                     tags.flush()
                 # And refresh the mtime because we've just written to the file.
+                track_id = tags.id
                 track_mtime = str(os.stat(f).st_mtime)
 
             # And now create the cached track.

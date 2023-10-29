@@ -62,6 +62,18 @@ Playlists can also have custom cover art. These are stored as
 be located at `Shower.jpg` (or `.png`). The extensions to treat as images are
 configurable. See [Configuration](./CONFIGURATION.md).
 
+> [!NOTE]
+> When a release or track is deleted from the source directory, Rosé does not
+> autoremove that release/track from the collages and playlists that it belongs
+> to. Rosé instead flags the release/track as "missing," which prevents it from
+> appearing in the virtual filesystem. If the release/track is re-added to the
+> source directory, Rosé will remove the missing flag, and the release/track
+> will "regain" its lost position in the collage/playlist.
+>
+> We do this because we do not know if a missing release or a missing track is
+> transient or not. For example, a file may be deleted by a tool like syncthing
+> only to be readded later.
+
 # Operations
 
 However, working with this file directly is quite annoying, so Rosé allows you

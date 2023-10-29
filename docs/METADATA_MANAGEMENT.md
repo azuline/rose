@@ -38,6 +38,7 @@ Rosé manages the following tags:
   - Track Number
   - Disc Number
   - Rosé ID
+  - Rosé Release ID
 
 Rosé does not care about any other tags and does not do anything with them.
 
@@ -205,48 +206,51 @@ from additional fields.
 
 ## MP3
 
-| Tag           | Field Name         | Will Ingest These Fields                                                                                               |
-| ------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Release Title | `TALB`             |                                                                                                                        |
-| Album Artists | `TPE2`             |                                                                                                                        |
-| Release Year  | `TDRC`             | `TYER`                                                                                                                 |
-| Release Type  | `TXXX:RELEASETYPE` |                                                                                                                        |
-| Genre         | `TCON`             |                                                                                                                        |
-| Label         | `TPUB`             |                                                                                                                        |
-| Track Title   | `TIT2`             |                                                                                                                        |
-| Track Artists | `TPE1`             | `TPE4` (Remixer), `TCOM` (Composer), `TPE3` (Conductor), `TIPL,IPLS/producer` (producer), `TIPL,IPLS/DJ-mix` (djmixer) |
-| Track Number  | `TRCK`             |                                                                                                                        |
-| Disc Number   | `TPOS`             |                                                                                                                        |
-| Rose ID       | `TXXX:ROSEID`      |                                                                                                                        |
+| Tag             | Field Name           | Will Ingest These Fields                                                                                               |
+| --------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Release Title   | `TALB`               |                                                                                                                        |
+| Album Artists   | `TPE2`               |                                                                                                                        |
+| Release Year    | `TDRC`               | `TYER`                                                                                                                 |
+| Release Type    | `TXXX:RELEASETYPE`   |                                                                                                                        |
+| Genre           | `TCON`               |                                                                                                                        |
+| Label           | `TPUB`               |                                                                                                                        |
+| Track Title     | `TIT2`               |                                                                                                                        |
+| Track Artists   | `TPE1`               | `TPE4` (Remixer), `TCOM` (Composer), `TPE3` (Conductor), `TIPL,IPLS/producer` (producer), `TIPL,IPLS/DJ-mix` (djmixer) |
+| Track Number    | `TRCK`               |                                                                                                                        |
+| Disc Number     | `TPOS`               |                                                                                                                        |
+| Rosé ID         | `TXXX:ROSEID`        |                                                                                                                        |
+| Rosé Release ID | `TXXX:ROSERELEASEID` |                                                                                                                        |
 
 ## MP4
 
-| Tag           | Field Name                          | Will Ingest These Fields                                                                                                                                                                               |
-| ------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Release Title | `\xa9alb`                           |                                                                                                                                                                                                        |
-| Album Artists | `aART`                              |                                                                                                                                                                                                        |
-| Release Year  | `\xa9day`                           |                                                                                                                                                                                                        |
-| Release Type  | `----:com.apple.iTunes:RELEASETYPE` |                                                                                                                                                                                                        |
-| Genre         | `\xa9gen`                           |                                                                                                                                                                                                        |
-| Label         | `----:com.apple.iTunes:LABEL`       |                                                                                                                                                                                                        |
-| Track Title   | `\xa9nam`                           |                                                                                                                                                                                                        |
-| Track Artists | `\xa9ART`                           | `----:com.apple.iTunes:REMIXER` (Remixer), `\xa9wrt` (Composer), `----:com.apple.iTunes:CONDUCTOR` (Conductor), `----:com.apple.iTunes:PRODUCER` (producer), `----:com.apple.iTunes:DJMIXER` (djmixer) |
-| Track Number  | `trkn`                              |                                                                                                                                                                                                        |
-| Disc Number   | `disk`                              |                                                                                                                                                                                                        |
-| Rose ID       | `----:net.sunsetglow.rose:ID`       |                                                                                                                                                                                                        |
+| Tag             | Field Name                           | Will Ingest These Fields                                                                                                                                                                               |
+| --------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Release Title   | `\xa9alb`                            |                                                                                                                                                                                                        |
+| Album Artists   | `aART`                               |                                                                                                                                                                                                        |
+| Release Year    | `\xa9day`                            |                                                                                                                                                                                                        |
+| Release Type    | `----:com.apple.iTunes:RELEASETYPE`  |                                                                                                                                                                                                        |
+| Genre           | `\xa9gen`                            |                                                                                                                                                                                                        |
+| Label           | `----:com.apple.iTunes:LABEL`        |                                                                                                                                                                                                        |
+| Track Title     | `\xa9nam`                            |                                                                                                                                                                                                        |
+| Track Artists   | `\xa9ART`                            | `----:com.apple.iTunes:REMIXER` (Remixer), `\xa9wrt` (Composer), `----:com.apple.iTunes:CONDUCTOR` (Conductor), `----:com.apple.iTunes:PRODUCER` (producer), `----:com.apple.iTunes:DJMIXER` (djmixer) |
+| Track Number    | `trkn`                               |                                                                                                                                                                                                        |
+| Disc Number     | `disk`                               |                                                                                                                                                                                                        |
+| Rosé ID         | `----:net.sunsetglow.rose:ID`        |                                                                                                                                                                                                        |
+| Rosé Release ID | `----:net.sunsetglow.rose:RELEASEID` |                                                                                                                                                                                                        |
 
 ## Vorbis
 
-| Tag           | Field Name     | Will Ingest These Fields                                                                                        |
-| ------------- | -------------- | --------------------------------------------------------------------------------------------------------------- |
-| Release Title | `album`        |                                                                                                                 |
-| Album Artists | `albumartist`  |                                                                                                                 |
-| Release Year  | `date`         | `year`                                                                                                          |
-| Release Type  | `releasetype`  |                                                                                                                 |
-| Genre         | `genre`        |                                                                                                                 |
-| Label         | `organization` | `label`, `recordlabel`                                                                                          |
-| Track Title   | `title`        |                                                                                                                 |
-| Track Artists | `artist`       | `remixer` (Remixer), `composer` (Composer), `conductor` (Conductor), `producer` (producer), `djmixer` (djmixer) |
-| Track Number  | `tracknumber`  |                                                                                                                 |
-| Disc Number   | `discnumber`   |                                                                                                                 |
-| Rose ID       | `roseid`       |                                                                                                                 |
+| Tag             | Field Name      | Will Ingest These Fields                                                                                        |
+| --------------- | --------------- | --------------------------------------------------------------------------------------------------------------- |
+| Release Title   | `album`         |                                                                                                                 |
+| Album Artists   | `albumartist`   |                                                                                                                 |
+| Release Year    | `date`          | `year`                                                                                                          |
+| Release Type    | `releasetype`   |                                                                                                                 |
+| Genre           | `genre`         |                                                                                                                 |
+| Label           | `organization`  | `label`, `recordlabel`                                                                                          |
+| Track Title     | `title`         |                                                                                                                 |
+| Track Artists   | `artist`        | `remixer` (Remixer), `composer` (Composer), `conductor` (Conductor), `producer` (producer), `djmixer` (djmixer) |
+| Track Number    | `tracknumber`   |                                                                                                                 |
+| Disc Number     | `discnumber`    |                                                                                                                 |
+| Rosé ID         | `roseid`        |                                                                                                                 |
+| Rosé Release ID | `rosereleaseid` |                                                                                                                 |

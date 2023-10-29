@@ -55,9 +55,11 @@ These UUIDs are persisted to the source files:
 - Each release has a `.rose.{uuid}.toml` file, which preserves release-level
   state, such as `New`. The UUID is in the filename instead of the file
   contents for improved performance: we can collect the UUID via a `readdir`
-  call instead of an expensive file read.
-- Each track has a custom `roseid` tag. This tag is written to the source audio
-  file.
+  call instead of an expensive file read. The release UUID is also written to
+  the nonstandard `rosereleaseid` audio tag for increased robustness to partial
+  data loss and race conditions.
+- Each track has a nonstandard `roseid` audio tag that contains the track UUID.
+  This tag is written to the source audio file.
 
 Therefore, provided that other programs do not erase the UUID, Rosé will be
 able to identify releases and tracks across arbitrarily drastic directory and

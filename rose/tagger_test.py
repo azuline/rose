@@ -91,6 +91,31 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
 
 @pytest.mark.parametrize(
     "filename",
+    [
+        "track1.flac",
+        "track2.m4a",
+        "track3.mp3",
+        "track4.vorbis.ogg",
+        "track5.opus.ogg",
+    ],
+)
+def test_id_assignment(isolated_dir: Path, filename: str) -> None:
+    """Test the read/write for the nonstandard Rose ID tags."""
+    fpath = isolated_dir / filename
+    shutil.copyfile(TEST_TAGGER / filename, fpath)
+
+    af = AudioFile.from_file(fpath)
+    af.id = "ahaha"
+    af.release_id = "bahaha"
+    af.flush()
+
+    af = AudioFile.from_file(fpath)
+    assert af.id == "ahaha"
+    assert af.release_id == "bahaha"
+
+
+@pytest.mark.parametrize(
+    "filename",
     ["track1.flac", "track2.m4a", "track3.mp3", "track4.vorbis.ogg", "track5.opus.ogg"],
 )
 def test_release_type_normalization(isolated_dir: Path, filename: str) -> None:
