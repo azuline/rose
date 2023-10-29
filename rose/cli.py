@@ -1,9 +1,14 @@
 """
 The cli module defines Rose's CLI interface. It does not have any business logic of its own. It is
 dedicated to parsing and delegating.
+
+Note that we set multiprocessing's start method to "spawn" for the Virtual Filesystem and Watcher,
+but not for other operations. In other operations, we want to have the performance of fork; however,
+the Virtual Filesystem and Watcher run subthreads, which cannot fork off.
 """
 
 import logging
+import multiprocessing
 import os
 import signal
 from dataclasses import dataclass
@@ -90,6 +95,7 @@ def update(ctx: Context, force: bool) -> None:
 # fmt: on
 def watch(ctx: Context, foreground: bool) -> None:
     """Start a watchdog that will auto-refresh the cache on changes in music_source_dir."""
+    multiprocessing.set_start_method("spawn")
     if not foreground:
         daemonize(pid_path=ctx.config.watchdog_pid_path)
 
@@ -125,6 +131,7 @@ def fs() -> None:
 # fmt: on
 def mount(ctx: Context, foreground: bool) -> None:
     """Mount the virtual library."""
+    multiprocessing.set_start_method("spawn")
     if not foreground:
         daemonize()
 
