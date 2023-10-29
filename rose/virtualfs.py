@@ -53,6 +53,7 @@ from rose.cache import (
     genre_exists,
     get_playlist,
     get_release,
+    get_release_source_path_from_id,
     label_exists,
     list_artists,
     list_collage_releases,
@@ -63,6 +64,7 @@ from rose.cache import (
     list_releases,
     release_exists,
     track_exists,
+    update_cache_for_releases,
 )
 from rose.collages import (
     add_release_to_collage,
@@ -352,7 +354,7 @@ RELEASE_PREFIX_STRIPPERS = [
 class RoseLogicalFS:
     def __init__(self, config: Config, fhgen: FileHandleGenerator):
         self.config = config
-        # We use this object to determine whether we should show an artist/genre/label
+        self.fhgen = fhgen
         self.can_show = CanShower(config)
         # We implement the "add track to playlist" operation in a slightly special way. Unlike
         # releases, where the virtual dirname is globally unique, track filenames are not globally
@@ -373,7 +375,11 @@ class RoseLogicalFS:
         #
         # The state is a mapping of fh -> (playlist_name, ext, bytes).
         self.playlist_additions_in_progress: dict[int, tuple[str, str, bytearray]] = {}
-        self.fhgen = fhgen
+        # We want to trigger a cache update whenever we notice that a file has been updated through
+        # the virtual filesystem. To do this, we insert the file handle and release ID on open, and
+        # then trigger the cache update on release. We use this variable to transport that state
+        # between the two syscalls.
+        self.update_release_on_fh_close: dict[int, str] = {}
         super().__init__()
 
     @staticmethod
@@ -653,7 +659,8 @@ class RoseLogicalFS:
                 except ReleaseDoesNotExistError as e:
                     err = e
             logger.debug(
-                f"Failed adding release {p.release} to collage {p.collage}: release not found"
+                f"LOGICAL: Failed adding release {p.release} to collage {p.collage}: "
+                "release not found"
             )
             raise llfuse.FUSEError(errno.ENOENT) from err
         if p.playlist and p.file is None:
@@ -735,7 +742,10 @@ class RoseLogicalFS:
                 return os.open(str(release.cover_image_path), flags)
             for track in tracks:
                 if track.virtual_filename == p.file:
-                    return os.open(str(track.source_path), flags)
+                    fh = os.open(str(track.source_path), flags)
+                    if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
+                        self.update_release_on_fh_close[fh] = track.release_id
+                    return fh
             raise llfuse.FUSEError(err)
         if p.playlist and p.file:
             try:
@@ -746,7 +756,9 @@ class RoseLogicalFS:
             # operation sequence. See the __init__ for more details.
             if flags & os.O_CREAT == os.O_CREAT:
                 fh = self.fhgen.next()
-                logger.debug(f"Begin playlist addition operation sequence for {p.file=} and {fh=}")
+                logger.debug(
+                    f"LOGICAL: Begin playlist addition operation sequence for {p.file=} and {fh=}"
+                )
                 self.playlist_additions_in_progress[fh] = (
                     p.playlist,
                     Path(p.file).suffix,
@@ -757,7 +769,10 @@ class RoseLogicalFS:
             if p.file_position:
                 for idx, track in enumerate(tracks):
                     if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
-                        return os.open(str(track.source_path), flags)
+                        fh = os.open(str(track.source_path), flags)
+                        if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
+                            self.update_release_on_fh_close[fh] = track.release_id
+                        return fh
             if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
                 return os.open(playlist.cover_path, flags)
             raise llfuse.FUSEError(err)
@@ -767,7 +782,7 @@ class RoseLogicalFS:
     def read(self, fh: int, offset: int, length: int) -> bytes:
         logger.debug(f"LOGICAL: Received read for {fh=} {offset=} {length=}")
         if pap := self.playlist_additions_in_progress.get(fh, None):
-            logger.debug("Matched read to an in-progress playlist addition")
+            logger.debug("LOGICAL: Matched read to an in-progress playlist addition")
             _, _, b = pap
             return b[offset : offset + length]
         os.lseek(fh, offset, os.SEEK_SET)
@@ -776,7 +791,7 @@ class RoseLogicalFS:
     def write(self, fh: int, offset: int, data: bytes) -> int:
         logger.debug(f"LOGICAL: Received write for {fh=} {offset=} {len(data)=}")
         if pap := self.playlist_additions_in_progress.get(fh, None):
-            logger.debug("Matched write to an in-progress playlist addition")
+            logger.debug("LOGICAL: Matched write to an in-progress playlist addition")
             _, _, b = pap
             del b[offset:]
             b.extend(data)
@@ -785,11 +800,12 @@ class RoseLogicalFS:
         return os.write(fh, data)
 
     def release(self, fh: int) -> None:
+        logger.debug(f"LOGICAL: Received release for {fh=}")
         if pap := self.playlist_additions_in_progress.get(fh, None):
             logger.debug("Matched release to an in-progress playlist addition")
             playlist, ext, b = pap
             if not b:
-                logger.debug("Aborting playlist addition release: no bytes to write")
+                logger.debug("LOGICAL: Aborting playlist addition release: no bytes to write")
                 return
             with tempfile.TemporaryDirectory() as tmpdir:
                 audiopath = Path(tmpdir) / f"f{ext}"
@@ -799,20 +815,20 @@ class RoseLogicalFS:
                 track_id = audiofile.id
             if not track_id:
                 logger.warning(
-                    "Failed to parse track_id from file in playlist addition operation "
+                    "LOGICAL: Failed to parse track_id from file in playlist addition operation "
                     f"sequence: {track_id=} {fh=} {playlist=} {audiofile}"
                 )
                 return
             add_track_to_playlist(self.config, playlist, track_id)
             del self.playlist_additions_in_progress[fh]
             return
-        logger.debug(f"FUSE: Received release for {fh=}")
         os.close(fh)
-
-    def ftruncate(self, fh: int, length: int = 0) -> None:
-        # TODO: IN PROGRESS PLAYLIST ADDITION
-        logger.debug(f"FUSE: Received ftruncate for {fh=} {length=}")
-        return os.ftruncate(fh, length)
+        if release_id := self.update_release_on_fh_close.get(fh, None):
+            logger.debug(
+                f"LOGICAL: Triggering cache update for release {release_id} after release syscall"
+            )
+            if source_path := get_release_source_path_from_id(self.config, release_id):
+                update_cache_for_releases(self.config, [source_path])
 
 
 class INodeManager:
@@ -950,7 +966,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             maxsize=9999, ttl=2
         )
         self.ghost_writable_empty_directory: cachetools.TTLCache[str, bool] = cachetools.TTLCache(
-            maxsize=9999, ttl=2
+            maxsize=9999, ttl=5
         )
 
     def reset_getattr_caches(self) -> None:

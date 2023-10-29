@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from rose.config import Config
+from rose.tagger import AudioFile
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
 
@@ -109,16 +110,30 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert can_read(root / "8. Playlists" / "Lala Lisa" / "cover.jpg")
 
 
-@pytest.mark.usefixtures("seeded_cache")
-def test_virtual_filesystem_write_files(config: Config) -> None:
+def test_virtual_filesystem_write_files(
+    config: Config,
+    source_dir: Path,  # noqa: ARG001
+) -> None:
+    """Assert that 1. we can write files and 2. cache updates in response."""
     root = config.fuse_mount_dir
+    path = (
+        root
+        / "1. Releases"
+        / "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop]"
+        / "01. BLACKPINK - Track 1.m4a"
+    )
     with start_virtual_fs(config):
-        with (root / "1. Releases" / "r1" / "01. 01.m4a").open("w") as fp:
-            fp.write("abc")
-        with (root / "1. Releases" / "r1" / "01. 01.m4a").open("r") as fp:
-            assert fp.read() == "abc"
-        with pytest.raises(OSError):  # noqa: PT011
-            (root / "1. Releases" / "r1" / "lalala").open("w")
+        # Write!
+        af = AudioFile.from_file(path)
+        assert af.title == "Track 1"
+        af.title = "Hahahaha!!"
+        af.flush()
+        # Read! File should have been renamed post-cache update.
+        assert not path.exists()
+        path = path.with_name("01. BLACKPINK - Hahahaha!!.m4a")
+        assert path.is_file()
+        af = AudioFile.from_file(path)
+        assert af.title == "Hahahaha!!"
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -207,6 +222,7 @@ def test_virtual_filesystem_playlist_actions(
             ],
             check=True,
         )
+        time.sleep(0.05)
         assert (root / "8. Playlists" / "New Jeans" / "1. BLACKPINK - Track 1.m4a").is_file()
         with (src / "!playlists" / "New Jeans.toml").open("r") as fp:
             assert "BLACKPINK - Track 1.m4a" in fp.read()

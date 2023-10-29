@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 from typing import Any
 
@@ -34,6 +35,8 @@ def test_cache_watch_unwatch(monkeypatch: Any, config: Config) -> None:
         raise SystemExit(x)
 
     monkeypatch.setattr(os, "_exit", mock_exit)
+    # set_start_method borks a bit in tests; it's not important in this test anyways.
+    monkeypatch.setattr(multiprocessing, "set_start_method", lambda _: None)
 
     ctx = Context(config=config)
     runner = CliRunner()

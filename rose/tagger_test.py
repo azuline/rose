@@ -23,19 +23,19 @@ from rose.tagger import (
     ],
 )
 def test_getters(filename: str, track_num: str, duration: int) -> None:
-    tf = AudioFile.from_file(TEST_TAGGER / filename)
-    assert tf.track_number == track_num
-    assert tf.title == f"Track {track_num}"
+    af = AudioFile.from_file(TEST_TAGGER / filename)
+    assert af.track_number == track_num
+    assert af.title == f"Track {track_num}"
 
-    assert tf.album == "A Cool Album"
-    assert tf.release_type == "album"
-    assert tf.year == 1990
-    assert tf.disc_number == "1"
-    assert tf.genre == ["Electronic", "House"]
-    assert tf.label == ["A Cool Label"]
+    assert af.album == "A Cool Album"
+    assert af.release_type == "album"
+    assert af.year == 1990
+    assert af.disc_number == "1"
+    assert af.genre == ["Electronic", "House"]
+    assert af.label == ["A Cool Label"]
 
-    assert tf.album_artists.main == ["Artist A", "Artist B"]
-    assert tf.artists == ArtistMapping(
+    assert af.album_artists.main == ["Artist A", "Artist B"]
+    assert af.artists == ArtistMapping(
         main=["Artist GH", "Artist HI"],
         guest=["Artist C", "Artist A"],
         remixer=["Artist AB", "Artist BC"],
@@ -43,7 +43,7 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
         composer=["Artist EF", "Artist FG"],
         djmixer=["Artist IJ", "Artist JK"],
     )
-    assert tf.duration_sec == duration
+    assert af.duration_sec == duration
 
 
 @pytest.mark.parametrize(
@@ -60,25 +60,25 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     """Test the flush by flushing the file, then asserting that all the tags still read properly."""
     fpath = isolated_dir / filename
     shutil.copyfile(TEST_TAGGER / filename, fpath)
-    tf = AudioFile.from_file(fpath)
+    af = AudioFile.from_file(fpath)
     # Inject one special case into here: modify the djmixer artist. This checks that we also clear
     # the original djmixer tag, so that the next read does not contain Artist EF and Artist FG.
-    tf.artists.djmixer = ["New"]
-    tf.flush()
-    tf = AudioFile.from_file(fpath)
+    af.artists.djmixer = ["New"]
+    af.flush()
+    af = AudioFile.from_file(fpath)
 
-    assert tf.track_number == track_num
-    assert tf.title == f"Track {track_num}"
+    assert af.track_number == track_num
+    assert af.title == f"Track {track_num}"
 
-    assert tf.album == "A Cool Album"
-    assert tf.release_type == "album"
-    assert tf.year == 1990
-    assert tf.disc_number == "1"
-    assert tf.genre == ["Electronic", "House"]
-    assert tf.label == ["A Cool Label"]
+    assert af.album == "A Cool Album"
+    assert af.release_type == "album"
+    assert af.year == 1990
+    assert af.disc_number == "1"
+    assert af.genre == ["Electronic", "House"]
+    assert af.label == ["A Cool Label"]
 
-    assert tf.album_artists.main == ["Artist A", "Artist B"]
-    assert tf.artists == ArtistMapping(
+    assert af.album_artists.main == ["Artist A", "Artist B"]
+    assert af.artists == ArtistMapping(
         main=["Artist GH", "Artist HI"],
         guest=["Artist C", "Artist A"],
         remixer=["Artist AB", "Artist BC"],
@@ -86,7 +86,7 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
         composer=[],  # Composer gets wiped because we're not of the classical genre :-)
         djmixer=["New"],
     )
-    assert tf.duration_sec == duration
+    assert af.duration_sec == duration
 
 
 @pytest.mark.parametrize(
@@ -99,22 +99,22 @@ def test_release_type_normalization(isolated_dir: Path, filename: str) -> None:
     shutil.copyfile(TEST_TAGGER / filename, fpath)
 
     # Check that release type is read correctly.
-    tf = AudioFile.from_file(fpath)
-    assert tf.release_type == "album"
+    af = AudioFile.from_file(fpath)
+    assert af.release_type == "album"
     # Assert that attempting to flush a stupid value fails.
-    tf.release_type = "lalala"
+    af.release_type = "lalala"
     with pytest.raises(UnsupportedTagValueTypeError):
-        tf.flush()
+        af.flush()
     # Flush it anyways...
-    tf.flush(validate=False)
+    af.flush(validate=False)
     # Check that stupid release type is normalized as unknown.
-    tf = AudioFile.from_file(fpath)
-    assert tf.release_type == "unknown"
+    af = AudioFile.from_file(fpath)
+    assert af.release_type == "unknown"
     # And now assert that the read is case insensitive.
-    tf.release_type = "ALBUM"
-    tf.flush(validate=False)
-    tf = AudioFile.from_file(fpath)
-    assert tf.release_type == "album"
+    af.release_type = "ALBUM"
+    af.flush(validate=False)
+    af = AudioFile.from_file(fpath)
+    assert af.release_type == "album"
 
 
 def test_split_tag() -> None:
