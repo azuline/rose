@@ -169,12 +169,19 @@ VALUES ('Lala Lisa'  , 't1'    , 1)
             """  # noqa: E501
         )
 
+    (config.music_source_dir / "!collages").mkdir()
+    (config.music_source_dir / "!playlists").mkdir()
+
     for d in dirpaths:
         d.parent.mkdir(parents=True, exist_ok=True)
         d.mkdir()
     for f in musicpaths + imagepaths:
         f.parent.mkdir(parents=True, exist_ok=True)
         f.touch()
+    for cn in ["Rose Gold", "Ruby Red"]:
+        (config.music_source_dir / "!collages" / f"{cn}.toml").touch()
+    for pn in ["Lala Lisa", "Turtle Rabbit"]:
+        (config.music_source_dir / "!playlists" / f"{pn}.toml").touch()
 
 
 @pytest.fixture()

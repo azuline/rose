@@ -335,6 +335,20 @@ class FileHandleGenerator:
         return self._state
 
 
+# These are tight regexes for the prefixes that may be applied to releases in the virtual
+# filesystem. When we want to use a release name that originated from another view (e.g. because of
+# a `cp`) command, we need these regexes in order to support names that originated from views like
+# Recently Added or Collages.
+#
+# And if these happen to match an artist name... they're probably not worth listening to anyways
+# lol. Probably some vaporwave bullshit.
+RELEASE_PREFIX_STRIPPERS = [
+    re.compile(r"^"),
+    re.compile(r"^\[\d{4}-\d{2}-\d{2}\] "),
+    re.compile(r"^\d+\. "),
+]
+
+
 class RoseLogicalFS:
     def __init__(self, config: Config, fhgen: FileHandleGenerator):
         self.config = config
@@ -623,14 +637,25 @@ class RoseLogicalFS:
             create_collage(self.config, p.collage)
             return
         if p.collage and p.release:
-            try:
-                add_release_to_collage(self.config, p.collage, p.release)
-                return
-            except ReleaseDoesNotExistError as e:
-                logger.debug(
-                    f"Failed adding release {p.release} to collage {p.collage}: release not found"
-                )
-                raise llfuse.FUSEError(errno.ENOENT) from e
+            err = None
+            # Because some releases have prefixes, attempt multiple times with each different prefix
+            # stripper.
+            seen: set[str] = set()
+            for prefix_stripper in RELEASE_PREFIX_STRIPPERS:
+                rls = prefix_stripper.sub("", p.release)
+                # But don't waste effort if nothing changed.
+                if rls in seen:
+                    continue
+                seen.add(rls)
+                try:
+                    add_release_to_collage(self.config, p.collage, rls)
+                    return
+                except ReleaseDoesNotExistError as e:
+                    err = e
+            logger.debug(
+                f"Failed adding release {p.release} to collage {p.collage}: release not found"
+            )
+            raise llfuse.FUSEError(errno.ENOENT) from err
         if p.playlist and p.file is None:
             create_playlist(self.config, p.playlist)
             return
@@ -741,6 +766,10 @@ class RoseLogicalFS:
 
     def read(self, fh: int, offset: int, length: int) -> bytes:
         logger.debug(f"LOGICAL: Received read for {fh=} {offset=} {length=}")
+        if pap := self.playlist_additions_in_progress.get(fh, None):
+            logger.debug("Matched read to an in-progress playlist addition")
+            _, _, b = pap
+            return b[offset : offset + length]
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)
 

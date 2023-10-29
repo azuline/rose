@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 import time
 from collections.abc import Iterator
@@ -155,6 +156,23 @@ def test_virtual_filesystem_collage_actions(config: Config) -> None:
         # Delete collage.
         (root / "7. Collages" / "New Jeans").rmdir()
         assert not (src / "!collages" / "New Jeans.toml").exists()
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_virtual_filesystem_add_collage_release_prefix_stripping(config: Config) -> None:
+    """Test that we can add a release from the esoteric views to a collage, regardless of prefix."""
+    root = config.fuse_mount_dir
+
+    dirs = [
+        root / "1. Releases" / "r1",
+        root / "3. Releases - Recently Added" / "[0000-00-01] r1",
+        root / "7. Collages" / "Rose Gold" / "1. r1",
+    ]
+
+    with start_virtual_fs(config):
+        for d in dirs:
+            shutil.copytree(d, root / "7. Collages" / "Ruby Red" / "r1")
+            (root / "7. Collages" / "Ruby Red" / "r1").rmdir()
 
 
 def test_virtual_filesystem_playlist_actions(
