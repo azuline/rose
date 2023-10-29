@@ -213,6 +213,11 @@ $ nix profile install github:azuline/rose/master
 
 # Quickstart
 
+> [!NOTE]
+> This quickstart assumes you have a local "source directory" of music releases
+> for Rosé to manage. Each "release" must be an immediate child subdirectory of
+> the "source directory."
+
 Let's now get Rosé up and running!
 
 Once Rosé is installed, let's first confirm that `rose` exists and is

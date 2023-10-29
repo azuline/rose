@@ -53,6 +53,12 @@ delimiter. For example, `genre=Deep House;Techno`. Rosé does not write multiple
 frames for a single tag (where each value gets one frame) due to inconsistent
 support by other useful programs.
 
+When reading tags, Rosé is more relaxed in the delimiters it accepts. For the
+Genre, Label, Artists, and Album Artists tags, Rosé will attempt to split a
+single tag into multiple tags by the following delimiters:
+<code>&nbsp;\\\\&nbsp;</code>, <code>&nbsp;/&nbsp;</code>, <code>;</code>, and
+<code>&nbsp;vs.&nbsp;</code>.
+
 ## Artist Tags
 
 Rosé preserves the artists' role in the artist tag by using specialized
