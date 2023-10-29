@@ -124,7 +124,7 @@ def test_watchdog_events(config: Config) -> None:
                 if {r["name"] for r in cursor.fetchall()} != {"Black Pink"}:
                     continue
                 cursor = conn.execute("SELECT release_id FROM collages_releases")
-                if {r["release_id"] for r in cursor.fetchall()} != {"ilovenewjeans"}:
+                if {r["release_id"] for r in cursor.fetchall()} != {"ilovecarly", "ilovenewjeans"}:
                     continue
                 break
         else:

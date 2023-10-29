@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 import tomllib
 
-from rose.cache import connect
+from rose.cache import connect, update_cache
 from rose.collages import (
     add_release_to_collage,
     create_collage,
@@ -147,3 +147,54 @@ def test_edit_collages_remove_release(monkeypatch: Any, config: Config, source_d
     with filepath.open("rb") as fp:
         data = tomllib.load(fp)
     assert len(data["releases"]) == 1
+
+
+def test_collage_handle_missing_release(config: Config, source_dir: Path) -> None:
+    """Test that the lifecycle of the collage remains unimpeded despite a missing release."""
+    filepath = source_dir / "!collages" / "Black Pink.toml"
+    with filepath.open("w") as fp:
+        fp.write(
+            """\
+[[releases]]
+uuid = "ilovecarly"
+description_meta = "lalala"
+[[releases]]
+uuid = "ghost"
+description_meta = "lalala {MISSING}"
+missing = true
+"""
+        )
+    update_cache(config)
+
+    # Assert that adding another release works.
+    add_release_to_collage(config, "Black Pink", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]")
+    with (source_dir / "!collages" / "Black Pink.toml").open("rb") as fp:
+        diskdata = tomllib.load(fp)
+        assert {r["uuid"] for r in diskdata["releases"]} == {"ghost", "ilovecarly", "ilovenewjeans"}
+        assert next(r for r in diskdata["releases"] if r["uuid"] == "ghost")["missing"]
+    with connect(config) as conn:
+        cursor = conn.execute(
+            "SELECT release_id FROM collages_releases WHERE collage_name = 'Black Pink'"
+        )
+        assert {r["release_id"] for r in cursor} == {"ghost", "ilovecarly", "ilovenewjeans"}
+
+    # Delete that release.
+    remove_release_from_collage(
+        config, "Black Pink", "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
+    )
+    with filepath.open("rb") as fp:
+        diskdata = tomllib.load(fp)
+        assert {r["uuid"] for r in diskdata["releases"]} == {"ghost", "ilovecarly"}
+        assert next(r for r in diskdata["releases"] if r["uuid"] == "ghost")["missing"]
+    with connect(config) as conn:
+        cursor = conn.execute(
+            "SELECT release_id FROM collages_releases WHERE collage_name = 'Black Pink'"
+        )
+        assert {r["release_id"] for r in cursor} == {"ghost", "ilovecarly"}
+
+    # And delete the collage.
+    delete_collage(config, "Black Pink")
+    assert not filepath.is_file()
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT EXISTS(SELECT * FROM collages WHERE name = 'Black Pink')")
+        assert not cursor.fetchone()[0]

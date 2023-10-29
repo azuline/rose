@@ -558,7 +558,9 @@ def test_update_cache_collages(config: Config) -> None:
         assert row["name"] == "Rose Gold"
         assert row["source_mtime"]
 
-        cursor = conn.execute("SELECT collage_name, release_id, position FROM collages_releases")
+        cursor = conn.execute(
+            "SELECT collage_name, release_id, position FROM collages_releases WHERE NOT missing"
+        )
         rows = cursor.fetchall()
         assert len(rows) == 1
         row = rows[0]
@@ -567,23 +569,32 @@ def test_update_cache_collages(config: Config) -> None:
         assert row["position"] == 1
 
 
-def test_update_cache_collages_nonexistent_release_id(config: Config) -> None:
+def test_update_cache_collages_missing_release_id(config: Config) -> None:
     shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
     update_cache(config)
 
-    # Assert that a nonexistent release was not read.
+    # Assert that the releases in the collage were read as missing.
     with connect(config) as conn:
-        cursor = conn.execute("SELECT name FROM collages")
-        assert cursor.fetchone()["name"] == "Rose Gold"
-
-        cursor = conn.execute("SELECT collage_name, release_id, position FROM collages_releases")
-        rows = cursor.fetchall()
-        assert not rows
-
-    # Assert that source file was updated to remove the release.
+        cursor = conn.execute("SELECT COUNT(*) FROM collages_releases WHERE missing")
+        assert cursor.fetchone()[0] == 2
+    # Assert that source file was updated to set the releases missing.
     with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
         data = tomllib.load(fp)
-    assert data["releases"] == []
+    assert len(data["releases"]) == 2
+    assert len([r for r in data["releases"] if r["missing"]]) == 2
+
+    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+    shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
+    update_cache(config)
+
+    # Assert that the releases in the collage were unflagged as missing.
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM collages_releases WHERE NOT missing")
+        assert cursor.fetchone()[0] == 2
+    # Assert that source file was updated to remove the missing flag.
+    with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
+        data = tomllib.load(fp)
+    assert len([r for r in data["releases"] if "missing" not in r]) == 2
 
 
 def test_update_cache_collages_on_release_rename(config: Config) -> None:
@@ -639,23 +650,31 @@ def test_update_cache_playlists(config: Config) -> None:
         ]
 
 
-def test_update_cache_playlists_nonexistent_track_id(config: Config) -> None:
+def test_update_cache_playlists_missing_track_id(config: Config) -> None:
     shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
     update_cache(config)
 
-    # Assert that a nonexistent track was not read.
+    # Assert that the tracks in the playlist were read as missing.
     with connect(config) as conn:
-        cursor = conn.execute("SELECT name FROM playlists")
-        assert cursor.fetchone()["name"] == "Lala Lisa"
-
-        cursor = conn.execute("SELECT playlist_name, track_id, position FROM playlists_tracks")
-        rows = cursor.fetchall()
-        assert not rows
-
-    # Assert that source file was updated to remove the track.
+        cursor = conn.execute("SELECT COUNT(*) FROM playlists_tracks WHERE missing")
+        assert cursor.fetchone()[0] == 2
+    # Assert that source file was updated to set the tracks missing.
     with (config.music_source_dir / "!playlists" / "Lala Lisa.toml").open("rb") as fp:
         data = tomllib.load(fp)
-    assert data["tracks"] == []
+    assert len(data["tracks"]) == 2
+    assert len([r for r in data["tracks"] if r["missing"]]) == 2
+
+    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+    update_cache(config)
+
+    # Assert that the tracks in the playlist were unflagged as missing.
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM playlists_tracks WHERE NOT missing")
+        assert cursor.fetchone()[0] == 2
+    # Assert that source file was updated to remove the missing flag.
+    with (config.music_source_dir / "!playlists" / "Lala Lisa.toml").open("rb") as fp:
+        data = tomllib.load(fp)
+    assert len([r for r in data["tracks"] if "missing" not in r]) == 2
 
 
 def test_update_releases_updates_collages_description_meta(config: Config) -> None:

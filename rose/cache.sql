@@ -126,10 +126,12 @@ CREATE TABLE collages_releases (
     -- not, because not having one makes Rose resilient to temporary track
     -- deletion and reinsertion.
     release_id TEXT,
-    position INTEGER NOT NULL
+    position INTEGER NOT NULL,
+    missing BOOL NOT NULL
 );
 CREATE INDEX collages_releases_collage_name ON collages_releases(collage_name);
 CREATE INDEX collages_releases_release_id ON collages_releases(release_id);
+CREATE INDEX collages_releases_access ON collages_releases(collage_name, missing, release_id);
 
 CREATE TABLE playlists (
     name TEXT PRIMARY KEY,
@@ -144,7 +146,9 @@ CREATE TABLE playlists_tracks (
     -- deletion and reinsertion, which happens during the cache update process
     -- if a release is renamed.
     track_id TEXT,
-    position INTEGER NOT NULL
+    position INTEGER NOT NULL,
+    missing BOOL NOT NULL
 );
 CREATE INDEX playlists_tracks_playlist_name ON playlists_tracks(playlist_name);
 CREATE INDEX playlists_tracks_track_id ON playlists_tracks(track_id);
+CREATE INDEX playlists_tracks_access ON playlists_tracks(playlist_name, missing, track_id);

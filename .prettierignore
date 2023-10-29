@@ -1,8 +1,12 @@
-# Ignore everything recursively
+# Only check markdown and YAML.
 *
-# But not:
 !*.md
 !*.yml
 !*.yaml
-# And check subdirectories too
+# And check subdirectories
 !*/
+
+# And now restrict shit
+.pytest_cache
+.mypy_cache
+result

@@ -153,9 +153,9 @@ VALUES ('Rose Gold', '999')
      , ('Ruby Red' , '999');
 
 INSERT INTO collages_releases
-       (collage_name, release_id, position)
-VALUES ('Rose Gold' , 'r1'      , 1)
-     , ('Rose Gold' , 'r2'      , 2);
+       (collage_name, release_id, position, missing)
+VALUES ('Rose Gold' , 'r1'      , 1       , false)
+     , ('Rose Gold' , 'r2'      , 2       , false);
 
 INSERT INTO playlists
        (name           , source_mtime, cover_path)
@@ -163,9 +163,9 @@ VALUES ('Lala Lisa'    , '999',        '{imagepaths[1]}')
      , ('Turtle Rabbit', '999',        null);
 
 INSERT INTO playlists_tracks
-       (playlist_name, track_id, position)
-VALUES ('Lala Lisa'  , 't1'    , 1)
-     , ('Lala Lisa'  , 't3'    , 2);
+       (playlist_name, track_id, position, missing)
+VALUES ('Lala Lisa'  , 't1'    , 1       , false)
+     , ('Lala Lisa'  , 't3'    , 2       , false);
             """  # noqa: E501
         )
 

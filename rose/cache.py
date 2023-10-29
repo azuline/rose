@@ -1209,16 +1209,28 @@ def update_cache_for_collages(
                 original_releases = data.get("releases", [])
                 releases = copy.deepcopy(original_releases)
 
-                # Filter out releases that no longer exist.
+                # Update the markings for releases that no longer exist. We will flag releases as
+                # missing/not-missing here, so that if they are re-added (maybe it was a temporary
+                # disappearance)? they are recovered in the collage.
                 for rls in releases:
-                    if rls["uuid"] not in existing_release_ids:
+                    if not rls.get("missing", False) and rls["uuid"] not in existing_release_ids:
                         logger.info(
-                            f"Removing nonexistent release {rls['description_meta']} "
-                            f"from collage {cached_collage.name}"
+                            f"Marking release {rls['description_meta']} "
+                            f"as missing in collage {cached_collage.name}"
                         )
-                releases = [rls for rls in releases if rls["uuid"] in existing_release_ids]
+                        rls["missing"] = True
+                    elif rls.get("missing", False) and rls["uuid"] in existing_release_ids:
+                        logger.info(
+                            f"Missing release {rls['description_meta']} in collage "
+                            f"{cached_collage.name} found: removing missing flag"
+                        )
+                        del rls["missing"]
+
                 cached_collage.release_ids = [r["uuid"] for r in releases]
-                logger.debug(f"Found {len(cached_collage.release_ids)} release(s) in {source_path}")
+                logger.debug(
+                    f"Found {len(cached_collage.release_ids)} release(s) (including missing) "
+                    f"in {source_path}"
+                )
 
                 # Update the description_metas.
                 cursor = conn.execute(
@@ -1230,7 +1242,10 @@ def update_cache_for_collages(
                 )
                 desc_map = {r["id"]: r["virtual_dirname"] for r in cursor}
                 for i, rls in enumerate(releases):
-                    releases[i]["description_meta"] = desc_map[rls["uuid"]]
+                    with contextlib.suppress(KeyError):
+                        releases[i]["description_meta"] = desc_map[rls["uuid"]]
+                    if rls.get("missing", False):
+                        releases[i]["description_meta"] += " {MISSING}"
 
                 # Update the collage on disk if we have changed information.
                 if releases != original_releases:
@@ -1253,13 +1268,15 @@ def update_cache_for_collages(
                     (cached_collage.name,),
                 )
                 args: list[Any] = []
-                for position, rid in enumerate(cached_collage.release_ids):
-                    args.extend([cached_collage.name, rid, position + 1])
+                for position, rls in enumerate(releases):
+                    args.extend(
+                        [cached_collage.name, rls["uuid"], position + 1, rls.get("missing", False)]
+                    )
                 if args:
                     conn.execute(
                         f"""
-                        INSERT INTO collages_releases (collage_name, release_id, position)
-                        VALUES {','.join(['(?, ?, ?)'] * len(cached_collage.release_ids))}
+                        INSERT INTO collages_releases (collage_name, release_id, position, missing)
+                        VALUES {','.join(['(?, ?, ?, ?)'] * len(releases))}
                         """,
                         args,
                     )
@@ -1402,16 +1419,28 @@ def update_cache_for_playlists(
                 original_tracks = data.get("tracks", [])
                 tracks = copy.deepcopy(original_tracks)
 
-                # Filter out tracks that no longer exist.
+                # Update the markings for tracks that no longer exist. We will flag tracks as
+                # missing/not-missing here, so that if they are re-added (maybe it was a temporary
+                # disappearance)? they are recovered in the playlist.
                 for trk in tracks:
-                    if trk["uuid"] not in existing_track_ids:
+                    if not trk.get("missing", False) and trk["uuid"] not in existing_track_ids:
                         logger.info(
-                            f"Removing nonexistent track {trk['description_meta']} "
-                            f"from playlist {cached_playlist.name}"
+                            f"Marking track {trk['description_meta']} "
+                            f"as missing in playlist {cached_playlist.name}"
                         )
-                tracks = [trk for trk in tracks if trk["uuid"] in existing_track_ids]
-                cached_playlist.track_ids = [r["uuid"] for r in tracks]
-                logger.debug(f"Found {len(cached_playlist.track_ids)} track(s) in {source_path}")
+                        trk["missing"] = True
+                    elif trk.get("missing", False) and trk["uuid"] in existing_track_ids:
+                        logger.info(
+                            f"Missing trk {trk['description_meta']} in playlist "
+                            f"{cached_playlist.name} found: removing missing flag"
+                        )
+                        del trk["missing"]
+
+                cached_playlist.track_ids = [t["uuid"] for t in tracks]
+                logger.debug(
+                    f"Found {len(cached_playlist.track_ids)} track(s) (including missing) "
+                    f"in {source_path}"
+                )
 
                 # Update the description_metas.
                 cursor = conn.execute(
@@ -1423,7 +1452,10 @@ def update_cache_for_playlists(
                 )
                 desc_map = {r["id"]: r["virtual_filename"] for r in cursor}
                 for i, trk in enumerate(tracks):
-                    tracks[i]["description_meta"] = desc_map[trk["uuid"]]
+                    with contextlib.suppress(KeyError):
+                        tracks[i]["description_meta"] = desc_map[trk["uuid"]]
+                    if trk.get("missing", False):
+                        tracks[i]["description_meta"] += " {MISSING}"
 
                 # Update the playlist on disk if we have changed information.
                 if tracks != original_tracks:
@@ -1452,13 +1484,15 @@ def update_cache_for_playlists(
                     (cached_playlist.name,),
                 )
                 args: list[Any] = []
-                for position, rid in enumerate(cached_playlist.track_ids):
-                    args.extend([cached_playlist.name, rid, position + 1])
+                for position, trk in enumerate(tracks):
+                    args.extend(
+                        [cached_playlist.name, trk["uuid"], position + 1, trk.get("missing", False)]
+                    )
                 if args:
                     conn.execute(
                         f"""
-                        INSERT INTO playlists_tracks (playlist_name, track_id, position)
-                        VALUES {','.join(['(?, ?, ?)'] * len(cached_playlist.track_ids))}
+                        INSERT INTO playlists_tracks (playlist_name, track_id, position, missing)
+                        VALUES {','.join(['(?, ?, ?, ?)'] * len(tracks))}
                         """,
                         args,
                     )
@@ -1863,7 +1897,7 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
             FROM tracks t
             JOIN playlists_tracks pt ON pt.track_id = t.id
             LEFT JOIN artists a ON a.track_id = t.id
-            WHERE pt.playlist_name = ?
+            WHERE pt.playlist_name = ? AND NOT pt.missing
             ORDER BY pt.position ASC
             """,
             (playlist_name,),

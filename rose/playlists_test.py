@@ -185,3 +185,52 @@ def test_edit_playlists_duplicate_track_name(monkeypatch: Any, config: Config) -
         data = tomllib.load(fp)
     assert data["tracks"][0]["uuid"] == track_ids[1]
     assert data["tracks"][1]["uuid"] == track_ids[0]
+
+
+def test_playlist_handle_missing_track(config: Config, source_dir: Path) -> None:
+    """Test that the lifecycle of the playlist remains unimpeded despite a missing track."""
+    filepath = source_dir / "!playlists" / "You & Me.toml"
+    with filepath.open("w") as fp:
+        fp.write(
+            """\
+[[tracks]]
+uuid = "iloveloona"
+description_meta = "lalala"
+[[tracks]]
+uuid = "ghost"
+description_meta = "lalala {MISSING}"
+missing = true
+"""
+        )
+    update_cache(config)
+
+    # Assert that adding another track works.
+    add_track_to_playlist(config, "You & Me", "ilovetwice")
+    with (source_dir / "!playlists" / "You & Me.toml").open("rb") as fp:
+        diskdata = tomllib.load(fp)
+        assert {r["uuid"] for r in diskdata["tracks"]} == {"ghost", "iloveloona", "ilovetwice"}
+        assert next(r for r in diskdata["tracks"] if r["uuid"] == "ghost")["missing"]
+    with connect(config) as conn:
+        cursor = conn.execute(
+            "SELECT track_id FROM playlists_tracks WHERE playlist_name = 'You & Me'"
+        )
+        assert {r["track_id"] for r in cursor} == {"ghost", "iloveloona", "ilovetwice"}
+
+    # Delete that track.
+    remove_track_from_playlist(config, "You & Me", "ilovetwice")
+    with filepath.open("rb") as fp:
+        diskdata = tomllib.load(fp)
+        assert {r["uuid"] for r in diskdata["tracks"]} == {"ghost", "iloveloona"}
+        assert next(r for r in diskdata["tracks"] if r["uuid"] == "ghost")["missing"]
+    with connect(config) as conn:
+        cursor = conn.execute(
+            "SELECT track_id FROM playlists_tracks WHERE playlist_name = 'You & Me'"
+        )
+        assert {r["track_id"] for r in cursor} == {"ghost", "iloveloona"}
+
+    # And delete the playlist.
+    delete_playlist(config, "You & Me")
+    assert not filepath.is_file()
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT EXISTS(SELECT * FROM playlists WHERE name = 'You & Me')")
+        assert not cursor.fetchone()[0]
