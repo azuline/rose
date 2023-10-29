@@ -579,6 +579,34 @@ def test_update_cache_releases_ignores_directories(config: Config) -> None:
         assert cursor.fetchone()[0] == 0
 
 
+def test_update_cache_releases_ignores_partially_written_directory(config: Config) -> None:
+    """Test that a partially-written cached release is ignored."""
+    # 1. Write the directory and index it. This should give it IDs and shit.
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    update_cache(config)
+
+    # 2. Move the directory and "remove" the ID file.
+    renamed_release_dir = config.music_source_dir / "lalala"
+    release_dir.rename(renamed_release_dir)
+    datafile = next(f for f in renamed_release_dir.iterdir() if f.stem.startswith(".rose"))
+    tmpfile = datafile.with_name("tmp")
+    datafile.rename(tmpfile)
+
+    # 3. Re-update cache. We should see an empty cache now.
+    update_cache(config)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        assert cursor.fetchone()[0] == 0
+
+    # 4. Put the datafile back. We should now see the release cache again properly.
+    datafile.with_name("tmp").rename(datafile)
+    update_cache(config)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        assert cursor.fetchone()[0] == 1
+
+
 def test_update_cache_collages(config: Config) -> None:
     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
     shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")

@@ -7,6 +7,20 @@ database too. Though we cheap out a bit, so all the tests freely read from the S
 budget!
 
 The read cache is crucial to Rose. See `docs/CACHE_MAINTENANCE.md` for more information.
+
+We consider a few problems in the cache update, whose solutions contribute to
+the overall complexity of the cache update sequence:
+
+1. **Arbitrary renames:** Files and directories can be arbitrarily renamed in between cache scans.
+   We solve for these renames by writing [Stable Identifiers](#release-track-identifiers) to disk.
+   For performance, however, a track update ends up as a delete followed by an insert with the
+   just-deleted ID.
+2. **In-progress directory creation:** We may come across a directory while it is in the process of
+   being created. For example, due to `cp -r`. We attempt to ignore directories that lack a
+   `.rose.{uuid}.toml` file, yet have a `Release ID` written syncthing synchronization.
+2. **Performance:** We want to minimize file accesses, so we cache heavily and batch operations
+   together. This creates a lot of intermediate state that we accumulate throughout the cache
+   update.
 """
 
 import contextlib
@@ -555,10 +569,13 @@ def _update_cache_for_releases_executor(
         # Check to see if we should even process the directory. If the directory does not have
         # any tracks, skip it. And if it does not have any tracks, but is in the cache, remove
         # it from the cache.
-        for f in files:
-            if any(f.lower().endswith(ext) for ext in SUPPORTED_EXTENSIONS):
-                break
-        else:
+        try:
+            first_audio_file = Path(
+                next(
+                    f for f in files if any(f.lower().endswith(ext) for ext in SUPPORTED_EXTENSIONS)
+                )
+            )
+        except StopIteration:
             logger.debug(f"Did not find any audio files in release {source_path}, skipping")
             logger.debug(f"Scheduling cache deletion for empty directory release {source_path}")
             upd_delete_source_paths.append(str(source_path))
@@ -605,11 +622,31 @@ def _update_cache_for_releases_executor(
 
         # The directory does not have a release ID, so create the stored data file.
         if not preexisting_release_id:
+            # However, skip this directory for a special case. Because directory copying/movement is
+            # not atomic, we may read a directory in a in-progres creation state. If:
+            #
+            # 1. The directory lacks a `.rose.{uuid}.toml` file, but the files have Rose IDs,
+            # 2. And the directory mtime is less than 3 seconds ago,
+            #
+            # We consider the directory to be in a in-progress creation state. And so we do not
+            # process the directory at this time.
+            release_id_from_first_file = None
+            with contextlib.suppress(Exception):
+                release_id_from_first_file = AudioFile.from_file(first_audio_file).release_id
+            directory_mtime = os.stat(source_path).st_mtime
+            if release_id_from_first_file is not None and time.time() - directory_mtime < 3.0:
+                logger.info(
+                    f'No-Op: Skipping cache update for "creation in-progress" for '
+                    f"{source_path}: missing .rose.{{uuid}}.toml file and recent Last Modified"
+                )
+                continue
+
             logger.debug(f"Creating new stored data file for release {source_path}")
             stored_release_data = StoredDataFile(
                 new=True,
                 added_at=datetime.now().astimezone().replace(microsecond=0).isoformat(),
             )
+            # Preserve the release ID already present the first file if we can.
             new_release_id = str(uuid6.uuid7())
             datafile_path = source_path / f".rose.{new_release_id}.toml"
             # No need to lock here, as since the release ID is new, there is no way there is a
