@@ -1,4 +1,3 @@
-import shutil
 import subprocess
 import time
 from collections.abc import Iterator
@@ -40,9 +39,9 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert (root / "1. Releases").is_dir()
         assert (root / "1. Releases" / "r1").is_dir()
         assert not (root / "1. Releases" / "lalala").exists()
-        assert (root / "1. Releases" / "r1" / "01.m4a").is_file()
+        assert (root / "1. Releases" / "r1" / "01. 01.m4a").is_file()
         assert not (root / "1. Releases" / "r1" / "lala.m4a").exists()
-        assert can_read(root / "1. Releases" / "r1" / "01.m4a")
+        assert can_read(root / "1. Releases" / "r1" / "01. 01.m4a")
 
         assert (root / "1. Releases" / "r2" / "cover.jpg").is_file()
         assert can_read(root / "1. Releases" / "r2" / "cover.jpg")
@@ -52,13 +51,13 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert (root / "2. Releases - New").is_dir()
         assert (root / "2. Releases - New" / "{NEW} r3").is_dir()
         assert not (root / "2. Releases - New" / "r2").exists()
-        assert (root / "2. Releases - New" / "{NEW} r3" / "01.m4a").is_file()
+        assert (root / "2. Releases - New" / "{NEW} r3" / "01. 01.m4a").is_file()
         assert not (root / "2. Releases - New" / "{NEW} r3" / "lalala").exists()
 
         assert (root / "3. Releases - Recently Added").is_dir()
         assert (root / "3. Releases - Recently Added" / "[0000-01-01] r2").exists()
         assert not (root / "3. Releases - Recently Added" / "r2").exists()
-        assert (root / "3. Releases - Recently Added" / "[0000-01-01] r2" / "01.m4a").is_file()
+        assert (root / "3. Releases - Recently Added" / "[0000-01-01] r2" / "01. 01.m4a").is_file()
         assert not (root / "3. Releases - Recently Added" / "r2" / "lalala").exists()
 
         assert (root / "4. Artists").is_dir()
@@ -66,27 +65,27 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert not (root / "4. Artists" / "lalala").exists()
         assert (root / "4. Artists" / "Bass Man" / "r1").is_dir()
         assert not (root / "4. Artists" / "Bass Man" / "lalala").exists()
-        assert (root / "4. Artists" / "Bass Man" / "r1" / "01.m4a").is_file()
+        assert (root / "4. Artists" / "Bass Man" / "r1" / "01. 01.m4a").is_file()
         assert not (root / "4. Artists" / "Bass Man" / "r1" / "lalala.m4a").exists()
-        assert can_read(root / "4. Artists" / "Bass Man" / "r1" / "01.m4a")
+        assert can_read(root / "4. Artists" / "Bass Man" / "r1" / "01. 01.m4a")
 
         assert (root / "5. Genres").is_dir()
         assert (root / "5. Genres" / "Techno").is_dir()
         assert not (root / "5. Genres" / "lalala").exists()
         assert (root / "5. Genres" / "Techno" / "r1").is_dir()
         assert not (root / "5. Genres" / "Techno" / "lalala").exists()
-        assert (root / "5. Genres" / "Techno" / "r1" / "01.m4a").is_file()
+        assert (root / "5. Genres" / "Techno" / "r1" / "01. 01.m4a").is_file()
         assert not (root / "5. Genres" / "Techno" / "r1" / "lalala.m4a").exists()
-        assert can_read(root / "5. Genres" / "Techno" / "r1" / "01.m4a")
+        assert can_read(root / "5. Genres" / "Techno" / "r1" / "01. 01.m4a")
 
         assert (root / "6. Labels").is_dir()
         assert (root / "6. Labels" / "Silk Music").is_dir()
         assert not (root / "6. Labels" / "lalala").exists()
         assert (root / "6. Labels" / "Silk Music" / "r1").is_dir()
         assert not (root / "6. Labels" / "Silk Music" / "lalala").exists()
-        assert (root / "6. Labels" / "Silk Music" / "r1" / "01.m4a").is_file()
+        assert (root / "6. Labels" / "Silk Music" / "r1" / "01. 01.m4a").is_file()
         assert not (root / "6. Labels" / "Silk Music" / "r1" / "lalala").exists()
-        assert can_read(root / "6. Labels" / "Silk Music" / "r1" / "01.m4a")
+        assert can_read(root / "6. Labels" / "Silk Music" / "r1" / "01. 01.m4a")
 
         assert (root / "7. Collages").is_dir()
         assert (root / "7. Collages" / "Rose Gold").is_dir()
@@ -94,9 +93,9 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert not (root / "7. Collages" / "lalala").exists()
         assert (root / "7. Collages" / "Rose Gold" / "1. r1").is_dir()
         assert not (root / "7. Collages" / "Rose Gold" / "lalala").exists()
-        assert (root / "7. Collages" / "Rose Gold" / "1. r1" / "01.m4a").is_file()
+        assert (root / "7. Collages" / "Rose Gold" / "1. r1" / "01. 01.m4a").is_file()
         assert not (root / "7. Collages" / "Rose Gold" / "1. r1" / "lalala").exists()
-        assert can_read(root / "7. Collages" / "Rose Gold" / "1. r1" / "01.m4a")
+        assert can_read(root / "7. Collages" / "Rose Gold" / "1. r1" / "01. 01.m4a")
 
         assert (root / "8. Playlists").is_dir()
         assert (root / "8. Playlists" / "Lala Lisa").is_dir()
@@ -113,9 +112,9 @@ def test_virtual_filesystem_reads(config: Config) -> None:
 def test_virtual_filesystem_write_files(config: Config) -> None:
     root = config.fuse_mount_dir
     with start_virtual_fs(config):
-        with (root / "1. Releases" / "r1" / "01.m4a").open("w") as fp:
+        with (root / "1. Releases" / "r1" / "01. 01.m4a").open("w") as fp:
             fp.write("abc")
-        with (root / "1. Releases" / "r1" / "01.m4a").open("r") as fp:
+        with (root / "1. Releases" / "r1" / "01. 01.m4a").open("r") as fp:
             assert fp.read() == "abc"
         with pytest.raises(OSError):  # noqa: PT011
             (root / "1. Releases" / "r1" / "lalala").open("w")
@@ -135,9 +134,17 @@ def test_virtual_filesystem_collage_actions(config: Config) -> None:
         assert (src / "!collages" / "New Jeans.toml").is_file()
         assert not (src / "!collages" / "New Tee.toml").exists()
         # Add release to collage.
-        shutil.copytree(root / "1. Releases" / "r1", root / "7. Collages" / "New Jeans" / "r1")
+        subprocess.run(
+            [
+                "cp",
+                "-rp",
+                str(root / "1. Releases" / "r1"),
+                str(root / "7. Collages" / "New Jeans" / "r1"),
+            ],
+            check=True,
+        )
         assert (root / "7. Collages" / "New Jeans" / "r1").is_dir()
-        assert (root / "7. Collages" / "New Jeans" / "r1" / "01.m4a").is_file()
+        assert (root / "7. Collages" / "New Jeans" / "r1" / "01. 01.m4a").is_file()
         with (src / "!collages" / "New Jeans.toml").open("r") as fp:
             assert "r1" in fp.read()
         # Delete release from collage.

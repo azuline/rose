@@ -124,15 +124,15 @@ class VirtualPath:
         parts = str(path.resolve()).split("/")[1:]  # First part is always empty string.
 
         if len(parts) == 1 and parts[0] == "":
-            return VirtualPath(view="Root")
+            return cls(view="Root")
 
         if parts[0] == "1. Releases":
             if len(parts) == 1:
-                return VirtualPath(view="Releases")
+                return cls(view="Releases")
             if len(parts) == 2:
-                return VirtualPath(view="Releases", release=parts[1])
+                return cls(view="Releases", release=parts[1])
             if len(parts) == 3:
-                return VirtualPath(
+                return cls(
                     view="Releases",
                     release=parts[1],
                     file=POSITION_REGEX.sub("", parts[2]),
@@ -142,11 +142,11 @@ class VirtualPath:
 
         if parts[0] == "2. Releases - New":
             if len(parts) == 1:
-                return VirtualPath(view="New")
+                return cls(view="New")
             if len(parts) == 2:
-                return VirtualPath(view="New", release=parts[1])
+                return cls(view="New", release=parts[1])
             if len(parts) == 3:
-                return VirtualPath(
+                return cls(
                     view="New",
                     release=parts[1],
                     file=POSITION_REGEX.sub("", parts[2]),
@@ -156,11 +156,11 @@ class VirtualPath:
 
         if parts[0] == "3. Releases - Recently Added":
             if len(parts) == 1:
-                return VirtualPath(view="Recently Added")
+                return cls(view="Recently Added")
             if len(parts) == 2 and ADDED_AT_REGEX.match(parts[1]):
-                return VirtualPath(view="Recently Added", release=ADDED_AT_REGEX.sub("", parts[1]))
+                return cls(view="Recently Added", release=ADDED_AT_REGEX.sub("", parts[1]))
             if len(parts) == 3 and ADDED_AT_REGEX.match(parts[1]):
-                return VirtualPath(
+                return cls(
                     view="Recently Added",
                     release=ADDED_AT_REGEX.sub("", parts[1]),
                     file=POSITION_REGEX.sub("", parts[2]),
@@ -170,13 +170,13 @@ class VirtualPath:
 
         if parts[0] == "4. Artists":
             if len(parts) == 1:
-                return VirtualPath(view="Artists")
+                return cls(view="Artists")
             if len(parts) == 2:
-                return VirtualPath(view="Artists", artist=parts[1])
+                return cls(view="Artists", artist=parts[1])
             if len(parts) == 3:
-                return VirtualPath(view="Artists", artist=parts[1], release=parts[2])
+                return cls(view="Artists", artist=parts[1], release=parts[2])
             if len(parts) == 4:
-                return VirtualPath(
+                return cls(
                     view="Artists",
                     artist=parts[1],
                     release=parts[2],
@@ -187,13 +187,13 @@ class VirtualPath:
 
         if parts[0] == "5. Genres":
             if len(parts) == 1:
-                return VirtualPath(view="Genres")
+                return cls(view="Genres")
             if len(parts) == 2:
-                return VirtualPath(view="Genres", genre=parts[1])
+                return cls(view="Genres", genre=parts[1])
             if len(parts) == 3:
-                return VirtualPath(view="Genres", genre=parts[1], release=parts[2])
+                return cls(view="Genres", genre=parts[1], release=parts[2])
             if len(parts) == 4:
-                return VirtualPath(
+                return cls(
                     view="Genres",
                     genre=parts[1],
                     release=parts[2],
@@ -204,13 +204,13 @@ class VirtualPath:
 
         if parts[0] == "6. Labels":
             if len(parts) == 1:
-                return VirtualPath(view="Labels")
+                return cls(view="Labels")
             if len(parts) == 2:
-                return VirtualPath(view="Labels", label=parts[1])
+                return cls(view="Labels", label=parts[1])
             if len(parts) == 3:
-                return VirtualPath(view="Labels", label=parts[1], release=parts[2])
+                return cls(view="Labels", label=parts[1], release=parts[2])
             if len(parts) == 4:
-                return VirtualPath(
+                return cls(
                     view="Labels",
                     label=parts[1],
                     release=parts[2],
@@ -221,11 +221,11 @@ class VirtualPath:
 
         if parts[0] == "7. Collages":
             if len(parts) == 1:
-                return VirtualPath(view="Collages")
+                return cls(view="Collages")
             if len(parts) == 2:
-                return VirtualPath(view="Collages", collage=parts[1])
+                return cls(view="Collages", collage=parts[1])
             if len(parts) == 3:
-                return VirtualPath(
+                return cls(
                     view="Collages",
                     collage=parts[1],
                     release=POSITION_REGEX.sub("", parts[2])
@@ -236,7 +236,7 @@ class VirtualPath:
                     else None,
                 )
             if len(parts) == 4:
-                return VirtualPath(
+                return cls(
                     view="Collages",
                     collage=parts[1],
                     release=POSITION_REGEX.sub("", parts[2])
@@ -252,11 +252,11 @@ class VirtualPath:
 
         if parts[0] == "8. Playlists":
             if len(parts) == 1:
-                return VirtualPath(view="Playlists")
+                return cls(view="Playlists")
             if len(parts) == 2:
-                return VirtualPath(view="Playlists", playlist=parts[1])
+                return cls(view="Playlists", playlist=parts[1])
             if len(parts) == 3:
-                return VirtualPath(
+                return cls(
                     view="Playlists",
                     playlist=parts[1],
                     file=POSITION_REGEX.sub("", parts[2]),
@@ -326,9 +326,12 @@ class FileHandleGenerator:
 
     def __init__(self) -> None:
         self._state = 10
+        # Fake sentinel for file handler. The VirtualFS class implements this file handle as a black
+        # hole.
+        self.dev_null = 9
 
     def next(self) -> int:
-        self._state = (self._state + 1 % 10_000) + 10
+        self._state = max(10, self._state + 1 % 10_000)
         return self._state
 
 
@@ -380,16 +383,8 @@ class RoseLogicalFS:
 
         return attrs
 
-    def getattr(self, path: Path) -> dict[str, Any]:
-        logger.debug(f"LOGICAL: Received getattr for {path=}")
-        p = VirtualPath.parse(path)
-        logger.debug(f"LOGICAL: Parsed getattr path as {p}")
-
-        # TODO: IN PROGRESS PLAYLIST ADDITION
-        # # We need this here in order to support fgetattr during the file write operation.
-        # if fh and self.playlist_additions_in_progress.get((path, fh), None):
-        #     logger.debug("LOGICAL: Matched read to an in-progress playlist addition.")
-        #     return mkstat("file")
+    def getattr(self, p: VirtualPath) -> dict[str, Any]:
+        logger.debug(f"LOGICAL: Received getattr for {p=}")
 
         # Common logic that gets called for each release.
         def getattr_release(rp: Path) -> dict[str, Any]:
@@ -480,16 +475,14 @@ class RoseLogicalFS:
         # -1. Wtf are you doing here?
         raise llfuse.FUSEError(errno.ENOENT)
 
-    def readdir(self, path: Path) -> Iterator[tuple[str, dict[str, Any]]]:
-        logger.debug(f"LOGICAL: Received readdir for {path=}")
-        p = VirtualPath.parse(path)
-        logger.debug(f"LOGICAL: Parsed readdir path as {p}")
+    def readdir(self, p: VirtualPath) -> Iterator[tuple[str, dict[str, Any]]]:
+        logger.debug(f"LOGICAL: Received readdir for {p=}")
 
         # Call getattr to validate existence. We can now assume that the provided path exists. This
         # for example includes checks that a given album belongs to the artist/genre/label/collage
         # its nested under.
-        logger.debug(f"LOGICAL: Invoking getattr in readdir to validate existence of {path}")
-        self.getattr(path)
+        logger.debug(f"LOGICAL: Invoking getattr in readdir to validate existence of {p}")
+        self.getattr(p)
 
         yield from [
             (".", self.stat("dir")),
@@ -595,10 +588,8 @@ class RoseLogicalFS:
 
         raise llfuse.FUSEError(errno.ENOENT)
 
-    def unlink(self, path: Path) -> None:
-        logger.debug(f"LOGICAL: Received unlink for {path=}")
-        p = VirtualPath.parse(path)
-        logger.debug(f"LOGICAL: Parsed unlink path as {p}")
+    def unlink(self, p: VirtualPath) -> None:
+        logger.debug(f"LOGICAL: Received unlink for {p=}")
 
         # Possible actions:
         # 1. Delete a playlist.
@@ -621,10 +612,8 @@ class RoseLogicalFS:
 
         # Otherwise, noop. If we return an error, that prevents rmdir from being called when we rm.
 
-    def mkdir(self, path: Path) -> None:
-        logger.debug(f"LOGICAL: Received mkdir for {path=}")
-        p = VirtualPath.parse(path, parse_release_position=False)
-        logger.debug(f"LOGICAL: Parsed mkdir path as {p}")
+    def mkdir(self, p: VirtualPath) -> None:
+        logger.debug(f"LOGICAL: Received mkdir for {p=}")
 
         # Possible actions:
         # 1. Add a release to an existing collage.
@@ -648,10 +637,8 @@ class RoseLogicalFS:
 
         raise llfuse.FUSEError(errno.EACCES)
 
-    def rmdir(self, path: Path) -> None:
-        logger.debug(f"LOGICAL: Received rmdir for {path=}")
-        p = VirtualPath.parse(path)
-        logger.debug(f"LOGICAL: Parsed rmdir path as {p}")
+    def rmdir(self, p: VirtualPath) -> None:
+        logger.debug(f"LOGICAL: Received rmdir for {p=}")
 
         # Possible actions:
         # 1. Delete a collage.
@@ -673,12 +660,8 @@ class RoseLogicalFS:
 
         raise llfuse.FUSEError(errno.EACCES)
 
-    def rename(self, old: Path, new: Path) -> None:
+    def rename(self, old: VirtualPath, new: VirtualPath) -> None:
         logger.debug(f"LOGICAL: Received rename for {old=} {new=}")
-        op = VirtualPath.parse(old)
-        logger.debug(f"LOGICAL: Parsed rename old path as {op}")
-        np = VirtualPath.parse(new)
-        logger.debug(f"LOGICAL: Parsed rename new path as {np}")
 
         # Possible actions:
         # 1. Toggle a release's new status.
@@ -686,38 +669,36 @@ class RoseLogicalFS:
         # 3. Rename a playlist.
         # TODO: Consider allowing renaming artist/genre/label here?
         if (
-            (op.release and np.release)
-            and op.release.removeprefix("{NEW} ") == np.release.removeprefix("{NEW} ")
-            and (not op.file and not np.file)
-            and op.release.startswith("{NEW} ") != np.release.startswith("{NEW} ")
+            (old.release and new.release)
+            and old.release.removeprefix("{NEW} ") == new.release.removeprefix("{NEW} ")
+            and (not old.file and not new.file)
+            and old.release.startswith("{NEW} ") != new.release.startswith("{NEW} ")
         ):
-            toggle_release_new(self.config, op.release)
+            toggle_release_new(self.config, old.release)
             return
         if (
-            op.view == "Collages"
-            and np.view == "Collages"
-            and (op.collage and np.collage)
-            and op.collage != np.collage
-            and (not op.release and not np.release)
+            old.view == "Collages"
+            and new.view == "Collages"
+            and (old.collage and new.collage)
+            and old.collage != new.collage
+            and (not old.release and not new.release)
         ):
-            rename_collage(self.config, op.collage, np.collage)
+            rename_collage(self.config, old.collage, new.collage)
             return
         if (
-            op.view == "Playlists"
-            and np.view == "Playlists"
-            and (op.playlist and np.playlist)
-            and op.playlist != np.playlist
-            and (not op.file and not np.file)
+            old.view == "Playlists"
+            and new.view == "Playlists"
+            and (old.playlist and new.playlist)
+            and old.playlist != new.playlist
+            and (not old.file and not new.file)
         ):
-            rename_playlist(self.config, op.playlist, np.playlist)
+            rename_playlist(self.config, old.playlist, new.playlist)
             return
 
         raise llfuse.FUSEError(errno.EACCES)
 
-    def open(self, path: Path, flags: int) -> int:
-        logger.debug(f"LOGICAL: Received open for {path=} {flags=}")
-        p = VirtualPath.parse(path)
-        logger.debug(f"LOGICAL: Parsed open path as {p}")
+    def open(self, p: VirtualPath, flags: int) -> int:
+        logger.debug(f"LOGICAL: Received open for {p=} {flags=}")
 
         err = errno.ENOENT
         if flags & os.O_CREAT == os.O_CREAT:
@@ -854,14 +835,6 @@ class INodeManager:
             self._inode_to_path_map[inode] = path
             return inode
 
-    def remove_inode(self, inode: int) -> None:
-        try:
-            path = self._inode_to_path_map[inode]
-        except KeyError:
-            return
-        del self._path_to_inode_map[str(path)]
-        del self._inode_to_path_map[inode]
-
     def remove_path(self, path: Path) -> None:
         spath = str(path.resolve())
         try:
@@ -933,15 +906,29 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         # filesystem, we have these ghost files that exist for a period of time following an
         # operation.
         #
-        # We actually want a set of inodes; however, cachetools only has dicts. So we pretend to be
-        # Rob Pike and implement sets as mappings of inode -> True.
-        self.ghost_files: cachetools.TTLCache[int, bool] = cachetools.TTLCache(maxsize=9999, ttl=3)
+        # There are 2 types of ghost files right now:
+        #
+        # 1. Ghost Existing File: We pretend these files exist.
+        # 2. Ghost Writable Empty Directory: We pretend these directories are empty and can have
+        #    arbitrary files created in them.
+        #
+        # Ghost Existing Files take precedence over Ghost Writeable Empty Directory, for we also
+        # flag files as Ghost Existing Files _after_ they've been written to in a Ghost Writable
+        # Empty Directory.
+        #
+        # These maps are Rob Pike style set of paths...
+        self.ghost_existing_files: cachetools.TTLCache[str, bool] = cachetools.TTLCache(
+            maxsize=9999, ttl=2
+        )
+        self.ghost_writable_empty_directory: cachetools.TTLCache[str, bool] = cachetools.TTLCache(
+            maxsize=9999, ttl=2
+        )
 
     def reset_getattr_caches(self) -> None:
         # When a write happens, clear these caches. These caches are very short-lived and intended
         # to make readdir's subsequent getattrs more performant, so this is harmless.
-        self.getattr_cache = cachetools.TTLCache(maxsize=99999, ttl=2)
-        self.lookup_cache = cachetools.TTLCache(maxsize=99999, ttl=2)
+        self.getattr_cache = cachetools.TTLCache(maxsize=99999, ttl=1)
+        self.lookup_cache = cachetools.TTLCache(maxsize=99999, ttl=1)
 
     def make_entry_attributes(self, attrs: dict[str, Any]) -> llfuse.EntryAttributes:
         for k, v in self.default_attrs.items():
@@ -959,17 +946,18 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             attrs = self.getattr_cache[inode]
             logger.debug(f"FUSE: Resolved getattr for {inode=} to {attrs.__getstate__()=}")
             return attrs
-
+        spath = self.inodes.get_path(inode)
+        logger.debug(f"FUSE: Resolved getattr {inode=} to {spath=}")
         # If this path is a ghost file path; pretend here!
-        if self.ghost_files.get(inode, False):
-            logger.debug(f"FUSE: Resolved getattr for {inode=} as ghost file")
+        if self.ghost_existing_files.get(str(spath), False):
+            logger.debug(f"FUSE: Resolved getattr for {spath=} as ghost existing file")
             attrs = self.rose.stat("file")
             attrs["st_ino"] = inode
             return self.make_entry_attributes(attrs)
 
-        path = self.inodes.get_path(inode)
-        logger.debug(f"FUSE: Resolved getattr {inode=} to {path=}")
-        attrs = self.rose.getattr(path)
+        vpath = VirtualPath.parse(spath)
+        logger.debug(f"FUSE: Parsed getattr {spath=} to {vpath=}")
+        attrs = self.rose.getattr(vpath)
         attrs["st_ino"] = inode
         return self.make_entry_attributes(attrs)
 
@@ -979,24 +967,52 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         with contextlib.suppress(KeyError):
             attrs = self.lookup_cache[(parent_inode, name)]
             logger.debug(
-                f"FUSE: Resolved lookup for {parent_inode=}/{name=} to {attrs.__getstate__()=}"
+                f"FUSE: Resolved lookup {parent_inode=}/{name=} to {attrs.__getstate__()=}"
             )
             return attrs
+        spath = self.inodes.get_path(parent_inode, name)
+        inode = self.inodes.calc_inode(spath)
+        logger.debug(f"FUSE: Resolved lookup {parent_inode=}/{name=} to {spath=}")
+        # If this path is a ghost file path; pretend here!
+        if self.ghost_existing_files.get(str(spath), False):
+            logger.debug(f"FUSE: Resolved getattr for {spath=} as ghost existing file")
+            attrs = self.rose.stat("file")
+            attrs["st_ino"] = inode
+            return self.make_entry_attributes(attrs)
+        # If this directory is a ghost directory path; pretend here!
+        if self.ghost_writable_empty_directory.get(str(spath.parent), False):
+            logger.debug(f"FUSE: Resolved lookup for {spath=} as ghost writeable directory")
+            raise llfuse.FUSEError(errno.ENOENT)
 
-        path = self.inodes.get_path(parent_inode, name)
-        logger.debug(f"FUSE: Resolved lookup for {parent_inode=}/{name=} to {path=}")
-        attrs = self.rose.getattr(path)
-        attrs["st_ino"] = self.inodes.calc_inode(path)
+        vpath = VirtualPath.parse(spath)
+        logger.debug(f"FUSE: Parsed lookup {spath=} to {vpath=}")
+        attrs = self.rose.getattr(vpath)
+        attrs["st_ino"] = inode
         return self.make_entry_attributes(attrs)
 
     def opendir(self, inode: int, _: Any) -> int:
         logger.debug(f"FUSE: Received opendir for {inode=}")
-        path = self.inodes.get_path(inode)
-        logger.debug(f"FUSE: Resolved opendir for {inode=} to {path=}")
-        entries: list[tuple[int, bytes, llfuse.EntryAttributes]] = []
-        for namestr, attrs in self.rose.readdir(path):
+        spath = self.inodes.get_path(inode)
+        logger.debug(f"FUSE: Resolved opendir {inode=} to {spath=}")
+        # If this directory is a ghost directory path; pretend here!
+        if self.ghost_writable_empty_directory.get(str(spath), False):
+            logger.debug(f"FUSE: Resolved lookup for {spath=} as ghost writeable directory")
+            entries: list[tuple[int, bytes, llfuse.EntryAttributes]] = []
+            for node in [".", ".."]:
+                attrs = self.rose.stat("dir")
+                attrs["st_ino"] = self.inodes.calc_inode(spath / node)
+                entry = self.make_entry_attributes(attrs)
+                entries.append((inode, node.encode(), entry))
+            fh = self.fhgen.next()
+            self.readdir_cache[fh] = entries
+            return fh
+
+        vpath = VirtualPath.parse(spath)
+        logger.debug(f"FUSE: Parsed opendir {spath=} to {vpath=}")
+        entries = []
+        for namestr, attrs in self.rose.readdir(vpath):
             name = namestr.encode()
-            attrs["st_ino"] = self.inodes.calc_inode(path / namestr)
+            attrs["st_ino"] = self.inodes.calc_inode(spath / namestr)
             entry = self.make_entry_attributes(attrs)
             entries.append((inode, name, entry))
         fh = self.fhgen.next()
@@ -1026,30 +1042,48 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
     def open(self, inode: int, flags: int, _: Any) -> int:
         logger.debug(f"FUSE: Received open for {inode=} {flags=}")
-        path = self.inodes.get_path(inode)
-        logger.debug(f"FUSE: Resolved open for {inode=} to {path=}")
-        fh = self.rose.open(path, flags)
+        spath = self.inodes.get_path(inode)
+        logger.debug(f"FUSE: Resolved open {inode=} to {spath=}")
+        if self.ghost_writable_empty_directory.get(str(spath.parent), False):
+            logger.debug(f"FUSE: Resolved open for {spath=} as ghost writeable directory")
+            self.ghost_existing_files[str(spath)] = True
+            return self.fhgen.dev_null
+        vpath = VirtualPath.parse(spath)
+        logger.debug(f"FUSE: Parsed open {spath=} to {vpath=}")
+        fh = self.rose.open(vpath, flags)
         # If this was a create operation, and Rose succeeded, flag the filepath as a ghost file and
         # _always_ pretend it exists for the following short duration.
         if flags & os.O_CREAT == os.O_CREAT:
-            self.ghost_files[inode] = True
+            logger.debug(f"FUSE: Setting {spath=} as ghost existing file for next 3 seconds")
+            self.ghost_existing_files[str(spath)] = True
         return fh
 
     def read(self, fh: int, offset: int, length: int) -> bytes:
         logger.debug(f"FUSE: Received read for {fh=} {offset=} {length=}")
+        if fh == self.fhgen.dev_null:
+            logger.debug(f"FUSE: Matched {fh=} to /dev/null sentinel")
+            return b""
         return self.rose.read(fh, offset, length)
 
     def write(self, fh: int, offset: int, data: bytes) -> int:
         logger.debug(f"FUSE: Received write for {fh=} {offset=} {len(data)=}")
+        if fh == self.fhgen.dev_null:
+            logger.debug(f"FUSE: Matched {fh=} to /dev/null sentinel")
+            return len(data)
         return self.rose.write(fh, offset, data)
 
     def release(self, fh: int) -> None:
         logger.debug(f"FUSE: Received release for {fh=}")
+        if fh == self.fhgen.dev_null:
+            logger.debug(f"FUSE: Matched {fh=} to /dev/null sentinel")
+            return
         self.rose.release(fh)
 
     def ftruncate(self, fh: int, length: int = 0) -> None:
-        # TODO: IN PROGRESS PLAYLIST ADDITION
         logger.debug(f"FUSE: Received ftruncate for {fh=} {length=}")
+        if fh == self.fhgen.dev_null:
+            logger.debug(f"FUSE: Matched {fh=} to /dev/null sentinel")
+            return
         return os.ftruncate(fh, length)
 
     def create(
@@ -1062,7 +1096,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
     ) -> tuple[int, llfuse.EntryAttributes]:
         logger.debug(f"FUSE: Received create for {parent_inode=}/{name=} {flags=}")
         path = self.inodes.get_path(parent_inode, name)
-        logger.debug(f"FUSE: Resolved create for {parent_inode=}/{name=} to {path=}")
+        logger.debug(f"FUSE: Resolved create {parent_inode=}/{name=} to {path=}")
         inode = self.inodes.calc_inode(path)
         logger.debug(f"FUSE: Created inode {inode=} for {path=}; now delegating to open call")
         fh = self.open(inode, flags, ctx)
@@ -1073,29 +1107,41 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
     def unlink(self, parent_inode: int, name: bytes, _: Any) -> None:
         logger.debug(f"FUSE: Received unlink for {parent_inode=}/{name=}")
-        path = self.inodes.get_path(parent_inode, name)
-        logger.debug(f"FUSE: Resolved unlink for {parent_inode=}/{name=} to {path=}")
-        self.rose.unlink(path)
+        spath = self.inodes.get_path(parent_inode, name)
+        logger.debug(f"FUSE: Resolved unlink {parent_inode=}/{name=} to {spath=}")
+        vpath = VirtualPath.parse(spath)
+        logger.debug(f"FUSE: Parsed unlink {spath=} to {vpath=}")
+        self.rose.unlink(vpath)
         self.reset_getattr_caches()
-        self.inodes.remove_path(path)
+        self.inodes.remove_path(spath)
 
     def mkdir(self, parent_inode: int, name: bytes, _mode: int, _: Any) -> llfuse.EntryAttributes:
         logger.debug(f"FUSE: Received mkdir for {parent_inode=}/{name=}")
-        path = self.inodes.get_path(parent_inode, name)
-        logger.debug(f"FUSE: Resolved mkdir for {parent_inode=}/{name=} to {path=}")
-        self.rose.mkdir(path)
+        spath = self.inodes.get_path(parent_inode, name)
+        logger.debug(f"FUSE: Resolved mkdir {parent_inode=}/{name=} to {spath=}")
+        vpath = VirtualPath.parse(spath, parse_release_position=False)
+        logger.debug(f"FUSE: Parsed mkdir {spath=} to {vpath=}")
+        self.rose.mkdir(vpath)
         self.reset_getattr_caches()
+        inode = self.inodes.calc_inode(spath)
+        # If this was an add to collage operation, then flag the directory as a ghost writeable
+        # directory for the following short duration.
+        if vpath.collage:
+            logger.debug(f"FUSE: Setting {spath=} as ghost writeable directory for next 3 seconds")
+            self.ghost_writable_empty_directory[str(spath)] = True
         attrs = self.rose.stat("dir")
-        attrs["st_ino"] = self.inodes.calc_inode(path)
+        attrs["st_ino"] = inode
         return self.make_entry_attributes(attrs)
 
     def rmdir(self, parent_inode: int, name: bytes, _: Any) -> None:
         logger.debug(f"FUSE: Received rmdir for {parent_inode=}/{name=}")
-        path = self.inodes.get_path(parent_inode, name)
-        logger.debug(f"FUSE: Resolved rmdir for {parent_inode=}/{name=} to {path=}")
-        self.rose.rmdir(path)
+        spath = self.inodes.get_path(parent_inode, name)
+        logger.debug(f"FUSE: Resolved rmdir {parent_inode=}/{name=} to {spath=}")
+        vpath = VirtualPath.parse(spath)
+        logger.debug(f"FUSE: Parsed rmdir {spath=} to {vpath=}")
+        self.rose.rmdir(vpath)
         self.reset_getattr_caches()
-        self.inodes.remove_path(path)
+        self.inodes.remove_path(spath)
 
     def rename(
         self,
@@ -1109,15 +1155,20 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             f"FUSE: Received rename for {old_parent_inode=}/{old_name=} "
             f"to {new_parent_inode=}/{new_name=}"
         )
-        old_path = self.inodes.get_path(old_parent_inode, old_name)
-        new_path = self.inodes.get_path(new_parent_inode, new_name)
+        old_spath = self.inodes.get_path(old_parent_inode, old_name)
+        new_spath = self.inodes.get_path(new_parent_inode, new_name)
         logger.debug(
-            f"FUSE: Received rename for {old_parent_inode=}/{old_name=} to {old_path=}"
-            f"and for {new_parent_inode=}/{new_name=} to {new_path=}"
+            f"FUSE: Received rename for {old_parent_inode=}/{old_name=} to {old_spath=}"
+            f"and for {new_parent_inode=}/{new_name=} to {new_spath=}"
         )
-        self.rose.rename(old_path, new_path)
+        old_vpath = VirtualPath.parse(old_spath)
+        new_vpath = VirtualPath.parse(new_spath)
+        logger.debug(
+            f"FUSE: Parsed rmdir {old_spath=} to {old_vpath=} and {old_vpath=} to {new_vpath=}"
+        )
+        self.rose.rename(old_vpath, new_vpath)
         self.reset_getattr_caches()
-        self.inodes.rename_path(old_path, new_path)
+        self.inodes.rename_path(old_spath, new_spath)
 
     # ============================================================================================
     # Unimplemented stubs. Tools expect these syscalls to exist, so we implement versions of them
