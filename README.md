@@ -201,7 +201,14 @@ Nix Flakes with [this installer](https://github.com/DeterminateSystems/nix-insta
 Then, to install Rosé, run:
 
 ```bash
-$ nix profile install github:azuline/rose
+$ nix profile install github:azuline/rose/release
+```
+
+The above command installs the latest release of Rosé. If you instead wish to
+run the latest unstable version of Rosé, install Rosé with:
+
+```bash
+$ nix profile install github:azuline/rose/master
 ```
 
 # Quickstart
