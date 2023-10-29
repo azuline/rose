@@ -269,6 +269,8 @@ def update_cache_for_releases(
     # Leave as None to update all releases.
     release_dirs: list[Path] | None = None,
     force: bool = False,
+    # For testing.
+    force_multiprocessing: bool = False,
 ) -> None:
     """
     Update the read cache to match the data for any passed-in releases. If a directory lacks a
@@ -296,8 +298,22 @@ def update_cache_for_releases(
         and d.name != "!playlists"
         and d.name not in c.ignore_release_directories
     ]
+    if not release_dirs:
+        logger.info("No-Op: No whitelisted releases passed into update_cache_for_releases")
+        return
     logger.info(f"Refreshing the read cache for {len(release_dirs)} releases")
     logger.debug(f"Refreshing cached data for {', '.join([r.name for r in release_dirs])}")
+
+    # If the number of releases changed is less than 50; do not bother with all that multiprocessing
+    # gunk: instead, directly call the executor.
+    #
+    # This has an added benefit of not spawning processes from the virtual filesystem and watchdog
+    # processes, as those processes always update the cache for one release at a time and are
+    # multithreaded. Starting other processes from threads is bad!
+    if not force_multiprocessing and len(release_dirs) < 50:
+        known_virtual_dirnames_hi: dict[str, bool] = {}
+        _update_cache_for_releases_executor(c, release_dirs, force, known_virtual_dirnames_hi)
+        return
 
     # Batch size defaults to equal split across all processes. However, if the number of directories
     # is small, we shrink the # of processes to save on overhead.

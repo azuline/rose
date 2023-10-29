@@ -143,6 +143,18 @@ def test_update_cache_all(config: Config) -> None:
         assert cursor.fetchone()[0] == 4
 
 
+def test_update_cache_multiprocessing(config: Config) -> None:
+    """Test that the update all function works."""
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+    update_cache_for_releases(config, force_multiprocessing=True)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        assert cursor.fetchone()[0] == 2
+        cursor = conn.execute("SELECT COUNT(*) FROM tracks")
+        assert cursor.fetchone()[0] == 4
+
+
 def test_update_cache_releases(config: Config) -> None:
     release_dir = config.music_source_dir / TEST_RELEASE_1.name
     shutil.copytree(TEST_RELEASE_1, release_dir)
