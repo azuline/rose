@@ -336,8 +336,15 @@ class FileHandleManager:
         # Fake sentinel for file handler. The VirtualFS class implements this file handle as a black
         # hole.
         self.dev_null = 9
-        # We translate Rose's Virtual Filesystem file handles to the host machine file handles. We
-        # don't simply pass file handles through in order to avoid collision problems.
+        # We translate Rose's Virtual Filesystem file handles to the host machine file handles. This
+        # means that every file handle from the host system has a corresponding "wrapper" file
+        # handle in Rose, and we only return Rose's file handles from the virtual fs.
+        #
+        # When we receive a Rose file handle that maps to a host filesystem operation, we "unwrap"
+        # the file handle back to the host file handle, and then use it.
+        #
+        # This prevents any accidental collisions, where Rose generates a file handle that ends up
+        # being the same number as a file handle that the host system generates.
         self._rose_to_host_map: dict[int, int] = {}
 
     def next(self) -> int:
@@ -370,7 +377,7 @@ RELEASE_PREFIX_STRIPPERS = [
 ]
 
 
-class RoseLogicalFS:
+class RoseLogicalCore:
     def __init__(self, config: Config, fhandler: FileHandleManager):
         self.config = config
         self.fhandler = fhandler
@@ -933,7 +940,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
     def __init__(self, config: Config):
         self.fhandler = FileHandleManager()
-        self.rose = RoseLogicalFS(config, self.fhandler)
+        self.rose = RoseLogicalCore(config, self.fhandler)
         self.inodes = INodeManager(config)
         self.default_attrs = {
             # Well, this should be ok for now. I really don't want to track this... we indeed change

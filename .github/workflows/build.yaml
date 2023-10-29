@@ -11,11 +11,11 @@ jobs:
       - uses: cachix/cachix-action@v12
         with:
           name: rose
-          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
       - name: Build Nix
         run: nix build -j8 .#devShells.x86_64-linux.default
       - name: Typecheck
-        if: success() || failure()  # Means that we run all steps even if one fails.
+        if: success() || failure() # Means that we run all steps even if one fails.
         run: nix develop --command make typecheck
       - name: Test
         if: success() || failure()

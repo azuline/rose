@@ -133,12 +133,6 @@ $ rose playlists add-track "Evening" "018b6514-6fb7-7cc6-9d23-8eaf0b1beee8"
 
 Virtual filesystem:
 
-_When copying a release directory, there will be errors if `cp` is used. They
-are safe to ignore. The error happens because the action of creating the
-directory adds the release to the collage. After that point, all files are
-already part of the release directory, yet `cp` attempts to copy the files over
-too. We will try to fix this later._
-
 ```bash
 $ cd $fuse_mount_dir
 

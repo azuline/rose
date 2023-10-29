@@ -158,7 +158,6 @@ _Deletion will move the release into the trashbin, following the
 [freedesktop spec](https://freedesktop.org/wiki/Specifications/trash-spec/).
 The release can be restored later if the deletion was accidental._
 
-
 Command line:
 
 ```bash

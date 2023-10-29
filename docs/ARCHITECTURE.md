@@ -81,6 +81,60 @@ queries to batch the writes.
 The update process is also parallelizable, so we shard workloads across
 multiple processes.
 
+# Virtual Filesystem
+
+We use the `llfuse` library for the virtual filesystem. `llfuse` is a fairly
+low-level library for FUSE, which leaves us to work with system-level concepts
+such as inodes.
+
+Though these concepts have much to do with filesystems, they have little to do
+with Rosé. Thus, we have split the Virtual Filesystem code into two main layers:
+
+1. `RoseLogicalCore`: A logical core of Rosé's domain logic, which exposes
+   syscall-like functions at a higher semantic level.
+2. `VirtualFS`: A wrapper around `RoseLogicalFS` that translates syscalls into
+   Rosé's semantics, manages inodes, caches for performance, and "lies" a
+   little so that user tools work transparently.
+
+There are a few other useful classes as well. Because the virtual filesystem
+interface is object oriented, the entire virtual filesystem module is organized
+following object orientation principles. We favor composition over inheritance
+^.~
+
+## Ghost Files
+
+Some of Rosé operations break the conventional expectations of a filesystem.
+Most operations are still _decent_, but the following two diverge pretty
+heavily:
+
+1. Adding a release to a collage
+2. Adding a track to a playlist
+
+When we add a release to a collage, we take the `mkdir` call and translate that
+to an `add_release_to_collage` call. Afterwards, the release is in the collage.
+And the tracks of the release magically appear inside the directory afterwards,
+since that directory is simply the release.
+
+However, a command like `cp -r` immediately attempts to then replicate files
+into a supposedly empty directory, and errors. Strictly speaking, nothing's
+wrong. Though `cp` errors, the release has been added to the collage, and the
+next `ls` command shows that the release has been successfully added to a
+collage. But it is quite nice when basic tools work without erroring!
+
+Thus, "Ghost Files." In order to keep tools like `cp` happy, we pretend that
+files exist (or don't exist!) for 2-5 seconds after one of the above two
+operations occur. In the case of collages, the `VirtualFS` layer pretends that
+the new directory is empty for 5 seconds, and redirects any incoming writes
+into the directory to `/dev/null`.
+
+For playlists, the problem arises in that the copied file vanishes immediately
+once the file handle is released. A command like `cp --preserve=mode`, which
+attempts to replicate file attributes after releasing the file, fails.
+
+So in the playlists case, we pretend that the written file exists for 2 seconds
+after we wrote it. This way, `cp --preserve=mode` can replicate its attributes
+onto a ghost file and happily exit without errors.
+
 # Logging
 
 Logs are written to stderr and to `${XDG_STATE_HOME:-$HOME/.local/state}/rose/rose.log`.
