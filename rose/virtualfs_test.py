@@ -222,7 +222,8 @@ def test_virtual_filesystem_playlist_actions(
             ],
             check=True,
         )
-        time.sleep(0.05)
+        # Assert that we can see the attributes of the ghost file.
+        assert (root / "8. Playlists" / "New Jeans" / filename).is_file()
         assert (root / "8. Playlists" / "New Jeans" / "1. BLACKPINK - Track 1.m4a").is_file()
         with (src / "!playlists" / "New Jeans.toml").open("r") as fp:
             assert "BLACKPINK - Track 1.m4a" in fp.read()

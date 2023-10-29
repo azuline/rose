@@ -73,6 +73,7 @@ from rose.collages import (
     remove_release_from_collage,
     rename_collage,
 )
+from rose.common import RoseError
 from rose.config import Config
 from rose.playlists import (
     add_track_to_playlist,
@@ -319,7 +320,11 @@ class CanShower:
         return True
 
 
-class FileHandleGenerator:
+class UnknownFileHandleError(RoseError):
+    pass
+
+
+class FileHandleManager:
     """
     FileDescriptorGenerator generates file descriptors and handles wrapping so that we do not go
     over the int size. Assumes that we do not cycle 10k file descriptors before the first descriptor
@@ -331,16 +336,30 @@ class FileHandleGenerator:
         # Fake sentinel for file handler. The VirtualFS class implements this file handle as a black
         # hole.
         self.dev_null = 9
+        # We translate Rose's Virtual Filesystem file handles to the host machine file handles. We
+        # don't simply pass file handles through in order to avoid collision problems.
+        self._rose_to_host_map: dict[int, int] = {}
 
     def next(self) -> int:
         self._state = max(10, self._state + 1 % 10_000)
         return self._state
 
+    def wrap_host(self, host_fh: int) -> int:
+        rose_fh = self.next()
+        self._rose_to_host_map[rose_fh] = host_fh
+        return rose_fh
+
+    def unwrap_host(self, rose_fh: int) -> int:
+        try:
+            return self._rose_to_host_map[rose_fh]
+        except KeyError as e:
+            raise llfuse.FUSEError(errno.EBADF) from e
+
 
 # These are tight regexes for the prefixes that may be applied to releases in the virtual
 # filesystem. When we want to use a release name that originated from another view (e.g. because of
-# a `cp`) command, we need these regexes in order to support names that originated from views like
-# Recently Added or Collages.
+# a `cp -p`) command, we need these regexes in order to support names that originated from views
+# like Recently Added or Collages.
 #
 # And if these happen to match an artist name... they're probably not worth listening to anyways
 # lol. Probably some vaporwave bullshit.
@@ -352,9 +371,9 @@ RELEASE_PREFIX_STRIPPERS = [
 
 
 class RoseLogicalFS:
-    def __init__(self, config: Config, fhgen: FileHandleGenerator):
+    def __init__(self, config: Config, fhandler: FileHandleManager):
         self.config = config
-        self.fhgen = fhgen
+        self.fhandler = fhandler
         self.can_show = CanShower(config)
         # We implement the "add track to playlist" operation in a slightly special way. Unlike
         # releases, where the virtual dirname is globally unique, track filenames are not globally
@@ -739,10 +758,10 @@ class RoseLogicalFS:
         if p.release and p.file and (rdata := get_release(self.config, p.release)):
             release, tracks = rdata
             if release.cover_image_path and p.file == release.cover_image_path.name:
-                return os.open(str(release.cover_image_path), flags)
+                return self.fhandler.wrap_host(os.open(str(release.cover_image_path), flags))
             for track in tracks:
                 if track.virtual_filename == p.file:
-                    fh = os.open(str(track.source_path), flags)
+                    fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
                     if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
                         self.update_release_on_fh_close[fh] = track.release_id
                     return fh
@@ -755,7 +774,7 @@ class RoseLogicalFS:
             # If we are trying to create a file in the playlist, enter the "add file to playlist"
             # operation sequence. See the __init__ for more details.
             if flags & os.O_CREAT == os.O_CREAT:
-                fh = self.fhgen.next()
+                fh = self.fhandler.next()
                 logger.debug(
                     f"LOGICAL: Begin playlist addition operation sequence for {p.file=} and {fh=}"
                 )
@@ -769,12 +788,12 @@ class RoseLogicalFS:
             if p.file_position:
                 for idx, track in enumerate(tracks):
                     if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
-                        fh = os.open(str(track.source_path), flags)
+                        fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
                         if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
                             self.update_release_on_fh_close[fh] = track.release_id
                         return fh
             if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
-                return os.open(playlist.cover_path, flags)
+                return self.fhandler.wrap_host(os.open(playlist.cover_path, flags))
             raise llfuse.FUSEError(err)
 
         raise llfuse.FUSEError(err)
@@ -785,6 +804,7 @@ class RoseLogicalFS:
             logger.debug("LOGICAL: Matched read to an in-progress playlist addition")
             _, _, b = pap
             return b[offset : offset + length]
+        fh = self.fhandler.unwrap_host(fh)
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)
 
@@ -796,6 +816,7 @@ class RoseLogicalFS:
             del b[offset:]
             b.extend(data)
             return len(data)
+        fh = self.fhandler.unwrap_host(fh)
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, data)
 
@@ -822,13 +843,14 @@ class RoseLogicalFS:
             add_track_to_playlist(self.config, playlist, track_id)
             del self.playlist_additions_in_progress[fh]
             return
-        os.close(fh)
         if release_id := self.update_release_on_fh_close.get(fh, None):
             logger.debug(
                 f"LOGICAL: Triggering cache update for release {release_id} after release syscall"
             )
             if source_path := get_release_source_path_from_id(self.config, release_id):
                 update_cache_for_releases(self.config, [source_path])
+        fh = self.fhandler.unwrap_host(fh)
+        os.close(fh)
 
 
 class INodeManager:
@@ -910,8 +932,8 @@ class VirtualFS(llfuse.Operations):  # type: ignore
     """
 
     def __init__(self, config: Config):
-        self.fhgen = FileHandleGenerator()
-        self.rose = RoseLogicalFS(config, self.fhgen)
+        self.fhandler = FileHandleManager()
+        self.rose = RoseLogicalFS(config, self.fhandler)
         self.inodes = INodeManager(config)
         self.default_attrs = {
             # Well, this should be ok for now. I really don't want to track this... we indeed change
@@ -1048,7 +1070,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
                 attrs["st_ino"] = self.inodes.calc_inode(spath / node)
                 entry = self.make_entry_attributes(attrs)
                 entries.append((inode, node.encode(), entry))
-            fh = self.fhgen.next()
+            fh = self.fhandler.next()
             self.readdir_cache[fh] = entries
             return fh
 
@@ -1060,7 +1082,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             attrs["st_ino"] = self.inodes.calc_inode(spath / namestr)
             entry = self.make_entry_attributes(attrs)
             entries.append((inode, name, entry))
-        fh = self.fhgen.next()
+        fh = self.fhandler.next()
         self.readdir_cache[fh] = entries
         logger.debug(f"FUSE: Stored {len(entries)=} nodes into the readdir cache for {fh=}")
         return fh
@@ -1092,7 +1114,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         if self.ghost_writable_empty_directory.get(str(spath.parent), False):
             logger.debug(f"FUSE: Resolved open for {spath=} as ghost writeable directory")
             self.ghost_existing_files[str(spath)] = True
-            return self.fhgen.dev_null
+            return self.fhandler.dev_null
         vpath = VirtualPath.parse(spath)
         logger.debug(f"FUSE: Parsed open {spath=} to {vpath=}")
         fh = self.rose.open(vpath, flags)
@@ -1105,30 +1127,31 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
     def read(self, fh: int, offset: int, length: int) -> bytes:
         logger.debug(f"FUSE: Received read for {fh=} {offset=} {length=}")
-        if fh == self.fhgen.dev_null:
+        if fh == self.fhandler.dev_null:
             logger.debug(f"FUSE: Matched {fh=} to /dev/null sentinel")
             return b""
         return self.rose.read(fh, offset, length)
 
     def write(self, fh: int, offset: int, data: bytes) -> int:
         logger.debug(f"FUSE: Received write for {fh=} {offset=} {len(data)=}")
-        if fh == self.fhgen.dev_null:
+        if fh == self.fhandler.dev_null:
             logger.debug(f"FUSE: Matched {fh=} to /dev/null sentinel")
             return len(data)
         return self.rose.write(fh, offset, data)
 
     def release(self, fh: int) -> None:
         logger.debug(f"FUSE: Received release for {fh=}")
-        if fh == self.fhgen.dev_null:
+        if fh == self.fhandler.dev_null:
             logger.debug(f"FUSE: Matched {fh=} to /dev/null sentinel")
             return
         self.rose.release(fh)
 
     def ftruncate(self, fh: int, length: int = 0) -> None:
         logger.debug(f"FUSE: Received ftruncate for {fh=} {length=}")
-        if fh == self.fhgen.dev_null:
+        if fh == self.fhandler.dev_null:
             logger.debug(f"FUSE: Matched {fh=} to /dev/null sentinel")
             return
+        fh = self.fhandler.unwrap_host(fh)
         return os.ftruncate(fh, length)
 
     def create(
