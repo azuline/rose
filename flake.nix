@@ -27,6 +27,7 @@
         doCheck = false;
       };
       prod-deps = with python.pkgs; [
+        appdirs
         cachetools
         click
         mutagen

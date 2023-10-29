@@ -89,6 +89,7 @@ def toggle_release_new(c: Config, release_id_or_virtual_dirname: str) -> None:
             data["new"] = not data["new"]
             with f.open("wb") as fp:
                 tomli_w.dump(data, fp)
+        logger.info(f"Toggled NEW-ness of release {release_dirname} to {data['new']=}")
         update_cache_for_releases(c, [source_path], force=True)
         return
 
@@ -202,11 +203,11 @@ def edit_release(c: Config, release_id_or_virtual_dirname: str) -> None:
         original_metadata = MetadataRelease.from_cache(release, tracks)
         toml = click.edit(original_metadata.serialize(), extension=".toml")
         if not toml:
-            logger.info("Aborting: metadata file not submitted.")
+            logger.info("Aborting manual release edit: metadata file not submitted.")
             return
         release_meta = original_metadata.from_toml(toml)
         if original_metadata == release_meta:
-            logger.info("Aborting: no metadata change detected.")
+            logger.info("Aborting manual release edit: no metadata change detected.")
             return
 
         for t in tracks:

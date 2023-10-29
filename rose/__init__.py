@@ -4,12 +4,18 @@ import os
 import sys
 from pathlib import Path
 
+import appdirs
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-STATE_HOME = Path(os.environ.get("XDG_STATE_HOME", "~/.local/state")).expanduser() / "rose"
-STATE_HOME.mkdir(parents=True, exist_ok=True)
-LOGFILE = STATE_HOME / "rose.log"
+# appdirs by default has Unix log to $XDG_CACHE_HOME, but I'd rather write logs to $XDG_STATE_HOME.
+LOG_HOME = Path(appdirs.user_state_dir("rose"))
+if appdirs.system == "darwin":
+    LOG_HOME = Path(appdirs.user_log_dir("rose"))
+
+LOG_HOME.mkdir(parents=True, exist_ok=True)
+LOGFILE = LOG_HOME / "rose.log"
 
 # Useful for debugging problems with the virtual FS, since pytest doesn't capture that debug logging
 # output.

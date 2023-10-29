@@ -72,6 +72,9 @@ ignore_missing_imports = true
 module = "cachetools.*"
 ignore_missing_imports = true
 [[tool.mypy.overrides]]
+module = "appdirs.*"
+ignore_missing_imports = true
+[[tool.mypy.overrides]]
 module = "watchdog.*"
 ignore_missing_imports = true
 [[tool.mypy.overrides]]

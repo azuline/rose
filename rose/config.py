@@ -7,20 +7,22 @@ from __future__ import annotations
 
 import functools
 import multiprocessing
-import os
 from collections import defaultdict
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 
+import appdirs
 import tomllib
 
 from rose.common import RoseError
 
-XDG_CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME", os.environ["HOME"] + "/.config"))
-CONFIG_PATH = XDG_CONFIG_HOME / "rose" / "config.toml"
-XDG_CACHE_HOME = Path(os.environ.get("XDG_CACHE_HOME", os.environ["HOME"] + "/.cache"))
-CACHE_PATH = XDG_CACHE_HOME / "rose"
+XDG_CONFIG_ROSE = Path(appdirs.user_config_dir("rose"))
+XDG_CONFIG_ROSE.mkdir(parents=True, exist_ok=True)
+CONFIG_PATH = XDG_CONFIG_ROSE / "config.toml"
+
+XDG_CACHE_ROSE = Path(appdirs.user_cache_dir("rose"))
+XDG_CACHE_ROSE.mkdir(parents=True, exist_ok=True)
 
 
 class ConfigNotFoundError(RoseError):
@@ -106,12 +108,12 @@ class Config:
         try:
             cache_dir = Path(data["cache_dir"]).expanduser()
         except KeyError:
-            cache_dir = CACHE_PATH
+            cache_dir = XDG_CACHE_ROSE
         except (TypeError, ValueError) as e:
             raise InvalidConfigValueError(
                 f"Invalid value for cache_dir in configuration file ({cfgpath}): must be a path"
             ) from e
-        cache_dir.mkdir(exist_ok=True)
+        cache_dir.mkdir(parents=True, exist_ok=True)
 
         try:
             max_proc = int(data["max_proc"])

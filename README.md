@@ -234,9 +234,10 @@ Commands:
 Great! Next, we'll (1) configure Rosé, (2) mount the virtual filesystem, and
 finally (3) play music!
 
-1. Rosé requires a configuration file. The configuration file is located at
-   `$XDG_CONFIG_HOME/rose/config.toml`. If you've not done anything weird with
-   your system, it should be located at `~/.config/rose/config.toml`.
+1. Rosé requires a configuration file. On Linux, the configuration file is
+   located at `$XDG_CONFIG_HOME/rose/config.toml`, which is typically
+   `~/.config/rose/.config.toml`. On MacOS, the configuration file is located
+   at `~/Library/Preferences/rose/config.toml`.
 
    Only two configuration options are required:
 

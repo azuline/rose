@@ -137,7 +137,10 @@ onto a ghost file and happily exit without errors.
 
 # Logging
 
-Logs are written to stderr and to `${XDG_STATE_HOME:-$HOME/.local/state}/rose/rose.log`.
+Logs are written to stderr. Logs are also written to disk: to
+`${XDG_STATE_HOME:-$HOME/.local/state}/rose/rose.log` on Linux and
+`~/Library/Logs/rose/rose.log` on MacOS.
+
 Debug logging can be turned on with the `--verbose/-v` option. Rosé is heavily
 instrumented with debug logging.
 

@@ -14,6 +14,7 @@ setuptools.setup(
     packages=setuptools.find_namespace_packages(where="."),
     package_data={"rose": ["*.sql", ".version"]},
     install_requires=[
+        "appdirs",
         "cachetools",
         "click",
         "mutagen",

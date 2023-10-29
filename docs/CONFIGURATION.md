@@ -2,8 +2,9 @@
 
 Rosé is configured by a TOML file.
 
-The configuration, by default, is located at `${XDG_CONFIG_HOME:-$HOME/.config}/rose/config.toml`.
-The `--config/-c` flag can be specified to load a configuration file from a
+The configuration, by default, is located at `${XDG_CONFIG_HOME:-$HOME/.config}/rose/config.toml`
+on Linux and `~/Library/Preferences/rose/config.toml` on MacOS. The
+`--config/-c` flag can be specified to load a configuration file from a
 different location.
 
 The configuration parameters, with examples, are:
@@ -95,8 +96,9 @@ valid_art_exts = [ "jpg", "jpeg", "png" ]
 # configuration variable.
 ignore_release_directories = [ ".stversions" ]
 
-# The directory to write the cache to. Defaults to
-# `${XDG_CACHE_HOME:-$HOME/.cache}/rose`.
+# The directory to write the cache to. Defaults to:
+# - Linux: `${XDG_CACHE_HOME:-$HOME/.cache}/rose`
+# - MacOS: `~/Library/Caches/rose`
 cache_dir = "~/.cache/rose"
 
 # Maximum parallel processes that Rose can spawn. Defaults to # $(nproc)/2.
