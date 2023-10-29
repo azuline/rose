@@ -69,6 +69,7 @@
               ruff
               dev-cli
               nodePackages.pyright
+              nodePackages.prettier
             ];
           })
         ];

@@ -1,0 +1,8 @@
+# Ignore everything recursively
+*
+# But not:
+!*.md
+!*.yml
+!*.yaml
+# And check subdirectories too
+!*/
