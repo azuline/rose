@@ -790,7 +790,7 @@ def _update_cache_for_releases_executor(
                     release.artists = release_artists
                     release_dirty = True
 
-                release_formatted_artists = format_artist_string(tags.album_artists, release.genres)
+                release_formatted_artists = format_artist_string(tags.album_artists)
                 if release_formatted_artists != release.formatted_artists:
                     logger.debug(
                         f"Release formatted artists change detected for {source_path}, updating"
@@ -879,7 +879,7 @@ def _update_cache_for_releases_executor(
                 formatted_release_position="",
                 duration_seconds=tags.duration_sec,
                 artists=[],
-                formatted_artists=format_artist_string(tags.artists, release.genres),
+                formatted_artists=format_artist_string(tags.artists),
             )
             tracks.append(track)
             for role, names in asdict(tags.artists).items():

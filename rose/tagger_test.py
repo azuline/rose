@@ -83,7 +83,7 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
         guest=["Artist C", "Artist A"],
         remixer=["Artist AB", "Artist BC"],
         producer=["Artist CD", "Artist DE"],
-        composer=[],  # Composer gets wiped because we're not of the classical genre :-)
+        composer=["Artist EF", "Artist FG"],
         djmixer=["New"],
     )
     assert af.duration_sec == duration

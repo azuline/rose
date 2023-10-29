@@ -27,17 +27,12 @@ def test_parse_artist_string() -> None:
 
 
 def test_format_artist_string() -> None:
+    assert format_artist_string(ArtistMapping(main=["A", "B"], guest=["C", "D"])) == "A;B feat. C;D"
+    assert format_artist_string(ArtistMapping(djmixer=["A"], main=["C", "D"])) == "A pres. C;D"
     assert (
-        format_artist_string(ArtistMapping(main=["A", "B"], guest=["C", "D"]), [])
-        == "A;B feat. C;D"
-    )
-    assert format_artist_string(ArtistMapping(djmixer=["A"], main=["C", "D"]), []) == "A pres. C;D"
-    assert format_artist_string(ArtistMapping(composer=["A"], main=["C", "D"]), []) == "C;D"
-    assert (
-        format_artist_string(ArtistMapping(composer=["A"], main=["C", "D"]), ["Classical"])
-        == "A performed by C;D"
+        format_artist_string(ArtistMapping(composer=["A"], main=["C", "D"])) == "A performed by C;D"
     )
     assert (
-        format_artist_string(ArtistMapping(djmixer=["A"], main=["B", "C"], guest=["D", "E"]), [])
+        format_artist_string(ArtistMapping(djmixer=["A"], main=["B", "C"], guest=["D", "E"]))
         == "A pres. B;C feat. D;E"
     )

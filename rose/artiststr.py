@@ -74,9 +74,9 @@ def parse_artist_string(
     return rval
 
 
-def format_artist_string(a: ArtistMapping, genres: list[str]) -> str:
+def format_artist_string(a: ArtistMapping) -> str:
     r = ";".join(a.main)
-    if a.composer and "Classical" in genres:
+    if a.composer:
         r = ";".join(a.composer) + " performed by " + r
     if a.djmixer:
         r = ";".join(a.djmixer) + " pres. " + r
@@ -86,7 +86,7 @@ def format_artist_string(a: ArtistMapping, genres: list[str]) -> str:
         r += " remixed by " + ";".join(a.remixer)
     if a.producer:
         r += " produced by " + ";".join(a.producer)
-    logger.debug(f"Formatted {a} ({genres=}) as {r}")
+    logger.debug(f"Formatted {a} as {r}")
     return r
 
 

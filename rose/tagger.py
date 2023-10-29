@@ -240,8 +240,8 @@ class AudioFile:
             _write_standard_tag("TCON", ";".join(self.genre))
             _write_standard_tag("TPUB", ";".join(self.label))
             _write_tag_with_description("TXXX:RELEASETYPE", self.release_type)
-            _write_standard_tag("TPE2", format_artist_string(self.album_artists, self.genre))
-            _write_standard_tag("TPE1", format_artist_string(self.artists, self.genre))
+            _write_standard_tag("TPE2", format_artist_string(self.album_artists))
+            _write_standard_tag("TPE1", format_artist_string(self.artists))
             # Wipe the alt. role artist tags, since we encode the full artist into the main tag.
             m.tags.delall("TPE4")
             m.tags.delall("TCOM")
@@ -263,8 +263,8 @@ class AudioFile:
             m.tags["\xa9gen"] = ";".join(self.genre)
             m.tags["----:com.apple.iTunes:LABEL"] = ";".join(self.label).encode()
             m.tags["----:com.apple.iTunes:RELEASETYPE"] = self.release_type.encode()
-            m.tags["aART"] = format_artist_string(self.album_artists, self.genre)
-            m.tags["\xa9ART"] = format_artist_string(self.artists, self.genre)
+            m.tags["aART"] = format_artist_string(self.album_artists)
+            m.tags["\xa9ART"] = format_artist_string(self.artists)
             # Wipe the alt. role artist tags, since we encode the full artist into the main tag.
             with contextlib.suppress(KeyError):
                 del m.tags["----:com.apple.iTunes:REMIXER"]
@@ -319,8 +319,8 @@ class AudioFile:
             m.tags["genre"] = ";".join(self.genre)
             m.tags["organization"] = ";".join(self.label)
             m.tags["releasetype"] = self.release_type
-            m.tags["albumartist"] = format_artist_string(self.album_artists, self.genre)
-            m.tags["artist"] = format_artist_string(self.artists, self.genre)
+            m.tags["albumartist"] = format_artist_string(self.album_artists)
+            m.tags["artist"] = format_artist_string(self.artists)
             # Wipe the alt. role artist tags, since we encode the full artist into the main tag.
             with contextlib.suppress(KeyError):
                 del m.tags["remixer"]

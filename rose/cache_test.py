@@ -235,7 +235,6 @@ def test_update_cache_releases(config: Config) -> None:
             artists = {(r["artist"], r["role"]) for r in cursor.fetchall()}
             assert artists == {
                 ("BLACKPINK", "main"),
-                ("Teddy", "composer"),
             }
 
 
@@ -557,7 +556,6 @@ def test_update_cache_releases_adds_aliased_artist(config: Config) -> None:
             assert artists == {
                 ("BLACKPINK", "main", False),
                 ("HAHA", "main", True),
-                ("Teddy", "composer", False),
             }
 
 
