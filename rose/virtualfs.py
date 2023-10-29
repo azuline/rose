@@ -639,7 +639,7 @@ class RoseLogicalFS:
                 return
             except ReleaseDoesNotExistError as e:
                 logger.debug(
-                    f"Failed adding release {p.release} to collage {p.collage}: release not found."
+                    f"Failed adding release {p.release} to collage {p.collage}: release not found"
                 )
                 raise llfuse.FUSEError(errno.ENOENT) from e
         if p.playlist and p.file is None:
@@ -766,7 +766,7 @@ class RoseLogicalFS:
     def write(self, fh: int, offset: int, data: bytes) -> int:
         logger.debug(f"LOGICAL: Received write for {fh=} {offset=} {len(data)=}")
         if pap := self.playlist_additions_in_progress.get(fh, None):
-            logger.debug("Matched write to an in-progress playlist addition.")
+            logger.debug("Matched write to an in-progress playlist addition")
             _, _, b = pap
             del b[offset:]
             b.extend(data)
@@ -776,10 +776,10 @@ class RoseLogicalFS:
 
     def release(self, fh: int) -> None:
         if pap := self.playlist_additions_in_progress.get(fh, None):
-            logger.debug("Matched release to an in-progress playlist addition.")
+            logger.debug("Matched release to an in-progress playlist addition")
             playlist, ext, b = pap
             if not b:
-                logger.debug("Aborting playlist addition release: no bytes to write.")
+                logger.debug("Aborting playlist addition release: no bytes to write")
                 return
             with tempfile.TemporaryDirectory() as tmpdir:
                 audiopath = Path(tmpdir) / f"f{ext}"
@@ -899,8 +899,8 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             # Well, this should be ok for now. I really don't want to track this... we indeed change
             # inodes across FS restarts.
             "generation": random.randint(0, 1000000),
-            # Have a 15 second metadata timeout by default.
-            "entry_timeout": 15,
+            # Have a 30 second entry timeout by default.
+            "entry_timeout": 30,
         }
         # We cache some items for getattr and lookup for performance reasons--after a ls, getattr is
         # serially called for each item in the directory, and sequential 1k SQLite reads is quite
@@ -912,7 +912,6 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         self.getattr_cache: cachetools.TTLCache[int, llfuse.EntryAttributes]
         self.lookup_cache: cachetools.TTLCache[tuple[int, bytes], llfuse.EntryAttributes]
         self.reset_getattr_caches()
-
         # We handle state for readdir calls here. Because programs invoke readdir multiple times
         # with offsets, we end up with many readdir calls for a single directory. However, we do not
         # want to actually invoke the logical Rose readdir call that many times. So we load it once
@@ -921,6 +920,22 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         #
         # Map of file handle -> (parent inode, child name, child attributes).
         self.readdir_cache: dict[int, list[tuple[int, bytes, llfuse.EntryAttributes]]] = {}
+        # Ghost Files: We pretend some files exist in the filesystem, despite them not actually
+        # existing. We do this in order to be compatible with the expectations that tools have for
+        # filesystems.
+        #
+        # For example, when we use file writing to add a file to a playlist, that file is
+        # immediately renamed to its correct playlist-specific filename upon release. However, `cp`
+        # exits with an error, for it followed up the release with an attempt to set file
+        # permissions and attributes on a now non-existent file.
+        #
+        # In order to pretend to tools that we are a Real Filesystem and not some shitty hack of a
+        # filesystem, we have these ghost files that exist for a period of time following an
+        # operation.
+        #
+        # We actually want a set of inodes; however, cachetools only has dicts. So we pretend to be
+        # Rob Pike and implement sets as mappings of inode -> True.
+        self.ghost_files: cachetools.TTLCache[int, bool] = cachetools.TTLCache(maxsize=9999, ttl=3)
 
     def reset_getattr_caches(self) -> None:
         # When a write happens, clear these caches. These caches are very short-lived and intended
@@ -942,8 +957,15 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         # For performance, pull from the getattr cache if possible.
         with contextlib.suppress(KeyError):
             attrs = self.getattr_cache[inode]
-            logger.debug(f"FUSE: Resolved getattr for {inode=} to {attrs.__getstate__()=}.")
+            logger.debug(f"FUSE: Resolved getattr for {inode=} to {attrs.__getstate__()=}")
             return attrs
+
+        # If this path is a ghost file path; pretend here!
+        if self.ghost_files.get(inode, False):
+            logger.debug(f"FUSE: Resolved getattr for {inode=} as ghost file")
+            attrs = self.rose.stat("file")
+            attrs["st_ino"] = inode
+            return self.make_entry_attributes(attrs)
 
         path = self.inodes.get_path(inode)
         logger.debug(f"FUSE: Resolved getattr {inode=} to {path=}")
@@ -957,7 +979,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         with contextlib.suppress(KeyError):
             attrs = self.lookup_cache[(parent_inode, name)]
             logger.debug(
-                f"FUSE: Resolved lookup for {parent_inode=}/{name=} to {attrs.__getstate__()=}."
+                f"FUSE: Resolved lookup for {parent_inode=}/{name=} to {attrs.__getstate__()=}"
             )
             return attrs
 
@@ -1006,7 +1028,12 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Received open for {inode=} {flags=}")
         path = self.inodes.get_path(inode)
         logger.debug(f"FUSE: Resolved open for {inode=} to {path=}")
-        return self.rose.open(path, flags)
+        fh = self.rose.open(path, flags)
+        # If this was a create operation, and Rose succeeded, flag the filepath as a ghost file and
+        # _always_ pretend it exists for the following short duration.
+        if flags & os.O_CREAT == os.O_CREAT:
+            self.ghost_files[inode] = True
+        return fh
 
     def read(self, fh: int, offset: int, length: int) -> bytes:
         logger.debug(f"FUSE: Received read for {fh=} {offset=} {length=}")
@@ -1039,9 +1066,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         inode = self.inodes.calc_inode(path)
         logger.debug(f"FUSE: Created inode {inode=} for {path=}; now delegating to open call")
         fh = self.open(inode, flags, ctx)
-        # Avoid zombies coming back from an old cache.
         self.reset_getattr_caches()
-
         attrs = self.rose.stat("file")
         attrs["st_ino"] = inode
         return fh, self.make_entry_attributes(attrs)
@@ -1051,7 +1076,6 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         path = self.inodes.get_path(parent_inode, name)
         logger.debug(f"FUSE: Resolved unlink for {parent_inode=}/{name=} to {path=}")
         self.rose.unlink(path)
-        # Avoid zombies coming back from an old cache.
         self.reset_getattr_caches()
         self.inodes.remove_path(path)
 
@@ -1060,7 +1084,6 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         path = self.inodes.get_path(parent_inode, name)
         logger.debug(f"FUSE: Resolved mkdir for {parent_inode=}/{name=} to {path=}")
         self.rose.mkdir(path)
-        # Avoid zombies coming back from an old cache.
         self.reset_getattr_caches()
         attrs = self.rose.stat("dir")
         attrs["st_ino"] = self.inodes.calc_inode(path)
@@ -1071,7 +1094,6 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         path = self.inodes.get_path(parent_inode, name)
         logger.debug(f"FUSE: Resolved rmdir for {parent_inode=}/{name=} to {path=}")
         self.rose.rmdir(path)
-        # Avoid zombies coming back from an old cache.
         self.reset_getattr_caches()
         self.inodes.remove_path(path)
 
@@ -1151,7 +1173,7 @@ def mount_virtualfs(c: Config, debug: bool = False) -> None:
         options.add("debug")
     llfuse.init(VirtualFS(c), str(c.fuse_mount_dir), options)
     try:
-        llfuse.main()
+        llfuse.main(workers=c.max_proc)
     except:
         llfuse.close()
         raise

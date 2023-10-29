@@ -99,11 +99,12 @@ ignore_release_directories = [ ".stversions" ]
 # `${XDG_CACHE_HOME:-$HOME/.cache}/rose`.
 cache_dir = "~/.cache/rose"
 
-# Maximum parallel processes that the read cache updater can spawn. Defaults to
-# $(nproc)/2. The higher this number is; the more performant the cache update
-# will be.
+# Maximum parallel processes that Rose can spawn. Defaults to # $(nproc)/2.
+#
+# Rose uses this value to limit the max parallelization of read cache updates
+# and the number of works that the virtual filesystem can spin up to handle a
+# request.
 max_proc = 4
-
 ```
 
 # Systemd

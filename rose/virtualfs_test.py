@@ -169,7 +169,19 @@ def test_virtual_filesystem_playlist_actions(
         assert (src / "!playlists" / "New Jeans.toml").is_file()
         assert not (src / "!playlists" / "New Tee.toml").exists()
         # Add track to playlist.
-        shutil.copyfile(release_dir / filename, root / "8. Playlists" / "New Jeans" / filename)
+        # Use `cp -p` to test the ghost files behavior. A pure copy file will succeed, because it
+        # stops after the release. However, cp -p also attempts to set some attributes on the moved
+        # file, which fails if we immediately vanish the file post-release, which the naive
+        # implementation does.
+        subprocess.run(
+            [
+                "cp",
+                "-p",
+                str(release_dir / filename),
+                str(root / "8. Playlists" / "New Jeans" / filename),
+            ],
+            check=True,
+        )
         assert (root / "8. Playlists" / "New Jeans" / "1. BLACKPINK - Track 1.m4a").is_file()
         with (src / "!playlists" / "New Jeans.toml").open("r") as fp:
             assert "BLACKPINK - Track 1.m4a" in fp.read()
