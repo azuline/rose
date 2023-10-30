@@ -19,7 +19,7 @@ jobs:
         run: nix develop --command make typecheck
       - name: Test
         if: success() || failure()
-        run: nix develop --command make test-seq
+        run: nix develop --command make test
       - name: Lint
         if: success() || failure()
         run: nix develop --command make lintcheck
