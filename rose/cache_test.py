@@ -700,7 +700,7 @@ def test_update_cache_collages_on_release_rename(config: Config) -> None:
     # Assert that source file was not updated to remove the release.
     with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
         data = tomllib.load(fp)
-    # TODO: Next PR: Assert not missing.
+    assert not [r for r in data["releases"] if "missing" in r]
     assert len(data["releases"]) == 2
 
 
@@ -887,7 +887,7 @@ def test_update_cache_playlists_on_release_rename(config: Config) -> None:
     # Assert that source file was not updated to remove the track.
     with (config.music_source_dir / "!playlists" / "Lala Lisa.toml").open("rb") as fp:
         data = tomllib.load(fp)
-    # TODO: Next PR: Assert not missing.
+    assert not [t for t in data["tracks"] if "missing" in t]
     assert len(data["tracks"]) == 2
 
 
