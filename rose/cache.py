@@ -784,11 +784,14 @@ def _update_cache_for_releases_executor(
 
                 release_artists = []
                 for role, names in asdict(tags.album_artists).items():
+                    # Multiple artists may resolve to the same alias (e.g. LOONA members...), so
+                    # collect them in a deduplicated way, and then record the deduplicated aliases.
+                    aliases: set[str] = set()
                     for name in _uniq(names):
                         release_artists.append(CachedArtist(name=name, role=role))
-                        # And also make sure we attach any parent aliases for this artist.
-                        for alias in c.artist_aliases_parents_map.get(name, []):
-                            release_artists.append(CachedArtist(name=alias, role=role, alias=True))
+                        aliases.update(c.artist_aliases_parents_map.get(name, []))
+                    for name in aliases:
+                        release_artists.append(CachedArtist(name=name, role=role, alias=True))
                 if release_artists != release.artists:
                     logger.debug(f"Release artists change detected for {source_path}, updating")
                     release.artists = release_artists
@@ -887,11 +890,14 @@ def _update_cache_for_releases_executor(
             )
             tracks.append(track)
             for role, names in asdict(tags.artists).items():
+                # Multiple artists may resolve to the same alias (e.g. LOONA members...), so collect
+                # them in a deduplicated way, and then record the deduplicated aliases.
+                aliases = set()
                 for name in _uniq(names):
                     track.artists.append(CachedArtist(name=name, role=role))
-                    # And also make sure we attach any parent aliases for this artist.
-                    for alias in c.artist_aliases_parents_map.get(name, []):
-                        track.artists.append(CachedArtist(name=alias, role=role, alias=True))
+                    aliases.update(c.artist_aliases_parents_map.get(name, []))
+                for name in aliases:
+                    track.artists.append(CachedArtist(name=name, role=role, alias=True))
             track_ids_to_insert.add(track.id)
 
         # Now calculate whether this release is multidisc, and then assign virtual_filenames and
