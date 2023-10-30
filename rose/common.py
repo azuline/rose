@@ -14,6 +14,10 @@ class RoseError(Exception):
     pass
 
 
+class InvalidCoverArtFileError(RoseError):
+    pass
+
+
 def valid_uuid(x: str) -> bool:
     try:
         uuid.UUID(x)

@@ -14,6 +14,7 @@ from rose.releases import (
     dump_releases,
     edit_release,
     resolve_release_ids,
+    set_release_cover_art,
     toggle_release_new,
 )
 
@@ -39,7 +40,7 @@ def test_toggle_release_new(config: Config) -> None:
     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
     update_cache(config)
     with connect(config) as conn:
-        cursor = conn.execute("SELECT id, virtual_dirname FROM releases")
+        cursor = conn.execute("SELECT id FROM releases")
         release_id = cursor.fetchone()["id"]
     datafile = config.music_source_dir / TEST_RELEASE_1.name / f".rose.{release_id}.toml"
 
@@ -60,6 +61,37 @@ def test_toggle_release_new(config: Config) -> None:
     with connect(config) as conn:
         cursor = conn.execute("SELECT virtual_dirname FROM releases")
         assert cursor.fetchone()["virtual_dirname"].startswith("{NEW} ")
+
+
+def test_set_release_cover_art(isolated_dir: Path, config: Config) -> None:
+    imagepath = isolated_dir / "folder.jpg"
+    with imagepath.open("w") as fp:
+        fp.write("lalala")
+
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    old_image_1 = release_dir / "folder.png"
+    old_image_2 = release_dir / "cover.jpeg"
+    old_image_1.touch()
+    old_image_2.touch()
+    update_cache(config)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT id FROM releases")
+        release_id = cursor.fetchone()["id"]
+
+    set_release_cover_art(config, release_id, imagepath)
+    cover_image_path = release_dir / "cover.jpg"
+    assert cover_image_path.is_file()
+    with cover_image_path.open("r") as fp:
+        assert fp.read() == "lalala"
+    assert not old_image_1.exists()
+    assert not old_image_2.exists()
+    # Assert no other files were touched.
+    assert len(list(release_dir.iterdir())) == 5
+
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT cover_image_path FROM releases")
+        assert Path(cursor.fetchone()["cover_image_path"]) == cover_image_path
 
 
 def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> None:

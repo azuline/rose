@@ -36,8 +36,15 @@ from rose.playlists import (
     edit_playlist_in_editor,
     remove_track_from_playlist,
     rename_playlist,
+    set_playlist_cover_art,
 )
-from rose.releases import delete_release, dump_releases, edit_release, toggle_release_new
+from rose.releases import (
+    delete_release,
+    dump_releases,
+    edit_release,
+    set_release_cover_art,
+    toggle_release_new,
+)
 from rose.virtualfs import VirtualPath, mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
@@ -184,6 +191,19 @@ def toggle_new(ctx: Context, release: str) -> None:
     """
     release = parse_release_from_potential_path(ctx.config, release)
     toggle_release_new(ctx.config, release)
+
+
+@releases.command()
+@click.argument("release", type=str, nargs=1)
+@click.argument("cover", type=click.Path(path_type=Path), nargs=1)
+@click.pass_obj
+def set_cover(ctx: Context, release: str, cover: Path) -> None:
+    """
+    Set the cover art of a release. For the release argument, accepts a release UUID, virtual
+    directory name, or virtual filesystem path. For the cover argument, accept a path to the image.
+    """
+    release = parse_release_from_potential_path(ctx.config, release)
+    set_release_cover_art(ctx.config, release, cover)
 
 
 @releases.command(name="delete")
@@ -336,6 +356,17 @@ def edit3(ctx: Context, playlist: str) -> None:
 def print3(ctx: Context) -> None:
     """Print JSON-encoded playlists."""
     print(dump_playlists(ctx.config))
+
+
+@playlists.command(name="set-cover")
+@click.argument("playlist", type=str, nargs=1)
+@click.argument("cover", type=click.Path(path_type=Path), nargs=1)
+@click.pass_obj
+def set_cover2(ctx: Context, playlist: str, cover: Path) -> None:
+    """
+    Set the cover art of a playlist. Accepts a playlist name and a path to an image.
+    """
+    set_playlist_cover_art(ctx.config, playlist, cover)
 
 
 def parse_release_from_potential_path(c: Config, r: str) -> str:

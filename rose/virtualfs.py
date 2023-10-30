@@ -81,9 +81,15 @@ from rose.playlists import (
     delete_playlist,
     remove_track_from_playlist,
     rename_playlist,
+    set_playlist_cover_art,
 )
-from rose.releases import ReleaseDoesNotExistError, delete_release, toggle_release_new
-from rose.tagger import AudioFile
+from rose.releases import (
+    ReleaseDoesNotExistError,
+    delete_release,
+    set_release_cover_art,
+    toggle_release_new,
+)
+from rose.tagger import SUPPORTED_AUDIO_EXTENSIONS, AudioFile
 
 logger = logging.getLogger(__name__)
 
@@ -376,31 +382,40 @@ RELEASE_PREFIX_STRIPPERS = [
     re.compile(r"^\d+\. "),
 ]
 
+FileCreationSpecialOp = Literal["add-track-to-playlist", "new-cover-art"]
+
 
 class RoseLogicalCore:
     def __init__(self, config: Config, fhandler: FileHandleManager):
         self.config = config
         self.fhandler = fhandler
         self.can_show = CanShower(config)
-        # We implement the "add track to playlist" operation in a slightly special way. Unlike
-        # releases, where the virtual dirname is globally unique, track filenames are not globally
-        # unique. Rather, they clash quite often. So instead of running a lookup on the virtual
-        # filename, we must instead inspect the bytes that get written upon copy, because within the
-        # copied audio file is the `track_id` tag (aka `roseid`).
+        # This map stores the state for "file creation" operations. We currently have two file
+        # creation operations:
+        #
+        # 1. Add Track to Playlist: Because track filenames are not globally unique, the best way to
+        #    figure out the track ID is to record the data written, and then parse the written bytes
+        #    to find the track ID.
+        # 2. New Cover Art: When replacing the cover art of a release or playlist, the new cover art
+        #    may have a different "filename" from the virtual `cover.{ext}` filename. We accept any
+        #    of the supported filenames as configured by the user. When a new file matching the
+        #    cover art filenames is written, it replaces the existing cover art.
         #
         # In order to be able to inspect the written bytes, we must store state across several
         # syscalls (open, write, release). So the process goes:
         #
-        # 1. Upon file open, if the syscall is intended to create a new file in a playlist, treat it
-        #    as a playlist addition instead. Mock the file descriptor with an in-memory sentinel.
+        # 1. Upon file open, if the syscall matches one of the supported file creation operations,
+        #    store the file descriptor in this map instead.
         # 2. On subsequent write requests to the same path and sentinel file descriptor, take the
-        #    bytes-to-write and store them in the in-memory state.
-        # 3. On release, write all the bytes to a temporary file and load the audio file up into an
-        #    AudioFile dataclass (which parses tags). Look for the track ID tag, and if it exists,
-        #    add it to the playlist.
+        #    bytes-to-write and store them in the map.
+        # 3. On release, process the written bytes and execute the real operation against the music
+        #    library.
         #
-        # The state is a mapping of fh -> (playlist_name, ext, bytes).
-        self.playlist_additions_in_progress: dict[int, tuple[str, str, bytearray]] = {}
+        # The state is a mapping of fh -> (operation, identifier, ext, bytes). Identifier is typed
+        # based on the operation, and is used to identify the playlist/release being modified.
+        self.file_creation_special_ops: dict[
+            int, tuple[FileCreationSpecialOp, Any, str, bytearray]
+        ] = {}
         # We want to trigger a cache update whenever we notice that a file has been updated through
         # the virtual filesystem. To do this, we insert the file handle and release ID on open, and
         # then trigger the cache update on release. We use this variable to transport that state
@@ -764,30 +779,67 @@ class RoseLogicalCore:
 
         if p.release and p.file and (rdata := get_release(self.config, p.release)):
             release, tracks = rdata
-            if release.cover_image_path and p.file == release.cover_image_path.name:
+            # If the file is a music file, handle it as a music file.
+            pf = Path(p.file)
+            if pf.suffix.lower() in SUPPORTED_AUDIO_EXTENSIONS:
+                for track in tracks:
+                    if track.virtual_filename == p.file:
+                        fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
+                        if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
+                            self.update_release_on_fh_close[fh] = track.release_id
+                        return fh
+            # If the file matches the current cover image, then simply pass it through.
+            if release.cover_image_path and p.file == f"cover{release.cover_image_path.suffix}":
                 return self.fhandler.wrap_host(os.open(str(release.cover_image_path), flags))
-            for track in tracks:
-                if track.virtual_filename == p.file:
-                    fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
-                    if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
-                        self.update_release_on_fh_close[fh] = track.release_id
-                    return fh
+            # Otherwise, if we are writing a brand new cover image, initiate the "new-cover-art"
+            # sequence.
+            if p.file.lower() in self.config.valid_cover_arts and flags & os.O_CREAT == os.O_CREAT:
+                fh = self.fhandler.next()
+                logger.debug(
+                    f"LOGICAL: Begin new cover art sequence for release "
+                    f"{release.virtual_dirname=}, {p.file=}, and {fh=}"
+                )
+                self.file_creation_special_ops[fh] = (
+                    "new-cover-art",
+                    ("release", release.id),
+                    pf.suffix,
+                    bytearray(),
+                )
+                return fh
             raise llfuse.FUSEError(err)
         if p.playlist and p.file:
             try:
                 playlist, tracks = get_playlist(self.config, p.playlist)  # type: ignore
             except TypeError as e:
                 raise llfuse.FUSEError(errno.ENOENT) from e
-            # If we are trying to create a file in the playlist, enter the "add file to playlist"
-            # operation sequence. See the __init__ for more details.
-            if flags & os.O_CREAT == os.O_CREAT:
+            # If we are trying to create an audio file in the playlist, enter the
+            # "add-track-to-playlist" operation sequence. See the __init__ for more details.
+            pf = Path(p.file)
+            if pf.suffix.lower() in SUPPORTED_AUDIO_EXTENSIONS and flags & os.O_CREAT == os.O_CREAT:
                 fh = self.fhandler.next()
                 logger.debug(
-                    f"LOGICAL: Begin playlist addition operation sequence for {p.file=} and {fh=}"
+                    f"LOGICAL: Begin playlist addition operation sequence for "
+                    f"{playlist.name=}, {p.file=}, and {fh=}"
                 )
-                self.playlist_additions_in_progress[fh] = (
+                self.file_creation_special_ops[fh] = (
+                    "add-track-to-playlist",
                     p.playlist,
-                    Path(p.file).suffix,
+                    pf.suffix,
+                    bytearray(),
+                )
+                return fh
+            # If we are trying to create a cover image in the playlist, enter the "new-cover-art"
+            # sequence for the playlist.
+            if p.file.lower() in self.config.valid_cover_arts and flags & os.O_CREAT == os.O_CREAT:
+                fh = self.fhandler.next()
+                logger.debug(
+                    f"LOGICAL: Begin new cover art sequence for playlist"
+                    f"{playlist.name=}, {p.file=}, and {fh=}"
+                )
+                self.file_creation_special_ops[fh] = (
+                    "new-cover-art",
+                    ("playlist", p.playlist),
+                    pf.suffix,
                     bytearray(),
                 )
                 return fh
@@ -807,9 +859,9 @@ class RoseLogicalCore:
 
     def read(self, fh: int, offset: int, length: int) -> bytes:
         logger.debug(f"LOGICAL: Received read for {fh=} {offset=} {length=}")
-        if pap := self.playlist_additions_in_progress.get(fh, None):
-            logger.debug("LOGICAL: Matched read to an in-progress playlist addition")
-            _, _, b = pap
+        if sop := self.file_creation_special_ops.get(fh, None):
+            logger.debug("LOGICAL: Matched read to a file creation special op")
+            _, _, _, b = sop
             return b[offset : offset + length]
         fh = self.fhandler.unwrap_host(fh)
         os.lseek(fh, offset, os.SEEK_SET)
@@ -817,9 +869,9 @@ class RoseLogicalCore:
 
     def write(self, fh: int, offset: int, data: bytes) -> int:
         logger.debug(f"LOGICAL: Received write for {fh=} {offset=} {len(data)=}")
-        if pap := self.playlist_additions_in_progress.get(fh, None):
-            logger.debug("LOGICAL: Matched write to an in-progress playlist addition")
-            _, _, b = pap
+        if sop := self.file_creation_special_ops.get(fh, None):
+            logger.debug("LOGICAL: Matched write to a file creation special op")
+            _, _, _, b = sop
             del b[offset:]
             b.extend(data)
             return len(data)
@@ -829,27 +881,55 @@ class RoseLogicalCore:
 
     def release(self, fh: int) -> None:
         logger.debug(f"LOGICAL: Received release for {fh=}")
-        if pap := self.playlist_additions_in_progress.get(fh, None):
-            logger.debug("Matched release to an in-progress playlist addition")
-            playlist, ext, b = pap
+        if sop := self.file_creation_special_ops.get(fh, None):
+            logger.debug("LOGICAL: Matched release to a file creation special op")
+            operation, ident, ext, b = sop
             if not b:
-                logger.debug("LOGICAL: Aborting playlist addition release: no bytes to write")
+                logger.debug("LOGICAL: Aborting file creation special oprelease: no bytes to write")
                 return
-            with tempfile.TemporaryDirectory() as tmpdir:
-                audiopath = Path(tmpdir) / f"f{ext}"
-                with audiopath.open("wb") as fp:
-                    fp.write(b)
-                audiofile = AudioFile.from_file(audiopath)
-                track_id = audiofile.id
-            if not track_id:
-                logger.warning(
-                    "LOGICAL: Failed to parse track_id from file in playlist addition operation "
-                    f"sequence: {track_id=} {fh=} {playlist=} {audiofile}"
-                )
+            if operation == "add-track-to-playlist":
+                logger.debug("LOGICAL: Narrowed file creation special op to add track to playlist")
+                playlist = ident
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    audiopath = Path(tmpdir) / f"f{ext}"
+                    with audiopath.open("wb") as fp:
+                        fp.write(b)
+                    audiofile = AudioFile.from_file(audiopath)
+                    track_id = audiofile.id
+                if not track_id:
+                    logger.warning(
+                        "LOGICAL: Failed to parse track_id from file in playlist addition "
+                        f"operation sequence: {track_id=} {fh=} {playlist=} {audiofile}"
+                    )
+                    return
+                add_track_to_playlist(self.config, playlist, track_id)
+                del self.file_creation_special_ops[fh]
                 return
-            add_track_to_playlist(self.config, playlist, track_id)
-            del self.playlist_additions_in_progress[fh]
-            return
+            if operation == "new-cover-art":
+                entity_type, entity_id = ident
+                if entity_type == "release":
+                    logger.debug(
+                        "LOGICAL: Narrowed file creation special op to write release cover art"
+                    )
+                    with tempfile.TemporaryDirectory() as tmpdir:
+                        imagepath = Path(tmpdir) / f"f{ext}"
+                        with imagepath.open("wb") as fp:
+                            fp.write(b)
+                        set_release_cover_art(self.config, entity_id, imagepath)
+                    del self.file_creation_special_ops[fh]
+                    return
+                if entity_type == "playlist":
+                    logger.debug(
+                        "LOGICAL: Narrowed file creation special op to write playlist cover art"
+                    )
+                    with tempfile.TemporaryDirectory() as tmpdir:
+                        imagepath = Path(tmpdir) / f"f{ext}"
+                        with imagepath.open("wb") as fp:
+                            fp.write(b)
+                        set_playlist_cover_art(self.config, entity_id, imagepath)
+                    del self.file_creation_special_ops[fh]
+                    return
+            raise RoseError(f"Impossible: unknown file creation special op: {operation=} {ident=}")
         if release_id := self.update_release_on_fh_close.get(fh, None):
             logger.debug(
                 f"LOGICAL: Triggering cache update for release {release_id} after release syscall"

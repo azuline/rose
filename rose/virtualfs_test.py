@@ -237,6 +237,68 @@ def test_virtual_filesystem_playlist_actions(
         assert not (src / "!playlists" / "New Jeans.toml").exists()
 
 
+def test_virtual_filesystem_set_release_cover_art(
+    config: Config,
+    source_dir: Path,  # noqa: ARG001
+) -> None:
+    root = config.fuse_mount_dir
+    release_dir = root / "1. Releases" / "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop]"
+    with start_virtual_fs(config):
+        assert not (release_dir / "cover.jpg").is_file()
+        # First write.
+        with (release_dir / "folder.jpg").open("w") as fp:
+            fp.write("hi")
+        assert (release_dir / "cover.jpg").is_file()
+        with (release_dir / "cover.jpg").open("r") as fp:
+            assert fp.read() == "hi"
+
+        # Second write to same filename.
+        with (release_dir / "cover.jpg").open("w") as fp:
+            fp.write("hi")
+        with (release_dir / "cover.jpg").open("r") as fp:
+            assert fp.read() == "hi"
+
+        # Third write to different filename.
+        with (release_dir / "front.png").open("w") as fp:
+            fp.write("hi")
+        assert (release_dir / "cover.png").is_file()
+        with (release_dir / "cover.png").open("r") as fp:
+            assert fp.read() == "hi"
+        # Because of ghost writes, getattr succeeds, so we shouldn't check exists().
+        assert "cover.jpg" not in [f.name for f in release_dir.iterdir()]
+
+
+def test_virtual_filesystem_set_playlist_cover_art(
+    config: Config,
+    source_dir: Path,  # noqa: ARG001
+) -> None:
+    root = config.fuse_mount_dir
+    playlist_dir = root / "8. Playlists" / "Lala Lisa"
+    with start_virtual_fs(config):
+        assert (playlist_dir / "cover.jpg").is_file()
+        # First write.
+        with (playlist_dir / "folder.jpg").open("w") as fp:
+            fp.write("hi")
+        assert (playlist_dir / "cover.jpg").is_file()
+        with (playlist_dir / "cover.jpg").open("r") as fp:
+            assert fp.read() == "hi"
+
+        # Second write to same filename.
+        with (playlist_dir / "cover.jpg").open("w") as fp:
+            fp.write("hi")
+        with (playlist_dir / "cover.jpg").open("r") as fp:
+            assert fp.read() == "hi"
+
+        # Third write to different filename.
+        with (playlist_dir / "front.png").open("w") as fp:
+            fp.write("hi")
+        assert (playlist_dir / "cover.png").is_file()
+        with (playlist_dir / "cover.png").open("r") as fp:
+            assert fp.read() == "hi"
+        # Because of ghost writes, getattr succeeds, so we shouldn't check exists().
+        assert "cover.jpg" not in [f.name for f in playlist_dir.iterdir()]
+
+
 def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> None:
     dirname = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
     root = config.fuse_mount_dir

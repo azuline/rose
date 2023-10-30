@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 import tomllib
 
-from conftest import TEST_RELEASE_1
+from conftest import TEST_PLAYLIST_1, TEST_RELEASE_1
 from rose.cache import connect, update_cache
 from rose.config import Config
 from rose.playlists import (
@@ -16,6 +16,7 @@ from rose.playlists import (
     edit_playlist_in_editor,
     remove_track_from_playlist,
     rename_playlist,
+    set_playlist_cover_art,
 )
 
 
@@ -234,3 +235,26 @@ missing = true
     with connect(config) as conn:
         cursor = conn.execute("SELECT EXISTS(SELECT * FROM playlists WHERE name = 'You & Me')")
         assert not cursor.fetchone()[0]
+
+
+def test_set_playlist_cover_art(isolated_dir: Path, config: Config) -> None:
+    imagepath = isolated_dir / "folder.png"
+    with imagepath.open("w") as fp:
+        fp.write("lalala")
+
+    playlists_dir = config.music_source_dir / "!playlists"
+    shutil.copytree(TEST_PLAYLIST_1, playlists_dir)
+    (playlists_dir / "Turtle Rabbit.toml").touch()
+    (playlists_dir / "Turtle Rabbit.jpg").touch()
+    (playlists_dir / "Lala Lisa.txt").touch()
+    update_cache(config)
+
+    set_playlist_cover_art(config, "Lala Lisa", imagepath)
+    assert (playlists_dir / "Lala Lisa.png").is_file()
+    assert not (playlists_dir / "Lala Lisa.jpg").exists()
+    assert (playlists_dir / "Lala Lisa.txt").is_file()
+    assert len(list(playlists_dir.iterdir())) == 5
+
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT cover_path FROM playlists WHERE name = 'Lala Lisa'")
+        assert Path(cursor.fetchone()["cover_path"]) == playlists_dir / "Lala Lisa.png"

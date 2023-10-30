@@ -30,7 +30,7 @@ TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")
 YEAR_REGEX = re.compile(r"\d{4}$")
 DATE_REGEX = re.compile(r"(\d{4})-\d{2}-\d{2}")
 
-SUPPORTED_EXTENSIONS = [
+SUPPORTED_AUDIO_EXTENSIONS = [
     ".mp3",
     ".m4a",
     ".ogg",
@@ -96,7 +96,7 @@ class AudioFile:
     @classmethod
     def from_file(cls, p: Path) -> AudioFile:
         """Read the tags of an audio file on disk."""
-        if not any(p.suffix.lower() == ext for ext in SUPPORTED_EXTENSIONS):
+        if not any(p.suffix.lower() == ext for ext in SUPPORTED_AUDIO_EXTENSIONS):
             raise UnsupportedFiletypeError(f"{p.suffix} not a supported filetype")
         m = mutagen.File(p)  # type: ignore
         if isinstance(m, mutagen.mp3.MP3):

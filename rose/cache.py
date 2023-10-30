@@ -48,7 +48,7 @@ import uuid6
 from rose.artiststr import format_artist_string
 from rose.common import VERSION
 from rose.config import Config
-from rose.tagger import SUPPORTED_EXTENSIONS, AudioFile
+from rose.tagger import SUPPORTED_AUDIO_EXTENSIONS, AudioFile
 
 logger = logging.getLogger(__name__)
 
@@ -572,7 +572,9 @@ def _update_cache_for_releases_executor(
         try:
             first_audio_file = Path(
                 next(
-                    f for f in files if any(f.lower().endswith(ext) for ext in SUPPORTED_EXTENSIONS)
+                    f
+                    for f in files
+                    if any(f.lower().endswith(ext) for ext in SUPPORTED_AUDIO_EXTENSIONS)
                 )
             )
         except StopIteration:
@@ -727,7 +729,9 @@ def _update_cache_for_releases_executor(
         # tags.
         pulled_release_tags = False
         for f in files:
-            if not any(os.path.basename(f).lower().endswith(ext) for ext in SUPPORTED_EXTENSIONS):
+            if not any(
+                os.path.basename(f).lower().endswith(ext) for ext in SUPPORTED_AUDIO_EXTENSIONS
+            ):
                 continue
 
             cached_track = cached_tracks.get(f, None)

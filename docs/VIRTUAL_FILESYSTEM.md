@@ -102,7 +102,7 @@ All command line commands accept releases in three formats:
 3. The path to the release in the virtual filesystem. The virtual filesystem
    must be mounted for this format to work.
 
-## Toggle NEW-ness
+## Toggle Release NEW-ness
 
 Command line:
 
@@ -150,6 +150,52 @@ $ mv "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-P
 $ tree "2. Releases - New/"
 2. Releases - New/
 └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
+```
+
+## Set Release Cover Art
+
+_The filename of the cover art in the virtual filesystem will always appear as
+`cover.{ext}`, regardless of the cover art name in the source directory._
+
+Command line:
+
+```bash
+$ cd $fuse_mount_dir
+
+$ rose releases set-cover "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]" ./cover.jpg
+[20:43:50] INFO: Set the cover of release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match to cover.jpg
+[20:43:50] INFO: Refreshing the read cache for 1 releases
+[20:43:50] INFO: Applying cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
+
+$ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/"
+1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/
+├── 01. LOOΠΔ ODD EYE CIRCLE - ODD.opus
+├── 02. LOOΠΔ ODD EYE CIRCLE - Girl Front.opus
+├── 03. LOOΠΔ ODD EYE CIRCLE - LOONATIC.opus
+├── 04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
+├── 05. LOOΠΔ ODD EYE CIRCLE - Starlight.opus
+└── cover.jpg
+```
+
+Virtual filesystem:
+
+_The filename of the created file in the release directory must be one of the
+valid cover art filenames. The valid cover art filenames are controlled by and
+documented in [Configuration](./CONFIGURATION.md)._
+
+```bash
+$ cd $fuse_mount_dir
+
+$ mv ~/downloads/cover.jpg "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/cover.jpg"
+
+$ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/"
+1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/
+├── 01. LOOΠΔ ODD EYE CIRCLE - ODD.opus
+├── 02. LOOΠΔ ODD EYE CIRCLE - Girl Front.opus
+├── 03. LOOΠΔ ODD EYE CIRCLE - LOONATIC.opus
+├── 04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
+├── 05. LOOΠΔ ODD EYE CIRCLE - Starlight.opus
+└── cover.jpg
 ```
 
 ## Delete a Release

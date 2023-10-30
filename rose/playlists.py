@@ -4,6 +4,7 @@ The playlists module encapsulates all mutations that can occur on playlists.
 
 import json
 import logging
+import shutil
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -22,7 +23,7 @@ from rose.cache import (
     update_cache_evict_nonexistent_playlists,
     update_cache_for_playlists,
 )
-from rose.common import RoseError
+from rose.common import InvalidCoverArtFileError, RoseError
 from rose.config import Config
 
 logger = logging.getLogger(__name__)
@@ -200,6 +201,30 @@ def edit_playlist_in_editor(c: Config, playlist_name: str) -> None:
             tomli_w.dump(data, fp)
     logger.info(f"Edited playlist {playlist_name} from EDITOR")
     update_cache_for_playlists(c, [playlist_name], force=True)
+
+
+def set_playlist_cover_art(c: Config, playlist_name: str, new_cover_art_path: Path) -> None:
+    """
+    This function removes all potential cover arts for the playlist, and then copies the file
+    file located at the passed in path to be the playlist's art file.
+    """
+    suffix = new_cover_art_path.suffix.lower()
+    if suffix[1:] not in c.valid_art_exts:
+        raise InvalidCoverArtFileError(
+            f"File {new_cover_art_path.name}'s extension is not supported for cover images: "
+            "To change this, please read the configuration documentation"
+        )
+
+    path = playlist_path(c, playlist_name)
+    if not path.exists():
+        raise PlaylistDoesNotExistError(f"Playlist {playlist_name} does not exist")
+    for f in (c.music_source_dir / "!playlists").iterdir():
+        if f.stem == playlist_name and f.suffix[1:].lower() in c.valid_art_exts:
+            logger.debug(f"Deleting existing cover art {f.name} in playlists")
+            f.unlink()
+    shutil.copyfile(new_cover_art_path, path.with_suffix(suffix))
+    logger.info(f"Set the cover of playlist {playlist_name} to {new_cover_art_path.name}")
+    update_cache_for_playlists(c, [playlist_name])
 
 
 def playlist_path(c: Config, name: str) -> Path:

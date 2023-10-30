@@ -104,14 +104,14 @@ $ cd $fuse_mount_dir
 
 $ mkdir "7. Collages/Morning"
 
-$ tree "7. Collages"
+$ tree "7. Collages/"
 1. Collages/
 ├── Morning/...
 └── Road Trip/...
 
 $ mkdir "8. Playlists/Evening"
 
-$ tree "8. Playlists"
+$ tree "8. Playlists/"
 2. Playlists/
 ├── Evening/...
 └── Shower/...
@@ -227,7 +227,7 @@ BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]
 [18:20:53] INFO: Refreshing the read cache for 1 collages
 [18:20:53] INFO: Applying cache updates for collage Road Trip
 
-$ tree "7. Collages/Road Trip"
+$ tree "7. Collages/Road Trip/"
 7. Collages/Road Trip/
 ├── 1. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
 └── 2. BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]/...
@@ -246,7 +246,7 @@ LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
 [18:22:42] INFO: Refreshing the read cache for 1 playlists
 [18:22:42] INFO: Applying cache updates for playlist Shower
 
-$ tree "8. Playlists/Shower"
+$ tree "8. Playlists/Shower/"
 8. Playlists/Shower/
 ├── 1. BLACKPINK - PLAYING WITH FIRE.opus
 └── 2. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
@@ -279,14 +279,14 @@ $ cd $fuse_mount_dir
 
 $ rmdir "7. Collages/Morning"
 
-$ tree "7. Collages"
-7. Collages
+$ tree "7. Collages/"
+7. Collages/
 └── Road Trip/...
 
 $ rmdir "8. Playlists/Evening"
 
-$ tree "8. Playlists"
-8. Playlists
+$ tree "8. Playlists/"
+8. Playlists/
 └── Shower/...
 ```
 
@@ -307,7 +307,7 @@ $ rose collages rename "Road Trip" "Long Flight"
 [18:29:08] INFO: Evicting cached collages that are not on disk
 [18:29:08] INFO: Evicted collage Road Trip from cache
 
-$ tree "7. Collages"
+$ tree "7. Collages/"
 7. Collages/
 └── Long Flight/...
 
@@ -318,7 +318,7 @@ $ rose playlists rename "Shower" "Meal Prep"
 [18:30:17] INFO: Evicting cached playlists that are not on disk
 [18:30:17] INFO: Evicted playlist Shower from cache
 
-$ tree "8. Playlists"
+$ tree "8. Playlists/"
 8. Playlists/
 └── Meal Prep/...
 ```
@@ -330,13 +330,55 @@ $ cd $fuse_mount_dir
 
 $ mv "7. Collages/Road Trip/" "7. Collages/Long Flight"
 
-$ tree "7. Collages"
-7. Collages
+$ tree "7. Collages/"
+7. Collages/
 └── Long Flight/...
 
 $ mv "8. Playlists/Shower" "8. Playlsits/Meal Prep"
 
-$ tree "8. Playlists"
-8. Playlists
+$ tree "8. Playlists/"
+8. Playlists/
 └── Meal Prep/...
+```
+
+## Set Playlist Cover Art
+
+_This operation is playlist-only, as collages do not have their own cover art._
+
+_The filename of the cover art in the virtual filesystem will always appear as
+`cover.{ext}`, regardless of the cover art name in the source directory._
+
+Command line:
+
+```bash
+$ cd $fuse_mount_dir
+
+$ rose playlists set-cover "Shower" ./cover.jpg
+[20:51:59] INFO: Set the cover of playlist Shower to cover.jpg
+[20:51:59] INFO: Refreshing the read cache for 1 playlists
+[20:51:59] INFO: Applying cache updates for playlist Shower
+
+$ tree "8. Playlists/Shower/"
+8. Playlists/Shower/
+├── 1. BLACKPINK - PLAYING WITH FIRE.opus
+├── 2. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
+└── cover.jpg
+```
+
+Virtual filesystem:
+
+_The filename of the created file in the release directory must be one of the
+valid cover art filenames. The valid cover art filenames are controlled by and
+documented in [Configuration](./CONFIGURATION.md)._
+
+```bash
+$ cd $fuse_mount_dir
+
+$ mv ~/downloads/cover.jpg "8. Playlists/Shower/cover.jpg"
+
+$ tree "8. Playlists/Shower/"
+8. Playlists/Shower/
+├── 1. BLACKPINK - PLAYING WITH FIRE.opus
+├── 2. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
+└── cover.jpg
 ```

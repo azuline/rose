@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -31,7 +32,7 @@ from rose.cache import (
     update_cache_for_collages,
     update_cache_for_releases,
 )
-from rose.common import RoseError, valid_uuid
+from rose.common import InvalidCoverArtFileError, RoseError, valid_uuid
 from rose.config import Config
 from rose.tagger import AudioFile
 
@@ -94,6 +95,36 @@ def toggle_release_new(c: Config, release_id_or_virtual_dirname: str) -> None:
         return
 
     logger.critical(f"Failed to find .rose.toml in {source_path}")
+
+
+def set_release_cover_art(
+    c: Config,
+    release_id_or_virtual_dirname: str,
+    new_cover_art_path: Path,
+) -> None:
+    """
+    This function removes all potential cover arts in the release source directory and copies the
+    file located at the passed in path to `cover.{ext}` in the release source directory.
+    """
+    suffix = new_cover_art_path.suffix.lower()
+    if suffix[1:] not in c.valid_art_exts:
+        raise InvalidCoverArtFileError(
+            f"File {new_cover_art_path.name}'s extension is not supported for cover images: "
+            "To change this, please read the configuration documentation"
+        )
+
+    release_id, release_dirname = resolve_release_ids(c, release_id_or_virtual_dirname)
+    source_path = get_release_source_path_from_id(c, release_id)
+    if source_path is None:
+        logger.debug(f"Failed to lookup source path for release {release_id} ({release_dirname})")
+        return None
+    for f in source_path.iterdir():
+        if f.name.lower() in c.valid_cover_arts:
+            logger.debug(f"Deleting existing cover art {f.name} in {release_dirname}")
+            send2trash(f)
+    shutil.copyfile(new_cover_art_path, source_path / f"cover{new_cover_art_path.suffix}")
+    logger.info(f"Set the cover of release {release_dirname} to {new_cover_art_path.name}")
+    update_cache_for_releases(c, [source_path])
 
 
 @dataclass
