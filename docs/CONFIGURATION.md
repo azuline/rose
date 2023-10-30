@@ -109,6 +109,24 @@ cache_dir = "~/.cache/rose"
 max_proc = 4
 ```
 
+# Shell Completion
+
+Rosé supports optional shell completion for the `bash`, `zsh`, and `fish`
+shells. The following commands enable shell completion:
+
+```bash
+# Bash
+$ rose generate-shell-completion bash > ~/.config/rose/completion.bash
+$ echo ". ~/.config/rose/.completion.bash" >> ~/.bashrc
+
+# Zsh
+$ rose generate-shell-completion zsh > ~/.config/rose/completion.zsh
+$ echo ". ~/.config/rose/.completion.zsh" >> ~/.zshrc
+
+# Fish
+$ rose generate-shell-completion fish > ~/.config/fish/completions/rose.fish
+```
+
 # Systemd
 
 By default, the `rose fs mount` and `rose cache watch` commands spawn daemons

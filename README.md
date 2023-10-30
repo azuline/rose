@@ -366,6 +366,7 @@ For additional documentation, please refer to the following files:
 - [Managing Your Music Metadata](./docs/METADATA_MANAGEMENT.md)
 - [Using Playlists & Collages](./docs/PLAYLISTS_COLLAGES.md)
 - [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md)
+- [Shell Scripting](./SHELL_SCRIPTING.md)
 - [Architecture](./docs/ARCHITECTURE.md)
 
 # License

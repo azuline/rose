@@ -10,6 +10,7 @@ the Virtual Filesystem and Watcher run subthreads, which cannot fork off.
 import logging
 import os
 import signal
+import subprocess
 from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
@@ -389,6 +390,14 @@ def set_cover2(ctx: Context, playlist: str, cover: Path) -> None:
 def remove_cover2(ctx: Context, playlist: str) -> None:
     """Remove the cover art of a playlist. Accepts a playlist name."""
     remove_playlist_cover_art(ctx.config, playlist)
+
+
+@cli.command()
+@click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]), nargs=1)
+def generate_shell_completion(shell: str) -> None:
+    """Print a shell completion script."""
+    os.environ["_ROSE_COMPLETE"] = f"{shell}_source"
+    subprocess.run(["rose"], env=os.environ)
 
 
 def parse_release_from_potential_path(c: Config, r: str) -> str:
