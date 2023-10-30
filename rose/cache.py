@@ -16,8 +16,8 @@ the overall complexity of the cache update sequence:
    For performance, however, a track update ends up as a delete followed by an insert with the
    just-deleted ID.
 2. **In-progress directory creation:** We may come across a directory while it is in the process of
-   being created. For example, due to `cp -r`. We attempt to ignore directories that lack a
-   `.rose.{uuid}.toml` file, yet have a `Release ID` written syncthing synchronization.
+   being created. For example, due to `cp -r`. Unless --force is passed, we skip directories that
+   lack a `.rose.{uuid}.toml` file, yet have a `Release ID` written syncthing synchronization.
 2. **Performance:** We want to minimize file accesses, so we cache heavily and batch operations
    together. This creates a lot of intermediate state that we accumulate throughout the cache
    update.
@@ -641,11 +641,12 @@ def _update_cache_for_releases_executor(
             release_id_from_first_file = None
             with contextlib.suppress(Exception):
                 release_id_from_first_file = AudioTags.from_file(first_audio_file).release_id
-            directory_mtime = os.stat(source_path).st_mtime
-            if release_id_from_first_file is not None and time.time() - directory_mtime < 3.0:
+            if release_id_from_first_file is not None and not force:
                 logger.info(
-                    f'No-Op: Skipping cache update for "creation in-progress" for '
-                    f"{source_path}: missing .rose.{{uuid}}.toml file and recent Last Modified"
+                    f"No-Op: Skipping release at {source_path}: files in release already have "
+                    f"release_id {release_id_from_first_file}, but .rose.{{uuid}}.toml is missing, "
+                    "is another tool in the middle of writing the directory? Run with --force to "
+                    "recreate .rose.{uuid}.toml"
                 )
                 continue
 
@@ -655,7 +656,7 @@ def _update_cache_for_releases_executor(
                 added_at=datetime.now().astimezone().replace(microsecond=0).isoformat(),
             )
             # Preserve the release ID already present the first file if we can.
-            new_release_id = str(uuid6.uuid7())
+            new_release_id = release_id_from_first_file or str(uuid6.uuid7())
             datafile_path = source_path / f".rose.{new_release_id}.toml"
             # No need to lock here, as since the release ID is new, there is no way there is a
             # concurrent writer.

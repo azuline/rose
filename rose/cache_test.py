@@ -604,6 +604,23 @@ def test_update_cache_releases_ignores_partially_written_directory(config: Confi
         cursor = conn.execute("SELECT COUNT(*) FROM releases")
         assert cursor.fetchone()[0] == 1
 
+    # 5. Rename and remove the ID file again. We should see an empty cache again.
+    release_dir = renamed_release_dir
+    renamed_release_dir = config.music_source_dir / "bahaha"
+    release_dir.rename(renamed_release_dir)
+    next(f for f in renamed_release_dir.iterdir() if f.stem.startswith(".rose")).unlink()
+    update_cache(config)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        assert cursor.fetchone()[0] == 0
+
+    # 6. Run with force=True. This should index the directory and make a new .rose.toml file.
+    update_cache(config, force=True)
+    assert (renamed_release_dir / datafile.name).is_file()
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        assert cursor.fetchone()[0] == 1
+
 
 def test_update_cache_collages(config: Config) -> None:
     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
