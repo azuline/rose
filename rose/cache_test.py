@@ -8,6 +8,7 @@ import pytest
 import tomllib
 
 from conftest import TEST_COLLAGE_1, TEST_PLAYLIST_1, TEST_RELEASE_1, TEST_RELEASE_2, TEST_RELEASE_3
+from rose.audiotags import AudioTags
 from rose.cache import (
     CACHE_SCHEMA_PATH,
     STORED_DATA_FILE_REGEX,
@@ -46,7 +47,6 @@ from rose.cache import (
 )
 from rose.common import VERSION
 from rose.config import Config
-from rose.tagger import AudioFile
 
 
 def test_schema(config: Config) -> None:
@@ -298,19 +298,19 @@ def test_update_cache_releases_writes_ids_to_tags(config: Config) -> None:
     release_dir = config.music_source_dir / TEST_RELEASE_3.name
     shutil.copytree(TEST_RELEASE_3, release_dir)
 
-    af = AudioFile.from_file(release_dir / "01.m4a")
+    af = AudioTags.from_file(release_dir / "01.m4a")
     assert af.id is None
     assert af.release_id is None
-    af = AudioFile.from_file(release_dir / "02.m4a")
+    af = AudioTags.from_file(release_dir / "02.m4a")
     assert af.id is None
     assert af.release_id is None
 
     update_cache_for_releases(config, [release_dir])
 
-    af = AudioFile.from_file(release_dir / "01.m4a")
+    af = AudioTags.from_file(release_dir / "01.m4a")
     assert af.id is not None
     assert af.release_id is not None
-    af = AudioFile.from_file(release_dir / "02.m4a")
+    af = AudioTags.from_file(release_dir / "02.m4a")
     assert af.id is not None
     assert af.release_id is not None
 

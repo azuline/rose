@@ -46,6 +46,7 @@ from typing import Any, Literal
 import cachetools
 import llfuse
 
+from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
 from rose.cache import (
     artist_exists,
     collage_exists,
@@ -89,7 +90,6 @@ from rose.releases import (
     set_release_cover_art,
     toggle_release_new,
 )
-from rose.tagger import SUPPORTED_AUDIO_EXTENSIONS, AudioFile
 
 logger = logging.getLogger(__name__)
 
@@ -894,7 +894,7 @@ class RoseLogicalCore:
                     audiopath = Path(tmpdir) / f"f{ext}"
                     with audiopath.open("wb") as fp:
                         fp.write(b)
-                    audiofile = AudioFile.from_file(audiopath)
+                    audiofile = AudioTags.from_file(audiopath)
                     track_id = audiofile.id
                 if not track_id:
                     logger.warning(

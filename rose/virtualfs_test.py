@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from rose.audiotags import AudioTags
 from rose.config import Config
-from rose.tagger import AudioFile
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
 
@@ -124,7 +124,7 @@ def test_virtual_filesystem_write_files(
     )
     with start_virtual_fs(config):
         # Write!
-        af = AudioFile.from_file(path)
+        af = AudioTags.from_file(path)
         assert af.title == "Track 1"
         af.title = "Hahahaha!!"
         af.flush()
@@ -132,7 +132,7 @@ def test_virtual_filesystem_write_files(
         assert not path.exists()
         path = path.with_name("01. BLACKPINK - Hahahaha!!.m4a")
         assert path.is_file()
-        af = AudioFile.from_file(path)
+        af = AudioTags.from_file(path)
         assert af.title == "Hahahaha!!"
 
 

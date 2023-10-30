@@ -5,8 +5,8 @@ import pytest
 
 from conftest import TEST_TAGGER
 from rose.artiststr import ArtistMapping
-from rose.tagger import (
-    AudioFile,
+from rose.audiotags import (
+    AudioTags,
     UnsupportedTagValueTypeError,
     _split_tag,
 )
@@ -23,7 +23,7 @@ from rose.tagger import (
     ],
 )
 def test_getters(filename: str, track_num: str, duration: int) -> None:
-    af = AudioFile.from_file(TEST_TAGGER / filename)
+    af = AudioTags.from_file(TEST_TAGGER / filename)
     assert af.track_number == track_num
     assert af.title == f"Track {track_num}"
 
@@ -60,12 +60,12 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     """Test the flush by flushing the file, then asserting that all the tags still read properly."""
     fpath = isolated_dir / filename
     shutil.copyfile(TEST_TAGGER / filename, fpath)
-    af = AudioFile.from_file(fpath)
+    af = AudioTags.from_file(fpath)
     # Inject one special case into here: modify the djmixer artist. This checks that we also clear
     # the original djmixer tag, so that the next read does not contain Artist EF and Artist FG.
     af.artists.djmixer = ["New"]
     af.flush()
-    af = AudioFile.from_file(fpath)
+    af = AudioTags.from_file(fpath)
 
     assert af.track_number == track_num
     assert af.title == f"Track {track_num}"
@@ -104,12 +104,12 @@ def test_id_assignment(isolated_dir: Path, filename: str) -> None:
     fpath = isolated_dir / filename
     shutil.copyfile(TEST_TAGGER / filename, fpath)
 
-    af = AudioFile.from_file(fpath)
+    af = AudioTags.from_file(fpath)
     af.id = "ahaha"
     af.release_id = "bahaha"
     af.flush()
 
-    af = AudioFile.from_file(fpath)
+    af = AudioTags.from_file(fpath)
     assert af.id == "ahaha"
     assert af.release_id == "bahaha"
 
@@ -124,7 +124,7 @@ def test_release_type_normalization(isolated_dir: Path, filename: str) -> None:
     shutil.copyfile(TEST_TAGGER / filename, fpath)
 
     # Check that release type is read correctly.
-    af = AudioFile.from_file(fpath)
+    af = AudioTags.from_file(fpath)
     assert af.release_type == "album"
     # Assert that attempting to flush a stupid value fails.
     af.release_type = "lalala"
@@ -133,12 +133,12 @@ def test_release_type_normalization(isolated_dir: Path, filename: str) -> None:
     # Flush it anyways...
     af.flush(validate=False)
     # Check that stupid release type is normalized as unknown.
-    af = AudioFile.from_file(fpath)
+    af = AudioTags.from_file(fpath)
     assert af.release_type == "unknown"
     # And now assert that the read is case insensitive.
     af.release_type = "ALBUM"
     af.flush(validate=False)
-    af = AudioFile.from_file(fpath)
+    af = AudioTags.from_file(fpath)
     assert af.release_type == "album"
 
 

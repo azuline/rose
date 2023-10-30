@@ -1,8 +1,8 @@
 """
-The tagger module abstracts over tag reading and writing for five different audio formats, exposing
-a single standard interface for all audio files.
+The audiotags module abstracts over tag reading and writing for five different audio formats,
+exposing a single standard interface for all audio files.
 
-The tagger module also handles Rose-specific tagging semantics, such as multi-valued tags,
+The audiotags module also handles Rose-specific tagging semantics, such as multi-valued tags,
 normalization, and enum validation.
 """
 
@@ -74,7 +74,7 @@ class UnsupportedTagValueTypeError(RoseError):
 
 
 @dataclass
-class AudioFile:
+class AudioTags:
     id: str | None
     release_id: str | None
     title: str | None
@@ -94,7 +94,7 @@ class AudioFile:
     _m: Any
 
     @classmethod
-    def from_file(cls, p: Path) -> AudioFile:
+    def from_file(cls, p: Path) -> AudioTags:
         """Read the tags of an audio file on disk."""
         if not any(p.suffix.lower() == ext for ext in SUPPORTED_AUDIO_EXTENSIONS):
             raise UnsupportedFiletypeError(f"{p.suffix} not a supported filetype")
@@ -115,7 +115,7 @@ class AudioFile:
                     return r" \\ ".join([p[1] for p in frame.people if p[0].lower() == x.lower()])
                 return None
 
-            return AudioFile(
+            return AudioTags(
                 id=_get_tag(m.tags, ["TXXX:ROSEID"]),
                 release_id=_get_tag(m.tags, ["TXXX:ROSERELEASEID"]),
                 title=_get_tag(m.tags, ["TIT2"]),
@@ -139,7 +139,7 @@ class AudioFile:
                 _m=m,
             )
         if isinstance(m, mutagen.mp4.MP4):
-            return AudioFile(
+            return AudioTags(
                 id=_get_tag(m.tags, ["----:net.sunsetglow.rose:ID"]),
                 release_id=_get_tag(m.tags, ["----:net.sunsetglow.rose:RELEASEID"]),
                 title=_get_tag(m.tags, ["\xa9nam"]),
@@ -165,7 +165,7 @@ class AudioFile:
                 _m=m,
             )
         if isinstance(m, (mutagen.flac.FLAC, mutagen.oggvorbis.OggVorbis, mutagen.oggopus.OggOpus)):
-            return AudioFile(
+            return AudioTags(
                 id=_get_tag(m.tags, ["roseid"]),
                 release_id=_get_tag(m.tags, ["rosereleaseid"]),
                 title=_get_tag(m.tags, ["title"]),

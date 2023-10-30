@@ -46,9 +46,9 @@ import tomllib
 import uuid6
 
 from rose.artiststr import format_artist_string
+from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
 from rose.common import VERSION
 from rose.config import Config
-from rose.tagger import SUPPORTED_AUDIO_EXTENSIONS, AudioFile
 
 logger = logging.getLogger(__name__)
 
@@ -634,7 +634,7 @@ def _update_cache_for_releases_executor(
             # process the directory at this time.
             release_id_from_first_file = None
             with contextlib.suppress(Exception):
-                release_id_from_first_file = AudioFile.from_file(first_audio_file).release_id
+                release_id_from_first_file = AudioTags.from_file(first_audio_file).release_id
             directory_mtime = os.stat(source_path).st_mtime
             if release_id_from_first_file is not None and time.time() - directory_mtime < 3.0:
                 logger.info(
@@ -725,7 +725,7 @@ def _update_cache_for_releases_executor(
         # in a follow-up loop.
         tracks: list[CachedTrack] = []
         track_ids_to_insert: set[str] = set()
-        # This value is set to true if we read an AudioFile and used it to confirm the release
+        # This value is set to true if we read an AudioTags and used it to confirm the release
         # tags.
         pulled_release_tags = False
         for f in files:
@@ -749,7 +749,7 @@ def _update_cache_for_releases_executor(
 
             # Otherwise, read tags from disk and construct a new cached_track.
             logger.debug(f"Track cache miss for {os.path.basename(f)}, reading tags from disk")
-            tags = AudioFile.from_file(Path(f))
+            tags = AudioTags.from_file(Path(f))
 
             # Now that we're here, pull the release tags. We also need them to compute the
             # formatted artist string.

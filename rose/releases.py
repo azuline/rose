@@ -17,6 +17,7 @@ import tomllib
 from send2trash import send2trash
 
 from rose.artiststr import ArtistMapping
+from rose.audiotags import AudioTags
 from rose.cache import (
     STORED_DATA_FILE_REGEX,
     CachedRelease,
@@ -34,7 +35,6 @@ from rose.cache import (
 )
 from rose.common import InvalidCoverArtFileError, RoseError, valid_uuid
 from rose.config import Config
-from rose.tagger import AudioFile
 
 logger = logging.getLogger()
 
@@ -243,7 +243,7 @@ def edit_release(c: Config, release_id_or_virtual_dirname: str) -> None:
 
         for t in tracks:
             track_meta = release_meta.tracks[t.id]
-            tags = AudioFile.from_file(t.source_path)
+            tags = AudioTags.from_file(t.source_path)
 
             dirty = False
 
