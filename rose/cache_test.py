@@ -97,7 +97,7 @@ def test_migration(config: Config) -> None:
 
 
 def test_locks(config: Config) -> None:
-    """Test that taking locks works."""
+    """Test that taking locks works. The times are a bit loose b/c GH Actions is slow."""
     lock_name = "lol"
 
     # Test that the locking and timeout work.
@@ -107,7 +107,7 @@ def test_locks(config: Config) -> None:
         with lock(config, lock_name, timeout=0.2):
             lock2_acq = time.time()
     # Assert that we had to wait ~0.1sec to get the second lock.
-    assert lock1_acq - start < 0.05
+    assert lock1_acq - start < 0.08
     assert lock2_acq - lock1_acq > 0.17
 
     # Test that releasing a lock actually works.
@@ -117,8 +117,8 @@ def test_locks(config: Config) -> None:
     with lock(config, lock_name, timeout=0.2):
         lock2_acq = time.time()
     # Assert that we had to wait negligible time to get the second lock.
-    assert lock1_acq - start < 0.05
-    assert lock2_acq - lock1_acq < 0.05
+    assert lock1_acq - start < 0.08
+    assert lock2_acq - lock1_acq < 0.08
 
 
 def test_update_cache_all(config: Config) -> None:
