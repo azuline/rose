@@ -1111,7 +1111,10 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
         vpath = VirtualPath.parse(spath)
         logger.debug(f"FUSE: Parsed getattr {spath=} to {vpath=}")
-        attrs = self.rose.getattr(vpath)
+        try:
+            attrs = self.rose.getattr(vpath)
+        except OSError as e:
+            raise llfuse.FUSEError(e.errno) from e
         attrs["st_ino"] = inode
         return self.make_entry_attributes(attrs)
 
@@ -1140,7 +1143,10 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
         vpath = VirtualPath.parse(spath)
         logger.debug(f"FUSE: Parsed lookup {spath=} to {vpath=}")
-        attrs = self.rose.getattr(vpath)
+        try:
+            attrs = self.rose.getattr(vpath)
+        except OSError as e:
+            raise llfuse.FUSEError(e.errno) from e
         attrs["st_ino"] = inode
         return self.make_entry_attributes(attrs)
 
@@ -1164,11 +1170,14 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         vpath = VirtualPath.parse(spath)
         logger.debug(f"FUSE: Parsed opendir {spath=} to {vpath=}")
         entries = []
-        for namestr, attrs in self.rose.readdir(vpath):
-            name = namestr.encode()
-            attrs["st_ino"] = self.inodes.calc_inode(spath / namestr)
-            entry = self.make_entry_attributes(attrs)
-            entries.append((inode, name, entry))
+        try:
+            for namestr, attrs in self.rose.readdir(vpath):
+                name = namestr.encode()
+                attrs["st_ino"] = self.inodes.calc_inode(spath / namestr)
+                entry = self.make_entry_attributes(attrs)
+                entries.append((inode, name, entry))
+        except OSError as e:
+            raise llfuse.FUSEError(e.errno) from e
         fh = self.fhandler.next()
         self.readdir_cache[fh] = entries
         logger.debug(f"FUSE: Stored {len(entries)=} nodes into the readdir cache for {fh=}")
@@ -1204,7 +1213,10 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             return self.fhandler.dev_null
         vpath = VirtualPath.parse(spath)
         logger.debug(f"FUSE: Parsed open {spath=} to {vpath=}")
-        fh = self.rose.open(vpath, flags)
+        try:
+            fh = self.rose.open(vpath, flags)
+        except OSError as e:
+            raise llfuse.FUSEError(e.errno) from e
         # If this was a create operation, and Rose succeeded, flag the filepath as a ghost file and
         # _always_ pretend it exists for the following short duration.
         if flags & os.O_CREAT == os.O_CREAT:
@@ -1217,21 +1229,30 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         if fh == self.fhandler.dev_null:
             logger.debug(f"FUSE: Matched {fh=} to /dev/null sentinel")
             return b""
-        return self.rose.read(fh, offset, length)
+        try:
+            return self.rose.read(fh, offset, length)
+        except OSError as e:
+            raise llfuse.FUSEError(e.errno) from e
 
     def write(self, fh: int, offset: int, data: bytes) -> int:
         logger.debug(f"FUSE: Received write for {fh=} {offset=} {len(data)=}")
         if fh == self.fhandler.dev_null:
             logger.debug(f"FUSE: Matched {fh=} to /dev/null sentinel")
             return len(data)
-        return self.rose.write(fh, offset, data)
+        try:
+            return self.rose.write(fh, offset, data)
+        except OSError as e:
+            raise llfuse.FUSEError(e.errno) from e
 
     def release(self, fh: int) -> None:
         logger.debug(f"FUSE: Received release for {fh=}")
         if fh == self.fhandler.dev_null:
             logger.debug(f"FUSE: Matched {fh=} to /dev/null sentinel")
             return
-        self.rose.release(fh)
+        try:
+            self.rose.release(fh)
+        except OSError as e:
+            raise llfuse.FUSEError(e.errno) from e
 
     def ftruncate(self, fh: int, length: int = 0) -> None:
         logger.debug(f"FUSE: Received ftruncate for {fh=} {length=}")
@@ -1254,7 +1275,10 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Resolved create {parent_inode=}/{name=} to {path=}")
         inode = self.inodes.calc_inode(path)
         logger.debug(f"FUSE: Created inode {inode=} for {path=}; now delegating to open call")
-        fh = self.open(inode, flags, ctx)
+        try:
+            fh = self.open(inode, flags, ctx)
+        except OSError as e:
+            raise llfuse.FUSEError(e.errno) from e
         self.reset_getattr_caches()
         attrs = self.rose.stat("file")
         attrs["st_ino"] = inode
@@ -1266,7 +1290,10 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Resolved unlink {parent_inode=}/{name=} to {spath=}")
         vpath = VirtualPath.parse(spath)
         logger.debug(f"FUSE: Parsed unlink {spath=} to {vpath=}")
-        self.rose.unlink(vpath)
+        try:
+            self.rose.unlink(vpath)
+        except OSError as e:
+            raise llfuse.FUSEError(e.errno) from e
         self.reset_getattr_caches()
         self.inodes.remove_path(spath)
 
@@ -1276,7 +1303,10 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Resolved mkdir {parent_inode=}/{name=} to {spath=}")
         vpath = VirtualPath.parse(spath, parse_release_position=False)
         logger.debug(f"FUSE: Parsed mkdir {spath=} to {vpath=}")
-        self.rose.mkdir(vpath)
+        try:
+            self.rose.mkdir(vpath)
+        except OSError as e:
+            raise llfuse.FUSEError(e.errno) from e
         self.reset_getattr_caches()
         inode = self.inodes.calc_inode(spath)
         # If this was an add to collage operation, then flag the directory as a ghost writeable
@@ -1294,7 +1324,10 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Resolved rmdir {parent_inode=}/{name=} to {spath=}")
         vpath = VirtualPath.parse(spath)
         logger.debug(f"FUSE: Parsed rmdir {spath=} to {vpath=}")
-        self.rose.rmdir(vpath)
+        try:
+            self.rose.rmdir(vpath)
+        except OSError as e:
+            raise llfuse.FUSEError(e.errno) from e
         self.reset_getattr_caches()
         self.inodes.remove_path(spath)
 
@@ -1321,7 +1354,10 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(
             f"FUSE: Parsed rmdir {old_spath=} to {old_vpath=} and {old_vpath=} to {new_vpath=}"
         )
-        self.rose.rename(old_vpath, new_vpath)
+        try:
+            self.rose.rename(old_vpath, new_vpath)
+        except OSError as e:
+            raise llfuse.FUSEError(e.errno) from e
         self.reset_getattr_caches()
         self.inodes.rename_path(old_spath, new_spath)
 

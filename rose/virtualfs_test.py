@@ -312,6 +312,29 @@ def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> 
         assert not (source_dir / "Test Release 3").exists()
 
 
+def test_virtual_filesystem_read_from_deleted_file(config: Config, source_dir: Path) -> None:
+    """
+    Properly catch system errors that occur due an out of date cache. Though many can occur, we
+    won't test for them all. However, we've wrapped all calls to RoseLogicalCore in OSError ->
+    FUSEError translations.
+    """
+    source_path = source_dir / "Test Release 1" / "01.m4a"
+    fuse_path = (
+        config.fuse_mount_dir
+        / "1. Releases"
+        / "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop]"
+        / "01. BLACKPINK - Track 1.m4a"
+    )
+
+    source_path.unlink()
+    with start_virtual_fs(config):
+        with pytest.raises(OSError):  # noqa: PT011
+            fuse_path.open("rb")
+        # Assert that the virtual fs did not crash. It needs some time to propagate the crash.
+        time.sleep(0.05)
+        assert (config.fuse_mount_dir / "1. Releases").is_dir()
+
+
 def test_virtual_filesystem_toggle_new(config: Config, source_dir: Path) -> None:  # noqa: ARG001
     dirname = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
     root = config.fuse_mount_dir
