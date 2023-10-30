@@ -227,5 +227,23 @@ def set_playlist_cover_art(c: Config, playlist_name: str, new_cover_art_path: Pa
     update_cache_for_playlists(c, [playlist_name])
 
 
+def remove_playlist_cover_art(c: Config, playlist_name: str) -> None:
+    """This function removes all potential cover arts for the playlist."""
+    path = playlist_path(c, playlist_name)
+    if not path.exists():
+        raise PlaylistDoesNotExistError(f"Playlist {playlist_name} does not exist")
+    found = False
+    for f in (c.music_source_dir / "!playlists").iterdir():
+        if f.stem == playlist_name and f.suffix[1:].lower() in c.valid_art_exts:
+            logger.debug(f"Deleting existing cover art {f.name} in playlists")
+            f.unlink()
+            found = True
+    if found:
+        logger.info(f"Deleted cover arts of playlist {playlist_name}")
+    else:
+        logger.info(f"No-Op: No cover arts found for playlist {playlist_name}")
+    update_cache_for_playlists(c, [playlist_name])
+
+
 def playlist_path(c: Config, name: str) -> Path:
     return c.music_source_dir / "!playlists" / f"{name}.toml"

@@ -382,3 +382,36 @@ $ tree "8. Playlists/Shower/"
 ├── 2. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
 └── cover.jpg
 ```
+
+## Remove Playlist Cover Art
+
+_This operation is playlist-only, as collages do not have their own cover art._
+
+Command line:
+
+```bash
+$ cd $fuse_mount_dir
+
+$ rose playlists remove-cover "Shower"
+[02:10:34] INFO: Deleted cover arts of playlist Lounge
+[02:10:34] INFO: Refreshing the read cache for 1 playlists
+[02:10:34] INFO: Applying cache updates for playlist Lounge
+
+$ tree "8. Playlists/Shower/"
+8. Playlists/Shower/
+├── 1. BLACKPINK - PLAYING WITH FIRE.opus
+└── 2. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
+```
+
+Virtual filesystem:
+
+```bash
+$ cd $fuse_mount_dir
+
+$ rm "8. Playlists/Shower/cover.jpg"
+
+$ tree "8. Playlists/Shower/"
+8. Playlists/Shower/
+├── 1. BLACKPINK - PLAYING WITH FIRE.opus
+└── 2. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
+```

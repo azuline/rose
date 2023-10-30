@@ -198,6 +198,43 @@ $ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;F
 └── cover.jpg
 ```
 
+## Remove Release Cover Art
+
+Command line:
+
+```bash
+$ cd $fuse_mount_dir
+
+$ rose releases remove-cover "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
+[02:13:17] INFO: Deleted cover arts of release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
+[02:13:17] INFO: Refreshing the read cache for 1 releases
+[02:13:17] INFO: Applying cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
+
+$ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/"
+1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/
+├── 01. LOOΠΔ ODD EYE CIRCLE - ODD.opus
+├── 02. LOOΠΔ ODD EYE CIRCLE - Girl Front.opus
+├── 03. LOOΠΔ ODD EYE CIRCLE - LOONATIC.opus
+├── 04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
+└── 05. LOOΠΔ ODD EYE CIRCLE - Starlight.opus
+```
+
+Virtual filesystem:
+
+```bash
+$ cd $fuse_mount_dir
+
+$ rm "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/cover.jpg"
+
+$ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/"
+1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/
+├── 01. LOOΠΔ ODD EYE CIRCLE - ODD.opus
+├── 02. LOOΠΔ ODD EYE CIRCLE - Girl Front.opus
+├── 03. LOOΠΔ ODD EYE CIRCLE - LOONATIC.opus
+├── 04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
+└── 05. LOOΠΔ ODD EYE CIRCLE - Starlight.opus
+```
+
 ## Delete a Release
 
 _Deletion will move the release into the trashbin, following the

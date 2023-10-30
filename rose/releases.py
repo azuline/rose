@@ -67,7 +67,7 @@ def delete_release(c: Config, release_id_or_virtual_dirname: str) -> None:
         return None
     with lock(c, release_lock_name(release_id)):
         send2trash(source_path)
-    logger.info(f"Trashed release {release_dirname}")
+    logger.info(f"Trashed release {source_path}")
     update_cache_evict_nonexistent_releases(c)
     # Update all collages so that the release is removed from whichever collages it was in.
     update_cache_for_collages(c, None, force=True)
@@ -90,7 +90,7 @@ def toggle_release_new(c: Config, release_id_or_virtual_dirname: str) -> None:
             data["new"] = not data["new"]
             with f.open("wb") as fp:
                 tomli_w.dump(data, fp)
-        logger.info(f"Toggled NEW-ness of release {release_dirname} to {data['new']=}")
+        logger.info(f"Toggled NEW-ness of release {source_path} to {data['new']=}")
         update_cache_for_releases(c, [source_path], force=True)
         return
 
@@ -123,7 +123,27 @@ def set_release_cover_art(
             logger.debug(f"Deleting existing cover art {f.name} in {release_dirname}")
             send2trash(f)
     shutil.copyfile(new_cover_art_path, source_path / f"cover{new_cover_art_path.suffix}")
-    logger.info(f"Set the cover of release {release_dirname} to {new_cover_art_path.name}")
+    logger.info(f"Set the cover of release {source_path} to {new_cover_art_path.name}")
+    update_cache_for_releases(c, [source_path])
+
+
+def remove_release_cover_art(c: Config, release_id_or_virtual_dirname: str) -> None:
+    """This function deletes all potential cover arts in the release source directory."""
+    release_id, release_dirname = resolve_release_ids(c, release_id_or_virtual_dirname)
+    source_path = get_release_source_path_from_id(c, release_id)
+    if source_path is None:
+        logger.debug(f"Failed to lookup source path for release {release_id} ({release_dirname})")
+        return None
+    found = False
+    for f in source_path.iterdir():
+        if f.name.lower() in c.valid_cover_arts:
+            logger.debug(f"Deleting existing cover art {f.name} in {release_dirname}")
+            send2trash(f)
+            found = True
+    if found:
+        logger.info(f"Deleted cover arts of release {source_path}")
+    else:
+        logger.info(f"No-Op: No cover arts found for release {source_path}")
     update_cache_for_releases(c, [source_path])
 
 

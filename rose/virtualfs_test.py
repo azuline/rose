@@ -237,7 +237,7 @@ def test_virtual_filesystem_playlist_actions(
         assert not (src / "!playlists" / "New Jeans.toml").exists()
 
 
-def test_virtual_filesystem_set_release_cover_art(
+def test_virtual_filesystem_release_cover_art_actions(
     config: Config,
     source_dir: Path,  # noqa: ARG001
 ) -> None:
@@ -267,8 +267,12 @@ def test_virtual_filesystem_set_release_cover_art(
         # Because of ghost writes, getattr succeeds, so we shouldn't check exists().
         assert "cover.jpg" not in [f.name for f in release_dir.iterdir()]
 
+        # Now delete the cover art.
+        (release_dir / "cover.png").unlink()
+        assert not (release_dir / "cover.png").exists()
 
-def test_virtual_filesystem_set_playlist_cover_art(
+
+def test_virtual_filesystem_playlist_cover_art_actions(
     config: Config,
     source_dir: Path,  # noqa: ARG001
 ) -> None:
@@ -297,6 +301,10 @@ def test_virtual_filesystem_set_playlist_cover_art(
             assert fp.read() == "hi"
         # Because of ghost writes, getattr succeeds, so we shouldn't check exists().
         assert "cover.jpg" not in [f.name for f in playlist_dir.iterdir()]
+
+        # Now delete the cover art.
+        (playlist_dir / "cover.png").unlink()
+        assert not (playlist_dir / "cover.png").exists()
 
 
 def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> None:

@@ -13,6 +13,7 @@ from rose.releases import (
     delete_release,
     dump_releases,
     edit_release,
+    remove_release_cover_art,
     resolve_release_ids,
     set_release_cover_art,
     toggle_release_new,
@@ -92,6 +93,22 @@ def test_set_release_cover_art(isolated_dir: Path, config: Config) -> None:
     with connect(config) as conn:
         cursor = conn.execute("SELECT cover_image_path FROM releases")
         assert Path(cursor.fetchone()["cover_image_path"]) == cover_image_path
+
+
+def test_remove_release_cover_art(config: Config) -> None:
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    (release_dir / "folder.png").touch()
+    update_cache(config)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT id FROM releases")
+        release_id = cursor.fetchone()["id"]
+
+    remove_release_cover_art(config, release_id)
+    assert not (release_dir / "folder.png").exists()
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT cover_image_path FROM releases")
+        assert not cursor.fetchone()["cover_image_path"]
 
 
 def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> None:

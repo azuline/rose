@@ -34,6 +34,7 @@ from rose.playlists import (
     delete_playlist,
     dump_playlists,
     edit_playlist_in_editor,
+    remove_playlist_cover_art,
     remove_track_from_playlist,
     rename_playlist,
     set_playlist_cover_art,
@@ -42,6 +43,7 @@ from rose.releases import (
     delete_release,
     dump_releases,
     edit_release,
+    remove_release_cover_art,
     set_release_cover_art,
     toggle_release_new,
 )
@@ -206,6 +208,18 @@ def set_cover(ctx: Context, release: str, cover: Path) -> None:
     set_release_cover_art(ctx.config, release, cover)
 
 
+@releases.command()
+@click.argument("release", type=str, nargs=1)
+@click.pass_obj
+def remove_cover(ctx: Context, release: str) -> None:
+    """
+    Remove the cover art of a release. For the release argument, accepts a release UUID, virtual
+    directory name, or virtual filesystem path.
+    """
+    release = parse_release_from_potential_path(ctx.config, release)
+    remove_release_cover_art(ctx.config, release)
+
+
 @releases.command(name="delete")
 @click.argument("release", type=str, nargs=1)
 @click.pass_obj
@@ -367,6 +381,14 @@ def set_cover2(ctx: Context, playlist: str, cover: Path) -> None:
     Set the cover art of a playlist. Accepts a playlist name and a path to an image.
     """
     set_playlist_cover_art(ctx.config, playlist, cover)
+
+
+@playlists.command(name="remove-cover")
+@click.argument("playlist", type=str, nargs=1)
+@click.pass_obj
+def remove_cover2(ctx: Context, playlist: str) -> None:
+    """Remove the cover art of a playlist. Accepts a playlist name."""
+    remove_playlist_cover_art(ctx.config, playlist)
 
 
 def parse_release_from_potential_path(c: Config, r: str) -> str:

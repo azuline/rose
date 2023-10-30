@@ -80,6 +80,7 @@ from rose.playlists import (
     add_track_to_playlist,
     create_playlist,
     delete_playlist,
+    remove_playlist_cover_art,
     remove_track_from_playlist,
     rename_playlist,
     set_playlist_cover_art,
@@ -87,6 +88,7 @@ from rose.playlists import (
 from rose.releases import (
     ReleaseDoesNotExistError,
     delete_release,
+    remove_release_cover_art,
     set_release_cover_art,
     toggle_release_new,
 )
@@ -655,6 +657,8 @@ class RoseLogicalCore:
         # Possible actions:
         # 1. Delete a playlist.
         # 2. Delete a track from a playlist.
+        # 3. Delete cover art from a playlist.
+        # 4. Delete cover art from a release.
         if p.view == "Playlists" and p.playlist and p.file is None:
             delete_playlist(self.config, p.playlist)
             return
@@ -670,6 +674,21 @@ class RoseLogicalCore:
                     remove_track_from_playlist(self.config, p.playlist, track.id)
                     return
             raise llfuse.FUSEError(errno.ENOENT)
+        if (
+            p.view == "Playlists"
+            and p.playlist
+            and p.file
+            and p.file.lower() in self.config.valid_cover_arts
+            and (pdata := get_playlist(self.config, p.playlist))
+        ):
+            remove_playlist_cover_art(self.config, pdata[0].name)
+        if (
+            p.release
+            and p.file
+            and p.file.lower() in self.config.valid_cover_arts
+            and (rdata := get_release(self.config, p.release))
+        ):
+            remove_release_cover_art(self.config, rdata[0].id)
 
         # Otherwise, noop. If we return an error, that prevents rmdir from being called when we rm.
 
