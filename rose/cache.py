@@ -316,7 +316,8 @@ def update_cache_for_releases(
         logger.info("No-Op: No whitelisted releases passed into update_cache_for_releases")
         return
     logger.info(f"Refreshing the read cache for {len(release_dirs)} releases")
-    logger.debug(f"Refreshing cached data for {', '.join([r.name for r in release_dirs])}")
+    if len(release_dirs) < 10:
+        logger.debug(f"Refreshing cached data for {', '.join([r.name for r in release_dirs])}")
 
     # If the number of releases changed is less than 50; do not bother with all that multiprocessing
     # gunk: instead, directly call the executor.
@@ -325,6 +326,9 @@ def update_cache_for_releases(
     # processes, as those processes always update the cache for one release at a time and are
     # multithreaded. Starting other processes from threads is bad!
     if not force_multiprocessing and len(release_dirs) < 50:
+        logger.debug(
+            "Running cache update executor in same process because {len(release_dirs)=} < 50"
+        )
         known_virtual_dirnames_hi: dict[str, bool] = {}
         _update_cache_for_releases_executor(c, release_dirs, force, known_virtual_dirnames_hi)
         return
@@ -343,6 +347,7 @@ def update_cache_for_releases(
     # Create a queue to propagate exceptions back up to the parent.
     error_queue = manager.Queue()
 
+    logger.debug("Creating multiprocessing pool to parallelize cache executors.")
     with multiprocessing.Pool(processes=c.max_proc) as pool:
         # At 0, no batch. At 1, 1 batch. At 49, 1 batch. At 50, 1 batch. At 51, 2 batches.
         for i in range(0, len(release_dirs), batch_size):
@@ -386,6 +391,7 @@ def _update_cache_for_releases_executor(
     """The implementation logic, split out for multiprocessing."""
     # First, call readdir on every release directory. We store the results in a map of
     # Path Basename -> (Release ID if exists, filenames).
+    dir_scan_start = time.time()
     dir_tree: list[tuple[Path, str | None, list[str]]] = []
     release_uuids: list[str] = []
     for rd in release_dirs:
@@ -402,7 +408,9 @@ def _update_cache_for_releases_executor(
         dir_tree.append((rd.resolve(), release_id, files))
         if release_id is not None:
             release_uuids.append(release_id)
+    logger.debug(f"Release update source dir scan time {time.time() - dir_scan_start=}")
 
+    cache_read_start = time.time()
     # Then batch query for all metadata associated with the discovered IDs. This pulls all data into
     # memory for fast access throughout this function. We do this in two passes (and two queries!):
     # 1. Fetch all releases.
@@ -544,8 +552,8 @@ def _update_cache_for_releases_executor(
                 formatted_artists=row["formatted_artists"],
             )
             num_tracks_found += 1
-
         logger.debug(f"Found {num_tracks_found} tracks in cache")
+    logger.debug(f"Release update cache read time {time.time() - cache_read_start=}")
 
     # Now iterate over all releases in the source directory. Leverage mtime from stat to determine
     # whether to even check the file tags or not. Compute the necessary database updates and store
