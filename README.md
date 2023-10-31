@@ -126,10 +126,12 @@ Rosé's virtual filesystem organizes your music library by the metadata in the
 music tags. The quality of the virtual filesystem depends on the quality of the
 tags.
 
-Thus, Rosé also provides functions for improving the tags of your music
-library. Rosé provides an easy text-based interface for manually modifying
-metadata, automatic metadata importing from third-party sources, and a rules
-engine to automatically apply metadata changes based on patterns.
+Thus, Rosé also provides the following functions to improv the tags of your
+music library:
+
+1. An easy text-based interface for manually modifying metadata,
+2. A rules engine for bulk updating metadata,
+3. And metadata importing from third-party sources.
 
 > [!NOTE]
 > Rosé modifies the managed audio files, even on first scan. If you do not want
@@ -140,32 +142,23 @@ _Demo Video TBD_
 
 # Features
 
-**Virtual Filesystem:**
+Rosé allows you to interact with and script against your music library through
+a virtual filesystem and through a CLI. A concise list of the features provided
+by the two interfaces is:
 
-- Read audio files and cover art
-- Modify audio files and cover art
-- Filter releases by album artist, genre, label, and "new"-ness
-- Browse and edit collages and playlists
-- Group artist aliases together
-- Toggle release "new"-ness
-- Whitelist/blacklist entries in the artist, genre, and label views
-
-**Command Line:**
-
-- Collage and playlist management
-- Toggle release "new"-ness
+- Filter your music by artist, genre, label, and "new"-ness
+- Create collages of releases and playlists of tracks
+- Group artist aliases together under a primary artist
+- Flag and unflag release "new"-ness
+- White/black-list entries in the artist, genre, and label views
 - Edit release metadata as a text file
+- Define and store rules for bulk updating metadata
 - Import metadata and cover art from third-party sources
-- Extract embedded cover art to a file
-- Automatically update metadata via patterns and rules
-- Create "singles" from tracks (even if currently tagged as part of an album)
-- Watch the source directory and auto-update the cache on file modification
-- Print library metadata as JSON
-
-**General:**
-
-- Support for `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` audio
-  files.
+- Extract embedded cover art to an external file
+- Extract "phony" single releases from EPs/Albums/etc
+- Refresh the read cache automatically on metadata changes
+- Support for `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` files
+- Support for multiple artist, label, and genre tags.
 
 # Is Rosé For You?
 
@@ -198,25 +191,22 @@ track-oriented libraries.
 Install Rosé with Nix Flakes. If you do not have Nix Flakes, you can install
 Nix Flakes with [this installer](https://github.com/DeterminateSystems/nix-installer).
 
-Then, to install Rosé, run:
+Then, to install the latest release of Rosé, run:
 
 ```bash
 $ nix profile install github:azuline/rose/release
 ```
 
-The above command installs the latest release of Rosé. If you instead wish to
-run the latest unstable version of Rosé, install Rosé with:
+> [!NOTE]
+> The default branch tracks the unstable release, whose documentation may be
+> more up-to-date than the latest release's documentation. You can view the
+> latest release's documentation at https://github.com/azuline/rose/blob/release/README.md.
 
-```bash
-$ nix profile install github:azuline/rose/master
-```
+Most users should install the latest release version of Rosé. However, if you
+wish to install the latest unstable version of Rosé, you can do so with the
+command `nix profile install github:azuline/rose/master`.
 
 # Quickstart
-
-> [!NOTE]
-> This quickstart assumes you have a local "source directory" of music releases
-> for Rosé to manage. Each "release" must be an immediate child subdirectory of
-> the "source directory."
 
 Let's now get Rosé up and running!
 
@@ -242,6 +232,11 @@ Commands:
   releases  Manage releases.
   playlists Manage playlists.
 ```
+
+> [!NOTE]
+> This quickstart assumes you have a local "source directory" of music releases
+> for Rosé to manage. Each music release must be an immediate child
+> subdirectory of the "source directory."
 
 Great! Next, we'll (1) configure Rosé, (2) mount the virtual filesystem, and
 finally (3) play music!
@@ -357,6 +352,13 @@ You also need not use the complete feature set of Rosé. Everything will
 continue to work if you only use the virtual filesystem and ignore the
 metatdata tooling, and vice versa.
 
+Rosé's CLI is also designed to make scripting against your library easy.
+Operations such as "edit release" and "jump to artist" can be expressed as a
+bash one-liner and integrated into your file manager.
+
+See [Shell Scripting](./SHELL_SCRIPTING.md) for additional documentation on
+scripting with Rosé.
+
 # Learn More
 
 For additional documentation, please refer to the following files:
@@ -392,11 +394,8 @@ limitations under the License.
 Bug fixes are happily accepted!
 
 However, please do not open a pull request for a new feature without prior
-discussion.
-
-Rosé is a pet project that I developed for personal use. Rosé is designed to
-match my specific needs and constraints, and is never destined to be widely
-adopted. Therefore, I will lean towards keeping the feature set focused and
-small, and will not add too many features over the lifetime of the project.
+discussion. Rosé is a pet project that I developed for personal use. Rosé is
+designed to match my specific needs and constraints, and is never destined to
+be widely adopted. Therefore, the feature set will remain focused and small.
 
 Rosé is provided as-is, really!
