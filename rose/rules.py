@@ -8,10 +8,9 @@ There are 3 major components in this module:
 - DSL: A small language for defining rules, intended for use in the shell.
 """
 import contextlib
-import copy
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -100,9 +99,34 @@ class UpdateRule:
     matcher: str
     action: ReplaceAction | ReplaceAllAction | SedAction | SplitAction | DeleteAction
 
+    def __str__(self) -> str:
+        r = ",".join(self.tags)
+        r += ":"
+        r += self.matcher.replace(":", r"\:")
+        r += ":"
+        if isinstance(self.action, ReplaceAction):
+            r += "replace:"
+            r += self.action.replacement
+        elif isinstance(self.action, ReplaceAllAction):
+            r += "replaceall:"
+            r += ";".join(self.action.replacement)
+        elif isinstance(self.action, SedAction):
+            r += "sed:"
+            r += str(self.action.src).replace(":", r"\:")
+            r += self.action.dst.replace(":", r"\:")
+        elif isinstance(self.action, SplitAction):
+            r += "split:"
+            r += self.action.delimiter
+        elif isinstance(self.action, DeleteAction):
+            r += "delete"
+        return r
 
-def execute_stored_rules(c: Config) -> None:
-    pass
+
+def execute_stored_rules(c: Config, confirm_yes: bool = False) -> None:
+    rules: list[UpdateRule] = []
+    for rule in rules:
+        logger.info(f'Executing stored metadata rule "{rule}"')
+        execute_rule(c, rule, confirm_yes)
 
 
 def execute_rule(c: Config, rule: UpdateRule, confirm_yes: bool = False) -> None:
@@ -155,35 +179,37 @@ def execute_rule(c: Config, rule: UpdateRule, confirm_yes: bool = False) -> None
     args: list[str] = []
     for field in rule.tags:
         if field == "tracktitle":
-            query += r" AND WHERE t.title LIKE ? ESCAPE '\'"
+            query += r" AND t.title LIKE ? ESCAPE '\'"
             args.append(matchsql)
         if field == "year":
-            query += r" AND WHERE COALESCE(CAST(r.release_year AS TEXT), '') LIKE ? ESCAPE '\'"  # noqa: E501
+            query += (
+                r" AND COALESCE(CAST(r.release_year AS TEXT), '') LIKE ? ESCAPE '\'"  # noqa: E501
+            )
             args.append(matchsql)
         if field == "tracknumber":
-            query += r" AND WHERE t.track_number LIKE ? ESCAPE '\'"
+            query += r" AND t.track_number LIKE ? ESCAPE '\'"
             args.append(matchsql)
         if field == "discnumber":
-            query += r" AND WHERE t.disc_number LIKE ? ESCAPE '\'"
+            query += r" AND t.disc_number LIKE ? ESCAPE '\'"
             args.append(matchsql)
         if field == "albumtitle":
-            query += r" AND WHERE r.title LIKE ? ESCAPE '\'"
+            query += r" AND r.title LIKE ? ESCAPE '\'"
             args.append(matchsql)
         if field == "releasetype":
-            query += r" AND WHERE r.release_type LIKE ? ESCAPE '\'"
+            query += r" AND r.release_type LIKE ? ESCAPE '\'"
             args.append(matchsql)
         # For genres, labels, and artists, because SQLite lacks arrays, we create a string like
         # `\\ val1 \\ val2 \\` and match on `\\ {matcher} \\`.
         if field == "genre":
-            query += r" AND WHERE rg.genres LIKE ? ESCAPE '\'"
+            query += r" AND rg.genres LIKE ? ESCAPE '\'"
             args.append(rf" \\ {matchsql} \\ ")
         if field == "label":
-            query += r" AND WHERE rl.labels LIKE ? ESCAPE '\'"
+            query += r" AND rl.labels LIKE ? ESCAPE '\'"
             args.append(rf" \\ {matchsql} \\ ")
         if field == "artist":
-            query += r" AND WHERE ra.artists LIKE ? ESCAPE '\'"
+            query += r" AND ra.artists LIKE ? ESCAPE '\'"
             args.append(rf" \\ {matchsql} \\ ")
-            query += r" AND WHERE ta.artists LIKE ? ESCAPE '\'"
+            query += r" AND ta.artists LIKE ? ESCAPE '\'"
             args.append(rf" \\ {matchsql} \\ ")
     logger.debug(f"Constructed matching query {query} with args {args}")
     # And then execute the SQL query. Note that we don't pull the tag values here. This query is
@@ -232,7 +258,7 @@ def execute_rule(c: Config, rule: UpdateRule, confirm_yes: bool = False) -> None
     audiotags: list[AudioTags] = []
     for tpath in track_paths:
         tags = AudioTags.from_file(tpath)
-        origtags = copy.copy(AudioTags)
+        origtags = AudioTags(**asdict(tags))
         changes: list[str] = []
         for field in rule.tags:
             if field == "tracktitle":
@@ -411,9 +437,9 @@ def _quote(x: int | str | None) -> str | int | None:
     return '"' + x + '"' if " " in x else x
 
 
-def parse_toml_rule(c: Config, toml: str) -> UpdateRule:
+def parse_toml_rule(c: Config, toml: str) -> UpdateRule:  # noqa
     return UpdateRule(tags=["tracktitle"], matcher="", action=ReplaceAction(replacement=""))
 
 
-def parse_dsl_rule(c: Config, text: str) -> UpdateRule:
+def parse_dsl_rule(c: Config, text: str) -> UpdateRule:  # noqa
     return UpdateRule(tags=["tracktitle"], matcher="", action=ReplaceAction(replacement=""))

@@ -38,7 +38,7 @@ CREATE TABLE releases (
 );
 CREATE INDEX releases_source_path ON releases(source_path);
 CREATE INDEX releases_release_year ON releases(release_year);
-CREATE INDEX releases_title ON releases(release_title);
+CREATE INDEX releases_title ON releases(title);
 CREATE INDEX releases_type ON releases(release_type);
 
 CREATE TABLE releases_genres (
