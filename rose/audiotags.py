@@ -91,7 +91,7 @@ class AudioTags:
 
     duration_sec: int
 
-    _m: Any
+    path: Path
 
     @classmethod
     def from_file(cls, p: Path) -> AudioTags:
@@ -136,7 +136,7 @@ class AudioTags:
                     dj=_get_paired_frame("DJ-mix"),
                 ),
                 duration_sec=round(m.info.length),
-                _m=m,
+                path=p,
             )
         if isinstance(m, mutagen.mp4.MP4):
             return AudioTags(
@@ -162,7 +162,7 @@ class AudioTags:
                     dj=_get_tag(m.tags, ["----:com.apple.iTunes:DJMIXER"], split=True),
                 ),
                 duration_sec=round(m.info.length),  # type: ignore
-                _m=m,
+                path=p,
             )
         if isinstance(m, (mutagen.flac.FLAC, mutagen.oggvorbis.OggVorbis, mutagen.oggopus.OggOpus)):
             return AudioTags(
@@ -190,14 +190,14 @@ class AudioTags:
                     dj=_get_tag(m.tags, ["djmixer"], split=True),
                 ),
                 duration_sec=round(m.info.length),  # type: ignore
-                _m=m,
+                path=p,
             )
         raise UnsupportedFiletypeError(f"{p} is not a supported audio file")
 
     @no_type_check
     def flush(self, *, validate: bool = True) -> None:
         """Flush the current tags to the file on disk."""
-        m = self._m
+        m = mutagen.File(self.path)
         if not validate and "pytest" not in sys.modules:
             raise Exception("Validate can only be turned off by tests.")
 
