@@ -134,16 +134,27 @@ def lock(c: Config, name: str, timeout: float = 1.0) -> Iterator[None]:
             with connect(c) as conn:
                 cursor = conn.execute("SELECT MAX(valid_until) FROM locks WHERE name = ?", (name,))
                 row = cursor.fetchone()
-                if not row or not row[0] or row[0] < time.time():
-                    logger.debug(f"Acquiring lock for {name} with timeout {timeout}")
-                    valid_until = time.time() + timeout
+                # If a lock exists, sleep until the lock is available. All locks should be very
+                # short lived, so this shouldn't be a big performance penalty.
+                if row and row[0] and row[0] > time.time():
+                    sleep = max(0, row[0] - time.time())
+                    logger.debug(f"Failed to acquire lock for {name}: sleeping for {sleep}")
+                    time.sleep(sleep)
+                    continue
+                logger.debug(f"Attempting to acquire lock for {name} with timeout {timeout}")
+                valid_until = time.time() + timeout
+                try:
                     conn.execute(
                         "INSERT INTO locks (name, valid_until) VALUES (?, ?)", (name, valid_until)
                     )
-                    break
-                sleep = max(0, row[0] - time.time())
-                logger.debug(f"Failed to acquire lock for {name}: sleeping for {sleep}")
-                time.sleep(sleep)
+                except sqlite3.IntegrityError as e:
+                    logger.debug(f"Failed to acquire lock for {name}, trying again: {e}")
+                    continue
+                logger.debug(
+                    f"Successfully acquired lock for {name} with timeout {timeout} "
+                    f"until {valid_until}"
+                )
+                break
         yield
     finally:
         logger.debug(f"Releasing lock {name}")
