@@ -16,6 +16,7 @@ import appdirs
 import tomllib
 
 from rose.common import RoseError
+from rose.rule_parser import InvalidRuleSpecError, MetadataRule
 
 XDG_CONFIG_ROSE = Path(appdirs.user_config_dir("rose"))
 XDG_CONFIG_ROSE.mkdir(parents=True, exist_ok=True)
@@ -66,6 +67,8 @@ class Config:
 
     ignore_release_directories: list[str]
 
+    stored_metadata_rules: list[MetadataRule]
+
     hash: str
 
     @classmethod
@@ -79,7 +82,9 @@ class Config:
         except FileNotFoundError as e:
             raise ConfigNotFoundError(f"Configuration file not found ({cfgpath})") from e
         except tomllib.TOMLDecodeError as e:
-            raise ConfigDecodeError("Failed to decode configuration file: invalid TOML") from e
+            raise ConfigDecodeError(
+                f"Failed to decode configuration file: invalid TOML: {e}"
+            ) from e
 
         try:
             music_source_dir = Path(data["music_source_dir"]).expanduser()
@@ -315,6 +320,17 @@ class Config:
                 "must be a list of strings"
             ) from e
 
+        stored_metadata_rules: list[MetadataRule] = []
+        d = None
+        try:
+            for d in data.get("stored_metadata_rules", []):
+                stored_metadata_rules.append(MetadataRule.parse_dict(d))
+        except InvalidRuleSpecError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for stored_metadata_rules in configuration file ({cfgpath}): "
+                f"rule {d} could not be parsed: {e}"
+            ) from e
+
         return cls(
             music_source_dir=music_source_dir,
             fuse_mount_dir=fuse_mount_dir,
@@ -331,6 +347,7 @@ class Config:
             cover_art_stems=cover_art_stems,
             valid_art_exts=valid_art_exts,
             ignore_release_directories=ignore_release_directories,
+            stored_metadata_rules=stored_metadata_rules,
             hash=sha256(cfgtext.encode()).hexdigest(),
         )
 

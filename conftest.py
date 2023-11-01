@@ -21,7 +21,7 @@ TEST_RELEASE_2 = TESTDATA / "Test Release 2"
 TEST_RELEASE_3 = TESTDATA / "Test Release 3"
 TEST_COLLAGE_1 = TESTDATA / "Collage 1"
 TEST_PLAYLIST_1 = TESTDATA / "Playlist 1"
-TEST_TAGGER = TESTDATA / "tagger"
+TEST_TAGGER = TESTDATA / "Tagger"
 
 
 @pytest.fixture(autouse=True)
@@ -83,6 +83,7 @@ def config(isolated_dir: Path) -> Config:
         cover_art_stems=["cover", "folder", "art", "front"],
         valid_art_exts=["jpg", "jpeg", "png"],
         ignore_release_directories=[],
+        stored_metadata_rules=[],
         hash="00ff",
     )
 

@@ -68,9 +68,9 @@ def parse_artist_string(
         producer=_deduplicate(li_producer),
         djmixer=_deduplicate(li_dj),
     )
-    logger.debug(
-        f"Parsed args {main=} {remixer=} {composer=} {conductor=} {producer=} {dj=} as {rval=}"
-    )
+    # logger.debug(
+    #     f"Parsed args {main=} {remixer=} {composer=} {conductor=} {producer=} {dj=} as {rval=}"
+    # )
     return rval
 
 
@@ -86,7 +86,7 @@ def format_artist_string(a: ArtistMapping) -> str:
         r += " remixed by " + ";".join(a.remixer)
     if a.producer:
         r += " produced by " + ";".join(a.producer)
-    logger.debug(f"Formatted {a} as {r}")
+    # logger.debug(f"Formatted {a} as {r}")
     return r
 
 

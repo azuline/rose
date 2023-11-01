@@ -38,6 +38,8 @@ CREATE TABLE releases (
 );
 CREATE INDEX releases_source_path ON releases(source_path);
 CREATE INDEX releases_release_year ON releases(release_year);
+CREATE INDEX releases_title ON releases(title);
+CREATE INDEX releases_type ON releases(release_type);
 
 CREATE TABLE releases_genres (
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
@@ -81,6 +83,9 @@ CREATE TABLE tracks (
 CREATE INDEX tracks_source_path ON tracks(source_path);
 CREATE INDEX tracks_release_id ON tracks(release_id);
 CREATE INDEX tracks_ordering ON tracks(release_id, disc_number, track_number);
+CREATE INDEX tracks_title ON tracks(title);
+CREATE INDEX tracks_track_number ON tracks(track_number);
+CREATE INDEX tracks_disc_number ON tracks(disc_number);
 
 CREATE TABLE artist_role_enum (value TEXT PRIMARY KEY);
 INSERT INTO artist_role_enum (value) VALUES

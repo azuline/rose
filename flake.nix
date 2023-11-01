@@ -41,6 +41,7 @@
       dev-deps = with python.pkgs; [
         mypy
         pytest
+        pytest-timeout
         pytest-cov
         pytest-xdist
       ];

@@ -91,7 +91,7 @@ class AudioTags:
 
     duration_sec: int
 
-    _m: Any
+    path: Path
 
     @classmethod
     def from_file(cls, p: Path) -> AudioTags:
@@ -136,7 +136,7 @@ class AudioTags:
                     dj=_get_paired_frame("DJ-mix"),
                 ),
                 duration_sec=round(m.info.length),
-                _m=m,
+                path=p,
             )
         if isinstance(m, mutagen.mp4.MP4):
             return AudioTags(
@@ -162,7 +162,7 @@ class AudioTags:
                     dj=_get_tag(m.tags, ["----:com.apple.iTunes:DJMIXER"], split=True),
                 ),
                 duration_sec=round(m.info.length),  # type: ignore
-                _m=m,
+                path=p,
             )
         if isinstance(m, (mutagen.flac.FLAC, mutagen.oggvorbis.OggVorbis, mutagen.oggopus.OggOpus)):
             return AudioTags(
@@ -190,14 +190,14 @@ class AudioTags:
                     dj=_get_tag(m.tags, ["djmixer"], split=True),
                 ),
                 duration_sec=round(m.info.length),  # type: ignore
-                _m=m,
+                path=p,
             )
         raise UnsupportedFiletypeError(f"{p} is not a supported audio file")
 
     @no_type_check
     def flush(self, *, validate: bool = True) -> None:
         """Flush the current tags to the file on disk."""
-        m = self._m
+        m = mutagen.File(self.path)
         if not validate and "pytest" not in sys.modules:
             raise Exception("Validate can only be turned off by tests.")
 
@@ -233,7 +233,7 @@ class AudioTags:
             _write_tag_with_description("TXXX:ROSEID", self.id)
             _write_tag_with_description("TXXX:ROSERELEASEID", self.release_id)
             _write_standard_tag("TIT2", self.title)
-            _write_standard_tag("TDRC", str(self.year))
+            _write_standard_tag("TDRC", str(self.year).zfill(4))
             _write_standard_tag("TRCK", self.track_number)
             _write_standard_tag("TPOS", self.disc_number)
             _write_standard_tag("TALB", self.album)
@@ -258,7 +258,7 @@ class AudioTags:
             m.tags["----:net.sunsetglow.rose:ID"] = (self.id or "").encode()
             m.tags["----:net.sunsetglow.rose:RELEASEID"] = (self.release_id or "").encode()
             m.tags["\xa9nam"] = self.title or ""
-            m.tags["\xa9day"] = str(self.year)
+            m.tags["\xa9day"] = str(self.year).zfill(4)
             m.tags["\xa9alb"] = self.album or ""
             m.tags["\xa9gen"] = ";".join(self.genre)
             m.tags["----:com.apple.iTunes:LABEL"] = ";".join(self.label).encode()
@@ -312,7 +312,7 @@ class AudioTags:
             m.tags["roseid"] = self.id or ""
             m.tags["rosereleaseid"] = self.release_id or ""
             m.tags["title"] = self.title or ""
-            m.tags["date"] = str(self.year)
+            m.tags["date"] = str(self.year).zfill(4)
             m.tags["tracknumber"] = self.track_number or ""
             m.tags["discnumber"] = self.disc_number or ""
             m.tags["album"] = self.album or ""
