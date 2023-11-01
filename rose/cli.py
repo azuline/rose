@@ -48,6 +48,7 @@ from rose.releases import (
     set_release_cover_art,
     toggle_release_new,
 )
+from rose.rules import execute_stored_metadata_rules
 from rose.virtualfs import VirtualPath, mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
@@ -392,9 +393,22 @@ def remove_cover2(ctx: Context, playlist: str) -> None:
     remove_playlist_cover_art(ctx.config, playlist)
 
 
+@cli.group()
+def metadata() -> None:
+    """Run metadata improvement tools"""
+
+
+@metadata.command()
+@click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
+@click.pass_obj
+def run_stored_rules(ctx: Context, yes: bool) -> None:
+    """Run the metadata rules stored in the config"""
+    execute_stored_metadata_rules(ctx.config, confirm_yes=yes)
+
+
 @cli.command()
 @click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]), nargs=1)
-def generate_shell_completion(shell: str) -> None:
+def completion(shell: str) -> None:
     """Print a shell completion script."""
     os.environ["_ROSE_COMPLETE"] = f"{shell}_source"
     subprocess.run(["rose"], env=os.environ)

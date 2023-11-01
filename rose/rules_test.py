@@ -1,4 +1,5 @@
 import re
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
@@ -15,7 +16,7 @@ from rose.rule_parser import (
     SedAction,
     SplitAction,
 )
-from rose.rules import execute_rule
+from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
 
 
 def test_rules_execution_match_substring(config: Config, source_dir: Path) -> None:
@@ -25,7 +26,7 @@ def test_rules_execution_match_substring(config: Config, source_dir: Path) -> No
         matcher="bbb",
         action=ReplaceAction(replacement="lalala"),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title != "lalala"
 
@@ -35,7 +36,7 @@ def test_rules_execution_match_substring(config: Config, source_dir: Path) -> No
         matcher="rack",
         action=ReplaceAction(replacement="lalala"),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title == "lalala"
 
@@ -47,7 +48,7 @@ def test_rules_execution_match_beginnning(config: Config, source_dir: Path) -> N
         matcher="^rack",
         action=ReplaceAction(replacement="lalala"),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title != "lalala"
 
@@ -57,7 +58,7 @@ def test_rules_execution_match_beginnning(config: Config, source_dir: Path) -> N
         matcher="^Track",
         action=ReplaceAction(replacement="lalala"),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title == "lalala"
 
@@ -69,7 +70,7 @@ def test_rules_execution_match_end(config: Config, source_dir: Path) -> None:
         matcher="rack$",
         action=ReplaceAction(replacement="lalala"),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title != "lalala"
 
@@ -79,7 +80,7 @@ def test_rules_execution_match_end(config: Config, source_dir: Path) -> None:
         matcher="rack 1$",
         action=ReplaceAction(replacement="lalala"),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title == "lalala"
 
@@ -91,7 +92,7 @@ def test_rules_execution_match_superstrict(config: Config, source_dir: Path) -> 
         matcher="^Track $",
         action=ReplaceAction(replacement="lalala"),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title != "lalala"
 
@@ -101,7 +102,7 @@ def test_rules_execution_match_superstrict(config: Config, source_dir: Path) -> 
         matcher="^Track 1$",
         action=ReplaceAction(replacement="lalala"),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title == "lalala"
 
@@ -122,7 +123,7 @@ def test_all_fields_match(config: Config, source_dir: Path) -> None:
         matcher="",  # Empty string matches everything.
         action=ReplaceAction(replacement="8"),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title == "8"
     assert af.year == 8
@@ -140,7 +141,7 @@ def test_all_fields_match(config: Config, source_dir: Path) -> None:
         matcher="",  # Empty string matches everything.
         action=ReplaceAction(replacement="live"),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.release_type == "live"
 
@@ -151,7 +152,7 @@ def test_action_replace_all(config: Config, source_dir: Path) -> None:
         matcher="K-Pop",
         action=ReplaceAllAction(replacement=["Hip-Hop", "Rap"]),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.genre == ["Hip-Hop", "Rap"]
 
@@ -162,7 +163,7 @@ def test_sed_action(config: Config, source_dir: Path) -> None:
         matcher="Track",
         action=SedAction(src=re.compile("ack"), dst="ip"),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title == "Trip 1"
 
@@ -173,7 +174,7 @@ def test_split_action(config: Config, source_dir: Path) -> None:
         matcher="Cool",
         action=SplitAction(delimiter="Cool"),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.label == ["A", "Label"]
 
@@ -184,7 +185,7 @@ def test_delete_action(config: Config, source_dir: Path) -> None:
         matcher="^Pop",
         action=DeleteAction(),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.genre == ["K-Pop"]
 
@@ -195,7 +196,7 @@ def test_preserves_unmatched_multitags(config: Config, source_dir: Path) -> None
         matcher="^Pop$",
         action=ReplaceAction(replacement="lalala"),
     )
-    execute_rule(config, rule, False)
+    execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.genre == ["K-Pop", "lalala"]
 
@@ -209,7 +210,7 @@ def test_confirmation_yes(monkeypatch: Any, config: Config, source_dir: Path) ->
     )
 
     monkeypatch.setattr("rose.rules.click.confirm", lambda *_, **__: True)
-    execute_rule(config, rule, True)
+    execute_metadata_rule(config, rule, True)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title == "lalala"
 
@@ -223,7 +224,7 @@ def test_confirmation_no(monkeypatch: Any, config: Config, source_dir: Path) -> 
     )
 
     monkeypatch.setattr("rose.rules.click.confirm", lambda *_, **__: False)
-    execute_rule(config, rule, True)
+    execute_metadata_rule(config, rule, True)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title != "lalala"
 
@@ -238,27 +239,30 @@ def test_confirmation_count(monkeypatch: Any, config: Config, source_dir: Path) 
 
     monkeypatch.setattr("rose.rules.click.prompt", Mock(side_effect=["no", "8", "6"]))
     # Abort.
-    execute_rule(config, rule, True, enter_number_to_confirm_above_count=1)
+    execute_metadata_rule(config, rule, True, enter_number_to_confirm_above_count=1)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title != "lalala"
 
     # Success in two arguments.
-    execute_rule(config, rule, True, enter_number_to_confirm_above_count=1)
+    execute_metadata_rule(config, rule, True, enter_number_to_confirm_above_count=1)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title == "lalala"
 
 
-def test_rule_to_str() -> None:
-    rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="Track",
-        action=ReplaceAction(replacement="lalala"),
+def test_run_stored_rules(config: Config, source_dir: Path) -> None:
+    config = Config(
+        **{
+            **asdict(config),
+            "stored_metadata_rules": [
+                MetadataRule(
+                    tags=["tracktitle"],
+                    matcher="Track",
+                    action=ReplaceAction(replacement="lalala"),
+                )
+            ],
+        },
     )
-    assert str(rule) == "tracktitle:Track:replace:lalala"
 
-    rule = MetadataRule(
-        tags=["tracktitle", "artist", "genre"],
-        matcher=":",
-        action=SedAction(src=re.compile(r":"), dst=";"),
-    )
-    assert str(rule) == r"tracktitle,artist,genre:\::sed:\::;"
+    execute_stored_metadata_rules(config)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.title == "lalala"

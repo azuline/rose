@@ -33,14 +33,13 @@ class InvalidReplacementValueError(RoseError):
     pass
 
 
-def execute_stored_rules(c: Config, confirm_yes: bool = False) -> None:
-    rules: list[MetadataRule] = []
-    for rule in rules:
+def execute_stored_metadata_rules(c: Config, confirm_yes: bool = False) -> None:
+    for rule in c.stored_metadata_rules:
         logger.info(f'Executing stored metadata rule "{rule}"')
-        execute_rule(c, rule, confirm_yes)
+        execute_metadata_rule(c, rule, confirm_yes)
 
 
-def execute_rule(
+def execute_metadata_rule(
     c: Config,
     rule: MetadataRule,
     confirm_yes: bool = False,

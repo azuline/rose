@@ -116,15 +116,15 @@ shells. The following commands enable shell completion:
 
 ```bash
 # Bash
-$ rose generate-shell-completion bash > ~/.config/rose/completion.bash
+$ rose completion bash > ~/.config/rose/completion.bash
 $ echo ". ~/.config/rose/.completion.bash" >> ~/.bashrc
 
 # Zsh
-$ rose generate-shell-completion zsh > ~/.config/rose/completion.zsh
+$ rose completion zsh > ~/.config/rose/completion.zsh
 $ echo ". ~/.config/rose/.completion.zsh" >> ~/.zshrc
 
 # Fish
-$ rose generate-shell-completion fish > ~/.config/fish/completions/rose.fish
+$ rose completion fish > ~/.config/fish/completions/rose.fish
 ```
 
 # Systemd
