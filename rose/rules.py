@@ -251,31 +251,31 @@ def execute_metadata_rule(
                 tags.artists.producer = execute_multi_value_action(tags.artists.producer)
                 if tags.artists.producer != origtags.artists.producer:
                     changes.append(
-                        f'artist.producer: {";".join(origtags.artists.producer)} '
+                        f'artist.producer: {";".join(origtags.artists.producer)} -> '
                         f'{";".join(tags.artists.producer)}'
                     )
                 tags.artists.composer = execute_multi_value_action(tags.artists.composer)
                 if tags.artists.composer != origtags.artists.composer:
                     changes.append(
-                        f'artist.composer: {";".join(origtags.artists.composer)} '
+                        f'artist.composer: {";".join(origtags.artists.composer)} -> '
                         f'{";".join(tags.artists.composer)}'
                     )
                 tags.artists.djmixer = execute_multi_value_action(tags.artists.djmixer)
                 if tags.artists.djmixer != origtags.artists.djmixer:
                     changes.append(
-                        f'artist.djmixer: {";".join(origtags.artists.djmixer)} '
+                        f'artist.djmixer: {";".join(origtags.artists.djmixer)} -> '
                         f'{";".join(tags.artists.djmixer)}'
                     )
                 tags.album_artists.main = execute_multi_value_action(tags.album_artists.main)
                 if tags.album_artists.main != origtags.album_artists.main:
                     changes.append(
-                        f'album_artist.main: {";".join(origtags.album_artists.main)} '
+                        f'album_artist.main: {";".join(origtags.album_artists.main)} -> '
                         f'{";".join(tags.album_artists.main)}'
                     )
                 tags.album_artists.guest = execute_multi_value_action(tags.album_artists.guest)
                 if tags.album_artists.guest != origtags.album_artists.guest:
                     changes.append(
-                        f'album_artist.guest: {";".join(origtags.album_artists.guest)} '
+                        f'album_artist.guest: {";".join(origtags.album_artists.guest)} -> '
                         f'{";".join(tags.album_artists.guest)}'
                     )
                 tags.album_artists.remixer = execute_multi_value_action(tags.album_artists.remixer)

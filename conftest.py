@@ -84,7 +84,6 @@ def config(isolated_dir: Path) -> Config:
         valid_art_exts=["jpg", "jpeg", "png"],
         ignore_release_directories=[],
         stored_metadata_rules=[],
-        hash="00ff",
     )
 
 

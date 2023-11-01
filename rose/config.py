@@ -9,7 +9,6 @@ import functools
 import multiprocessing
 from collections import defaultdict
 from dataclasses import dataclass
-from hashlib import sha256
 from pathlib import Path
 
 import appdirs
@@ -68,8 +67,6 @@ class Config:
     ignore_release_directories: list[str]
 
     stored_metadata_rules: list[MetadataRule]
-
-    hash: str
 
     @classmethod
     def parse(cls, config_path_override: Path | None = None) -> Config:
@@ -348,7 +345,6 @@ class Config:
             valid_art_exts=valid_art_exts,
             ignore_release_directories=ignore_release_directories,
             stored_metadata_rules=stored_metadata_rules,
-            hash=sha256(cfgtext.encode()).hexdigest(),
         )
 
     @functools.cached_property

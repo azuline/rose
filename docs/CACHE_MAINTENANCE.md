@@ -57,7 +57,7 @@ changes.
 When Rosé detects that:
 
 1. Rosé has been upgraded to a new version,
-2. The configuration file has changed,
+2. Cache-relevant configuration options have changed,
 3. Or the cache database schema has changed,
 
 Rosé will delete the read cache and rebuild it from scratch. A full cache

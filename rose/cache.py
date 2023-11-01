@@ -26,6 +26,7 @@ the overall complexity of the cache update sequence:
 import contextlib
 import copy
 import hashlib
+import json
 import logging
 import math
 import multiprocessing
@@ -38,6 +39,7 @@ import traceback
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from datetime import datetime
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -86,6 +88,19 @@ def migrate_database(c: Config) -> None:
     with CACHE_SCHEMA_PATH.open("rb") as fp:
         schema_hash = hashlib.sha256(fp.read()).hexdigest()
 
+    # Hash a subset of the config fields to use as the cache hash, which invalidates the cache on
+    # change. These are the fields that affect cache population. Invalidating the cache on config
+    # change ensures that the cache is consistent with the config.
+    config_hash_fields = {
+        "music_source_dir": str(c.music_source_dir),
+        "cache_dir": str(c.cache_dir),
+        "artist_aliases": c.artist_aliases_map,
+        "cover_art_stems": c.cover_art_stems,
+        "valid_art_exts": c.valid_art_exts,
+        "ignore_release_directories": c.ignore_release_directories,
+    }
+    config_hash = sha256(json.dumps(config_hash_fields).encode()).hexdigest()
+
     with connect(c) as conn:
         cursor = conn.execute(
             """
@@ -101,7 +116,7 @@ def migrate_database(c: Config) -> None:
             if (
                 row
                 and row["schema_hash"] == schema_hash
-                and row["config_hash"] == c.hash
+                and row["config_hash"] == config_hash
                 and row["version"] == VERSION
             ):
                 # Everything matches! Exit!
@@ -123,7 +138,7 @@ def migrate_database(c: Config) -> None:
         )
         conn.execute(
             "INSERT INTO _schema_hash (schema_hash, config_hash, version) VALUES (?, ?, ?)",
-            (schema_hash, c.hash, VERSION),
+            (schema_hash, config_hash, VERSION),
         )
 
 

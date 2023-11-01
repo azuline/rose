@@ -58,7 +58,7 @@ def test_schema(config: Config) -> None:
         cursor = conn.execute("SELECT schema_hash, config_hash, version FROM _schema_hash")
         row = cursor.fetchone()
         assert row["schema_hash"] == schema_hash
-        assert row["config_hash"] == config.hash
+        assert row["config_hash"] is not None
         assert row["version"] == VERSION
 
 
@@ -90,7 +90,7 @@ def test_migration(config: Config) -> None:
         cursor = conn.execute("SELECT schema_hash, config_hash, version FROM _schema_hash")
         row = cursor.fetchone()
         assert row["schema_hash"] == latest_schema_hash
-        assert row["config_hash"] == config.hash
+        assert row["config_hash"] is not None
         assert row["version"] == VERSION
         cursor = conn.execute("SELECT COUNT(*) FROM _schema_hash")
         assert cursor.fetchone()[0] == 1

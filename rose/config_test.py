@@ -90,7 +90,6 @@ def test_config_full() -> None:
                     action=ReplaceAction(replacement="hihi"),
                 )
             ],
-            hash=c.hash,
         )
 
 
