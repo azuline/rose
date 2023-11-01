@@ -1210,6 +1210,7 @@ def _update_cache_for_releases_executor(
             )
             # That cool section breaker shuriken character is our multi-value delimiter and how we
             # force-match strict prefix/suffix.
+            conn.create_function("process_string_for_fts", 1, _process_string_for_fts)
             conn.execute(
                 f"""
                 INSERT INTO rules_engine_fts (
@@ -1226,15 +1227,15 @@ def _update_cache_for_releases_executor(
                 )
                 SELECT
                     t.rowid
-                  , '§' || t.title || '§' AS tracktitle
-                  , '§' || t.track_number || '§' AS tracknumber
-                  , '§' || t.disc_number || '§' AS discnumber
-                  , '§' || r.release_year || '§' AS year
-                  , '§' || r.release_type || '§' AS releasetype
-                  , '§' || COALESCE(GROUP_CONCAT(rg.genre, '§'), '') || '§' AS genre
-                  , '§' || COALESCE(GROUP_CONCAT(rl.label, '§'), '') || '§' AS label
-                  , '§' || COALESCE(GROUP_CONCAT(ra.artist, '§'), '') || '§' AS albumartist
-                  , '§' || COALESCE(GROUP_CONCAT(ta.artist, '§'), '') || '§' AS trackartist
+                  , process_string_for_fts(t.title) AS tracktitle
+                  , process_string_for_fts(t.track_number) AS tracknumber
+                  , process_string_for_fts(t.disc_number) AS discnumber
+                  , process_string_for_fts(r.release_year) AS year
+                  , process_string_for_fts(r.release_type) AS releasetype
+                  , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, '§'), '')) AS genre
+                  , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, '§'), '')) AS label
+                  , process_string_for_fts(COALESCE(GROUP_CONCAT(ra.artist, '§'), '')) AS albumartist
+                  , process_string_for_fts(COALESCE(GROUP_CONCAT(ta.artist, '§'), '')) AS trackartist
                 FROM tracks t
                 JOIN releases r ON r.id = t.release_id
                 LEFT JOIN releases_genres rg ON rg.release_id = r.id
@@ -1244,7 +1245,7 @@ def _update_cache_for_releases_executor(
                 WHERE t.id IN ({",".join(["?"]*len(upd_track_ids))})
                    OR r.id IN ({",".join(["?"]*len(upd_release_ids))})
                 GROUP BY t.id
-                """,
+                """,  # noqa: E501
                 [*upd_track_ids, *upd_release_ids],
             )
 
@@ -2248,3 +2249,9 @@ def _unpack(*xxs: str, delimiter: str = r" \\ ") -> Iterator[tuple[str, ...]]:
     if all(not xs for xs in xxs):
         return
     yield from zip(*[xs.split(delimiter) for xs in xxs])
+
+
+def _process_string_for_fts(x: str) -> str:
+    # In order to have performant substring search, we use FTS and hack it such that every character
+    # is a token.
+    return "¬".join("§" + str(x) + "§") if x else x

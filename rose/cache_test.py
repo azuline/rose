@@ -646,7 +646,7 @@ def test_update_cache_releases_updates_full_text_search(config: Config) -> None:
             SELECT t.source_path
             FROM rules_engine_fts s
             JOIN tracks t ON t.rowid = s.rowid
-            WHERE s.tracktitle MATCH 'Track'
+            WHERE s.tracktitle MATCH 'r a c k'
             """
         )
         fnames = {Path(r["source_path"]) for r in cursor}
@@ -663,7 +663,7 @@ def test_update_cache_releases_updates_full_text_search(config: Config) -> None:
             SELECT t.source_path
             FROM rules_engine_fts s
             JOIN tracks t ON t.rowid = s.rowid
-            WHERE s.tracktitle MATCH 'Track'
+            WHERE s.tracktitle MATCH 'r a c k'
             """
         )
         fnames = {Path(r["source_path"]) for r in cursor}
