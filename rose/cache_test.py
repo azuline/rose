@@ -622,6 +622,57 @@ def test_update_cache_releases_ignores_partially_written_directory(config: Confi
         assert cursor.fetchone()[0] == 1
 
 
+def test_update_cache_releases_updates_full_text_search(config: Config) -> None:
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+
+    update_cache_for_releases(config, [release_dir])
+    with connect(config) as conn:
+        cursor = conn.execute(
+            """
+            SELECT rowid, * FROM rules_engine_fts
+            """
+        )
+        print([dict(x) for x in cursor])
+        cursor = conn.execute(
+            """
+            SELECT rowid, * FROM tracks
+            """
+        )
+        print([dict(x) for x in cursor])
+    with connect(config) as conn:
+        cursor = conn.execute(
+            """
+            SELECT t.source_path
+            FROM rules_engine_fts s
+            JOIN tracks t ON t.rowid = s.rowid
+            WHERE s.tracktitle MATCH 'r a c k'
+            """
+        )
+        fnames = {Path(r["source_path"]) for r in cursor}
+        assert fnames == {
+            release_dir / "01.m4a",
+            release_dir / "02.m4a",
+        }
+
+    # And then test the DELETE+INSERT behavior. And that the query still works.
+    update_cache_for_releases(config, [release_dir], force=True)
+    with connect(config) as conn:
+        cursor = conn.execute(
+            """
+            SELECT t.source_path
+            FROM rules_engine_fts s
+            JOIN tracks t ON t.rowid = s.rowid
+            WHERE s.tracktitle MATCH 'r a c k'
+            """
+        )
+        fnames = {Path(r["source_path"]) for r in cursor}
+        assert fnames == {
+            release_dir / "01.m4a",
+            release_dir / "02.m4a",
+        }
+
+
 def test_update_cache_collages(config: Config) -> None:
     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
     shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")

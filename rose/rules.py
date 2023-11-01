@@ -55,28 +55,9 @@ def execute_metadata_rule(
     2. Apply the rules onto the audio files. We read the tags in from disk, re-check the matcher in
        case the cache is out of date, and then apply the change to the tags.
     """
-    # 1. Convert the matcher to SQL. We default to a substring search, and support '^$' characters,
-    # in the regex style, to match the beginning and end of the string.
-    matchsqlstart = ""
-    matchrule = rule.matcher
-    # If rule starts with ^, hard match the start.
-    if matchrule.startswith("^"):
-        matchrule = matchrule[1:]
-    else:
-        matchsqlstart += "%"
-    # If rule ends with $, hard match the end.
-    matchsqlend = ""
-    if matchrule.endswith("$"):
-        matchrule = matchrule[:-1]
-    else:
-        matchsqlend = "%"
-    # And escape the match rule.
-    matchrule = matchrule.replace("%", r"\%").replace("_", r"\_")
-    # Construct the SQL string for the matcher.
-    matchsql = matchsqlstart + matchrule + matchsqlend
-    logger.debug(f"Converted match {rule.matcher=} to {matchsql=}")
 
-    # And also create a Python function for the matcher. We'll use this in the actual substitutions.
+    # 1. Create a Python function for the matcher. We'll use this in the actual substitutions and
+    # test this against every tag before we apply a rule to it.
     def matches_rule(x: str) -> bool:
         strictstart = rule.matcher.startswith("^")
         strictend = rule.matcher.endswith("$")
@@ -86,61 +67,55 @@ def execute_metadata_rule(
             return x.startswith(rule.matcher[1:])
         if strictend:
             return x.endswith(rule.matcher[:-1])
-        return matchrule in x
+        return rule.matcher in x
 
-    # 2. Find tracks to update.
-    # We dynamically construct a SQL query that tests the matcher SQL
-    # string against the specified tags.
-    query = """
-        SELECT DISTINCT t.source_path
-        FROM tracks t
-        JOIN releases r ON r.id = t.release_id
-        LEFT JOIN releases_genres rg ON rg.release_id = r.id
-        LEFT JOIN releases_labels rl ON rg.release_id = r.id
-        LEFT JOIN releases_artists ra ON ra.release_id = r.id
-        LEFT JOIN tracks_artists ta ON ta.track_id = t.id
-        WHERE false
-    """
-    args: list[str] = []
+    # 2. Convert the matcher to a SQL expression for SQLite FTS. We won't be doing the precise
+    # prefix/suffix matching here: for performance, we abuse SQLite FTS by making every character
+    # its own token, which grants us the ability to search for arbitrary substrings. However, FTS
+    # cannot guarantee ordering, which means that a search for `BLACKPINK` will also match
+    # `PINKBLACK`. So we first pull all matching results, and then we use the previously written
+    # precise Python matcher to ignore the false positives and only modify the tags we care about.
+    #
+    # Therefore we strip the `^$` and convert the text into SQLite FTS Match query. We use NEAR to
+    # assert that all the characters are within a substring equivalent to the length of the query,
+    # which should filter out most false positives.
+    matchsqlstr = rule.matcher
+    if matchsqlstr.startswith("^"):
+        matchsqlstr = matchsqlstr[1:]
+    if matchsqlstr.endswith("$"):
+        matchsqlstr = matchsqlstr[:-1]
+    # Construct the SQL string for the matcher. Escape double quotes in the match string.
+    matchsql = "¬".join(matchsqlstr).replace('"', '""')
+    # NEAR restricts the query such that the # of tokens in between the first and last tokens of the
+    # matched substring must be less than or equal to a given number. For us, that number is
+    # len(matchsqlstr) - 2, as we subtract the first and last characters.
+    matchsql = f'NEAR("{matchsql}", {max(0, len(matchsqlstr)-2)})'
+    logger.debug(f"Converted match {rule.matcher=} to {matchsql=}")
+
+    # 3. Build the query to fetch a superset of tracks to attempt to execute the rules against. Note
+    # that we directly use string interpolation here instead of prepared queries, because we are
+    # constructing a complex match string and everything is escaped and spaced-out with a random
+    # paragraph character, so there's no risk of SQL being interpreted.
+    columns: list[str] = []
     for field in rule.tags:
-        if field == "tracktitle":
-            query += r" OR t.title LIKE ? ESCAPE '\'"
-            args.append(matchsql)
-        if field == "year":
-            query += (
-                r" OR COALESCE(CAST(r.release_year AS TEXT), '') LIKE ? ESCAPE '\'"  # noqa: E501
-            )
-            args.append(matchsql)
-        if field == "tracknumber":
-            query += r" OR t.track_number LIKE ? ESCAPE '\'"
-            args.append(matchsql)
-        if field == "discnumber":
-            query += r" OR t.disc_number LIKE ? ESCAPE '\'"
-            args.append(matchsql)
-        if field == "albumtitle":
-            query += r" OR r.title LIKE ? ESCAPE '\'"
-            args.append(matchsql)
-        if field == "releasetype":
-            query += r" OR r.release_type LIKE ? ESCAPE '\'"
-            args.append(matchsql)
-        if field == "genre":
-            query += r" OR rg.genre LIKE ? ESCAPE '\'"
-            args.append(matchsql)
-        if field == "label":
-            query += r" OR rl.label LIKE ? ESCAPE '\'"
-            args.append(matchsql)
         if field == "artist":
-            query += r" OR ra.artist LIKE ? ESCAPE '\'"
-            args.append(matchsql)
-            query += r" OR ta.artist LIKE ? ESCAPE '\'"
-            args.append(matchsql)
-    query += " ORDER BY t.source_path"
-    logger.debug(f"Constructed matching query {query} with args {args}")
+            columns.extend(["trackartist", "albumartist"])
+        else:
+            columns.append(field)
+    ftsquery = f"{{{' '.join(columns)}}} : {matchsql}"
+    query = f"""
+        SELECT DISTINCT t.source_path
+        FROM rules_engine_fts
+        JOIN tracks t ON rules_engine_fts.rowid = t.rowid
+        WHERE rules_engine_fts MATCH '{ftsquery}'
+        ORDER BY t.source_path
+    """
+    logger.debug(f"Constructed matching query {query}")
     # And then execute the SQL query. Note that we don't pull the tag values here. This query is
     # only used to identify the matching tracks. Afterwards, we will read each track's tags from
     # disk and apply the action on those tag values.
     with connect(c) as conn:
-        track_paths = [Path(row["source_path"]).resolve() for row in conn.execute(query, args)]
+        track_paths = [Path(row["source_path"]).resolve() for row in conn.execute(query)]
     logger.debug(f"Matched {len(track_paths)} tracks from the read cache")
     if not track_paths:
         return
@@ -317,6 +292,9 @@ def execute_metadata_rule(
             audiotags.append(tags)
         else:
             logger.debug(f"Skipping relative path {relativepath}: no changes calculated off tags")
+
+    if not audiotags:
+        return
 
     if confirm_yes:
         if len(audiotags) > enter_number_to_confirm_above_count:
