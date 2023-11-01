@@ -1,19 +1,11 @@
 """
-The rules module implements the Rules Engine for updating metadata.
-
-There are 3 major components in this module:
-
-- Rules Engine: A Python function that accepts, previews, and execute rules.
-- TOML Parser: Parses TOML-encoded rules and returns the Python dataclass.
-- DSL: A small language for defining rules, intended for use in the shell.
+The rules module implements the Rules Engine for updating metadata. The rules engine accepts,
+previews, and executes rules.
 """
 import contextlib
 import copy
 import logging
-import re
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
 
 import click
 
@@ -21,6 +13,14 @@ from rose.audiotags import AudioTags
 from rose.cache import connect
 from rose.common import RoseError
 from rose.config import Config
+from rose.rule_parser import (
+    DeleteAction,
+    MetadataRule,
+    ReplaceAction,
+    ReplaceAllAction,
+    SedAction,
+    SplitAction,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,111 +33,8 @@ class InvalidReplacementValueError(RoseError):
     pass
 
 
-Tag = Literal[
-    "tracktitle",
-    "year",
-    "tracknumber",
-    "discnumber",
-    "albumtitle",
-    "genre",
-    "label",
-    "releasetype",
-    "artist",
-]
-
-ALL_TAGS: list[Tag] = [
-    "tracktitle",
-    "year",
-    "tracknumber",
-    "discnumber",
-    "albumtitle",
-    "genre",
-    "label",
-    "releasetype",
-    "artist",
-]
-
-
-@dataclass
-class ReplaceAction:
-    """
-    Replaces the matched tag with `replacement`. For multi-valued tags, only the matched value is
-    replaced; the other values are left alone.
-    """
-
-    replacement: str
-
-
-@dataclass
-class ReplaceAllAction:
-    """Specifically useful for multi-valued tags, replaces all values."""
-
-    replacement: list[str]
-
-
-@dataclass
-class SedAction:
-    """
-    Executes a regex substitution on a tag value. For multi-valued tags, only the matched tag is
-    modified; the other values are left alone.
-    """
-
-    src: re.Pattern[str]
-    dst: str
-
-
-@dataclass
-class SplitAction:
-    """
-    Splits a tag into multiple tags on the provided delimiter. For multi-valued tags, only the
-    matched tag is split; the other values are left alone.
-    """
-
-    delimiter: str
-
-
-@dataclass
-class DeleteAction:
-    """
-    Deletes the tag value. In a multi-valued tag, only the matched value is deleted; the other
-    values are left alone.
-    """
-
-    pass
-
-
-@dataclass
-class UpdateRule:
-    tags: list[Tag]
-    matcher: str
-    action: ReplaceAction | ReplaceAllAction | SedAction | SplitAction | DeleteAction
-
-    def __str__(self) -> str:
-        r = ",".join(self.tags)
-        r += ":"
-        r += self.matcher.replace(":", r"\:")
-        r += ":"
-        if isinstance(self.action, ReplaceAction):
-            r += "replace:"
-            r += self.action.replacement
-        elif isinstance(self.action, ReplaceAllAction):
-            r += "replaceall:"
-            r += ";".join(self.action.replacement)
-        elif isinstance(self.action, SedAction):
-            r += "sed:"
-            r += str(self.action.src.pattern).replace(":", r"\:")
-            r += ":"
-            r += self.action.dst.replace(":", r"\:")
-        elif isinstance(self.action, SplitAction):
-            r += "split:"
-            r += self.action.delimiter
-        elif isinstance(self.action, DeleteAction):
-            r += "delete"
-        return r
-
-
 def execute_stored_rules(c: Config, confirm_yes: bool = False) -> None:
-    rules: list[UpdateRule] = []
+    rules: list[MetadataRule] = []
     for rule in rules:
         logger.info(f'Executing stored metadata rule "{rule}"')
         execute_rule(c, rule, confirm_yes)
@@ -145,10 +42,20 @@ def execute_stored_rules(c: Config, confirm_yes: bool = False) -> None:
 
 def execute_rule(
     c: Config,
-    rule: UpdateRule,
+    rule: MetadataRule,
     confirm_yes: bool = False,
     enter_number_to_confirm_above_count: int = 25,
 ) -> None:
+    """
+    This function executes a metadata update rule. It runs in two parts:
+
+    1. Fetch the affected tracks from the read cache. This step is not necessary, as the function
+       would be correct if we looped over all tracks; however, that would be very slow. So in order
+       to keep the function fast, we use the read cache to limit the number of files we read from
+       disk.
+    2. Apply the rules onto the audio files. We read the tags in from disk, re-check the matcher in
+       case the cache is out of date, and then apply the change to the tags.
+    """
     # 1. Convert the matcher to SQL. We default to a substring search, and support '^$' characters,
     # in the regex style, to match the beginning and end of the string.
     matchsqlstart = ""
@@ -437,11 +344,3 @@ def execute_rule(
         logger.info(f"Flushing rule-applied tags for {tags.path}.")
         tags.flush()
     logger.info(f"Successfully flushed all {len(audiotags)} rule-applied tags")
-
-
-def parse_toml_rule(c: Config, toml: str) -> UpdateRule:  # noqa
-    return UpdateRule(tags=["tracktitle"], matcher="", action=ReplaceAction(replacement=""))
-
-
-def parse_dsl_rule(c: Config, text: str) -> UpdateRule:  # noqa
-    return UpdateRule(tags=["tracktitle"], matcher="", action=ReplaceAction(replacement=""))

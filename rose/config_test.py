@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from rose.config import Config, ConfigNotFoundError, InvalidConfigValueError, MissingConfigKeyError
+from rose.rule_parser import MetadataRule, ReplaceAction
 
 
 def test_config_minimal() -> None:
@@ -43,6 +44,9 @@ def test_config_full() -> None:
                 cover_art_stems = [ "aa", "bb" ]
                 valid_art_exts = [ "tiff" ]
                 ignore_release_directories = [ "dummy boy" ]
+                stored_metadata_rules = [
+                  {{ tags = "tracktitle", matcher = "lala", action = {{ kind = "replace", replacement = "hihi" }} }}
+                ]
                 """  # noqa: E501
             )
 
@@ -79,6 +83,13 @@ def test_config_full() -> None:
             cover_art_stems=["aa", "bb"],
             valid_art_exts=["tiff"],
             ignore_release_directories=["dummy boy"],
+            stored_metadata_rules=[
+                MetadataRule(
+                    tags=["tracktitle"],
+                    matcher="lala",
+                    action=ReplaceAction(replacement="hihi"),
+                )
+            ],
             hash=c.hash,
         )
 
@@ -390,3 +401,12 @@ def test_config_value_validation() -> None:
             == f"Invalid value for ignore_release_directories in configuration file ({path}): must be a list of strings"  # noqa
         )
         config += '\nignore_release_directories = [ ".stversions" ]'
+
+        # stored_metadata_rules
+        write(config + '\nstored_metadata_rules = ["lalala"]')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for stored_metadata_rules in configuration file ({path}): rule lalala could not be parsed: Type of metadata rule data must be dict: got <class 'str'>"  # noqa: E501
+        )

@@ -7,20 +7,20 @@ import pytest
 
 from rose.audiotags import AudioTags
 from rose.config import Config
-from rose.rules import (
+from rose.rule_parser import (
     DeleteAction,
+    MetadataRule,
     ReplaceAction,
     ReplaceAllAction,
     SedAction,
     SplitAction,
-    UpdateRule,
-    execute_rule,
 )
+from rose.rules import execute_rule
 
 
 def test_rules_execution_match_substring(config: Config, source_dir: Path) -> None:
     # No match
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle"],
         matcher="bbb",
         action=ReplaceAction(replacement="lalala"),
@@ -30,7 +30,7 @@ def test_rules_execution_match_substring(config: Config, source_dir: Path) -> No
     assert af.title != "lalala"
 
     # Match
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle"],
         matcher="rack",
         action=ReplaceAction(replacement="lalala"),
@@ -42,7 +42,7 @@ def test_rules_execution_match_substring(config: Config, source_dir: Path) -> No
 
 def test_rules_execution_match_beginnning(config: Config, source_dir: Path) -> None:
     # No match
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle"],
         matcher="^rack",
         action=ReplaceAction(replacement="lalala"),
@@ -52,7 +52,7 @@ def test_rules_execution_match_beginnning(config: Config, source_dir: Path) -> N
     assert af.title != "lalala"
 
     # Match
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle"],
         matcher="^Track",
         action=ReplaceAction(replacement="lalala"),
@@ -64,7 +64,7 @@ def test_rules_execution_match_beginnning(config: Config, source_dir: Path) -> N
 
 def test_rules_execution_match_end(config: Config, source_dir: Path) -> None:
     # No match
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle"],
         matcher="rack$",
         action=ReplaceAction(replacement="lalala"),
@@ -74,7 +74,7 @@ def test_rules_execution_match_end(config: Config, source_dir: Path) -> None:
     assert af.title != "lalala"
 
     # Match
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle"],
         matcher="rack 1$",
         action=ReplaceAction(replacement="lalala"),
@@ -86,7 +86,7 @@ def test_rules_execution_match_end(config: Config, source_dir: Path) -> None:
 
 def test_rules_execution_match_superstrict(config: Config, source_dir: Path) -> None:
     # No match
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle"],
         matcher="^Track $",
         action=ReplaceAction(replacement="lalala"),
@@ -96,7 +96,7 @@ def test_rules_execution_match_superstrict(config: Config, source_dir: Path) -> 
     assert af.title != "lalala"
 
     # Match
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle"],
         matcher="^Track 1$",
         action=ReplaceAction(replacement="lalala"),
@@ -108,7 +108,7 @@ def test_rules_execution_match_superstrict(config: Config, source_dir: Path) -> 
 
 def test_all_fields_match(config: Config, source_dir: Path) -> None:
     # Test most fields.
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=[
             "year",
             "tracktitle",
@@ -135,7 +135,7 @@ def test_all_fields_match(config: Config, source_dir: Path) -> None:
     assert af.artists.main == ["8"]
 
     # And then test release type separately.
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["releasetype"],
         matcher="",  # Empty string matches everything.
         action=ReplaceAction(replacement="live"),
@@ -146,7 +146,7 @@ def test_all_fields_match(config: Config, source_dir: Path) -> None:
 
 
 def test_action_replace_all(config: Config, source_dir: Path) -> None:
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["genre"],
         matcher="K-Pop",
         action=ReplaceAllAction(replacement=["Hip-Hop", "Rap"]),
@@ -157,7 +157,7 @@ def test_action_replace_all(config: Config, source_dir: Path) -> None:
 
 
 def test_sed_action(config: Config, source_dir: Path) -> None:
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle"],
         matcher="Track",
         action=SedAction(src=re.compile("ack"), dst="ip"),
@@ -168,7 +168,7 @@ def test_sed_action(config: Config, source_dir: Path) -> None:
 
 
 def test_split_action(config: Config, source_dir: Path) -> None:
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["label"],
         matcher="Cool",
         action=SplitAction(delimiter="Cool"),
@@ -179,7 +179,7 @@ def test_split_action(config: Config, source_dir: Path) -> None:
 
 
 def test_delete_action(config: Config, source_dir: Path) -> None:
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["genre"],
         matcher="^Pop",
         action=DeleteAction(),
@@ -190,7 +190,7 @@ def test_delete_action(config: Config, source_dir: Path) -> None:
 
 
 def test_preserves_unmatched_multitags(config: Config, source_dir: Path) -> None:
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["genre"],
         matcher="^Pop$",
         action=ReplaceAction(replacement="lalala"),
@@ -202,7 +202,7 @@ def test_preserves_unmatched_multitags(config: Config, source_dir: Path) -> None
 
 @pytest.mark.timeout(2)
 def test_confirmation_yes(monkeypatch: Any, config: Config, source_dir: Path) -> None:
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle"],
         matcher="Track",
         action=ReplaceAction(replacement="lalala"),
@@ -216,7 +216,7 @@ def test_confirmation_yes(monkeypatch: Any, config: Config, source_dir: Path) ->
 
 @pytest.mark.timeout(2)
 def test_confirmation_no(monkeypatch: Any, config: Config, source_dir: Path) -> None:
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle"],
         matcher="Track",
         action=ReplaceAction(replacement="lalala"),
@@ -230,7 +230,7 @@ def test_confirmation_no(monkeypatch: Any, config: Config, source_dir: Path) -> 
 
 @pytest.mark.timeout(2)
 def test_confirmation_count(monkeypatch: Any, config: Config, source_dir: Path) -> None:
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle"],
         matcher="Track",
         action=ReplaceAction(replacement="lalala"),
@@ -249,14 +249,14 @@ def test_confirmation_count(monkeypatch: Any, config: Config, source_dir: Path) 
 
 
 def test_rule_to_str() -> None:
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle"],
         matcher="Track",
         action=ReplaceAction(replacement="lalala"),
     )
     assert str(rule) == "tracktitle:Track:replace:lalala"
 
-    rule = UpdateRule(
+    rule = MetadataRule(
         tags=["tracktitle", "artist", "genre"],
         matcher=":",
         action=SedAction(src=re.compile(r":"), dst=";"),
