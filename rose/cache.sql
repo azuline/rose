@@ -170,6 +170,7 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
     tracktitle
   , tracknumber
   , discnumber
+  , albumtitle
   , year
   , releasetype
   , genre
@@ -179,5 +180,5 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
   -- Use standard unicode tokenizer; do not remove diacritics; treat everything we know as token.
   -- Except for the ¬, which is our "separator." We use that separator to produce single-character
   -- tokens.
-  , tokenize="unicode61 remove_diacritics 0 categories 'L* M* N* P* S* Z* C*' tokenchars '§' separators '¬'"
+  , tokenize="unicode61 remove_diacritics 0 categories 'L* M* N* P* S* Z* C*' separators '¬'"
 );

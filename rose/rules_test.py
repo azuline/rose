@@ -107,56 +107,89 @@ def test_rules_execution_match_superstrict(config: Config, source_dir: Path) -> 
     assert af.title == "lalala"
 
 
-@pytest.mark.parametrize(
-    "tag",
-    [
-        "year",
-        "tracktitle",
-        "tracknumber",
-        "discnumber",
-        "albumtitle",
-        "genre",
-        "label",
-        "artist",
-    ],
-)
-def test_all_non_enum_fields_match(config: Config, source_dir: Path, tag: str) -> None:
-    # Test most fields.
+def test_all_fields_match(config: Config, source_dir: Path) -> None:
+    """Test that all fields can match. This checks that we're querying and shit correctly."""
     rule = MetadataRule(
-        tags=[tag],  # type: ignore
-        matcher="",  # Empty string matches everything.
+        tags=["tracktitle"],
+        matcher="Track",
         action=ReplaceAction(replacement="8"),
     )
     execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    if tag == "tracktitle":
-        assert af.title == "8"
-    if tag == "year":
-        assert af.year == 8
-    if tag == "tracknumber":
-        assert af.track_number == "8"
-    if tag == "discnumber":
-        assert af.disc_number == "8"
-    if tag == "albumtitle":
-        assert af.album == "8"
-    if tag == "genre":
-        assert af.genre == ["8", "8"]
-    if tag == "label":
-        assert af.label == ["8"]
-    if tag == "artist":
-        assert af.album_artists.main == ["8"]
-        assert af.artists.main == ["8"]
+    assert af.title == "8"
 
+    rule = MetadataRule(
+        tags=["year"],
+        matcher="1990",
+        action=ReplaceAction(replacement="8"),
+    )
+    execute_metadata_rule(config, rule, False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.year == 8
 
-def test_releasetype_matches(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
         tags=["releasetype"],
-        matcher="",  # Empty string matches everything.
+        matcher="album",
         action=ReplaceAction(replacement="live"),
     )
     execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.release_type == "live"
+
+    rule = MetadataRule(
+        tags=["tracknumber"],
+        matcher="1",
+        action=ReplaceAction(replacement="8"),
+    )
+    execute_metadata_rule(config, rule, False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.track_number == "8"
+
+    rule = MetadataRule(
+        tags=["discnumber"],
+        matcher="1",
+        action=ReplaceAction(replacement="8"),
+    )
+    execute_metadata_rule(config, rule, False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.disc_number == "8"
+
+    rule = MetadataRule(
+        tags=["albumtitle"],
+        matcher="Love Blackpink",
+        action=ReplaceAction(replacement="8"),
+    )
+    execute_metadata_rule(config, rule, False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.album == "8"
+
+    rule = MetadataRule(
+        tags=["genre"],
+        matcher="K-Pop",
+        action=ReplaceAction(replacement="8"),
+    )
+    execute_metadata_rule(config, rule, False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.genre == ["8", "Pop"]
+
+    rule = MetadataRule(
+        tags=["label"],
+        matcher="Cool",
+        action=ReplaceAction(replacement="8"),
+    )
+    execute_metadata_rule(config, rule, False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.label == ["8"]
+
+    rule = MetadataRule(
+        tags=["artist"],
+        matcher="BLACKPINK",
+        action=ReplaceAction(replacement="8"),
+    )
+    execute_metadata_rule(config, rule, False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.album_artists.main == ["8"]
+    assert af.artists.main == ["8"]
 
 
 def test_action_replace_all(config: Config, source_dir: Path) -> None:

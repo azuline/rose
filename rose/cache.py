@@ -1218,6 +1218,7 @@ def _update_cache_for_releases_executor(
                   , tracktitle
                   , tracknumber
                   , discnumber
+                  , albumtitle
                   , year
                   , releasetype
                   , genre
@@ -1230,12 +1231,13 @@ def _update_cache_for_releases_executor(
                   , process_string_for_fts(t.title) AS tracktitle
                   , process_string_for_fts(t.track_number) AS tracknumber
                   , process_string_for_fts(t.disc_number) AS discnumber
+                  , process_string_for_fts(r.title) AS albumtitle
                   , process_string_for_fts(r.release_year) AS year
                   , process_string_for_fts(r.release_type) AS releasetype
-                  , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, '§'), '')) AS genre
-                  , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, '§'), '')) AS label
-                  , process_string_for_fts(COALESCE(GROUP_CONCAT(ra.artist, '§'), '')) AS albumartist
-                  , process_string_for_fts(COALESCE(GROUP_CONCAT(ta.artist, '§'), '')) AS trackartist
+                  , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, ' '), '')) AS genre
+                  , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, ' '), '')) AS label
+                  , process_string_for_fts(COALESCE(GROUP_CONCAT(ra.artist, ' '), '')) AS albumartist
+                  , process_string_for_fts(COALESCE(GROUP_CONCAT(ta.artist, ' '), '')) AS trackartist
                 FROM tracks t
                 JOIN releases r ON r.id = t.release_id
                 LEFT JOIN releases_genres rg ON rg.release_id = r.id
@@ -2253,5 +2255,5 @@ def _unpack(*xxs: str, delimiter: str = r" \\ ") -> Iterator[tuple[str, ...]]:
 
 def _process_string_for_fts(x: str) -> str:
     # In order to have performant substring search, we use FTS and hack it such that every character
-    # is a token.
-    return "¬".join("§" + str(x) + "§") if x else x
+    # is a token. We use "¬" as our separator character, hoping that it is not used in any metadata.
+    return "¬".join(str(x)) if x else x
