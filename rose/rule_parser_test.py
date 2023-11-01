@@ -14,15 +14,15 @@ from rose.rule_parser import (
 def test_rule_to_str() -> None:
     rule = MetadataRule(
         matcher=MetadataMatcher(tags=["tracktitle"], pattern="Track"),
-        action=ReplaceAction(replacement="lalala", tags=["artist", "genre"]),
+        action=ReplaceAction(replacement="lalala", tags=["albumartist", "genre"]),
     )
-    assert str(rule) == "matcher=tracktitle:Track action=artist,genre:replace:lalala"
+    assert str(rule) == "matcher=tracktitle:Track action=albumartist,genre:replace:lalala"
 
     rule = MetadataRule(
-        matcher=MetadataMatcher(tags=["tracktitle", "artist", "genre"], pattern=":"),
+        matcher=MetadataMatcher(tags=["tracktitle", "albumartist", "genre"], pattern=":"),
         action=SedAction(src=re.compile(r":"), dst="; "),
     )
-    assert str(rule) == r'matcher=tracktitle,artist,genre:\: action="sed:\::; "'
+    assert str(rule) == r'matcher=tracktitle,albumartist,genre:\: action="sed:\::; "'
 
 
 def test_rule_parser() -> None:

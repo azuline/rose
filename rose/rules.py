@@ -2,10 +2,13 @@
 The rules module implements the Rules Engine for updating metadata. The rules engine accepts,
 previews, and executes rules.
 """
+
 import contextlib
 import copy
 import logging
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -96,13 +99,7 @@ def execute_metadata_rule(
     # that we directly use string interpolation here instead of prepared queries, because we are
     # constructing a complex match string and everything is escaped and spaced-out with a random
     # paragraph character, so there's no risk of SQL being interpreted.
-    columns: list[str] = []
-    for field in rule.matcher.tags:
-        if field == "artist":
-            columns.extend(["trackartist", "albumartist"])
-        else:
-            columns.append(field)
-    ftsquery = f"{{{' '.join(columns)}}} : {matchsql}"
+    ftsquery = f"{{{' '.join(rule.matcher.tags)}}} : {matchsql}"
     query = f"""
         SELECT DISTINCT t.source_path
         FROM rules_engine_fts
@@ -127,41 +124,9 @@ def execute_metadata_rule(
     #   audiotags into the `audiotag` list. Print planned changes for user confirmation.
     # - 2nd pass: Flush the changes.
 
-    # Factor out the logic for executing an action on a single-value tag and a multi-value tag.
-    def execute_single_action(value: str | None) -> str | None:
-        if not matches_rule(value or ""):
-            return value
-        if isinstance(rule.action, ReplaceAction):
-            return rule.action.replacement
-        elif isinstance(rule.action, SedAction):
-            if not value:
-                return value
-            return rule.action.src.sub(rule.action.dst, str(value or ""))
-        elif isinstance(rule.action, DeleteAction):
-            return None
-        raise InvalidRuleActionError(f"Invalid action {type(rule.action)} for single-value tag")
-
-    def execute_multi_value_action(values: list[str]) -> list[str]:
-        if isinstance(rule.action, ReplaceAllAction):
-            return rule.action.replacement
-
-        rval: list[str] = []
-        for v in values:
-            if not matches_rule(v):
-                rval.append(v)
-                continue
-            with contextlib.suppress(InvalidRuleActionError):
-                if newv := execute_single_action(v):
-                    rval.append(newv)
-                continue
-            if isinstance(rule.action, SplitAction):
-                for newv in v.split(rule.action.delimiter):
-                    if newv:
-                        rval.append(newv.strip())
-                continue
-            raise InvalidRuleActionError(f"Invalid action {type(rule.action)} for multi-value tag")
-        return rval
-
+    # In this first pass, we have two steps:
+    #
+    # 1. Make sure that this audio track should indeed
     audiotags: list[AudioTags] = []
     for tpath in track_paths:
         tags = AudioTags.from_file(tpath)
@@ -323,3 +288,42 @@ def execute_metadata_rule(
         logger.info(f"Flushing rule-applied tags for {tags.path}.")
         tags.flush()
     logger.info(f"Successfully flushed all {len(audiotags)} rule-applied tags")
+
+
+# Factor out the logic for executing an action on a single-value tag and a multi-value tag.
+def execute_single_action(rule: MetadataRule, value: str | None) -> str | None:
+    if isinstance(rule.action, ReplaceAction):
+        return rule.action.replacement
+    elif isinstance(rule.action, SedAction):
+        if not value:
+            return value
+        return rule.action.src.sub(rule.action.dst, str(value or ""))
+    elif isinstance(rule.action, DeleteAction):
+        return None
+    raise InvalidRuleActionError(f"Invalid action {type(rule.action)} for single-value tag")
+
+
+def execute_multi_value_action(
+    rule: MetadataRule,
+    values: list[str],
+    matches_rule: Callable[[Any], bool],
+) -> list[str]:
+    if isinstance(rule.action, ReplaceAllAction):
+        return rule.action.replacement
+
+    rval: list[str] = []
+    for v in values:
+        if not matches_rule(v):
+            rval.append(v)
+            continue
+        with contextlib.suppress(InvalidRuleActionError):
+            if newv := execute_single_action(rule, v):
+                rval.append(newv)
+            continue
+        if isinstance(rule.action, SplitAction):
+            for newv in v.split(rule.action.delimiter):
+                if newv:
+                    rval.append(newv.strip())
+            continue
+        raise InvalidRuleActionError(f"Invalid action {type(rule.action)} for multi-value tag")
+    return rval

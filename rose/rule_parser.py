@@ -29,7 +29,8 @@ Tag = Literal[
     "genre",
     "label",
     "releasetype",
-    "artist",
+    "trackartist",
+    "albumartist",
 ]
 
 ALL_TAGS: list[Tag] = [
@@ -41,7 +42,8 @@ ALL_TAGS: list[Tag] = [
     "genre",
     "label",
     "releasetype",
-    "artist",
+    "trackartist",
+    "albumartist",
 ]
 
 
@@ -57,7 +59,8 @@ SINGLE_VALUE_TAGS: list[Tag] = [
 MULTI_VALUE_TAGS: list[Tag] = [
     "genre",
     "label",
-    "artist",
+    "trackartist",
+    "albumartist",
 ]
 
 
