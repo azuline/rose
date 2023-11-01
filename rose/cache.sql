@@ -158,3 +158,23 @@ CREATE TABLE playlists_tracks (
 CREATE INDEX playlists_tracks_playlist_name ON playlists_tracks(playlist_name);
 CREATE INDEX playlists_tracks_track_id ON playlists_tracks(track_id);
 CREATE INDEX playlists_tracks_access ON playlists_tracks(playlist_name, missing, track_id);
+
+-- A full text search setup for rules engine performance.
+--
+-- We keep the virtual table in sync by hand at the end of the cache update
+-- sequence using this view. We don't use automatic triggers in order to avoid
+-- write amplification affecting cache update performance.
+CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
+    tracktitle
+  , tracknumber
+  , discnumber
+  , year
+  , releasetype
+  , genre
+  , label
+  , albumartist
+  , trackartist
+  -- Use standard unicode tokenizer; do not remove diacritics; treat everything as token.
+  -- , tokenize="unicode61 remove_diacritics 0 categories 'L* M* N* P* S* Z* C*' tokenchars '§'"
+  , tokenize="unicode61 remove_diacritics 0 categories 'L* M* N* S* C*'"
+);

@@ -589,11 +589,13 @@ def _update_cache_for_releases_executor(
     loop_start = time.time()
     upd_delete_source_paths: list[str] = []
     upd_release_args: list[list[Any]] = []
+    upd_release_ids: list[str] = []
     upd_release_artist_args: list[list[Any]] = []
     upd_release_genre_args: list[list[Any]] = []
     upd_release_label_args: list[list[Any]] = []
     upd_unknown_cached_tracks_args: list[tuple[str, list[str]]] = []
     upd_track_args: list[list[Any]] = []
+    upd_track_ids: list[str] = []
     upd_track_artist_args: list[list[Any]] = []
     # The following two variables store updates for a collage's and playlist's description_meta
     # fields. Map of entity id -> dir/filename.
@@ -1007,6 +1009,7 @@ def _update_cache_for_releases_executor(
                     release.formatted_artists,
                 ]
             )
+            upd_release_ids.append(release.id)
             for genre in release.genres:
                 upd_release_genre_args.append([release.id, genre, _sanitize_filename(genre)])
             for label in release.labels:
@@ -1036,6 +1039,7 @@ def _update_cache_for_releases_executor(
                         track.formatted_artists,
                     ]
                 )
+                upd_track_ids.append(track.id)
                 for art in track.artists:
                     upd_track_artist_args.append(
                         [track.id, art.name, _sanitize_filename(art.name), art.role, art.alias]
@@ -1185,6 +1189,63 @@ def _update_cache_for_releases_executor(
                 VALUES {",".join(["(?,?,?,?,?)"]*len(upd_track_artist_args))}
                 """,
                 _flatten(upd_track_artist_args),
+            )
+        # And update the full text search engine here for any tracks and releases that have been
+        # affected. Note that we do not worry about cleaning out deleted releases and tracks from
+        # the full text search engine, since we join against tracks at the use site, which filters
+        # out deleted tracks/releases from the full text search engine. Furthermore, the cache is
+        # full-nuked often enough that there should not be much space waste.
+        if upd_release_ids or upd_track_ids:
+            conn.execute(
+                f"""
+                DELETE FROM rules_engine_fts WHERE rowid IN (
+                    SELECT t.rowid
+                    FROM tracks t
+                    JOIN releases r ON r.id = t.release_id
+                    WHERE t.id IN ({",".join(["?"]*len(upd_track_ids))})
+                       OR r.id IN ({",".join(["?"]*len(upd_release_ids))})
+               )
+                """,
+                [*upd_track_ids, *upd_release_ids],
+            )
+            # That cool section breaker shuriken character is our multi-value delimiter and how we
+            # force-match strict prefix/suffix.
+            conn.execute(
+                f"""
+                INSERT INTO rules_engine_fts (
+                    rowid
+                  , tracktitle
+                  , tracknumber
+                  , discnumber
+                  , year
+                  , releasetype
+                  , genre
+                  , label
+                  , albumartist
+                  , trackartist
+                )
+                SELECT
+                    t.rowid
+                  , '§' || t.title || '§' AS tracktitle
+                  , '§' || t.track_number || '§' AS tracknumber
+                  , '§' || t.disc_number || '§' AS discnumber
+                  , '§' || r.release_year || '§' AS year
+                  , '§' || r.release_type || '§' AS releasetype
+                  , '§' || COALESCE(GROUP_CONCAT(rg.genre, '§'), '') || '§' AS genre
+                  , '§' || COALESCE(GROUP_CONCAT(rl.label, '§'), '') || '§' AS label
+                  , '§' || COALESCE(GROUP_CONCAT(ra.artist, '§'), '') || '§' AS albumartist
+                  , '§' || COALESCE(GROUP_CONCAT(ta.artist, '§'), '') || '§' AS trackartist
+                FROM tracks t
+                JOIN releases r ON r.id = t.release_id
+                LEFT JOIN releases_genres rg ON rg.release_id = r.id
+                LEFT JOIN releases_labels rl ON rl.release_id = r.id
+                LEFT JOIN releases_artists ra ON ra.release_id = r.id
+                LEFT JOIN tracks_artists ta ON ta.track_id = t.id
+                WHERE t.id IN ({",".join(["?"]*len(upd_track_ids))})
+                   OR r.id IN ({",".join(["?"]*len(upd_release_ids))})
+                GROUP BY t.id
+                """,
+                [*upd_track_ids, *upd_release_ids],
             )
 
         # Schedule collage/playlist updates in order to update description_meta.
