@@ -99,7 +99,7 @@ def execute_metadata_rule(
         LEFT JOIN releases_labels rl ON rg.release_id = r.id
         LEFT JOIN releases_artists ra ON ra.release_id = r.id
         LEFT JOIN tracks_artists ta ON ta.track_id = t.id
-        WHERE 1=1
+        WHERE false
     """
     args: list[str] = []
     for field in rule.tags:
@@ -123,19 +123,17 @@ def execute_metadata_rule(
         if field == "releasetype":
             query += r" OR r.release_type LIKE ? ESCAPE '\'"
             args.append(matchsql)
-        # For genres, labels, and artists, because SQLite lacks arrays, we create a string like
-        # `\\ val1 \\ val2 \\` and match on `\\ {matcher} \\`.
         if field == "genre":
             query += r" OR rg.genre LIKE ? ESCAPE '\'"
-            args.append(rf" \\ {matchsql} \\ ")
+            args.append(matchsql)
         if field == "label":
             query += r" OR rl.label LIKE ? ESCAPE '\'"
-            args.append(rf" \\ {matchsql} \\ ")
+            args.append(matchsql)
         if field == "artist":
             query += r" OR ra.artist LIKE ? ESCAPE '\'"
-            args.append(rf" \\ {matchsql} \\ ")
+            args.append(matchsql)
             query += r" OR ta.artist LIKE ? ESCAPE '\'"
-            args.append(rf" \\ {matchsql} \\ ")
+            args.append(matchsql)
     query += " ORDER BY t.source_path"
     logger.debug(f"Constructed matching query {query} with args {args}")
     # And then execute the SQL query. Note that we don't pull the tag values here. This query is
@@ -144,6 +142,8 @@ def execute_metadata_rule(
     with connect(c) as conn:
         track_paths = [Path(row["source_path"]).resolve() for row in conn.execute(query, args)]
     logger.debug(f"Matched {len(track_paths)} tracks from the read cache")
+    if not track_paths:
+        return
 
     # Factor out the logic for executing an action on a single-value tag and a multi-value tag.
     def execute_single_action(value: str | None) -> str | None:
@@ -307,7 +307,7 @@ def execute_metadata_rule(
                         f'{";".join(tags.album_artists.djmixer)}'
                     )
 
-        relativepath = str(tpath).lstrip(str(c.music_source_dir))
+        relativepath = str(tpath).removeprefix(str(c.music_source_dir))
         if changes:
             changelog = f"[{relativepath}] {' | '.join(changes)}"
             if confirm_yes:

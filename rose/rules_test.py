@@ -107,35 +107,48 @@ def test_rules_execution_match_superstrict(config: Config, source_dir: Path) -> 
     assert af.title == "lalala"
 
 
-def test_all_fields_match(config: Config, source_dir: Path) -> None:
+@pytest.mark.parametrize(
+    "tag",
+    [
+        "year",
+        "tracktitle",
+        "tracknumber",
+        "discnumber",
+        "albumtitle",
+        "genre",
+        "label",
+        "artist",
+    ],
+)
+def test_all_non_enum_fields_match(config: Config, source_dir: Path, tag: str) -> None:
     # Test most fields.
     rule = MetadataRule(
-        tags=[
-            "year",
-            "tracktitle",
-            "tracknumber",
-            "discnumber",
-            "albumtitle",
-            "genre",
-            "label",
-            "artist",
-        ],
+        tags=[tag],  # type: ignore
         matcher="",  # Empty string matches everything.
         action=ReplaceAction(replacement="8"),
     )
     execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.title == "8"
-    assert af.year == 8
-    assert af.track_number == "8"
-    assert af.disc_number == "8"
-    assert af.album == "8"
-    assert af.genre == ["8", "8"]
-    assert af.label == ["8"]
-    assert af.album_artists.main == ["8"]
-    assert af.artists.main == ["8"]
+    if tag == "tracktitle":
+        assert af.title == "8"
+    if tag == "year":
+        assert af.year == 8
+    if tag == "tracknumber":
+        assert af.track_number == "8"
+    if tag == "discnumber":
+        assert af.disc_number == "8"
+    if tag == "albumtitle":
+        assert af.album == "8"
+    if tag == "genre":
+        assert af.genre == ["8", "8"]
+    if tag == "label":
+        assert af.label == ["8"]
+    if tag == "artist":
+        assert af.album_artists.main == ["8"]
+        assert af.artists.main == ["8"]
 
-    # And then test release type separately.
+
+def test_releasetype_matches(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
         tags=["releasetype"],
         matcher="",  # Empty string matches everything.

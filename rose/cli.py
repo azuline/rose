@@ -403,7 +403,7 @@ def metadata() -> None:
 @click.pass_obj
 def run_stored_rules(ctx: Context, yes: bool) -> None:
     """Run the metadata rules stored in the config"""
-    execute_stored_metadata_rules(ctx.config, confirm_yes=yes)
+    execute_stored_metadata_rules(ctx.config, confirm_yes=not yes)
 
 
 @cli.command()

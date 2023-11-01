@@ -45,6 +45,22 @@ ALL_TAGS: list[Tag] = [
 ]
 
 
+SINGLE_VALUE_TAGS: list[Tag] = [
+    "tracktitle",
+    "year",
+    "tracknumber",
+    "discnumber",
+    "albumtitle",
+    "releasetype",
+]
+
+MULTI_VALUE_TAGS: list[Tag] = [
+    "genre",
+    "label",
+    "artist",
+]
+
+
 @dataclass
 class ReplaceAction:
     """
@@ -138,12 +154,10 @@ class MetadataRule:
                 f"Key `tags` must be a string or a list of strings: got {type(tags)}"
             )
         for t in tags:
-            if t not in ALL_TAGS and t != "*":
+            if t not in ALL_TAGS:
                 raise InvalidRuleSpecError(
-                    f"Key `tags`'s values must be one of *, {', '.join(ALL_TAGS)}: got {t}"
+                    f"Key `tags`'s values must be one of {', '.join(ALL_TAGS)}: got {t}"
                 )
-        if any(t == "*" for t in tags):
-            tags = ALL_TAGS
 
         try:
             matcher = data["matcher"]
@@ -227,6 +241,17 @@ class MetadataRule:
                 "Key `action.kind` must be one of replace, replaceall, sed, spliton, delete: "
                 f"got {action_kind}"
             )
+
+        # Validate that the action kind and tags are acceptable. Mainly that we are not calling
+        # `replaceall` and `splitall` on single-valued tags.
+        multi_value_action = action_kind == "replaceall" or action_kind == "spliton"
+        if multi_value_action:
+            single_valued_tags = [t for t in tags if t in SINGLE_VALUE_TAGS]
+            if single_valued_tags:
+                raise InvalidRuleSpecError(
+                    f"Single valued tags {', '.join(single_valued_tags)} cannot be modified by "
+                    f"multi-value action {action_kind}"
+                )
 
         return cls(
             tags=tags,

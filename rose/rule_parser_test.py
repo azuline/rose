@@ -1,7 +1,6 @@
 import re
 
 from rose.rule_parser import (
-    ALL_TAGS,
     DeleteAction,
     MetadataRule,
     ReplaceAction,
@@ -54,28 +53,15 @@ def test_rule_parser() -> None:
         action=ReplaceAction(replacement="hihi"),
     )
 
-    # Test all tag expansion
-    assert MetadataRule.parse_dict(
-        {
-            "tags": "*",
-            "matcher": "lala",
-            "action": {"kind": "replace", "replacement": "hihi"},
-        }
-    ) == MetadataRule(
-        tags=ALL_TAGS,
-        matcher="lala",
-        action=ReplaceAction(replacement="hihi"),
-    )
-
     # Test replaceall
     assert MetadataRule.parse_dict(
         {
-            "tags": "tracktitle",
+            "tags": "genre",
             "matcher": "lala",
             "action": {"kind": "replaceall", "replacement": ["hihi"]},
         }
     ) == MetadataRule(
-        tags=["tracktitle"],
+        tags=["genre"],
         matcher="lala",
         action=ReplaceAllAction(replacement=["hihi"]),
     )
@@ -96,12 +82,12 @@ def test_rule_parser() -> None:
     # Test spliton
     assert MetadataRule.parse_dict(
         {
-            "tags": "tracktitle",
+            "tags": "genre",
             "matcher": "lala",
             "action": {"kind": "spliton", "delimiter": "."},
         }
     ) == MetadataRule(
-        tags=["tracktitle"],
+        tags=["genre"],
         matcher="lala",
         action=SplitAction(delimiter="."),
     )
