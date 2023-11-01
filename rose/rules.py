@@ -293,6 +293,9 @@ def execute_metadata_rule(
         else:
             logger.debug(f"Skipping relative path {relativepath}: no changes calculated off tags")
 
+    if not audiotags:
+        return
+
     if confirm_yes:
         if len(audiotags) > enter_number_to_confirm_above_count:
             while True:
