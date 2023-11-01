@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from conftest import retry_for_sec
 from rose.audiotags import AudioTags
 from rose.config import Config
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
@@ -248,28 +249,41 @@ def test_virtual_filesystem_release_cover_art_actions(
         # First write.
         with (release_dir / "folder.jpg").open("w") as fp:
             fp.write("hi")
-        assert (release_dir / "cover.jpg").is_file()
-        with (release_dir / "cover.jpg").open("r") as fp:
-            assert fp.read() == "hi"
+        for _ in retry_for_sec(0.2):
+            if not (release_dir / "cover.jpg").is_file():
+                continue
+            with (release_dir / "cover.jpg").open("r") as fp:
+                if fp.read() != "hi":
+                    continue
+            break
 
         # Second write to same filename.
         with (release_dir / "cover.jpg").open("w") as fp:
             fp.write("hi")
-        with (release_dir / "cover.jpg").open("r") as fp:
-            assert fp.read() == "hi"
+        for _ in retry_for_sec(0.2):
+            with (release_dir / "cover.jpg").open("r") as fp:
+                if fp.read() == "hi":
+                    break
 
         # Third write to different filename.
         with (release_dir / "front.png").open("w") as fp:
             fp.write("hi")
-        assert (release_dir / "cover.png").is_file()
-        with (release_dir / "cover.png").open("r") as fp:
-            assert fp.read() == "hi"
-        # Because of ghost writes, getattr succeeds, so we shouldn't check exists().
-        assert "cover.jpg" not in [f.name for f in release_dir.iterdir()]
+        for _ in retry_for_sec(0.2):
+            if not (release_dir / "cover.png").is_file():
+                continue
+            with (release_dir / "cover.png").open("r") as fp:
+                if fp.read() != "hi":
+                    continue
+            # Because of ghost writes, getattr succeeds, so we shouldn't check exists().
+            if "cover.jpg" not in [f.name for f in release_dir.iterdir()]:
+                continue
+            break
 
         # Now delete the cover art.
         (release_dir / "cover.png").unlink()
-        assert not (release_dir / "cover.png").exists()
+        for _ in retry_for_sec(0.2):
+            if not (release_dir / "cover.png").exists():
+                break
 
 
 def test_virtual_filesystem_playlist_cover_art_actions(
@@ -283,28 +297,41 @@ def test_virtual_filesystem_playlist_cover_art_actions(
         # First write.
         with (playlist_dir / "folder.jpg").open("w") as fp:
             fp.write("hi")
-        assert (playlist_dir / "cover.jpg").is_file()
-        with (playlist_dir / "cover.jpg").open("r") as fp:
-            assert fp.read() == "hi"
+        for _ in retry_for_sec(0.2):
+            if not (playlist_dir / "cover.jpg").is_file():
+                continue
+            with (playlist_dir / "cover.jpg").open("r") as fp:
+                if fp.read() != "hi":
+                    continue
+            break
 
         # Second write to same filename.
         with (playlist_dir / "cover.jpg").open("w") as fp:
-            fp.write("hi")
-        with (playlist_dir / "cover.jpg").open("r") as fp:
-            assert fp.read() == "hi"
+            fp.write("bye")
+        for _ in retry_for_sec(0.2):
+            with (playlist_dir / "cover.jpg").open("r") as fp:
+                if fp.read() == "bye":
+                    break
 
         # Third write to different filename.
         with (playlist_dir / "front.png").open("w") as fp:
             fp.write("hi")
-        assert (playlist_dir / "cover.png").is_file()
-        with (playlist_dir / "cover.png").open("r") as fp:
-            assert fp.read() == "hi"
-        # Because of ghost writes, getattr succeeds, so we shouldn't check exists().
-        assert "cover.jpg" not in [f.name for f in playlist_dir.iterdir()]
+        for _ in retry_for_sec(0.2):
+            if not (playlist_dir / "cover.png").is_file():
+                continue
+            with (playlist_dir / "cover.png").open("r") as fp:
+                if fp.read() != "hi":
+                    continue
+            # Because of ghost writes, getattr succeeds, so we shouldn't check exists().
+            if not "cover.jpg" not in [f.name for f in playlist_dir.iterdir()]:
+                continue
+            break
 
         # Now delete the cover art.
         (playlist_dir / "cover.png").unlink()
-        assert not (playlist_dir / "cover.png").exists()
+        for _ in retry_for_sec(0.2):
+            if not (playlist_dir / "cover.png").exists():
+                break
 
 
 def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> None:

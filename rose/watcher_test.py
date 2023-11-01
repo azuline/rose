@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from multiprocessing import Process
 
-from conftest import TEST_COLLAGE_1, TEST_PLAYLIST_1, TEST_RELEASE_2, TEST_RELEASE_3
+from conftest import TEST_COLLAGE_1, TEST_PLAYLIST_1, TEST_RELEASE_2, TEST_RELEASE_3, retry_for_sec
 from rose.cache import connect
 from rose.config import Config
 from rose.watcher import start_watchdog
@@ -19,15 +19,6 @@ def start_watcher(c: Config) -> Iterator[None]:
         yield
     finally:
         process.terminate()
-
-
-def retry_for_sec(timeout_sec: float) -> Iterator[None]:
-    start = time.time()
-    while True:
-        yield
-        time.sleep(0.01)
-        if time.time() - start >= timeout_sec:
-            break
 
 
 def test_watchdog_events(config: Config) -> None:

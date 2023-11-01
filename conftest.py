@@ -2,6 +2,7 @@ import hashlib
 import logging
 import shutil
 import sqlite3
+import time
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -193,3 +194,12 @@ def source_dir(config: Config) -> Path:
     shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
     update_cache(config)
     return config.music_source_dir
+
+
+def retry_for_sec(timeout_sec: float) -> Iterator[None]:
+    start = time.time()
+    while True:
+        yield
+        time.sleep(0.01)
+        if time.time() - start >= timeout_sec:
+            break
