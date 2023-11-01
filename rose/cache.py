@@ -247,6 +247,7 @@ RELEASE_TYPE_FORMATTER = {
     "single": "Single",
     "ep": "EP",
     "compilation": "Compilation",
+    "anthology": "Anthology",
     "soundtrack": "Soundtrack",
     "live": "Live",
     "remix": "Remix",

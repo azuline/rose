@@ -11,6 +11,7 @@ INSERT INTO release_type_enum (value) VALUES
     ('single'),
     ('ep'),
     ('compilation'),
+    ('anthology'),
     ('soundtrack'),
     ('live'),
     ('remix'),

@@ -43,6 +43,7 @@ SUPPORTED_RELEASE_TYPES = [
     "single",
     "ep",
     "compilation",
+    "anthology",
     "soundtrack",
     "live",
     "remix",

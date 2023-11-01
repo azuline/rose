@@ -99,6 +99,7 @@ Rosé supports tagging the release _type_. The supported values are:
 - `single`
 - `ep`
 - `compilation`
+- `anthology`
 - `soundtrack`
 - `live`
 - `remix`
