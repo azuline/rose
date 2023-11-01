@@ -69,6 +69,7 @@ class ReplaceAction:
     """
 
     replacement: str
+    tags: Literal["matched"] | list[Tag] = "matched"
 
 
 @dataclass
@@ -76,6 +77,7 @@ class ReplaceAllAction:
     """Specifically useful for multi-valued tags, replaces all values."""
 
     replacement: list[str]
+    tags: Literal["matched"] | list[Tag] = "matched"
 
 
 @dataclass
@@ -87,6 +89,7 @@ class SedAction:
 
     src: re.Pattern[str]
     dst: str
+    tags: Literal["matched"] | list[Tag] = "matched"
 
 
 @dataclass
@@ -97,6 +100,7 @@ class SplitAction:
     """
 
     delimiter: str
+    tags: Literal["matched"] | list[Tag] = "matched"
 
 
 @dataclass
@@ -106,37 +110,43 @@ class DeleteAction:
     values are left alone.
     """
 
-    pass
+    tags: Literal["matched"] | list[Tag] = "matched"
+
+
+@dataclass
+class MetadataMatcher:
+    tags: list[Tag]
+    pattern: str
 
 
 @dataclass
 class MetadataRule:
-    tags: list[Tag]
-    matcher: str
+    matcher: MetadataMatcher
     action: ReplaceAction | ReplaceAllAction | SedAction | SplitAction | DeleteAction
 
     def __str__(self) -> str:
-        r = ",".join(self.tags)
-        r += ":"
-        r += self.matcher.replace(":", r"\:")
-        r += ":"
+        matcher = ",".join(self.matcher.tags)
+        matcher += ":"
+        matcher += self.matcher.pattern.replace(":", r"\:")
+
+        action = ""
+        if self.action.tags != "matched":
+            action += ",".join(self.action.tags) + ":"
         if isinstance(self.action, ReplaceAction):
-            r += "replace:"
-            r += self.action.replacement
+            action += "replace:" + self.action.replacement
         elif isinstance(self.action, ReplaceAllAction):
-            r += "replaceall:"
-            r += ";".join(self.action.replacement)
+            action += "replaceall:" + ";".join(self.action.replacement)
         elif isinstance(self.action, SedAction):
-            r += "sed:"
-            r += str(self.action.src.pattern).replace(":", r"\:")
-            r += ":"
-            r += self.action.dst.replace(":", r"\:")
+            action += "sed:"
+            action += str(self.action.src.pattern).replace(":", r"\:")
+            action += ":"
+            action += self.action.dst.replace(":", r"\:")
         elif isinstance(self.action, SplitAction):
-            r += "spliton:"
-            r += self.action.delimiter
+            action += "spliton:" + self.action.delimiter
         elif isinstance(self.action, DeleteAction):
-            r += "delete"
-        return r
+            action += "delete"
+
+        return f"matcher={_quote(matcher)} action={_quote(action)}"
 
     @classmethod
     def parse_dict(cls, data: dict[str, Any]) -> MetadataRule:
@@ -144,27 +154,36 @@ class MetadataRule:
             raise InvalidRuleSpecError(f"Type of metadata rule data must be dict: got {type(data)}")
 
         try:
-            tags = data["tags"]
-        except KeyError as e:
-            raise InvalidRuleSpecError("Key `tags` not found") from e
-        if isinstance(tags, str):
-            tags = [tags]
-        if not isinstance(tags, list):
-            raise InvalidRuleSpecError(
-                f"Key `tags` must be a string or a list of strings: got {type(tags)}"
-            )
-        for t in tags:
-            if t not in ALL_TAGS:
-                raise InvalidRuleSpecError(
-                    f"Key `tags`'s values must be one of {', '.join(ALL_TAGS)}: got {t}"
-                )
-
-        try:
             matcher = data["matcher"]
         except KeyError as e:
             raise InvalidRuleSpecError("Key `matcher` not found") from e
-        if not isinstance(matcher, str):
-            raise InvalidRuleSpecError(f"Key `matcher` must be a string: got {type(matcher)}")
+        if not isinstance(matcher, dict):
+            raise InvalidRuleSpecError(f"Key `matcher` must be a dict: got {type(matcher)}")
+
+        try:
+            match_tags = matcher["tags"]
+        except KeyError as e:
+            raise InvalidRuleSpecError("Key `matcher.tags` not found") from e
+        if isinstance(match_tags, str):
+            match_tags = [match_tags]
+        if not isinstance(match_tags, list):
+            raise InvalidRuleSpecError(
+                f"Key `matcher.tags` must be a string or a list of strings: got {type(match_tags)}"
+            )
+        for t in match_tags:
+            if t not in ALL_TAGS:
+                raise InvalidRuleSpecError(
+                    f"Key `matcher.tags`'s values must be one of {', '.join(ALL_TAGS)}: got {t}"
+                )
+
+        try:
+            pattern = matcher["pattern"]
+        except KeyError as e:
+            raise InvalidRuleSpecError("Key `matcher.pattern` not found") from e
+        if not isinstance(pattern, str):
+            raise InvalidRuleSpecError(
+                f"Key `matcher.pattern` must be a string: got {type(pattern)}"
+            )
 
         try:
             action_dict = data["action"]
@@ -175,6 +194,19 @@ class MetadataRule:
                 f"Key `action` must be a dictionary: got {type(action_dict)}"
             )
 
+        action_tags = action_dict.get("tags", "matched")
+        if action_tags != "matched":
+            if not isinstance(action_tags, list):
+                raise InvalidRuleSpecError(
+                    f'Key `action.tags` must be string "matched" or a list of strings: '
+                    f"got {type(action_tags)}"
+                )
+            for at in action_tags:
+                if at not in ALL_TAGS:
+                    raise InvalidRuleSpecError(
+                        f"Key `action.tags's values must be one of {', '.join(ALL_TAGS)}: got {at}"
+                    )
+
         try:
             action_kind = action_dict["kind"]
         except KeyError as e:
@@ -183,7 +215,7 @@ class MetadataRule:
         action: ReplaceAction | ReplaceAllAction | SedAction | SplitAction | DeleteAction
         if action_kind == "replace":
             try:
-                action = ReplaceAction(replacement=action_dict["replacement"])
+                action = ReplaceAction(replacement=action_dict["replacement"], tags=action_tags)
             except KeyError as e:
                 raise InvalidRuleSpecError("Key `action.replacement` not found") from e
             if not isinstance(action.replacement, str):
@@ -192,7 +224,7 @@ class MetadataRule:
                 )
         elif action_kind == "replaceall":
             try:
-                action = ReplaceAllAction(replacement=action_dict["replacement"])
+                action = ReplaceAllAction(replacement=action_dict["replacement"], tags=action_tags)
             except KeyError as e:
                 raise InvalidRuleSpecError("Key `action.replacement` not found") from e
             if not isinstance(action.replacement, list):
@@ -224,10 +256,10 @@ class MetadataRule:
                     f"Key `action.dst` must be a string: got {type(action_dst)}"
                 )
 
-            action = SedAction(src=action_src, dst=action_dst)
+            action = SedAction(src=action_src, dst=action_dst, tags=action_tags)
         elif action_kind == "spliton":
             try:
-                action = SplitAction(delimiter=action_dict["delimiter"])
+                action = SplitAction(delimiter=action_dict["delimiter"], tags=action_tags)
             except KeyError as e:
                 raise InvalidRuleSpecError("Key `action.delimiter` not found") from e
             if not isinstance(action.delimiter, str):
@@ -235,7 +267,7 @@ class MetadataRule:
                     f"Key `action.delimiter` must be a string: got {type(action.delimiter)}"
                 )
         elif action_kind == "delete":
-            action = DeleteAction()
+            action = DeleteAction(tags=action_tags)
         else:
             raise InvalidRuleSpecError(
                 "Key `action.kind` must be one of replace, replaceall, sed, spliton, delete: "
@@ -246,7 +278,7 @@ class MetadataRule:
         # `replaceall` and `splitall` on single-valued tags.
         multi_value_action = action_kind == "replaceall" or action_kind == "spliton"
         if multi_value_action:
-            single_valued_tags = [t for t in tags if t in SINGLE_VALUE_TAGS]
+            single_valued_tags = [t for t in match_tags if t in SINGLE_VALUE_TAGS]
             if single_valued_tags:
                 raise InvalidRuleSpecError(
                     f"Single valued tags {', '.join(single_valued_tags)} cannot be modified by "
@@ -254,7 +286,10 @@ class MetadataRule:
                 )
 
         return cls(
-            tags=tags,
-            matcher=matcher,
+            matcher=MetadataMatcher(tags=match_tags, pattern=pattern),
             action=action,
         )
+
+
+def _quote(x: str) -> str:
+    return f'"{x}"' if " " in x else x

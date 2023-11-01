@@ -59,15 +59,15 @@ def execute_metadata_rule(
     # 1. Create a Python function for the matcher. We'll use this in the actual substitutions and
     # test this against every tag before we apply a rule to it.
     def matches_rule(x: str) -> bool:
-        strictstart = rule.matcher.startswith("^")
-        strictend = rule.matcher.endswith("$")
+        strictstart = rule.matcher.pattern.startswith("^")
+        strictend = rule.matcher.pattern.endswith("$")
         if strictstart and strictend:
-            return x == rule.matcher[1:-1]
+            return x == rule.matcher.pattern[1:-1]
         if strictstart:
-            return x.startswith(rule.matcher[1:])
+            return x.startswith(rule.matcher.pattern[1:])
         if strictend:
-            return x.endswith(rule.matcher[:-1])
-        return rule.matcher in x
+            return x.endswith(rule.matcher.pattern[:-1])
+        return rule.matcher.pattern in x
 
     # 2. Convert the matcher to a SQL expression for SQLite FTS. We won't be doing the precise
     # prefix/suffix matching here: for performance, we abuse SQLite FTS by making every character
@@ -79,7 +79,7 @@ def execute_metadata_rule(
     # Therefore we strip the `^$` and convert the text into SQLite FTS Match query. We use NEAR to
     # assert that all the characters are within a substring equivalent to the length of the query,
     # which should filter out most false positives.
-    matchsqlstr = rule.matcher
+    matchsqlstr = rule.matcher.pattern
     if matchsqlstr.startswith("^"):
         matchsqlstr = matchsqlstr[1:]
     if matchsqlstr.endswith("$"):
@@ -97,7 +97,7 @@ def execute_metadata_rule(
     # constructing a complex match string and everything is escaped and spaced-out with a random
     # paragraph character, so there's no risk of SQL being interpreted.
     columns: list[str] = []
-    for field in rule.tags:
+    for field in rule.matcher.tags:
         if field == "artist":
             columns.extend(["trackartist", "albumartist"])
         else:
@@ -119,6 +119,13 @@ def execute_metadata_rule(
     logger.debug(f"Matched {len(track_paths)} tracks from the read cache")
     if not track_paths:
         return
+
+    # 4. Execute update on tags.
+    #
+    # We make two passes here to enable preview:
+    # - 1st pass: Read all audio files metadata and identify what must be changed. Store changed
+    #   audiotags into the `audiotag` list. Print planned changes for user confirmation.
+    # - 2nd pass: Flush the changes.
 
     # Factor out the logic for executing an action on a single-value tag and a multi-value tag.
     def execute_single_action(value: str | None) -> str | None:
@@ -155,17 +162,12 @@ def execute_metadata_rule(
             raise InvalidRuleActionError(f"Invalid action {type(rule.action)} for multi-value tag")
         return rval
 
-    # 3. Execute update on tags.
-    # We make two passes here to enable preview:
-    # - 1st pass: Read all audio files metadata and identify what must be changed. Store changed
-    #   audiotags into the `audiotag` list. Print planned changes for user confirmation.
-    # - 2nd pass: Flush the changes.
     audiotags: list[AudioTags] = []
     for tpath in track_paths:
         tags = AudioTags.from_file(tpath)
         origtags = copy.deepcopy(tags)
         changes: list[str] = []
-        for field in rule.tags:
+        for field in rule.matcher.tags:
             if field == "tracktitle":
                 tags.title = execute_single_action(tags.title)
                 if tags.title != origtags.title:

@@ -30,8 +30,9 @@
         appdirs
         cachetools
         click
-        mutagen
         llfuse
+        mutagen
+        pydantic
         send2trash
         setuptools
         tomli-w

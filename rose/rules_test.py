@@ -10,6 +10,7 @@ from rose.audiotags import AudioTags
 from rose.config import Config
 from rose.rule_parser import (
     DeleteAction,
+    MetadataMatcher,
     MetadataRule,
     ReplaceAction,
     ReplaceAllAction,
@@ -22,8 +23,7 @@ from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
 def test_rules_execution_match_substring(config: Config, source_dir: Path) -> None:
     # No match
     rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="bbb",
+        matcher=MetadataMatcher(tags=["tracktitle"], pattern="bbb"),
         action=ReplaceAction(replacement="lalala"),
     )
     execute_metadata_rule(config, rule, False)
@@ -32,8 +32,7 @@ def test_rules_execution_match_substring(config: Config, source_dir: Path) -> No
 
     # Match
     rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="rack",
+        matcher=MetadataMatcher(tags=["tracktitle"], pattern="rack"),
         action=ReplaceAction(replacement="lalala"),
     )
     execute_metadata_rule(config, rule, False)
@@ -44,8 +43,7 @@ def test_rules_execution_match_substring(config: Config, source_dir: Path) -> No
 def test_rules_execution_match_beginnning(config: Config, source_dir: Path) -> None:
     # No match
     rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="^rack",
+        matcher=MetadataMatcher(tags=["tracktitle"], pattern="^rack"),
         action=ReplaceAction(replacement="lalala"),
     )
     execute_metadata_rule(config, rule, False)
@@ -54,8 +52,7 @@ def test_rules_execution_match_beginnning(config: Config, source_dir: Path) -> N
 
     # Match
     rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="^Track",
+        matcher=MetadataMatcher(tags=["tracktitle"], pattern="^Track"),
         action=ReplaceAction(replacement="lalala"),
     )
     execute_metadata_rule(config, rule, False)
@@ -66,8 +63,7 @@ def test_rules_execution_match_beginnning(config: Config, source_dir: Path) -> N
 def test_rules_execution_match_end(config: Config, source_dir: Path) -> None:
     # No match
     rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="rack$",
+        matcher=MetadataMatcher(tags=["tracktitle"], pattern="rack$"),
         action=ReplaceAction(replacement="lalala"),
     )
     execute_metadata_rule(config, rule, False)
@@ -76,8 +72,7 @@ def test_rules_execution_match_end(config: Config, source_dir: Path) -> None:
 
     # Match
     rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="rack 1$",
+        matcher=MetadataMatcher(tags=["tracktitle"], pattern="rack 1$"),
         action=ReplaceAction(replacement="lalala"),
     )
     execute_metadata_rule(config, rule, False)
@@ -88,8 +83,7 @@ def test_rules_execution_match_end(config: Config, source_dir: Path) -> None:
 def test_rules_execution_match_superstrict(config: Config, source_dir: Path) -> None:
     # No match
     rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="^Track $",
+        matcher=MetadataMatcher(tags=["tracktitle"], pattern="^Track $"),
         action=ReplaceAction(replacement="lalala"),
     )
     execute_metadata_rule(config, rule, False)
@@ -98,8 +92,7 @@ def test_rules_execution_match_superstrict(config: Config, source_dir: Path) -> 
 
     # Match
     rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="^Track 1$",
+        matcher=MetadataMatcher(tags=["tracktitle"], pattern="^Track 1$"),
         action=ReplaceAction(replacement="lalala"),
     )
     execute_metadata_rule(config, rule, False)
@@ -110,8 +103,7 @@ def test_rules_execution_match_superstrict(config: Config, source_dir: Path) -> 
 def test_all_fields_match(config: Config, source_dir: Path) -> None:
     """Test that all fields can match. This checks that we're querying and shit correctly."""
     rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="Track",
+        matcher=MetadataMatcher(tags=["tracktitle"], pattern="Track"),
         action=ReplaceAction(replacement="8"),
     )
     execute_metadata_rule(config, rule, False)
@@ -119,8 +111,7 @@ def test_all_fields_match(config: Config, source_dir: Path) -> None:
     assert af.title == "8"
 
     rule = MetadataRule(
-        tags=["year"],
-        matcher="1990",
+        matcher=MetadataMatcher(tags=["year"], pattern="1990"),
         action=ReplaceAction(replacement="8"),
     )
     execute_metadata_rule(config, rule, False)
@@ -128,8 +119,7 @@ def test_all_fields_match(config: Config, source_dir: Path) -> None:
     assert af.year == 8
 
     rule = MetadataRule(
-        tags=["releasetype"],
-        matcher="album",
+        matcher=MetadataMatcher(tags=["releasetype"], pattern="album"),
         action=ReplaceAction(replacement="live"),
     )
     execute_metadata_rule(config, rule, False)
@@ -137,8 +127,7 @@ def test_all_fields_match(config: Config, source_dir: Path) -> None:
     assert af.release_type == "live"
 
     rule = MetadataRule(
-        tags=["tracknumber"],
-        matcher="1",
+        matcher=MetadataMatcher(tags=["tracknumber"], pattern="1"),
         action=ReplaceAction(replacement="8"),
     )
     execute_metadata_rule(config, rule, False)
@@ -146,8 +135,7 @@ def test_all_fields_match(config: Config, source_dir: Path) -> None:
     assert af.track_number == "8"
 
     rule = MetadataRule(
-        tags=["discnumber"],
-        matcher="1",
+        matcher=MetadataMatcher(tags=["discnumber"], pattern="1"),
         action=ReplaceAction(replacement="8"),
     )
     execute_metadata_rule(config, rule, False)
@@ -155,8 +143,7 @@ def test_all_fields_match(config: Config, source_dir: Path) -> None:
     assert af.disc_number == "8"
 
     rule = MetadataRule(
-        tags=["albumtitle"],
-        matcher="Love Blackpink",
+        matcher=MetadataMatcher(tags=["albumtitle"], pattern="Love Blackpink"),
         action=ReplaceAction(replacement="8"),
     )
     execute_metadata_rule(config, rule, False)
@@ -164,8 +151,7 @@ def test_all_fields_match(config: Config, source_dir: Path) -> None:
     assert af.album == "8"
 
     rule = MetadataRule(
-        tags=["genre"],
-        matcher="K-Pop",
+        matcher=MetadataMatcher(tags=["genre"], pattern="K-Pop"),
         action=ReplaceAction(replacement="8"),
     )
     execute_metadata_rule(config, rule, False)
@@ -173,8 +159,7 @@ def test_all_fields_match(config: Config, source_dir: Path) -> None:
     assert af.genre == ["8", "Pop"]
 
     rule = MetadataRule(
-        tags=["label"],
-        matcher="Cool",
+        matcher=MetadataMatcher(tags=["label"], pattern="Cool"),
         action=ReplaceAction(replacement="8"),
     )
     execute_metadata_rule(config, rule, False)
@@ -182,8 +167,7 @@ def test_all_fields_match(config: Config, source_dir: Path) -> None:
     assert af.label == ["8"]
 
     rule = MetadataRule(
-        tags=["artist"],
-        matcher="BLACKPINK",
+        matcher=MetadataMatcher(tags=["artist"], pattern="BLACKPINK"),
         action=ReplaceAction(replacement="8"),
     )
     execute_metadata_rule(config, rule, False)
@@ -194,8 +178,7 @@ def test_all_fields_match(config: Config, source_dir: Path) -> None:
 
 def test_action_replace_all(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
-        tags=["genre"],
-        matcher="K-Pop",
+        matcher=MetadataMatcher(tags=["genre"], pattern="K-Pop"),
         action=ReplaceAllAction(replacement=["Hip-Hop", "Rap"]),
     )
     execute_metadata_rule(config, rule, False)
@@ -205,8 +188,7 @@ def test_action_replace_all(config: Config, source_dir: Path) -> None:
 
 def test_sed_action(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="Track",
+        matcher=MetadataMatcher(tags=["tracktitle"], pattern="Track"),
         action=SedAction(src=re.compile("ack"), dst="ip"),
     )
     execute_metadata_rule(config, rule, False)
@@ -216,8 +198,7 @@ def test_sed_action(config: Config, source_dir: Path) -> None:
 
 def test_split_action(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
-        tags=["label"],
-        matcher="Cool",
+        matcher=MetadataMatcher(tags=["label"], pattern="Cool"),
         action=SplitAction(delimiter="Cool"),
     )
     execute_metadata_rule(config, rule, False)
@@ -227,8 +208,7 @@ def test_split_action(config: Config, source_dir: Path) -> None:
 
 def test_delete_action(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
-        tags=["genre"],
-        matcher="^Pop",
+        matcher=MetadataMatcher(tags=["genre"], pattern="^Pop"),
         action=DeleteAction(),
     )
     execute_metadata_rule(config, rule, False)
@@ -238,8 +218,7 @@ def test_delete_action(config: Config, source_dir: Path) -> None:
 
 def test_preserves_unmatched_multitags(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
-        tags=["genre"],
-        matcher="^Pop$",
+        matcher=MetadataMatcher(tags=["genre"], pattern="^Pop$"),
         action=ReplaceAction(replacement="lalala"),
     )
     execute_metadata_rule(config, rule, False)
@@ -250,8 +229,7 @@ def test_preserves_unmatched_multitags(config: Config, source_dir: Path) -> None
 @pytest.mark.timeout(2)
 def test_confirmation_yes(monkeypatch: Any, config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="Track",
+        matcher=MetadataMatcher(tags=["tracktitle"], pattern="Track"),
         action=ReplaceAction(replacement="lalala"),
     )
 
@@ -264,8 +242,7 @@ def test_confirmation_yes(monkeypatch: Any, config: Config, source_dir: Path) ->
 @pytest.mark.timeout(2)
 def test_confirmation_no(monkeypatch: Any, config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="Track",
+        matcher=MetadataMatcher(tags=["tracktitle"], pattern="Track"),
         action=ReplaceAction(replacement="lalala"),
     )
 
@@ -278,8 +255,7 @@ def test_confirmation_no(monkeypatch: Any, config: Config, source_dir: Path) -> 
 @pytest.mark.timeout(2)
 def test_confirmation_count(monkeypatch: Any, config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
-        tags=["tracktitle"],
-        matcher="Track",
+        matcher=MetadataMatcher(tags=["tracktitle"], pattern="Track"),
         action=ReplaceAction(replacement="lalala"),
     )
 
@@ -301,8 +277,7 @@ def test_run_stored_rules(config: Config, source_dir: Path) -> None:
             **asdict(config),
             "stored_metadata_rules": [
                 MetadataRule(
-                    tags=["tracktitle"],
-                    matcher="Track",
+                    matcher=MetadataMatcher(tags=["tracktitle"], pattern="Track"),
                     action=ReplaceAction(replacement="lalala"),
                 )
             ],

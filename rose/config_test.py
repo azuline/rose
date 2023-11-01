@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from rose.config import Config, ConfigNotFoundError, InvalidConfigValueError, MissingConfigKeyError
-from rose.rule_parser import MetadataRule, ReplaceAction
+from rose.rule_parser import MetadataMatcher, MetadataRule, ReplaceAction
 
 
 def test_config_minimal() -> None:
@@ -44,9 +44,10 @@ def test_config_full() -> None:
                 cover_art_stems = [ "aa", "bb" ]
                 valid_art_exts = [ "tiff" ]
                 ignore_release_directories = [ "dummy boy" ]
-                stored_metadata_rules = [
-                  {{ tags = "tracktitle", matcher = "lala", action = {{ kind = "replace", replacement = "hihi" }} }}
-                ]
+
+                [[stored_metadata_rules]]
+                matcher = {{ tags = "tracktitle", pattern = "lala" }}
+                action = {{ kind = "replace", replacement = "hihi" }}
                 """  # noqa: E501
             )
 
@@ -85,8 +86,7 @@ def test_config_full() -> None:
             ignore_release_directories=["dummy boy"],
             stored_metadata_rules=[
                 MetadataRule(
-                    tags=["tracktitle"],
-                    matcher="lala",
+                    matcher=MetadataMatcher(tags=["tracktitle"], pattern="lala"),
                     action=ReplaceAction(replacement="hihi"),
                 )
             ],
