@@ -19,6 +19,7 @@ from rose.cache import (
 from rose.common import RoseError
 from rose.config import Config
 from rose.rule_parser import (
+    AddAction,
     DeleteAction,
     MetadataAction,
     MetadataRule,
@@ -323,7 +324,7 @@ def execute_single_action(action: MetadataAction, value: str | int | None) -> st
         return bhv.src.sub(bhv.dst, strvalue)
     elif isinstance(bhv, DeleteAction):
         return None
-    raise InvalidRuleActionError(f"Invalid action {type(action.behavior)} for single-value tag")
+    raise InvalidRuleActionError(f"Invalid action {type(bhv)} for single-value tag")
 
 
 def execute_multi_value_action(
@@ -347,6 +348,8 @@ def execute_multi_value_action(
         return bhv.replacement.split(";")
     if action.all and isinstance(bhv, DeleteAction):
         return []
+    if isinstance(bhv, AddAction):
+        return [*values, bhv.value]
 
     # Create a copy of the action with the match_pattern set to None. We'll pass this into the
     # delegated calls in execute_single_action.
@@ -358,8 +361,8 @@ def execute_multi_value_action(
         if not action.all and i not in matching_idx:
             rval.append(v)
             continue
-        if isinstance(action.behavior, SplitAction):
-            for newv in v.split(action.behavior.delimiter):
+        if isinstance(bhv, SplitAction):
+            for newv in v.split(bhv.delimiter):
                 newv = newv.strip()
                 if newv:
                     rval.append(newv.strip())

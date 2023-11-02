@@ -108,6 +108,16 @@ class SplitAction:
 
 
 @dataclass
+class AddAction:
+    """
+    Adds a value to the tag. This action is only allowed on multi-value tags. If the value already
+    exists, this action No-Ops.
+    """
+
+    value: str
+
+
+@dataclass
 class DeleteAction:
     """
     Deletes the tag value.
@@ -127,7 +137,7 @@ class MetadataMatcher:
 @dataclass
 class MetadataAction:
     # The behavior of the action, along with behavior-specific parameters.
-    behavior: ReplaceAction | SedAction | SplitAction | DeleteAction
+    behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction
     # The tags to apply the action on. Defaults to the tag that the pattern matched.
     tags: list[Tag] | Literal["matched"] = "matched"
     # If the tag is a multi-valued tag, whether to only affect the matched value, or all values.
@@ -167,6 +177,8 @@ class MetadataRule:
                 aout += "sed"
             elif isinstance(action.behavior, SplitAction):
                 aout += "split"
+            elif isinstance(action.behavior, AddAction):
+                aout += "add"
             elif isinstance(action.behavior, DeleteAction):
                 aout += "delete"
 
@@ -342,6 +354,8 @@ def parse_action(raw: str, action_number: int) -> MetadataAction:
         "sed-all",
         "split",
         "split-all",
+        "add",
+        # Note that there is no add-all.
         "delete",
         "delete-all",
     ]  # noqa: E501
@@ -358,7 +372,7 @@ def parse_action(raw: str, action_number: int) -> MetadataAction:
     all_ = action_kind.endswith("-all")
     action_kind = action_kind.removesuffix("-all")
     # And then parse each action kind separately.
-    behavior: ReplaceAction | SedAction | SplitAction | DeleteAction
+    behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction
     if action_kind == "replace":
         replacement, fwd = take(raw[idx:], ":", including=False)
         idx += fwd
@@ -431,6 +445,22 @@ def parse_action(raw: str, action_number: int) -> MetadataAction:
                 "the last section. Perhaps you meant to escape this colon?",
             )
         behavior = SplitAction(delimiter=delimiter)
+    elif action_kind == "add":
+        value, fwd = take(raw[idx:], ":", including=False)
+        idx += fwd
+        if value == "":
+            feedback = "Value not found: must specify a non-empty value to add."
+            if len(raw) > idx and raw[idx] == ":":
+                feedback += " Perhaps you meant to escape this colon?"
+            raise RuleSyntaxError(**err, index=idx, feedback=feedback)
+        if raw[idx:]:
+            raise RuleSyntaxError(
+                **err,
+                index=idx,
+                feedback="Found another section after the value, but the value must be "
+                "the last section. Perhaps you meant to escape this colon?",
+            )
+        behavior = AddAction(value=value)
     elif action_kind == "delete":
         if raw[idx:]:
             raise RuleSyntaxError(

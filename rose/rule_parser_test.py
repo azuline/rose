@@ -3,6 +3,7 @@ import re
 import pytest
 
 from rose.rule_parser import (
+    AddAction,
     DeleteAction,
     InvalidRuleError,
     MetadataAction,
@@ -188,6 +189,12 @@ def test_rule_parse_action() -> None:
         match_pattern=None,
         all=True,
     )
+    assert parse_action(r"add:cute", 1) == MetadataAction(
+        behavior=AddAction(value="cute"),
+        tags="matched",
+        match_pattern=None,
+        all=False,
+    )
     assert parse_action(r"delete:", 1) == MetadataAction(
         behavior=DeleteAction(),
         tags="matched",
@@ -236,7 +243,7 @@ Failed to parse action 1, invalid syntax:
 
     tracktitle:haha:delete
     ^
-    Invalid action kind: must be one of {replace, replace-all, sed, sed-all, split, split-all, delete, delete-all}. If this is pointing at your pattern, you forgot to put :: (double colons) between the matcher section and the action section.
+    Invalid action kind: must be one of {replace, replace-all, sed, sed-all, split, split-all, add, delete, delete-all}. If this is pointing at your pattern, you forgot to put :: (double colons) between the matcher section and the action section.
 """,  # noqa
     )
 
@@ -258,7 +265,7 @@ Failed to parse action 1, invalid syntax:
 
     hahaha
     ^
-    Invalid action kind: must be one of {replace, replace-all, sed, sed-all, split, split-all, delete, delete-all}.
+    Invalid action kind: must be one of {replace, replace-all, sed, sed-all, split, split-all, add, delete, delete-all}.
 """,  # noqa
     )
 
@@ -358,6 +365,50 @@ Failed to parse action 1, invalid syntax:
     split::
           ^
           Delimiter not found: must specify a non-empty delimiter to split on. Perhaps you meant to escape this colon?
+""",  # noqa
+    )
+
+    test_err(
+        "add",
+        """\
+Failed to parse action 1, invalid syntax:
+
+    add
+       ^
+       Value not found: must specify a non-empty value to add.
+""",  # noqa
+    )
+
+    test_err(
+        "add:hi:",
+        """\
+Failed to parse action 1, invalid syntax:
+
+    add:hi:
+          ^
+          Found another section after the value, but the value must be the last section. Perhaps you meant to escape this colon?
+""",  # noqa
+    )
+
+    test_err(
+        "add::",
+        """\
+Failed to parse action 1, invalid syntax:
+
+    add::
+        ^
+        Value not found: must specify a non-empty value to add. Perhaps you meant to escape this colon?
+""",  # noqa
+    )
+
+    test_err(
+        "add-all:hi",
+        """\
+Failed to parse action 1, invalid syntax:
+
+    add-all:hi
+    ^
+    Invalid action kind: must be one of {replace, replace-all, sed, sed-all, split, split-all, add, delete, delete-all}. If this is pointing at your pattern, you forgot to put :: (double colons) between the matcher section and the action section.
 """,  # noqa
     )
 

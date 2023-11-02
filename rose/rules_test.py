@@ -9,6 +9,7 @@ import pytest
 from rose.audiotags import AudioTags
 from rose.config import Config
 from rose.rule_parser import (
+    AddAction,
     DeleteAction,
     MetadataAction,
     MetadataMatcher,
@@ -248,6 +249,16 @@ def test_split_all_action(config: Config, source_dir: Path) -> None:
     execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.genre == ["K-", "op", "op"]
+
+
+def test_add_action(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule(
+        matcher=MetadataMatcher(tags=["label"], pattern="Cool"),
+        actions=[MetadataAction(behavior=AddAction(value="Even Cooler Label"))],
+    )
+    execute_metadata_rule(config, rule, False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.label == ["A Cool Label", "Even Cooler Label"]
 
 
 def test_delete_action(config: Config, source_dir: Path) -> None:
