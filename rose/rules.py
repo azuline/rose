@@ -47,7 +47,6 @@ def execute_stored_metadata_rules(
 ) -> None:
     for rule in c.stored_metadata_rules:
         click.secho(f"Executing stored metadata rule {rule}", dim=True)
-        click.echo()
         execute_metadata_rule(c, rule, dry_run=dry_run, confirm_yes=confirm_yes)
 
 
@@ -71,6 +70,8 @@ def execute_metadata_rule(
     4. We then prompt the user to confirm the changes, assuming confirm_yes is True.
     5. We then flush the intended changes to disk.
     """
+    # Newline for appearance.
+    click.echo()
 
     # === Step 1: Fast search for matching files ===
 
@@ -362,21 +363,20 @@ def execute_multi_value_action(
     if isinstance(bhv, AddAction):
         return uniq([*values, bhv.value])
 
-    # Create a copy of the action with the match_pattern set to None. We'll pass this into the
-    # delegated calls in execute_single_action.
-    subaction = copy.deepcopy(action)
-    subaction.match_pattern = None
-
     rval: list[str] = []
     for i, v in enumerate(values):
         if not action.all and i not in matching_idx:
             rval.append(v)
             continue
-        if isinstance(bhv, SplitAction):
+        if isinstance(bhv, ReplaceAction):
+            rval.extend(bhv.replacement.split(";"))
+        elif isinstance(bhv, SedAction):
+            rval.extend(bhv.src.sub(bhv.dst, v).split(";"))
+        elif isinstance(bhv, SplitAction):
             for newv in v.split(bhv.delimiter):
                 newv = newv.strip()
                 if newv:
                     rval.append(newv.strip())
-        elif newv2 := execute_single_action(action, v):
-            rval.append(newv2)
+        elif isinstance(bhv, DeleteAction):
+            pass
     return uniq(rval)

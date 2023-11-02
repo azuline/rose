@@ -201,6 +201,16 @@ def test_rules_fields_match_trackartist(config: Config, source_dir: Path) -> Non
     assert af.artists.main == ["8"]
 
 
+def test_action_replace_with_delimiter(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule(
+        matcher=MetadataMatcher(tags=["genre"], pattern="K-Pop"),
+        actions=[MetadataAction(behavior=ReplaceAction(replacement="Hip-Hop;Rap"))],
+    )
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.genre == ["Hip-Hop", "Rap"]
+
+
 def test_action_replace_all(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
         matcher=MetadataMatcher(tags=["genre"], pattern="K-Pop"),
@@ -319,7 +329,6 @@ def test_chained_action(config: Config, source_dir: Path) -> None:
             MetadataAction(
                 behavior=ReplaceAction(replacement="haha"),
                 tags=["genre"],
-                all=True,
             ),
         ],
     )

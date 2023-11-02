@@ -4,8 +4,8 @@ Rosé relies on the metadata embedded in your music files to organize your music
 into a useful virtual filesystem. This means that the quality of the music tags
 is important for getting the most out of Rosé.
 
-Therefore, Rosé also provides tools to improve the metadata of your music.
-Currently, Rosé provides:
+Therefore, Rosé provides the following tools to improve the metadata of your
+music:
 
 - A text-based interface for manually modifying release metadata,
 - Metadata importing from third-party sources,
@@ -19,7 +19,7 @@ Currently, Rosé provides:
 
 Rosé supports editing a release's metadata as a text file via the
 `rose releases edit` command. This command accepts a Release ID or a Release's
-Virtual Filesystem Directory Name.
+virtual filesystem directory name.
 
 So for example:
 
@@ -100,11 +100,9 @@ Rules can be ran ad hoc from the command line, or stored in the configuration
 file to be repeatedly ran over the entire library.
 
 Rules consist of a _matcher_, which matches against tracks in your library, and
-one or more _actions_, which modify the metadata of the matched tracks.
-
-The 5 available actions let you _replace_ values, apply a regex substitution
-(_sed_), _split_ one value into multiple values, _delete_ values, and _add_ new
-values.
+one or more _actions_, which modify the metadata of the matched tracks. The 5
+available actions let you _replace_ values, apply a regex substitution (_sed_),
+_split_ one value into multiple values, _delete_ values, and _add_ new values.
 
 ## Demo
 
@@ -113,13 +111,13 @@ with a quick demo of how the rule engine works.
 
 Let's say that I am a LOOΠΔ fan (I mean, who isn't?). In my library, I have
 two of Chuu's releases, but the first is tagged as `CHUU`, and the second as
-`Chuu`. I want to normalize them to both be `Chuu`. The following rule
-expresses this change:
+`Chuu`. I want to normalize the former to `Chuu`. The following rule expresses
+this change:
 
 ```bash
-# The first argument to run-rule is the matcher. We match artist tags with the
-# value CHUU. The second argument is our action. We replace the matched artist
-# tags with Chuu.
+# The first argument to run-rule is the matcher, which matches artist tags with
+# the value CHUU. The second argument is our action, which replaces the matched
+# artist tags with Chuu.
 $ rose metadata run-rule 'trackartist,albumartist:^CHUU$' 'replace:Chuu'
 
 CHUU - 2023. Howl/01. Howl.opus
@@ -193,6 +191,7 @@ Let's convert that `Kpop` tag to `K-Pop`, across the board.
 
 ```bash
 $ rose metadata run-rule 'genre:^Kpop$' 'replace:K-Pop'
+
 G‐Dragon - 2012. ONE OF A KIND/01. One Of A Kind.opus
       genre: ['Kpop'] -> ['K-Pop']
 G‐Dragon - 2012. ONE OF A KIND/02. 크레용 (Crayon).opus
@@ -228,10 +227,11 @@ Write changes to 9 tracks? [Y/n] y
 Applied tag changes to 7 tracks!
 ```
 
-And we also normalized a G-Dragon release's genre tag on the way! I'd like to
-run these rules again in the future, so that all new music I add to my library
-is normalized according to these rules. To do so, the following text goes
-inside my configuration file.
+And we also normalized a G-Dragon release on the way!
+
+These rules were quite useful, so I'd like to store them, so that I can run
+them again in the future when new music is added to the library. To do so, I
+add the following text to my configuration file:
 
 ```toml
 [[stored_metadata_rules]]
@@ -245,58 +245,92 @@ matcher = "genre:^Kpop$"
 actions = ["replace:K-Pop"]
 ```
 
-Now, the `rose metadata run-stored-rules` command will run the above three
-rules, along with any other rules I have in my configuration file, on the
-entire library.
+The `rose metadata run-stored-rules` command will run the above three rules,
+along with any other rules I have in my configuration file, on the entire
+library.
 
 ## Mechanics
 
-The rules engine operates in two steps:
+Now that we've seen a bit of what the rules engine is capable of, let's explore
+its mechanics.
 
-1. Find all tracks matching a _matcher_.
-2. Apply _actions_ to the matched tracks.
+The rules engine runs in two steps: it first _matches_ tracks, and then
+_actions_ on those tracks. Each rule has one single matcher and one or more
+actions. If multiple actions are specified, they are run in order of
+specification.
+
+### Tags
+
+The rules engine supports matching and acting on the following tags:
+
+- `tracktitle`
+- `trackartist`
+- `tracknumber`
+- `discnumber`
+- `albumtitle`
+- `albumartist`
+- `releasetype`
+- `year`
+- `genre`
+- `label`
+
+The `trackartist`, `albumartist`, `genre`, and `label` tags are _multi-value_
+tags, which have a slightly different behavior from single-value tags for some
+of the actions. We'll explore this difference in the [Actions](#actions)
+section.
 
 ### Matchers
 
-Matchers are `(tags, pattern)` tuples for selecting tracks. Tracks are selected
-if the `pattern` matches one or more of the track's values for the given
-`tags`.
+Matchers are a tuple of `(tags, pattern)`. The tags are a list of [supported
+tags](#tags). The pattern is a string. Tracks _match_ the matcher if the
+`pattern` is a substring of one or more of the values in the given `tags`.
 
-Pattern matching is executed as a substring match. For example, the patterns
-`Chuu`, `Chu`, `hu`, and `huu` all match `Chuu`. Regex is not supported for
-pattern matching due to its performance.
+The pattern supports strict prefix and suffix matching with the `^` and `$`
+characters, respectively. If the pattern starts with `^`, then the tag value
+must start with the pattern in order to match. If the pattern ends with `$`,
+then the tag value must end with the pattern in order to match. Use both for a
+string equality match; for example, the pattern `^Chuu$` matches only the value
+`Chuu`,
 
-The `^` and `$` characters enable strict prefix and strict suffix matching,
-respectively. So for example, the pattern `^Chu` match `Chuu`, but not `AChuu`.
-And the pattern `Chu$` matches `Chu`, but not `Chuu`.
+If your pattern actually starts with `^` or ends with `$`, escape them with
+backslashes. For example, the pattern `\^.\$` matches the value `=^.$=`.
 
-Case sensitive
+Pattern matching is case sensitive.
 
 ### Actions
 
-Actions are `(tags, pattern, all, kind, *args)` tuples for modifying the
-metadata of a track.
+Actions are a tuple of `(tags, pattern, kind, all, *kind_specific_args)`.
 
-The `tags` and `pattern`, usually by default, equivalent the `matcher`. TODO
+`tags` and `pattern` determine which tags and values to modify on the matched
+track. **These can differ from those matched by the matcher.** For example, you
+_can_ match tracks on `label:^SUNSEASKY$`, and action on the `genre` tag for
+the matched tracks.
 
-Given a track, if the `pattern` matches the `tags`, by the same logic as the
-matchers, the action is applied.
+But by default, `tags` is set to `matched`, which means "action on the tags of
+the matcher." And by default, `pattern` is set to the `pattern` of the matcher,
+which restricts the modified tags to those matched by the matcher. which means
+that only matched tags are actioned.
 
-There are five kinds of actions: `replace`, `sed`, `split`, `add`, and
-`delete`. Each action has its own set of additional arguments.
+Note that `pattern` does not default to the matcher's pattern if (1) `tags !=
+matched` or (2) `all = true`. In those cases, `pattern` defaults to null, which
+matches all values.
+
+`kind` determines which action is taken on the matched tags. `all` only affects
+multi-value tags, determining whether to act on only matched value or all
+values. And each `kind` of action has different arguments of its own, which
+we'll explore below.
+
+There are five _kinds_ of actions:
 
 - `replace`: Replace a tag. 
+- `sed`: ...
+- `split`: ...
+- `add`: ...
+- `delete`: ...
 
 ### Multi-Value Tags
 
 For multi-valued tags, `all`...
-
-### Track-Based Paradigm
-
-Each action is applied to the track _as a whole_. Rosé does not
-inherently restrict the action solely to the matched tag. What does this mean?
-
-Examples TODO
 
 ## Rule Language
 

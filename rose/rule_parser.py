@@ -41,38 +41,38 @@ Failed to parse {self.rule_name}, invalid syntax:
 
 Tag = Literal[
     "tracktitle",
-    "year",
+    "trackartist",
     "tracknumber",
     "discnumber",
     "albumtitle",
+    "albumartist",
+    "releasetype",
+    "year",
     "genre",
     "label",
-    "releasetype",
-    "trackartist",
-    "albumartist",
 ]
 
 ALL_TAGS: list[Tag] = [
     "tracktitle",
-    "year",
+    "trackartist",
     "tracknumber",
     "discnumber",
     "albumtitle",
+    "albumartist",
+    "releasetype",
+    "year",
     "genre",
     "label",
-    "releasetype",
-    "trackartist",
-    "albumartist",
 ]
 
 
 SINGLE_VALUE_TAGS: list[Tag] = [
     "tracktitle",
-    "year",
     "tracknumber",
     "discnumber",
     "albumtitle",
     "releasetype",
+    "year",
 ]
 
 
