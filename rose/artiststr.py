@@ -23,6 +23,10 @@ class ArtistMapping:
     composer: list[str] = field(default_factory=list)
     djmixer: list[str] = field(default_factory=list)
 
+    @property
+    def all(self) -> list[str]:
+        return self.main + self.guest + self.remixer + self.producer + self.composer + self.djmixer
+
 
 def parse_artist_string(
     main: str | None,

@@ -188,15 +188,38 @@ artists = [
 ]
 ```
 
+# Rules Engine
+
+_In Development_
+
+## Rule Syntax
+
+Rules are specified in a DSL.
+
+Examples and human description TBD.
+
+The rule syntax is defined by the following grammar:
+
+```
+<matcher> ::= <tags> ':' <pattern>
+<tags>    ::= string | string ',' <tags>
+<pattern> ::= string | '^' string | string '$' | '^' string '$'
+
+<action>         ::= <action-matcher> '::' <subaction> | <subaction>
+<action-matcher> ::= <tags> | <tags> ':' <pattern>
+<subaction>      ::= <replace-action> | <sed-action> | <split-action> | <delete-action>
+<replace-action> ::= 'replace' <optional-all> ':' string
+<sed-action>     ::= 'sed' <optional-all> ':' string ':' string
+<split-action>   ::= 'split' <optional-all> ':' string
+<delete-action>  ::= 'delete' <optional-all>
+<optional-all>   ::= '' | '-all'
+```
+
 # Metadata Import & Cover Art Downloading
 
 _In Development_
 
 Sources: Discogs, MusicBrainz, Tidal, Deezer, Apple, Junodownload, Beatport, and fanart.tv
-
-# Rules Engine
-
-_In Development_
 
 # Appendix A. Tag Field Mappings
 
