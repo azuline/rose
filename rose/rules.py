@@ -36,7 +36,7 @@ class InvalidReplacementValueError(RoseError):
 
 def execute_stored_metadata_rules(c: Config, confirm_yes: bool = False) -> None:
     for rule in c.stored_metadata_rules:
-        logger.info(f'Executing stored metadata rule "{rule}"')
+        click.secho(f"Executing stored metadata rule {rule}", dim=True)
         execute_metadata_rule(c, rule, confirm_yes)
 
 
@@ -104,6 +104,8 @@ def execute_metadata_rule(
         track_paths = [Path(row["source_path"]).resolve() for row in conn.execute(query)]
     logger.debug(f"Matched {len(track_paths)} tracks from the read cache")
     if not track_paths:
+        click.secho("No matching tracks found", dim=True, italic=True)
+        click.echo()
         return
 
     # === Step 2: Filter out false positives ===
@@ -129,6 +131,8 @@ def execute_metadata_rule(
                 matcher_audiotags.append(tags)
                 break
     if not matcher_audiotags:
+        click.secho("No matching tracks found", dim=True, italic=True)
+        click.echo()
         return
 
     # === Step 3: Prepare updates on in-memory tags ===
@@ -223,6 +227,8 @@ def execute_metadata_rule(
         else:
             logger.debug(f"Skipping matched track {tags.path}: no changes calculated off tags")
     if not actionable_audiotags:
+        click.secho("No matching tracks found", dim=True, italic=True)
+        click.echo()
         return
 
     # === Step 4: Ask user confirmation on the changes ===
@@ -235,8 +241,8 @@ def execute_metadata_rule(
         maxpathwidth = 0
         for tags, changes in actionable_audiotags:
             pathtext = str(tags.path).lstrip(str(c.music_source_dir) + "/")
-            if len(pathtext) >= 78:
-                pathtext = pathtext[:38] + ".." + pathtext[-38:]
+            if len(pathtext) >= 120:
+                pathtext = pathtext[:59] + ".." + pathtext[-59:]
             maxpathwidth = max(maxpathwidth, len(pathtext))
             todisplay.append((pathtext, changes))
 
@@ -246,7 +252,7 @@ def execute_metadata_rule(
             for name, old, new in changes:
                 click.echo(f"      {name}: ", nl=False)
                 click.secho(old, fg="red", nl=False)
-                click.echo(" --> ", nl=False)
+                click.echo(" -> ", nl=False)
                 click.secho(new, fg="green", bold=True)
 
         # And then let's go for the confirmation.
@@ -279,11 +285,12 @@ def execute_metadata_rule(
     for tags, changes in actionable_audiotags:
         logger.info(f"Writing tag changes {tags.path} (rule {rule}).")
         logger.debug(
-            f"{tags.path} changes: {' //// '.join([str(x)+' --> '+str(y) for _, x, y in changes])}"
+            f"{tags.path} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in changes])}"
         )
         tags.flush()
+        click.echo()
 
-    logger.info(f"Successfully applied tag changes to {len(actionable_audiotags)} tracks")
+    click.echo(f"Applied tag changes to {len(actionable_audiotags)} tracks!")
 
 
 def matches_pattern(pattern: str, value: str | int | None) -> bool:

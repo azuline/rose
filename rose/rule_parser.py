@@ -277,8 +277,6 @@ def parse_action(raw: str, action_number: int) -> MetadataAction:
     # but present if there is an unescaped `::`.
     _, action_idx = take(raw, "::")
     has_matcher = action_idx != len(raw)
-    print(f"{action_idx=} {len(raw)=}")
-    print(f"{has_matcher=}")
 
     # Parse the (optional) matcher.
     tags: Literal["matched"] | list[Tag] = "matched"
