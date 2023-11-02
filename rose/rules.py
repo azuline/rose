@@ -288,6 +288,7 @@ def execute_metadata_rule(
 
     # == Step 6: Trigger cache update ===
 
+    click.echo()
     source_paths = get_release_source_paths_from_ids(c, list(changed_release_ids))
     update_cache_for_releases(c, source_paths)
 

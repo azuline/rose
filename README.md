@@ -1,8 +1,9 @@
 # Rosé
 
 > [!IMPORTANT]
-> Rosé is under active development. See [Issue #1](https://github.com/azuline/rose/issues/1)
-> for progress updates.
+> Rosé is under active development. Not all listed features exist yet. See
+> [Milestone v0.4.0](https://github.com/azuline/rose/milestone/1) for progress
+> updates.
 
 Rosé is a music manager for Unix-based systems. Rosé provides a virtual FUSE
 filesystem for managing your music library and various functions for editing
@@ -351,8 +352,8 @@ Rosé's CLI is also designed to make scripting against your library easy.
 Operations such as "edit release" and "jump to artist" can be expressed as a
 bash one-liner and integrated into your file manager.
 
-See [Shell Scripting](./SHELL_SCRIPTING.md) for additional documentation on
-scripting with Rosé.
+See [Shell Scripting](./docs/SHELL_SCRIPTING.md) for additional documentation
+on scripting with Rosé.
 
 # Learn More
 
@@ -363,7 +364,8 @@ For additional documentation, please refer to the following files:
 - [Managing Your Music Metadata](./docs/METADATA_MANAGEMENT.md)
 - [Using Playlists & Collages](./docs/PLAYLISTS_COLLAGES.md)
 - [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md)
-- [Shell Scripting](./SHELL_SCRIPTING.md)
+- [Tagging Conventions](./docs/TAGGING_CONVENTIONS.md)
+- [Shell Scripting](./docs/SHELL_SCRIPTING.md)
 - [Architecture](./docs/ARCHITECTURE.md)
 
 # License
