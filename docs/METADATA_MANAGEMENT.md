@@ -128,11 +128,11 @@ CHUU - 2023. Howl/05. Hitchhiker.opus
 Write changes to 5 tracks?  [Y/n] y
 
 [01:10:58] INFO: Writing tag changes for rule matcher=trackartist,albumartist:CHUU action=matched:CHUU::replace:Chuu
-[01:10:58] INFO: Writing tag changes to CHUU - 2023. Howl/01. Howl.opus
-[01:10:58] INFO: Writing tag changes to CHUU - 2023. Howl/02. Underwater.opus
-[01:10:58] INFO: Writing tag changes to CHUU - 2023. Howl/03. My Palace.opus
-[01:10:58] INFO: Writing tag changes to CHUU - 2023. Howl/04. Aliens.opus
-[01:10:58] INFO: Writing tag changes to CHUU - 2023. Howl/05. Hitchhiker.opus
+[01:10:58] INFO: Wrote tag changes to CHUU - 2023. Howl/01. Howl.opus
+[01:10:58] INFO: Wrote tag changes to CHUU - 2023. Howl/02. Underwater.opus
+[01:10:58] INFO: Wrote tag changes to CHUU - 2023. Howl/03. My Palace.opus
+[01:10:58] INFO: Wrote tag changes to CHUU - 2023. Howl/04. Aliens.opus
+[01:10:58] INFO: Wrote tag changes to CHUU - 2023. Howl/05. Hitchhiker.opus
 
 Applied tag changes to 5 tracks!
 ```
@@ -166,13 +166,13 @@ LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
 Write changes to 7 tracks? [Y/n] y
 
 [01:14:57] INFO: Writing tag changes for rule matcher=trackartist,albumartist:Chuu action=genre::replace-all:K-Pop
-[01:14:57] INFO: Writing tag changes to CHUU - 2023. Howl/01. Howl.opus
-[01:14:57] INFO: Writing tag changes to CHUU - 2023. Howl/02. Underwater.opus
-[01:14:57] INFO: Writing tag changes to CHUU - 2023. Howl/03. My Palace.opus
-[01:14:57] INFO: Writing tag changes to CHUU - 2023. Howl/04. Aliens.opus
-[01:14:57] INFO: Writing tag changes to CHUU - 2023. Howl/05. Hitchhiker.opus
-[01:14:57] INFO: Writing tag changes to LOOΠΔ - 2017. Chuu/01. Heart Attack.opus
-[01:14:57] INFO: Writing tag changes to LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
+[01:14:57] INFO: Wrote tag changes to CHUU - 2023. Howl/01. Howl.opus
+[01:14:57] INFO: Wrote tag changes to CHUU - 2023. Howl/02. Underwater.opus
+[01:14:57] INFO: Wrote tag changes to CHUU - 2023. Howl/03. My Palace.opus
+[01:14:57] INFO: Wrote tag changes to CHUU - 2023. Howl/04. Aliens.opus
+[01:14:57] INFO: Wrote tag changes to CHUU - 2023. Howl/05. Hitchhiker.opus
+[01:14:57] INFO: Wrote tag changes to LOOΠΔ - 2017. Chuu/01. Heart Attack.opus
+[01:14:57] INFO: Wrote tag changes to LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
 
 Applied tag changes to 7 tracks!
 ```

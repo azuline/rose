@@ -46,7 +46,7 @@ def create_collage(c: Config, name: str) -> None:
         if path.exists():
             raise CollageAlreadyExistsError(f"Collage {name} already exists")
         path.touch()
-    logger.info(f"Creating collage {name} in source directory")
+    logger.info(f"Created collage {name} in source directory")
     update_cache_for_collages(c, [name], force=True)
 
 
@@ -56,12 +56,11 @@ def delete_collage(c: Config, name: str) -> None:
         if not path.exists():
             raise CollageDoesNotExistError(f"Collage {name} does not exist")
         send2trash(path)
-    logger.info(f"Deleting collage {name} from source directory")
+    logger.info(f"Deleted collage {name} from source directory")
     update_cache_evict_nonexistent_collages(c)
 
 
 def rename_collage(c: Config, old_name: str, new_name: str) -> None:
-    logger.info(f"Renaming collage {old_name} to {new_name}")
     old_path = collage_path(c, old_name)
     new_path = collage_path(c, new_name)
     with lock(c, collage_lock_name(old_name)), lock(c, collage_lock_name(new_name)):
@@ -83,6 +82,7 @@ def rename_collage(c: Config, old_name: str, new_name: str) -> None:
             logger.debug(
                 "Renaming collage-adjacent file {old_adjacent_file} to {new_adjacent_file}"
             )
+    logger.info(f"Renamed collage {old_name} to {new_name}")
     update_cache_for_collages(c, [new_name], force=True)
     update_cache_evict_nonexistent_collages(c)
 

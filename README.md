@@ -260,19 +260,13 @@ finally (3) play music!
 
    ```bash
    $ rose fs mount
-   [15:41:13] INFO: Refreshing the read cache for 5 releases
-   [15:41:13] INFO: Applying cache updates for release BLACKPINK - 2016. SQUARE TWO
-   [15:41:13] INFO: Applying cache updates for release BLACKPINK - 2016. SQUARE ONE
-   [15:41:13] INFO: Applying cache updates for release LOOΠΔ - 2017. Kim Lip
-   [15:41:13] INFO: Applying cache updates for release NewJeans - 2022. Ditto
-   [15:41:13] INFO: Applying cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
-   [15:41:13] INFO: Evicting cached releases that are not on disk
-   [15:41:13] INFO: Refreshing the read cache for 1 collages
-   [15:41:13] INFO: Applying cache updates for collage Road Trip
-   [15:41:13] INFO: Evicting cached collages that are not on disk
-   [15:41:13] INFO: Refreshing the read cache for 1 playlists
-   [15:41:13] INFO: Applying cache updates for playlist Shower
-   [15:41:13] INFO: Evicting cached playlists that are not on disk
+   [15:41:13] INFO: Updating cache for release BLACKPINK - 2016. SQUARE TWO
+   [15:41:13] INFO: Updating cache for release BLACKPINK - 2016. SQUARE ONE
+   [15:41:13] INFO: Updating cache for release LOOΠΔ - 2017. Kim Lip
+   [15:41:13] INFO: Updating cache for release NewJeans - 2022. Ditto
+   [15:41:13] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
+   [15:41:13] INFO: Updating cache for collage Road Trip
+   [15:41:13] INFO: Updating cache for playlist Shower
    ```
 
    Rosé emits log lines whenever something significant is occurring. This is

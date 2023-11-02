@@ -88,13 +88,11 @@ Command line:
 ```bash
 $ rose collages create "Morning"
 [17:51:22] INFO: Creating collage Morning in source directory
-[17:51:22] INFO: Refreshing the read cache for 1 collages
-[17:51:22] INFO: Applying cache updates for collage Morning
+[17:51:22] INFO: Updating cache for collage Morning
 
 $ rose playlists create "Evening"
 [17:51:47] INFO: Creating playlist Evening in source directory
-[17:51:47] INFO: Refreshing the read cache for 1 playlists
-[17:51:47] INFO: Applying cache updates for playlist Evening
+[17:51:47] INFO: Updating cache for playlist Evening
 ```
 
 Virtual filesystem:
@@ -129,18 +127,15 @@ globally unique._
 ```bash
 $ rose collages add-release "Morning" "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
 [17:59:38] INFO: Added release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop] to collage Morning
-[17:59:38] INFO: Refreshing the read cache for 1 collages
-[17:59:38] INFO: Applying cache updates for collage Morning
+[17:59:38] INFO: Updating cache for collage Morning
 
 $ rose collages add-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
 [17:59:44] INFO: Added release BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop] to collage Morning
-[17:59:44] INFO: Refreshing the read cache for 1 collages
-[17:59:44] INFO: Applying cache updates for collage Morning
+[17:59:44] INFO: Updating cache for collage Morning
 
 $ rose playlists add-track "Evening" "018b6514-6fb7-7cc6-9d23-8eaf0b1beee8"
 [18:02:21] INFO: Added track LOOΠΔ ODD EYE CIRCLE - Chaotic.opus to playlist Evening
-[18:02:21] INFO: Refreshing the read cache for 1 playlists
-[18:02:21] INFO: Applying cache updates for playlist Evening
+[18:02:21] INFO: Updating cache for playlist Evening
 ```
 
 Virtual filesystem:
@@ -175,18 +170,15 @@ globally unique._
 ```bash
 $ rose collages remove-release "Morning" "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
 [18:11:43] INFO: Removed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop] from collage Morning
-[18:11:43] INFO: Refreshing the read cache for 1 collages
-[18:11:43] INFO: Applying cache updates for collage Morning
+[18:11:43] INFO: Updating cache for collage Morning
 
 $ rose collages remove-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
 [18:12:03] INFO: Removed release BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop] from collage Morning
-[18:12:03] INFO: Refreshing the read cache for 1 collages
-[18:12:03] INFO: Applying cache updates for collage Morning
+[18:12:03] INFO: Updating cache for collage Morning
 
 $ rose playlists remove-track "Evening" "018b6514-6fb7-7cc6-9d23-8eaf0b1beee8"
 [18:12:22] INFO: Removed track LOOΠΔ ODD EYE CIRCLE - Chaotic.opus from playlist Evening
-[18:12:22] INFO: Refreshing the read cache for 1 playlists
-[18:12:22] INFO: Applying cache updates for playlist Evening
+[18:12:22] INFO: Updating cache for playlist Evening
 ```
 
 Virtual filesystem:
@@ -224,8 +216,7 @@ LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]
 BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]
 # And the logs printed to stderr are:
 [18:20:53] INFO: Edited collage Road Trip from EDITOR
-[18:20:53] INFO: Refreshing the read cache for 1 collages
-[18:20:53] INFO: Applying cache updates for collage Road Trip
+[18:20:53] INFO: Updating cache for collage Road Trip
 
 $ tree "7. Collages/Road Trip/"
 7. Collages/Road Trip/
@@ -243,8 +234,7 @@ BLACKPINK - PLAYING WITH FIRE.opus
 LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
 # And the logs printed to stderr are:
 [18:22:42] INFO: Edited playlist Shower from EDITOR
-[18:22:42] INFO: Refreshing the read cache for 1 playlists
-[18:22:42] INFO: Applying cache updates for playlist Shower
+[18:22:42] INFO: Updating cache for playlist Shower
 
 $ tree "8. Playlists/Shower/"
 8. Playlists/Shower/
@@ -262,13 +252,11 @@ Command line:
 
 ```bash
 $ rose collages delete "Morning"
-[18:23:44] INFO: Deleting collage Morning from source directory
-[18:23:44] INFO: Evicting cached collages that are not on disk
+[18:23:44] INFO: Deleted collage Morning from source directory
 [18:23:44] INFO: Evicted collage Morning from cache
 
 $ rose playlists create "Evening"
-[18:26:38] INFO: Deleting playlist Evening from source directory
-[18:26:38] INFO: Evicting cached playlists that are not on disk
+[18:26:38] INFO: Deleted playlist Evening from source directory
 [18:26:38] INFO: Evicted playlist Evening from cache
 ```
 
@@ -301,10 +289,8 @@ Command line:
 
 ```bash
 $ rose collages rename "Road Trip" "Long Flight"
-[18:29:08] INFO: Renaming collage Road Trip to Long Flight
-[18:29:08] INFO: Refreshing the read cache for 1 collages
-[18:29:08] INFO: Applying cache updates for collage Long Flight
-[18:29:08] INFO: Evicting cached collages that are not on disk
+[18:29:08] INFO: Renamed collage Road Trip to Long Flight
+[18:29:08] INFO: Updating cache for collage Long Flight
 [18:29:08] INFO: Evicted collage Road Trip from cache
 
 $ tree "7. Collages/"
@@ -312,10 +298,8 @@ $ tree "7. Collages/"
 └── Long Flight/...
 
 $ rose playlists rename "Shower" "Meal Prep"
-[18:30:17] INFO: Renaming playlist Shower to Meal Prep
-[18:30:17] INFO: Refreshing the read cache for 1 playlists
-[18:30:17] INFO: Applying cache updates for playlist Meal Prep
-[18:30:17] INFO: Evicting cached playlists that are not on disk
+[18:30:17] INFO: Renamed playlist Shower to Meal Prep
+[18:30:17] INFO: Updating cache for playlist Meal Prep
 [18:30:17] INFO: Evicted playlist Shower from cache
 
 $ tree "8. Playlists/"
@@ -355,8 +339,7 @@ $ cd $fuse_mount_dir
 
 $ rose playlists set-cover "Shower" ./cover.jpg
 [20:51:59] INFO: Set the cover of playlist Shower to cover.jpg
-[20:51:59] INFO: Refreshing the read cache for 1 playlists
-[20:51:59] INFO: Applying cache updates for playlist Shower
+[20:51:59] INFO: Updating cache for playlist Shower
 
 $ tree "8. Playlists/Shower/"
 8. Playlists/Shower/
@@ -394,8 +377,7 @@ $ cd $fuse_mount_dir
 
 $ rose playlists remove-cover "Shower"
 [02:10:34] INFO: Deleted cover arts of playlist Lounge
-[02:10:34] INFO: Refreshing the read cache for 1 playlists
-[02:10:34] INFO: Applying cache updates for playlist Lounge
+[02:10:34] INFO: Updating cache for playlist Lounge
 
 $ tree "8. Playlists/Shower/"
 8. Playlists/Shower/

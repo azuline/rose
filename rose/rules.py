@@ -276,12 +276,13 @@ def execute_metadata_rule(
     for tags, changes in actionable_audiotags:
         if tags.release_id:
             changed_release_ids.add(tags.release_id)
-        logger.info(f"Writing tag changes to {tags.path}")
         pathtext = str(tags.path).lstrip(str(c.music_source_dir) + "/")
         logger.debug(
-            f"{pathtext} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in changes])}"
+            f"Attempting to write {pathtext} changes: "
+            f"{' //// '.join([str(x)+' -> '+str(y) for _, x, y in changes])}"
         )
         tags.flush()
+        logger.info(f"Wrote tag changes to {tags.path}")
 
     click.echo()
     click.echo(f"Applied tag changes to {len(actionable_audiotags)} tracks!")

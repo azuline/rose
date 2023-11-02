@@ -121,9 +121,9 @@ def unwatch(ctx: Context) -> None:
         exit(1)
     with ctx.config.watchdog_pid_path.open("r") as fp:
         pid = int(fp.read())
-    logger.info(f"Killing watchdog at process {pid}")
     try:
         os.kill(pid, signal.SIGTERM)
+        logger.info(f"Killed watchdog at process {pid}")
     except ProcessLookupError:
         logger.info(f"No-Op: Process {pid} not found")
     ctx.config.watchdog_pid_path.unlink()
