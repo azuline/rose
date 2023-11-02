@@ -68,21 +68,6 @@ filenames or tags remaining static; the source directory can be freely
 modified. The only constraint is that each release must be a directory in the
 root of the `music_source_dir`.
 
-# Read Cache Update
-
-The read cache update is optimized to minimize the number of disk accesses, as
-it's a hot path and quite expensive if implemented poorly.
-
-The read cache update first pulls all relevant cached data from SQLite. Stored
-on each track is the mtime during the previous cache update. The cache update
-checks whether any files have changed via `readdir` and `stat` calls, and only
-reads the file if the `mtime` has changed. Throughout the update, we take note
-of the changes to apply. At the end of the update, we make a few fat SQL
-queries to batch the writes.
-
-The update process is also parallelizable, so we shard workloads across
-multiple processes.
-
 # Virtual Filesystem
 
 We use the `llfuse` library for the virtual filesystem. `llfuse` is a fairly
@@ -136,6 +121,46 @@ attempts to replicate file attributes after releasing the file, fails.
 So in the playlists case, we pretend that the written file exists for 2 seconds
 after we wrote it. This way, `cp --preserve=mode` can replicate its attributes
 onto a ghost file and happily exit without errors.
+
+# Rules Engine
+
+The rules engine has two subsystems: the DSL and the rule executor. In this
+section, we'll go into rule executor performance.
+
+The naive implementation has us searching the SQLite database with `LIKE`
+queries, which is not performant. Regex is even less so, which is why we do not
+support regex matchers (but we support regex actions!).
+
+In Rosé, we instead index all tags into SQLite's Full Text Search (FTS). Every
+character in a tag is treated as a word, which grants us substring search, at
+the expense of a twice-as-large read cache. Note that this is _not_ the typical
+way a FTS engine is used: words are typically words, not individual characters.
+
+However, FTS is not designed to care about ordering, so a search query like
+`Rose` would match the substring `esoR`. This "feature" of FTS leads to false
+positives. So we introduce an additional fully-accurate Python filtering step
+on the results of the FTS query. The Python filtering isn't performant enough
+to run on all results, but it is sufficiently efficient to run on the subset of
+tracks returned from the FTS query.
+
+In the very brief testing period, the FTS implementation was around a hundred
+times faster than the naive `LIKE` query. Queries that took multiple seconds
+now completed in tens of milliseconds.
+
+# Read Cache Update
+
+The read cache update is optimized to minimize the number of disk accesses, as
+it's a hot path and quite expensive if implemented poorly.
+
+The read cache update first pulls all relevant cached data from SQLite. Stored
+on each track is the mtime during the previous cache update. The cache update
+checks whether any files have changed via `readdir` and `stat` calls, and only
+reads the file if the `mtime` has changed. Throughout the update, we take note
+of the changes to apply. At the end of the update, we make a few fat SQL
+queries to batch the writes.
+
+The update process is also parallelizable, so we shard workloads across
+multiple processes.
 
 # Logging
 

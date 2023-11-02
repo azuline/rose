@@ -271,11 +271,12 @@ def execute_metadata_rule(
 
     # === Step 5: Flush writes to disk ===
 
+    logger.info(f"Writing tag changes for rule {rule}")
     changed_release_ids: set[str] = set()
     for tags, changes in actionable_audiotags:
         if tags.release_id:
             changed_release_ids.add(tags.release_id)
-        logger.info(f"Writing tag changes {tags.path} (rule {rule}).")
+        logger.info(f"Writing tag changes to {tags.path}")
         pathtext = str(tags.path).lstrip(str(c.music_source_dir) + "/")
         logger.debug(
             f"{pathtext} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in changes])}"

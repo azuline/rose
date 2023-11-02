@@ -152,7 +152,7 @@ by the two interfaces is:
 - Flag and unflag release "new"-ness
 - White/black-list entries in the artist, genre, and label views
 - Edit release metadata as a text file
-- Define and store rules for bulk updating metadata
+- Run and store rules for bulk updating metadata
 - Import metadata and cover art from third-party sources
 - Extract embedded cover art to an external file
 - Extract "phony" single releases from EPs/Albums/etc

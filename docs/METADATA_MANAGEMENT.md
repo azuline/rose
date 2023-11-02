@@ -37,8 +37,6 @@ Rosé manages the following tags:
   - Artists
   - Track Number
   - Disc Number
-  - Rosé ID
-  - Rosé Release ID
 
 Rosé does not care about any other tags and does not do anything with them.
 
@@ -190,15 +188,157 @@ artists = [
 
 # Rules Engine
 
-_In Development_
+Rosé's rule engine allows you to update metadata in bulk across your library.
+The rule engine supports two methods of execution:
 
-## Rule Syntax
+1. Running ad hoc rules in the command line.
+2. Storing rules in the configuration to run repeatedly.
 
-Rules are specified in a DSL.
+## Example
 
-Examples and human description TBD.
+I have two artists in Rosé: `CHUU` and `Chuu`. They're actually the same
+artist, but capitalized differently. To normalize them, I execute the following
+ad hoc rule:
 
-The rule syntax is defined by the following grammar:
+```bash
+$ rose metadata run-rule 'trackartist,albumartist:CHUU' 'replace:Chuu'
+CHUU - 2023. Howl/01. Howl.opus
+      trackartist[main]: ['CHUU'] -> ['Chuu']
+      albumartist[main]: ['CHUU'] -> ['Chuu']
+CHUU - 2023. Howl/02. Underwater.opus
+      trackartist[main]: ['CHUU'] -> ['Chuu']
+      albumartist[main]: ['CHUU'] -> ['Chuu']
+CHUU - 2023. Howl/03. My Palace.opus
+      trackartist[main]: ['CHUU'] -> ['Chuu']
+      albumartist[main]: ['CHUU'] -> ['Chuu']
+CHUU - 2023. Howl/04. Aliens.opus
+      trackartist[main]: ['CHUU'] -> ['Chuu']
+      albumartist[main]: ['CHUU'] -> ['Chuu']
+CHUU - 2023. Howl/05. Hitchhiker.opus
+      trackartist[main]: ['CHUU'] -> ['Chuu']
+      albumartist[main]: ['CHUU'] -> ['Chuu']
+
+Write changes to 5 tracks?  [Y/n] y
+
+[01:10:58] INFO: Writing tag changes for rule matcher=trackartist,albumartist:CHUU action=matched:CHUU::replace:Chuu
+[01:10:58] INFO: Writing tag changes to CHUU - 2023. Howl/01. Howl.opus
+[01:10:58] INFO: Writing tag changes to CHUU - 2023. Howl/02. Underwater.opus
+[01:10:58] INFO: Writing tag changes to CHUU - 2023. Howl/03. My Palace.opus
+[01:10:58] INFO: Writing tag changes to CHUU - 2023. Howl/04. Aliens.opus
+[01:10:58] INFO: Writing tag changes to CHUU - 2023. Howl/05. Hitchhiker.opus
+
+Applied tag changes to 5 tracks!
+```
+
+And we now have a single Chuu!
+
+```bash
+$ rose tracks print ...
+TODO
+```
+
+And I also want to set all of Chuu's releases to the `K-Pop` genre:
+
+```bash
+$ rose metadata run-rule 'trackartist,albumartist:Chuu' 'genre::replace-all:K-Pop'
+CHUU - 2023. Howl/01. Howl.opus
+      genre: [] -> ['K-Pop']
+CHUU - 2023. Howl/02. Underwater.opus
+      genre: [] -> ['K-Pop']
+CHUU - 2023. Howl/03. My Palace.opus
+      genre: [] -> ['K-Pop']
+CHUU - 2023. Howl/04. Aliens.opus
+      genre: [] -> ['K-Pop']
+CHUU - 2023. Howl/05. Hitchhiker.opus
+      genre: [] -> ['K-Pop']
+LOOΠΔ - 2017. Chuu/01. Heart Attack.opus
+      genre: ['Kpop'] -> ['K-Pop']
+LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
+      genre: ['Kpop'] -> ['K-Pop']
+
+Write changes to 7 tracks? [Y/n] y
+
+[01:14:57] INFO: Writing tag changes for rule matcher=trackartist,albumartist:Chuu action=genre::replace-all:K-Pop
+[01:14:57] INFO: Writing tag changes to CHUU - 2023. Howl/01. Howl.opus
+[01:14:57] INFO: Writing tag changes to CHUU - 2023. Howl/02. Underwater.opus
+[01:14:57] INFO: Writing tag changes to CHUU - 2023. Howl/03. My Palace.opus
+[01:14:57] INFO: Writing tag changes to CHUU - 2023. Howl/04. Aliens.opus
+[01:14:57] INFO: Writing tag changes to CHUU - 2023. Howl/05. Hitchhiker.opus
+[01:14:57] INFO: Writing tag changes to LOOΠΔ - 2017. Chuu/01. Heart Attack.opus
+[01:14:57] INFO: Writing tag changes to LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
+
+Applied tag changes to 7 tracks!
+```
+
+Now that I've written these rules, I can also store them in Rosé's configuration in
+order to apply them on all releases I add in the future. I do this by appending
+the following to my configuration file:
+
+```toml
+[[stored_metadata_rules]]
+matcher = "trackartist,albumartist:CHUU"
+actions = ["replace:Chuu"]
+[[stored_metadata_rules]]
+matcher = "trackartist,albumartist:Chuu"
+actions = ["genre::replace-all:K-Pop"]
+```
+
+And with the `rose metadata run-stored-rules` command, I can run these rules,
+as well as the others, repeatedly again in the future.
+
+## Mechanics
+
+The rules engine operates in two steps:
+
+1. Find all tracks matching a _matcher_.
+2. Apply _actions_ to the matched tracks.
+
+### Matchers
+
+Matchers are `(tags, pattern)` tuples for selecting tracks. Tracks are selected
+if the `pattern` matches one or more of the track's values for the given
+`tags`.
+
+Pattern matching is executed as a substring match. For example, the patterns
+`Chuu`, `Chu`, `hu`, and `huu` all match `Chuu`. Regex is not supported for
+pattern matching due to its performance.
+
+The `^` and `$` characters enable strict prefix and strict suffix matching,
+respectively. So for example, the pattern `^Chu` match `Chuu`, but not `AChuu`.
+And the pattern `Chu$` matches `Chu`, but not `Chuu`.
+
+### Actions
+
+Actions are `(tags, pattern, all, kind, *args)` tuples for modifying the
+metadata of a track.
+
+Given a track, if the `pattern` matches the `tags`, by the same logic as the
+matchers, the action is applied.
+
+There are four kinds of actions: `replace`, `sed`, `split`, and `delete`. Each
+action has its own set of additional arguments.
+
+- `replace`:
+
+For multi-valued tags, `all`...
+
+The `tags` and `pattern`, usually by default, equivalent the `matcher`.
+
+### Track-Based Paradigm
+
+Each action is applied to the track _as a whole_. Rosé does not
+inherently restrict the action solely to the matched tag. What does this mean?
+
+Examples TODO
+
+## Rule Language
+
+Rosé provides a Domain Specific Language (DSL) for defining rules. Rosé's
+language has two types of expressions: _matchers_ and _actions_.
+
+TODO
+
+The formal syntax is defined by the following grammar:
 
 ```
 <matcher> ::= <tags> ':' <pattern>
@@ -215,11 +355,16 @@ The rule syntax is defined by the following grammar:
 <optional-all>   ::= '' | '-all'
 ```
 
+## Dry Runs
+
+TODO
+
 # Metadata Import & Cover Art Downloading
 
 _In Development_
 
-Sources: Discogs, MusicBrainz, Tidal, Deezer, Apple, Junodownload, Beatport, and fanart.tv
+Sources: Discogs, MusicBrainz, Tidal, Deezer, Apple, Junodownload, Beatport,
+fanart.tv, and RYM.
 
 # Appendix A. Tag Field Mappings
 
