@@ -32,7 +32,6 @@
         click
         llfuse
         mutagen
-        pydantic
         send2trash
         setuptools
         tomli-w

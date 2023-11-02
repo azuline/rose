@@ -19,7 +19,6 @@ setuptools.setup(
         "click",
         "llfuse",
         "mutagen",
-        "pydantic",
         "send2trash",
         "tomli-w",
         "uuid6",
