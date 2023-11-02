@@ -363,15 +363,17 @@ def execute_multi_value_action(
         if i not in matching_idx:
             rval.append(v)
             continue
+        if isinstance(bhv, DeleteAction):
+            continue
+        newvals = [v]
         if isinstance(bhv, ReplaceAction):
-            rval.extend(bhv.replacement.split(";"))
+            newvals = bhv.replacement.split(";")
         elif isinstance(bhv, SedAction):
-            rval.extend(bhv.src.sub(bhv.dst, v).split(";"))
+            newvals = bhv.src.sub(bhv.dst, v).split(";")
         elif isinstance(bhv, SplitAction):
-            for newv in v.split(bhv.delimiter):
-                newv = newv.strip()
-                if newv:
-                    rval.append(newv.strip())
-        elif isinstance(bhv, DeleteAction):
-            pass
+            newvals = v.split(bhv.delimiter)
+        for nv in newvals:
+            nv = nv.strip()
+            if nv:
+                rval.append(nv)
     return uniq(rval)

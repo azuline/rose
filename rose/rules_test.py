@@ -211,6 +211,16 @@ def test_action_replace_with_delimiter(config: Config, source_dir: Path) -> None
     assert af.genre == ["Hip-Hop", "Rap"]
 
 
+def test_action_replace_with_delimiters_empty_str(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule(
+        matcher=MetadataMatcher(tags=["genre"], pattern="K-Pop"),
+        actions=[MetadataAction(behavior=ReplaceAction(replacement="Hip-Hop;;;;"))],
+    )
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.genre == ["Hip-Hop"]
+
+
 def test_sed_action(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
         matcher=MetadataMatcher(tags=["tracktitle"], pattern="Track"),

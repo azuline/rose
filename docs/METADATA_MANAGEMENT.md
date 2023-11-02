@@ -299,7 +299,7 @@ Pattern matching is case sensitive.
 
 ### Actions
 
-Actions are a tuple of `(tags, pattern, kind, all, *kind_specific_args)`.
+Actions are a tuple of `(tags, pattern, kind, *kind_specific_args)`.
 
 `tags` and `pattern` determine which tags and values to modify on the matched
 track. **These can differ from those matched by the matcher.** For example, you
@@ -311,26 +311,48 @@ the matcher." And by default, `pattern` is set to the `pattern` of the matcher,
 which restricts the modified tags to those matched by the matcher. which means
 that only matched tags are actioned.
 
-Note that `pattern` does not default to the matcher's pattern if (1) `tags !=
-matched` or (2) `all = true`. In those cases, `pattern` defaults to null, which
-matches all values.
+Note that `pattern` does not default to the matcher's pattern if `tags !=
+matched` In those cases, `pattern` defaults to null, which matches all values.
 
-`kind` determines which action is taken on the matched tags. `all` only affects
-multi-value tags, determining whether to act on only matched value or all
-values. And each `kind` of action has different arguments of its own, which
-we'll explore below.
+`kind` determines which action is taken on the matched tags. There are five
+kinds of actions, each of which has _kind-specific args_:
 
-There are five _kinds_ of actions:
-
-- `replace`: Replace a tag.
-- `sed`: ...
-- `split`: ...
-- `add`: ...
-- `delete`: ...
+- `replace`: Replace the tag value. Has one argument: `replacement`. For
+- `sed`: Executes a regex substitution (via Python's `re.sub`) on the tag
+  value. Has two arguments: `pattern` and `replacement`.
+- `split`: Splits a tag value into multiple values. Has one argument:
+  `delimiter`, which is used to split the value. This action is only applicable
+  to multi-value tags.
+- `add`: Adds a value to the tag. Has one argument: `value`. This action is
+  only applicable to multi-value tags.
+- `delete`: Deletes the matched tag value. Takes no arguments.
 
 ### Multi-Value Tags
 
-For multi-valued tags, `all`...
+Single-valued tags have a pretty straightforward behavior: if the tag value
+matches, either replace the value, sed the value, or delete the value.
+
+For Multi-valued tags, only values matching the pattern are acted upon. So for
+example, given the genre tags `[K-Pop, Dance-Pop, Contemporary R&B]` and the
+action `genre:Pop::sed:p:b`, the result will be `[K-Pob, Dance-Pob, Contemporary R&B]`
+(`Contemporary R&B` is left untouched).
+
+In order to act on all the values, the pattern can be set to null. Then the
+action will run over all values in the tag. This can be used to, for example,
+fully replace a tag. For example, given the above three genre tags, the action
+`genre:::replace:Hi;High` will result in `[Hi, High]`.
+
+There are three additional mechanics affecting multi-value tags:
+
+- If the new value in a multi-valued tag contains a `;`, the value will be
+  split into multiple values, with `;` as the delimiter. This allows you to
+  create multiple values from a single value (e.g. `[Hi, High]`!).
+- If the new value is an empty string, it is removed from the result. This can
+  be used, for example, in the `sed` action to remove values based on a regex
+  pattern.
+- The values in the tag are deduplicated. If this were not the case, we would
+  have gotten `[Hi, High, Hi, High, Hi, High]` in the previous example.
+  Instead, we got `[Hi, High]`.
 
 ## Rule Language
 
