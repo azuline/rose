@@ -68,6 +68,10 @@ def test_rule_parse_matcher() -> None:
         tags=["tracktitle", "tracknumber"],
         pattern="Tr:ck",
     )
+    assert parse_matcher(r"tracktitle:") == MetadataMatcher(
+        tags=["tracktitle"],
+        pattern="",
+    )
 
     @pytest.mark.helper()
     def test_err(rule: str, err: str) -> None:
@@ -109,24 +113,13 @@ Failed to parse matcher, invalid syntax:
     )
 
     test_err(
-        "tracktitle:",
-        """\
-Failed to parse matcher, invalid syntax:
-
-    tracktitle:
-               ^
-               Pattern not found: must specify a non-empty pattern.
-""",  # noqa
-    )
-
-    test_err(
         "tracktitle::",
         """\
 Failed to parse matcher, invalid syntax:
 
     tracktitle::
                ^
-               Pattern not found: must specify a non-empty pattern.
+               Found another section after the pattern, but the pattern must be the last section. Perhaps you meant to escape this colon?
 """,  # noqa
     )
 

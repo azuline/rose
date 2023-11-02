@@ -319,6 +319,12 @@ class Config:
 
         stored_metadata_rules: list[MetadataRule] = []
         for d in data.get("stored_metadata_rules", []):
+            if not isinstance(d, dict):
+                raise InvalidConfigValueError(
+                    f"Invalid value in stored_metadata_rules in configuration file "
+                    f"({cfgpath}): list values must be a dict: got {type(d)}"
+                )
+
             try:
                 matcher = d["matcher"]
             except KeyError as e:

@@ -3,10 +3,8 @@ The rules module implements the Rules Engine for updating metadata. The rules en
 previews, and executes rules.
 """
 
-import contextlib
 import copy
 import logging
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -18,9 +16,9 @@ from rose.common import RoseError
 from rose.config import Config
 from rose.rule_parser import (
     DeleteAction,
+    MetadataAction,
     MetadataRule,
     ReplaceAction,
-    ReplaceAllAction,
     SedAction,
     SplitAction,
 )
@@ -49,30 +47,21 @@ def execute_metadata_rule(
     enter_number_to_confirm_above_count: int = 25,
 ) -> None:
     """
-    This function executes a metadata update rule. It runs in two parts:
+    This function executes a metadata update rule. It runs in five parts:
 
-    1. Fetch the affected tracks from the read cache. This step is not necessary, as the function
-       would be correct if we looped over all tracks; however, that would be very slow. So in order
-       to keep the function fast, we use the read cache to limit the number of files we read from
-       disk.
-    2. Apply the rules onto the audio files. We read the tags in from disk, re-check the matcher in
-       case the cache is out of date, and then apply the change to the tags.
+    1. Run a search query on our Full Text Search index. This is far more performant than the SQL
+       LIKE operation; however, it is also less precise. It produces false positives, but should not
+       produce false negatives. So we then run:
+    2. Read the files returned from the search query and remove all false positives.
+    3. We then run the actions on each valid matched file and store all the intended changes
+       in-memory. No changes are written to disk.
+    4. We then prompt the user to confirm the changes, assuming confirm_yes is True.
+    5. We then flush the intended changes to disk.
     """
 
-    # 1. Create a Python function for the matcher. We'll use this in the actual substitutions and
-    # test this against every tag before we apply a rule to it.
-    def matches_rule(x: str) -> bool:
-        strictstart = rule.matcher.pattern.startswith("^")
-        strictend = rule.matcher.pattern.endswith("$")
-        if strictstart and strictend:
-            return x == rule.matcher.pattern[1:-1]
-        if strictstart:
-            return x.startswith(rule.matcher.pattern[1:])
-        if strictend:
-            return x.endswith(rule.matcher.pattern[:-1])
-        return rule.matcher.pattern in x
+    # === Step 1: Fast search for matching files ===
 
-    # 2. Convert the matcher to a SQL expression for SQLite FTS. We won't be doing the precise
+    # Convert the matcher to a SQL expression for SQLite FTS. We won't be doing the precise
     # prefix/suffix matching here: for performance, we abuse SQLite FTS by making every character
     # its own token, which grants us the ability to search for arbitrary substrings. However, FTS
     # cannot guarantee ordering, which means that a search for `BLACKPINK` will also match
@@ -95,7 +84,7 @@ def execute_metadata_rule(
     matchsql = f'NEAR("{matchsql}", {max(0, len(matchsqlstr)-2)})'
     logger.debug(f"Converted match {rule.matcher=} to {matchsql=}")
 
-    # 3. Build the query to fetch a superset of tracks to attempt to execute the rules against. Note
+    # Build the query to fetch a superset of tracks to attempt to execute the rules against. Note
     # that we directly use string interpolation here instead of prepared queries, because we are
     # constructing a complex match string and everything is escaped and spaced-out with a random
     # paragraph character, so there's no risk of SQL being interpreted.
@@ -117,213 +106,254 @@ def execute_metadata_rule(
     if not track_paths:
         return
 
-    # 4. Execute update on tags.
-    #
-    # We make two passes here to enable preview:
-    # - 1st pass: Read all audio files metadata and identify what must be changed. Store changed
-    #   audiotags into the `audiotag` list. Print planned changes for user confirmation.
-    # - 2nd pass: Flush the changes.
+    # === Step 2: Filter out false positives ===
 
-    # In this first pass, we have two steps:
-    #
-    # 1. Make sure that this audio track should indeed
-    audiotags: list[AudioTags] = []
+    matcher_audiotags: list[AudioTags] = []
     for tpath in track_paths:
         tags = AudioTags.from_file(tpath)
-        origtags = copy.deepcopy(tags)
-        changes: list[str] = []
         for field in rule.matcher.tags:
-            if field == "tracktitle":
-                tags.title = execute_single_action(tags.title)
-                if tags.title != origtags.title:
-                    changes.append(f"tracktitle: {origtags.title} -> {tags.title}")
-            if field == "year":
-                v = execute_single_action(str(tags.year) if tags.year is not None else None)
-                try:
-                    tags.year = int(v) if v else None
-                except ValueError as e:
-                    raise InvalidReplacementValueError(
-                        f"Failed to assign new value {v} to release_year: value must be integer"
-                    ) from e
-                if tags.year != origtags.year:
-                    changes.append(f"year: {origtags.year} -> {tags.year}")
-            if field == "tracknumber":
-                tags.track_number = execute_single_action(tags.track_number)
-                if tags.track_number != origtags.track_number:
-                    changes.append(f"tracknumber: {origtags.track_number} -> {tags.track_number}")
-            if field == "discnumber":
-                tags.disc_number = execute_single_action(tags.disc_number)
-                if tags.disc_number != origtags.disc_number:
-                    changes.append(f"discnumber: {origtags.disc_number} -> {tags.disc_number}")
-            if field == "albumtitle":
-                tags.album = execute_single_action(tags.album)
-                if tags.album != origtags.album:
-                    changes.append(f"album: {origtags.album} -> {tags.album}")
-            if field == "releasetype":
-                tags.release_type = execute_single_action(tags.release_type) or "unknown"
-                if tags.release_type != origtags.release_type:
-                    changes.append(f"releasetype: {origtags.release_type} -> {tags.release_type}")
-            if field == "genre":
-                tags.genre = execute_multi_value_action(tags.genre)
-                if tags.genre != origtags.genre:
-                    changes.append(f'genre: {";".join(origtags.genre)} -> {";".join(tags.genre)}')
-            if field == "label":
-                tags.label = execute_multi_value_action(tags.label)
-                if tags.label != origtags.label:
-                    changes.append(f'label: {";".join(origtags.label)} -> {";".join(tags.label)}')
-            if field == "artist":
-                tags.artists.main = execute_multi_value_action(tags.artists.main)
-                if tags.artists.main != origtags.artists.main:
-                    changes.append(
-                        f'artist.main: {";".join(origtags.artists.main)} -> '
-                        f'{";".join(tags.artists.main)}'
-                    )
-                tags.artists.guest = execute_multi_value_action(tags.artists.guest)
-                if tags.artists.guest != origtags.artists.guest:
-                    changes.append(
-                        f'artist.guest: {";".join(origtags.artists.guest)} -> '
-                        f'{";".join(tags.artists.guest)}'
-                    )
-                tags.artists.remixer = execute_multi_value_action(tags.artists.remixer)
-                if tags.artists.remixer != origtags.artists.remixer:
-                    changes.append(
-                        f'artist.remixer: {";".join(origtags.artists.remixer)} -> '
-                        f'{";".join(tags.artists.remixer)}'
-                    )
-                tags.artists.producer = execute_multi_value_action(tags.artists.producer)
-                if tags.artists.producer != origtags.artists.producer:
-                    changes.append(
-                        f'artist.producer: {";".join(origtags.artists.producer)} -> '
-                        f'{";".join(tags.artists.producer)}'
-                    )
-                tags.artists.composer = execute_multi_value_action(tags.artists.composer)
-                if tags.artists.composer != origtags.artists.composer:
-                    changes.append(
-                        f'artist.composer: {";".join(origtags.artists.composer)} -> '
-                        f'{";".join(tags.artists.composer)}'
-                    )
-                tags.artists.djmixer = execute_multi_value_action(tags.artists.djmixer)
-                if tags.artists.djmixer != origtags.artists.djmixer:
-                    changes.append(
-                        f'artist.djmixer: {";".join(origtags.artists.djmixer)} -> '
-                        f'{";".join(tags.artists.djmixer)}'
-                    )
-                tags.album_artists.main = execute_multi_value_action(tags.album_artists.main)
-                if tags.album_artists.main != origtags.album_artists.main:
-                    changes.append(
-                        f'album_artist.main: {";".join(origtags.album_artists.main)} -> '
-                        f'{";".join(tags.album_artists.main)}'
-                    )
-                tags.album_artists.guest = execute_multi_value_action(tags.album_artists.guest)
-                if tags.album_artists.guest != origtags.album_artists.guest:
-                    changes.append(
-                        f'album_artist.guest: {";".join(origtags.album_artists.guest)} -> '
-                        f'{";".join(tags.album_artists.guest)}'
-                    )
-                tags.album_artists.remixer = execute_multi_value_action(tags.album_artists.remixer)
-                if tags.album_artists.remixer != origtags.album_artists.remixer:
-                    changes.append(
-                        f'album_artist.remixer: {";".join(origtags.album_artists.remixer)} -> '
-                        f'{";".join(tags.album_artists.remixer)}'
-                    )
-                tags.album_artists.producer = execute_multi_value_action(
-                    tags.album_artists.producer
-                )
-                if tags.album_artists.producer != origtags.album_artists.producer:
-                    changes.append(
-                        f'album_artist.producer: {";".join(origtags.album_artists.producer)} -> '
-                        f'{";".join(tags.album_artists.producer)}'
-                    )
-                tags.album_artists.composer = execute_multi_value_action(
-                    tags.album_artists.composer
-                )
-                if tags.album_artists.composer != origtags.album_artists.composer:
-                    changes.append(
-                        f'album_artist.composer: {";".join(origtags.album_artists.composer)} -> '
-                        f'{";".join(tags.album_artists.composer)}'
-                    )
-                tags.album_artists.djmixer = execute_multi_value_action(tags.album_artists.djmixer)
-                if tags.album_artists.djmixer != origtags.album_artists.djmixer:
-                    changes.append(
-                        f'album_artists.djmixer: {";".join(origtags.album_artists.djmixer)} -> '
-                        f'{";".join(tags.album_artists.djmixer)}'
-                    )
-
-        relativepath = str(tpath).removeprefix(str(c.music_source_dir))
-        if changes:
-            changelog = f"[{relativepath}] {' | '.join(changes)}"
-            if confirm_yes:
-                print(changelog)
-            else:
-                logger.info(f"Scheduling tag update: {changelog}")
-            audiotags.append(tags)
-        else:
-            logger.debug(f"Skipping relative path {relativepath}: no changes calculated off tags")
-
-    if not audiotags:
+            match = False
+            # fmt: off
+            match = match or (field == "tracktitle" and matches_pattern(rule.matcher.pattern, tags.title))  # noqa: E501
+            match = match or (field == "year" and matches_pattern(rule.matcher.pattern, tags.year))  # noqa: E501
+            match = match or (field == "tracknumber" and matches_pattern(rule.matcher.pattern, tags.track_number))  # noqa: E501
+            match = match or (field == "discnumber" and matches_pattern(rule.matcher.pattern, tags.disc_number))  # noqa: E501
+            match = match or (field == "albumtitle" and matches_pattern(rule.matcher.pattern, tags.album))  # noqa: E501
+            match = match or (field == "releasetype" and matches_pattern(rule.matcher.pattern, tags.release_type))  # noqa: E501
+            match = match or (field == "genre" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.genre))  # noqa: E501
+            match = match or (field == "label" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.label))  # noqa: E501
+            match = match or (field == "trackartist" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.artists.all))  # noqa: E501
+            match = match or (field == "albumartist" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.album_artists.all))  # noqa: E501
+            # fmt: on
+            if match:
+                matcher_audiotags.append(tags)
+                break
+    if not matcher_audiotags:
         return
 
+    # === Step 3: Prepare updates on in-memory tags ===
+
+    Changes = tuple[str, Any, Any]  # (old, new)  # noqa: N806
+    actionable_audiotags: list[tuple[AudioTags, list[Changes]]] = []
+    for tags in matcher_audiotags:
+        origtags = copy.deepcopy(tags)
+        potential_changes: list[Changes] = []
+        for act in rule.actions:
+            fields_to_update = act.tags
+            if fields_to_update == "matched":
+                fields_to_update = rule.matcher.tags
+            for field in fields_to_update:
+                if field == "tracktitle":
+                    tags.title = execute_single_action(act, tags.title)
+                    potential_changes.append(("title", origtags.title, tags.title))
+                elif field == "year":
+                    v = execute_single_action(act, tags.year)
+                    try:
+                        tags.year = int(v) if v else None
+                    except ValueError as e:
+                        raise InvalidReplacementValueError(
+                            f"Failed to assign new value {v} to release_year: value must be integer"
+                        ) from e
+                    potential_changes.append(("year", origtags.year, tags.year))
+                elif field == "tracknumber":
+                    tags.track_number = execute_single_action(act, tags.track_number)
+                    potential_changes.append(
+                        ("track_number", origtags.track_number, tags.track_number)
+                    )  # noqa: E501
+                elif field == "discnumber":
+                    tags.disc_number = execute_single_action(act, tags.disc_number)
+                    potential_changes.append(
+                        ("disc_number", origtags.disc_number, tags.disc_number)
+                    )  # noqa: E501
+                elif field == "albumtitle":
+                    tags.album = execute_single_action(act, tags.album)
+                    potential_changes.append(("album", origtags.album, tags.album))
+                elif field == "releasetype":
+                    tags.release_type = execute_single_action(act, tags.release_type) or "unknown"
+                    potential_changes.append(
+                        ("release_type", origtags.release_type, tags.release_type)
+                    )  # noqa: E501
+                elif field == "genre":
+                    tags.genre = execute_multi_value_action(act, tags.genre)
+                    potential_changes.append(("genre", origtags.genre, tags.genre))
+                elif field == "label":
+                    tags.label = execute_multi_value_action(act, tags.label)
+                    potential_changes.append(("label", origtags.label, tags.label))
+                elif field == "trackartist":
+                    tags.artists.main = execute_multi_value_action(act, tags.artists.main)
+                    potential_changes.append(("main", origtags.artists.main, tags.artists.main))
+                    tags.artists.guest = execute_multi_value_action(act, tags.artists.guest)
+                    potential_changes.append(("guest", origtags.artists.guest, tags.artists.guest))
+                    tags.artists.remixer = execute_multi_value_action(act, tags.artists.remixer)
+                    potential_changes.append(
+                        ("remixer", origtags.artists.remixer, tags.artists.remixer)
+                    )  # noqa: E501
+                    tags.artists.producer = execute_multi_value_action(act, tags.artists.producer)
+                    potential_changes.append(
+                        ("producer", origtags.artists.producer, tags.artists.producer)
+                    )  # noqa: E501
+                    tags.artists.composer = execute_multi_value_action(act, tags.artists.composer)
+                    potential_changes.append(
+                        ("composer", origtags.artists.composer, tags.artists.composer)
+                    )  # noqa: E501
+                    tags.artists.djmixer = execute_multi_value_action(act, tags.artists.djmixer)
+                    potential_changes.append(
+                        ("djmixer", origtags.artists.djmixer, tags.artists.djmixer)
+                    )  # noqa: E501
+                elif field == "albumartist":
+                    # fmt: off
+                    tags.album_artists.main = execute_multi_value_action(act, tags.album_artists.main)  # noqa: E501
+                    potential_changes.append(("main", origtags.album_artists.main, tags.album_artists.main))  # noqa: E501
+                    tags.album_artists.guest = execute_multi_value_action(act, tags.album_artists.guest)  # noqa: E501
+                    potential_changes.append(("guest", origtags.album_artists.guest, tags.album_artists.guest))  # noqa: E501
+                    tags.album_artists.remixer = execute_multi_value_action(act, tags.album_artists.remixer)  # noqa: E501
+                    potential_changes.append(("remixer", origtags.album_artists.remixer, tags.album_artists.remixer))  # noqa: E501
+                    tags.album_artists.producer = execute_multi_value_action(act, tags.album_artists.producer)  # noqa: E501
+                    potential_changes.append(("producer", origtags.album_artists.producer, tags.album_artists.producer))  # noqa: E501
+                    tags.album_artists.composer = execute_multi_value_action(act, tags.album_artists.composer)  # noqa: E501
+                    potential_changes.append(("composer", origtags.album_artists.composer, tags.album_artists.composer))  # noqa: E501
+                    tags.album_artists.djmixer = execute_multi_value_action(act, tags.album_artists.djmixer)  # noqa: E501
+                    potential_changes.append(("djmixer", origtags.album_artists.djmixer, tags.album_artists.djmixer))  # noqa: E501
+                    # fmt: on
+
+        # Compute real changes by diffing the tags, and then store.
+        changes = [(x, y, z) for x, y, z in potential_changes if y != z]
+        if changes:
+            actionable_audiotags.append((tags, potential_changes))
+        else:
+            logger.debug(f"Skipping matched track {tags.path}: no changes calculated off tags")
+    if not actionable_audiotags:
+        return
+
+    # === Step 4: Ask user confirmation on the changes ===
+
     if confirm_yes:
-        if len(audiotags) > enter_number_to_confirm_above_count:
+        click.echo()
+
+        # Compute the text to display:
+        todisplay: list[tuple[str, list[Changes]]] = []
+        maxpathwidth = 0
+        for tags, changes in actionable_audiotags:
+            pathtext = str(tags.path).lstrip(str(c.music_source_dir) + "/")
+            if len(pathtext) >= 78:
+                pathtext = pathtext[:38] + ".." + pathtext[-38:]
+            maxpathwidth = max(maxpathwidth, len(pathtext))
+            todisplay.append((pathtext, changes))
+
+        # And then display it.
+        for pathtext, changes in todisplay:
+            click.secho(pathtext, underline=True)
+            for name, old, new in changes:
+                click.echo(f"      {name}: ", nl=False)
+                click.secho(old, fg="red", nl=False)
+                click.echo(" --> ", nl=False)
+                click.secho(new, fg="green", bold=True)
+
+        # And then let's go for the confirmation.
+        click.echo()
+        if len(actionable_audiotags) > enter_number_to_confirm_above_count:
             while True:
                 userconfirmation = click.prompt(
-                    f"Apply the planned tag changes to {len(audiotags)} tracks? "
-                    f"Enter {len(audiotags)} to confirm (or 'no' to abort)"
+                    f"Write changes to {len(actionable_audiotags)} tracks? "
+                    f"Enter {click.style(len(actionable_audiotags), bold=True)} to confirm "
+                    "(or 'no' to abort)"
                 )
                 if userconfirmation == "no":
                     logger.debug("Aborting planned tag changes after user confirmation")
                     return
-                if userconfirmation == str(len(audiotags)):
+                if userconfirmation == str(len(actionable_audiotags)):
+                    click.echo()
                     break
         else:
             if not click.confirm(
-                f"Apply the planned tag changes to {len(audiotags)} tracks? ",
+                f"Write changes to {click.style(len(actionable_audiotags), bold=True)} tracks? ",
                 default=True,
                 prompt_suffix="",
             ):
                 logger.debug("Aborting planned tag changes after user confirmation")
                 return
+            click.echo()
 
-    for tags in audiotags:
-        logger.info(f"Flushing rule-applied tags for {tags.path}.")
+    # === Step 5: Flush writes to disk ===
+
+    for tags, changes in actionable_audiotags:
+        logger.info(f"Writing tag changes {tags.path} (rule {rule}).")
+        logger.debug(
+            f"{tags.path} changes: {' //// '.join([str(x)+' --> '+str(y) for _, x, y in changes])}"
+        )
         tags.flush()
-    logger.info(f"Successfully flushed all {len(audiotags)} rule-applied tags")
+
+    logger.info(f"Successfully applied tag changes to {len(actionable_audiotags)} tracks")
+
+
+def matches_pattern(pattern: str, value: str | int | None) -> bool:
+    value = str(value) if value is not None else ""
+    strictstart = pattern.startswith("^")
+    strictend = pattern.endswith("$")
+    if strictstart and strictend:
+        return value == pattern[1:-1]
+    if strictstart:
+        return value.startswith(pattern[1:])
+    if strictend:
+        return value.endswith(pattern[:-1])
+    return pattern in value
 
 
 # Factor out the logic for executing an action on a single-value tag and a multi-value tag.
-def execute_single_action(rule: MetadataRule, value: str | None) -> str | None:
-    if isinstance(rule.action, ReplaceAction):
-        return rule.action.replacement
-    elif isinstance(rule.action, SedAction):
-        if not value:
-            return value
-        return rule.action.src.sub(rule.action.dst, str(value or ""))
-    elif isinstance(rule.action, DeleteAction):
+def execute_single_action(action: MetadataAction, value: str | int | None) -> str | None:
+    if action.match_pattern and not matches_pattern(action.match_pattern, value):
         return None
-    raise InvalidRuleActionError(f"Invalid action {type(rule.action)} for single-value tag")
+
+    bhv = action.behavior
+    strvalue = str(value) if value is not None else None
+
+    if isinstance(bhv, ReplaceAction):
+        return bhv.replacement
+    elif isinstance(bhv, SedAction):
+        if strvalue is None:
+            return None
+        return bhv.src.sub(bhv.dst, strvalue)
+    elif isinstance(bhv, DeleteAction):
+        return None
+    raise InvalidRuleActionError(f"Invalid action {type(action.behavior)} for single-value tag")
 
 
 def execute_multi_value_action(
-    rule: MetadataRule,
+    action: MetadataAction,
     values: list[str],
-    matches_rule: Callable[[Any], bool],
 ) -> list[str]:
-    if isinstance(rule.action, ReplaceAllAction):
-        return rule.action.replacement
+    bhv = action.behavior
+
+    # If match_pattern is specified, check which values match. And if none match, bail out.
+    matching_idx = list(range(len(values)))
+    if action.match_pattern:
+        matching_idx = []
+        for i, v in enumerate(values):
+            if matches_pattern(action.match_pattern, v):
+                matching_idx.append(i)
+        if not matching_idx:
+            return values
+
+    # Handle these cases first; we have no need to loop into the body for them.
+    if action.all and isinstance(bhv, ReplaceAction):
+        return bhv.replacement.split(";")
+    if action.all and isinstance(bhv, DeleteAction):
+        return []
+
+    # Create a copy of the action with the match_pattern set to None. We'll pass this into the
+    # delegated calls in execute_single_action.
+    subaction = copy.deepcopy(action)
+    subaction.match_pattern = None
 
     rval: list[str] = []
-    for v in values:
-        if not matches_rule(v):
+    for i, v in enumerate(values):
+        if not action.all and i not in matching_idx:
             rval.append(v)
             continue
-        with contextlib.suppress(InvalidRuleActionError):
-            if newv := execute_single_action(rule, v):
-                rval.append(newv)
-            continue
-        if isinstance(rule.action, SplitAction):
-            for newv in v.split(rule.action.delimiter):
+        if isinstance(action.behavior, SplitAction):
+            for newv in v.split(action.behavior.delimiter):
                 if newv:
                     rval.append(newv.strip())
-            continue
-        raise InvalidRuleActionError(f"Invalid action {type(rule.action)} for multi-value tag")
+        elif newv2 := execute_single_action(action, v):
+            rval.append(newv2)
     return rval

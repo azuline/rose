@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from rose.config import Config, ConfigNotFoundError, InvalidConfigValueError, MissingConfigKeyError
-from rose.rule_parser import MetadataMatcher, MetadataRule, ReplaceAction
+from rose.rule_parser import MetadataAction, MetadataMatcher, MetadataRule, ReplaceAction
 
 
 def test_config_minimal() -> None:
@@ -46,8 +46,8 @@ def test_config_full() -> None:
                 ignore_release_directories = [ "dummy boy" ]
 
                 [[stored_metadata_rules]]
-                matcher = {{ tags = "tracktitle", pattern = "lala" }}
-                action = {{ kind = "replace", replacement = "hihi" }}
+                matcher = "tracktitle:lala"
+                actions = ["replace:hihi"]
                 """  # noqa: E501
             )
 
@@ -87,7 +87,7 @@ def test_config_full() -> None:
             stored_metadata_rules=[
                 MetadataRule(
                     matcher=MetadataMatcher(tags=["tracktitle"], pattern="lala"),
-                    action=ReplaceAction(replacement="hihi"),
+                    actions=[MetadataAction(behavior=ReplaceAction(replacement="hihi"))],
                 )
             ],
         )
@@ -407,5 +407,21 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for stored_metadata_rules in configuration file ({path}): rule lalala could not be parsed: Type of metadata rule data must be dict: got <class 'str'>"  # noqa: E501
+            == f"Invalid value in stored_metadata_rules in configuration file ({path}): list values must be a dict: got <class 'str'>"  # noqa: E501
+        )
+        write(
+            config
+            + '\nstored_metadata_rules = [{ matcher = "tracktitle:hi", actions = ["delete:hi"] }]'
+        )  # noqa: E501
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"""\
+Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'matcher': 'tracktitle:hi', 'actions': ['delete:hi']}}: Failed to parse action 1, invalid syntax:
+
+    delete:hi
+           ^
+           Found another section after the action kind, but the delete action has no parameters. Please remove this section.
+"""  # noqa: E501
         )

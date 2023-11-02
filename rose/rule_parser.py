@@ -137,7 +137,8 @@ class MetadataAction:
     # Defaults to: only modify the matched value.
     all: bool = False
     # Only apply the action on values that match this pattern. Defaults to None, which means that
-    # all tags are acted upon.
+    # all tags are acted upon. If `all = True`, as long as a single value matches, then all values
+    # will be edited.
     match_pattern: str | None = None
 
 
@@ -233,12 +234,6 @@ def parse_matcher(raw: str) -> MetadataMatcher:
     # Then parse the pattern.
     pattern, fwd = take(raw[idx:], ":", including=False)
     idx += fwd
-    if pattern == "":
-        raise RuleSyntaxError(
-            **err,
-            index=idx,
-            feedback="Pattern not found: must specify a non-empty pattern.",
-        )
     if raw[idx:]:
         raise RuleSyntaxError(
             **err,
