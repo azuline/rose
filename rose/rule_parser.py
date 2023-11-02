@@ -140,12 +140,8 @@ class MetadataAction:
     behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction
     # The tags to apply the action on. Defaults to the tag that the pattern matched.
     tags: list[Tag] | Literal["matched"] = "matched"
-    # If the tag is a multi-valued tag, whether to only affect the matched value, or all values.
-    # Defaults to: only modify the matched value.
-    all: bool = False
-    # Only apply the action on values that match this pattern. Defaults to None, which means that
-    # all tags are acted upon. If `all = True`, as long as a single value matches, then all values
-    # will be edited.
+    # Only apply the action on values that match this pattern. None means that all values are acted
+    # upon.
     match_pattern: str | None = None
 
 
@@ -182,9 +178,6 @@ class MetadataRule:
             elif isinstance(action.behavior, DeleteAction):
                 aout += "delete"
 
-            if action.all:
-                aout += "-all"
-
             if isinstance(action.behavior, ReplaceAction):
                 aout += ":" + action.behavior.replacement
             elif isinstance(action.behavior, SedAction):
@@ -204,25 +197,16 @@ class MetadataRule:
             actions=[parse_action(a, i + 1) for i, a in enumerate(actions)],
         )
 
-        # If the rule is a simple rule (no boolean logics), all != True, the matching tag is
-        # `matched`, and there is no existing match_pattern, default the actions matchers to the
-        # pattern.
-        #
-        # NOTE: All rules are currently simple; boolean logics not yet implemented.
-        if all(
-            (a.tags == "matched" or a.tags == rule.matcher.tags)
-            and a.match_pattern is None
-            and not a.all
-            for a in rule.actions
-        ):
-            for a in rule.actions:
+        # If the matching tag is `matched`, default the actions matchers to the pattern.
+        for a in rule.actions:
+            if a.match_pattern is None and (a.tags == "matched" or a.tags == rule.matcher.tags):
                 a.match_pattern = rule.matcher.pattern
 
         # And validate that multi-value actions are not invoked on single-value tags.
         for action in rule.actions:
-            if not isinstance(action.behavior, SplitAction):
-                # Isn't a multi-value action.
-                continue
+            b = action.behavior
+            if not isinstance(b, SplitAction) and not isinstance(b, AddAction):
+                continue  # Isn't a multi-value action.
             tags = action.tags
             if tags == "matched":
                 tags = rule.matcher.tags
@@ -349,15 +333,10 @@ def parse_action(raw: str, action_number: int) -> MetadataAction:
     action_kind, fwd = take(raw[idx:], ":")
     valid_actions = [
         "replace",
-        "replace-all",
         "sed",
-        "sed-all",
         "split",
-        "split-all",
         "add",
-        # Note that there is no add-all.
         "delete",
-        "delete-all",
     ]  # noqa: E501
     if action_kind not in valid_actions:
         feedback = f"Invalid action kind: must be one of {{{', '.join(valid_actions)}}}."
@@ -368,9 +347,6 @@ def parse_action(raw: str, action_number: int) -> MetadataAction:
             )
         raise RuleSyntaxError(**err, index=idx, feedback=feedback)
     idx += fwd
-    # Parse away `-all` here.
-    all_ = action_kind.endswith("-all")
-    action_kind = action_kind.removesuffix("-all")
     # And then parse each action kind separately.
     behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction
     if action_kind == "replace":
@@ -473,7 +449,7 @@ def parse_action(raw: str, action_number: int) -> MetadataAction:
     else:  # pragma: no cover
         raise RoseError(f"Impossible: unknown action_kind {action_kind=}")
 
-    return MetadataAction(behavior=behavior, all=all_, tags=tags, match_pattern=pattern)
+    return MetadataAction(behavior=behavior, tags=tags, match_pattern=pattern)
 
 
 def quote(x: str) -> str:

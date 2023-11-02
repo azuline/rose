@@ -45,12 +45,11 @@ def test_rule_str() -> None:
             MetadataAction(
                 behavior=ReplaceAction(replacement="lalala"),
                 tags=["genre"],
-                all=True,
                 match_pattern="lala",
             ),
         ],
     )
-    assert str(rule) == "matcher=tracktitle:Track action=genre:lala::replace-all:lalala"
+    assert str(rule) == "matcher=tracktitle:Track action=genre:lala::replace:lalala"
 
     # Test that we print `matched` when action pattern is not null.
     rule = MetadataRule(
@@ -95,7 +94,7 @@ Failed to parse matcher, invalid syntax:
 
     tracknumber^Track$
     ^
-    Invalid tag: must be one of {tracktitle, year, tracknumber, discnumber, albumtitle, genre, label, releasetype, trackartist, albumartist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, tracknumber, discnumber, albumtitle, albumartist, releasetype, year, genre, label}. The next character after a tag must be ':' or ','.
 """,  # noqa
     )
 
@@ -134,78 +133,61 @@ Failed to parse matcher, invalid syntax:
 
 
 def test_rule_parse_action() -> None:
-    assert parse_action("replace-all:lalala", 1) == MetadataAction(
+    assert parse_action("replace:lalala", 1) == MetadataAction(
         behavior=ReplaceAction(replacement="lalala"),
         tags="matched",
         match_pattern=None,
-        all=True,
     )
     assert parse_action("genre::replace:lalala", 1) == MetadataAction(
         behavior=ReplaceAction(replacement="lalala"),
         tags=["genre"],
         match_pattern=None,
-        all=False,
     )
     assert parse_action("tracknumber,genre::replace:lalala", 1) == MetadataAction(
         behavior=ReplaceAction(replacement="lalala"),
         tags=["tracknumber", "genre"],
         match_pattern=None,
-        all=False,
     )
-    assert parse_action("genre:lala::replace-all:lalala", 1) == MetadataAction(
+    assert parse_action("genre:lala::replace:lalala", 1) == MetadataAction(
         behavior=ReplaceAction(replacement="lalala"),
         tags=["genre"],
         match_pattern="lala",
-        all=True,
     )
-    assert parse_action("matched:^x::replace-all:lalala", 1) == MetadataAction(
+    assert parse_action("matched:^x::replace:lalala", 1) == MetadataAction(
         behavior=ReplaceAction(replacement="lalala"),
         tags="matched",
         match_pattern="^x",
-        all=True,
     )
 
     assert parse_action("sed:lalala:hahaha", 1) == MetadataAction(
         behavior=SedAction(src=re.compile("lalala"), dst="hahaha"),
         tags="matched",
         match_pattern=None,
-        all=False,
-    )
-    assert parse_action("sed-all:lalala:hahaha", 1) == MetadataAction(
-        behavior=SedAction(src=re.compile("lalala"), dst="hahaha"),
-        tags="matched",
-        match_pattern=None,
-        all=True,
     )
     assert parse_action(r"split:\:", 1) == MetadataAction(
         behavior=SplitAction(delimiter=":"),
         tags="matched",
         match_pattern=None,
-        all=False,
     )
-    assert parse_action(r"split-all:\:", 1) == MetadataAction(
+    assert parse_action(r"split:\:", 1) == MetadataAction(
         behavior=SplitAction(delimiter=":"),
         tags="matched",
         match_pattern=None,
-        all=True,
     )
     assert parse_action(r"add:cute", 1) == MetadataAction(
         behavior=AddAction(value="cute"),
         tags="matched",
         match_pattern=None,
-        all=False,
     )
     assert parse_action(r"delete:", 1) == MetadataAction(
         behavior=DeleteAction(),
         tags="matched",
         match_pattern=None,
-        all=False,
     )
-    assert parse_action(r"delete-all:", 1) == MetadataAction(
+    assert parse_action(r"delete:", 1) == MetadataAction(
         behavior=DeleteAction(),
         tags="matched",
         match_pattern=None,
-        all=True,
     )
 
     @pytest.mark.helper()
@@ -221,7 +203,7 @@ Failed to parse action 1, invalid syntax:
 
     haha::delete
     ^
-    Invalid tag: must be one of matched, {tracktitle, year, tracknumber, discnumber, albumtitle, genre, label, releasetype, trackartist, albumartist}. (And if the value is matched, it must be alone.) The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of matched, {tracktitle, trackartist, tracknumber, discnumber, albumtitle, albumartist, releasetype, year, genre, label}. (And if the value is matched, it must be alone.) The next character after a tag must be ':' or ','.
 """,  # noqa
     )
 
@@ -232,7 +214,7 @@ Failed to parse action 1, invalid syntax:
 
     tracktitler::delete
     ^
-    Invalid tag: must be one of matched, {tracktitle, year, tracknumber, discnumber, albumtitle, genre, label, releasetype, trackartist, albumartist}. (And if the value is matched, it must be alone.) The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of matched, {tracktitle, trackartist, tracknumber, discnumber, albumtitle, albumartist, releasetype, year, genre, label}. (And if the value is matched, it must be alone.) The next character after a tag must be ':' or ','.
 """,  # noqa
     )
 
@@ -243,7 +225,7 @@ Failed to parse action 1, invalid syntax:
 
     tracktitle:haha:delete
     ^
-    Invalid action kind: must be one of {replace, replace-all, sed, sed-all, split, split-all, add, delete, delete-all}. If this is pointing at your pattern, you forgot to put :: (double colons) between the matcher section and the action section.
+    Invalid action kind: must be one of {replace, sed, split, add, delete}. If this is pointing at your pattern, you forgot to put :: (double colons) between the matcher section and the action section.
 """,  # noqa
     )
 
@@ -265,7 +247,7 @@ Failed to parse action 1, invalid syntax:
 
     hahaha
     ^
-    Invalid action kind: must be one of {replace, replace-all, sed, sed-all, split, split-all, add, delete, delete-all}.
+    Invalid action kind: must be one of {replace, sed, split, add, delete}.
 """,  # noqa
     )
 
@@ -402,17 +384,6 @@ Failed to parse action 1, invalid syntax:
     )
 
     test_err(
-        "add-all:hi",
-        """\
-Failed to parse action 1, invalid syntax:
-
-    add-all:hi
-    ^
-    Invalid action kind: must be one of {replace, replace-all, sed, sed-all, split, split-all, add, delete, delete-all}. If this is pointing at your pattern, you forgot to put :: (double colons) between the matcher section and the action section.
-""",  # noqa
-    )
-
-    test_err(
         "delete:h",
         """\
 Failed to parse action 1, invalid syntax:
@@ -426,15 +397,17 @@ Failed to parse action 1, invalid syntax:
 
 def test_rule_parsing_end_to_end() -> None:
     matcher = "tracktitle:Track"
-    action = "delete-all"
-    assert f"matcher={matcher} action={action}" == str(MetadataRule.parse(matcher, [action]))
+    action = "delete"
+    assert f"matcher={matcher} action=matched:Track::{action}" == str(
+        MetadataRule.parse(matcher, [action])
+    )
 
     matcher = "tracktitle:Track"
-    action = "genre:lala::replace-all:lalala"
+    action = "genre:lala::replace:lalala"
     assert f"matcher={matcher} action={action}" == str(MetadataRule.parse(matcher, [action]))
 
     matcher = "tracktitle,genre,trackartist:Track"
-    action = "tracktitle,genre,trackartist,albumartist::delete-all"
+    action = "tracktitle,genre,trackartist,albumartist::delete"
     assert f"matcher={matcher} action={action}" == str(MetadataRule.parse(matcher, [action]))
 
     matcher = "tracktitle:Track"
@@ -446,7 +419,7 @@ def test_rule_parsing_end_to_end() -> None:
 
 def test_rule_parsing_multi_value_validation() -> None:
     with pytest.raises(InvalidRuleError) as e:
-        MetadataRule.parse("tracktitle:h", ["split-all:x"])
+        MetadataRule.parse("tracktitle:h", ["split:x"])
     assert (
         str(e.value)
         == "Single valued tags tracktitle cannot be modified by multi-value action SplitAction"

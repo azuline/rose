@@ -355,17 +355,12 @@ def execute_multi_value_action(
         if not matching_idx:
             return values
 
-    # Handle these cases first; we have no need to loop into the body for them.
-    if action.all and isinstance(bhv, ReplaceAction):
-        return uniq(bhv.replacement.split(";"))
-    if action.all and isinstance(bhv, DeleteAction):
-        return []
     if isinstance(bhv, AddAction):
         return uniq([*values, bhv.value])
 
     rval: list[str] = []
     for i, v in enumerate(values):
-        if not action.all and i not in matching_idx:
+        if i not in matching_idx:
             rval.append(v)
             continue
         if isinstance(bhv, ReplaceAction):

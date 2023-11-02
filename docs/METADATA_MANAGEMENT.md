@@ -322,7 +322,7 @@ we'll explore below.
 
 There are five _kinds_ of actions:
 
-- `replace`: Replace a tag. 
+- `replace`: Replace a tag.
 - `sed`: ...
 - `split`: ...
 - `add`: ...
@@ -349,11 +349,11 @@ The formal syntax is defined by the following grammar:
 <action>         ::= <action-matcher> '::' <subaction> | <subaction>
 <action-matcher> ::= <tags> | <tags> ':' <pattern>
 <subaction>      ::= <replace-action> | <sed-action> | <split-action> | <delete-action>
-<replace-action> ::= 'replace' <optional-all> ':' string
-<sed-action>     ::= 'sed' <optional-all> ':' string ':' string
-<split-action>   ::= 'split' <optional-all> ':' string
-<delete-action>  ::= 'delete' <optional-all>
-<optional-all>   ::= '' | '-all'
+<replace-action> ::= 'replace' ':' string
+<sed-action>     ::= 'sed' ':' string ':' string
+<split-action>   ::= 'split' ':' string
+<add-action>     ::= 'add' ':' string
+<delete-action>  ::= 'delete'
 ```
 
 ## Dry Runs

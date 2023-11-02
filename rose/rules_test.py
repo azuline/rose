@@ -211,16 +211,6 @@ def test_action_replace_with_delimiter(config: Config, source_dir: Path) -> None
     assert af.genre == ["Hip-Hop", "Rap"]
 
 
-def test_action_replace_all(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule(
-        matcher=MetadataMatcher(tags=["genre"], pattern="K-Pop"),
-        actions=[MetadataAction(behavior=ReplaceAction(replacement="Hip-Hop;Rap"), all=True)],
-    )
-    execute_metadata_rule(config, rule, confirm_yes=False)
-    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.genre == ["Hip-Hop", "Rap"]
-
-
 def test_sed_action(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
         matcher=MetadataMatcher(tags=["tracktitle"], pattern="Track"),
@@ -231,7 +221,7 @@ def test_sed_action(config: Config, source_dir: Path) -> None:
     assert af.title == "Trip 1"
 
 
-def test_sed_all(config: Config, source_dir: Path) -> None:
+def test_sed_no_pattern(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
         matcher=MetadataMatcher(tags=["genre"], pattern="P"),
         actions=[MetadataAction(behavior=SedAction(src=re.compile("^(.*)$"), dst=r"i\1"))],
@@ -251,10 +241,10 @@ def test_split_action(config: Config, source_dir: Path) -> None:
     assert af.label == ["A", "Label"]
 
 
-def test_split_all_action(config: Config, source_dir: Path) -> None:
+def test_split_action_no_pattern(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
         matcher=MetadataMatcher(tags=["genre"], pattern="K-Pop"),
-        actions=[MetadataAction(behavior=SplitAction(delimiter="P"), all=True)],
+        actions=[MetadataAction(behavior=SplitAction(delimiter="P"))],
     )
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
@@ -281,10 +271,10 @@ def test_delete_action(config: Config, source_dir: Path) -> None:
     assert af.genre == ["K-Pop"]
 
 
-def test_delete_all_action(config: Config, source_dir: Path) -> None:
+def test_delete_action_no_pattern(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
         matcher=MetadataMatcher(tags=["genre"], pattern="^Pop"),
-        actions=[MetadataAction(behavior=DeleteAction(), match_pattern="^Pop", all=True)],
+        actions=[MetadataAction(behavior=DeleteAction())],
     )
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
