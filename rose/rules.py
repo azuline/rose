@@ -11,7 +11,11 @@ from typing import Any
 import click
 
 from rose.audiotags import AudioTags
-from rose.cache import connect
+from rose.cache import (
+    connect,
+    get_release_source_paths_from_ids,
+    update_cache_for_releases,
+)
 from rose.common import RoseError
 from rose.config import Config
 from rose.rule_parser import (
@@ -257,7 +261,7 @@ def execute_metadata_rule(
                     break
         else:
             if not click.confirm(
-                f"Write changes to {click.style(len(actionable_audiotags), bold=True)} tracks? ",
+                f"Write changes to {click.style(len(actionable_audiotags), bold=True)} tracks?",
                 default=True,
                 prompt_suffix="",
             ):
@@ -267,15 +271,24 @@ def execute_metadata_rule(
 
     # === Step 5: Flush writes to disk ===
 
+    changed_release_ids: set[str] = set()
     for tags, changes in actionable_audiotags:
+        if tags.release_id:
+            changed_release_ids.add(tags.release_id)
         logger.info(f"Writing tag changes {tags.path} (rule {rule}).")
+        pathtext = str(tags.path).lstrip(str(c.music_source_dir) + "/")
         logger.debug(
-            f"{tags.path} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in changes])}"
+            f"{pathtext} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in changes])}"
         )
         tags.flush()
 
     click.echo()
     click.echo(f"Applied tag changes to {len(actionable_audiotags)} tracks!")
+
+    # == Step 6: Trigger cache update ===
+
+    source_paths = get_release_source_paths_from_ids(c, list(changed_release_ids))
+    update_cache_for_releases(c, source_paths)
 
 
 def matches_pattern(pattern: str, value: str | int | None) -> bool:

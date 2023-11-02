@@ -26,6 +26,7 @@ from rose.cache import (
     get_release,
     get_release_id_from_virtual_dirname,
     get_release_source_path_from_id,
+    get_release_source_paths_from_ids,
     get_release_virtual_dirname_from_id,
     get_track_filename,
     label_exists,
@@ -1153,6 +1154,14 @@ def test_get_release_virtual_dirname_from_id(config: Config) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_get_release_source_path_dirname_from_id(config: Config) -> None:
     assert str(get_release_source_path_from_id(config, "r1")).endswith("/source/r1")
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_get_release_source_paths_dirname_from_ids(config: Config) -> None:
+    assert get_release_source_paths_from_ids(config, ["r1", "r2"]) == [
+        config.music_source_dir / "r1",
+        config.music_source_dir / "r2",
+    ]
 
 
 @pytest.mark.usefixtures("seeded_cache")

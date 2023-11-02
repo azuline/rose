@@ -1970,6 +1970,15 @@ def get_release_source_path_from_id(c: Config, uuid: str) -> Path | None:
     return None
 
 
+def get_release_source_paths_from_ids(c: Config, uuids: list[str]) -> list[Path]:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            f"SELECT source_path FROM releases WHERE id IN ({','.join(['?']*len(uuids))})",
+            uuids,
+        )
+        return [Path(r["source_path"]) for r in cursor]
+
+
 def get_track_filename(c: Config, uuid: str) -> str | None:
     with connect(c) as conn:
         cursor = conn.execute(
