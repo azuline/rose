@@ -130,14 +130,32 @@ tags.
 Thus, Rosé also provides the following functions to improv the tags of your
 music library:
 
-1. An easy text-based interface for manually modifying metadata,
+1. A text-based interface for manually modifying metadata,
 2. A rules engine for bulk updating metadata,
 3. And metadata importing from third-party sources.
 
-> [!NOTE]
-> Rosé modifies the managed audio files, even on first scan. If you do not want
-> to modify your audio files, for example because they are seeding in a
-> bittorrent client, you should not use Rosé.
+The rules engine allows you to pattern match tracks in your music library and
+apply tag changes to them. For example:
+
+```bash
+$ rose metadata run-rule 'trackartist,albumartist:^CHUU$' 'replace:Chuu'
+
+CHUU - 2023. Howl/01. Howl.opus
+      trackartist[main]: ['CHUU'] -> ['Chuu']
+      albumartist[main]: ['CHUU'] -> ['Chuu']
+CHUU - 2023. Howl/02. Underwater.opus
+      trackartist[main]: ['CHUU'] -> ['Chuu']
+      albumartist[main]: ['CHUU'] -> ['Chuu']
+CHUU - 2023. Howl/03. My Palace.opus
+      trackartist[main]: ['CHUU'] -> ['Chuu']
+      albumartist[main]: ['CHUU'] -> ['Chuu']
+CHUU - 2023. Howl/04. Aliens.opus
+      trackartist[main]: ['CHUU'] -> ['Chuu']
+      albumartist[main]: ['CHUU'] -> ['Chuu']
+CHUU - 2023. Howl/05. Hitchhiker.opus
+      trackartist[main]: ['CHUU'] -> ['Chuu']
+      albumartist[main]: ['CHUU'] -> ['Chuu']
+```
 
 _Demo Video TBD_
 
@@ -161,6 +179,11 @@ by the two interfaces is:
 - Support for `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` files
 - Support for multiple artist, label, and genre tags.
 
+> [!NOTE]
+> Rosé modifies the managed audio files, even on first scan. If you do not want
+> to modify your audio files, for example because they are seeding in a
+> bittorrent client, you should not use Rosé.
+
 # Is Rosé For You?
 
 Rosé expects users to be comfortable with the shell. Rosé's documentation and
@@ -172,14 +195,14 @@ compose their own system, with Rosé as one of the pieces.
 Rosé is designed for large music libraries. Smaller libraries do not require
 the power that Rosé offers.
 
-Rosé modifies the files that it manages, as early as the first scan (where it
-writes `roseid` tags). Rosé does not maintain a separate database; all changes
-are directly applied to the managed files. This, notably, is not compatible
-with files seeded as torrents.
-
 Rosé expects all tracks to be part of a release. Rosé also expects that each
 release is an immediate subdirectory of the source directory. Rosé will not
 work with libraries that are collections of unorganized tracks.
+
+Rosé modifies the files that it manages, as early as the first scan (where it
+writes `roseid` tags). Rosé does not maintain a separate database; all changes
+are directly applied to the managed files. This is incompatible with files
+seeded as torrents.
 
 # Installation
 
