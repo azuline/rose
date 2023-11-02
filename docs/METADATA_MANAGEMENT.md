@@ -281,38 +281,38 @@ section.
 
 ### Matchers
 
-Matchers are a tuple of `(tags, pattern)`. The tags are a list of [supported
-tags](#tags). The pattern is a string. Tracks _match_ the matcher if the
-`pattern` is a substring of one or more of the values in the given `tags`.
+Matchers are a tuple of `(tags, pattern)`.
+
+The tags are a list of [supported tags](#tags). The pattern is a string. Tracks
+_match_ the matcher if the `pattern` is a substring of one or more of the
+values in the given `tags`. Pattern matching is case sensitive.
 
 The pattern supports strict prefix and suffix matching with the `^` and `$`
 characters, respectively. If the pattern starts with `^`, then the tag value
 must start with the pattern in order to match. If the pattern ends with `$`,
-then the tag value must end with the pattern in order to match. Use both for a
-string equality match; for example, the pattern `^Chuu$` matches only the value
-`Chuu`,
+then the tag value must end with the pattern in order to match.
 
-If your pattern actually starts with `^` or ends with `$`, escape them with
-backslashes. For example, the pattern `\^.\$` matches the value `=^.$=`.
+Use both `^` and `$` for a string equality match. Favor using strict equality
+patterns if possible, as they are less likely to match unrelated tags. For
+example, the pattern `^Chuu$` matches only the value `Chuu`,
 
-Pattern matching is case sensitive.
+If your pattern actually starts with `^` or ends with `$`, you can escape them
+with backslashes. For example, the pattern `\^.\$` matches the value `=^.$=`.
 
 ### Actions
 
 Actions are a tuple of `(tags, pattern, kind, *kind_specific_args)`.
 
 `tags` and `pattern` determine which tags and values to modify on the matched
-track. **These can differ from those matched by the matcher.** For example, you
-_can_ match tracks on `label:^SUNSEASKY$`, and action on the `genre` tag for
-the matched tracks.
+track. These may differ from the `tags` and `pattern` in the matcher. For
+example, you _can_ match tracks on `label:^SUNSEASKY$`, and action on the
+`genre` tag.
 
 But by default, `tags` is set to `matched`, which means "action on the tags of
 the matcher." And by default, `pattern` is set to the `pattern` of the matcher,
-which restricts the modified tags to those matched by the matcher. which means
-that only matched tags are actioned.
-
-Note that `pattern` does not default to the matcher's pattern if `tags !=
-matched` In those cases, `pattern` defaults to null, which matches all values.
+which restricts the modified tags to those matched by the matcher. However,
+`pattern` does not default to the matcher's pattern if `tags != matched`. In
+those cases, `pattern` defaults to null, which matches all values.
 
 `kind` determines which action is taken on the matched tags. There are five
 kinds of actions, each of which has _kind-specific args_:
@@ -329,13 +329,14 @@ kinds of actions, each of which has _kind-specific args_:
 
 ### Multi-Value Tags
 
-Single-valued tags have a pretty straightforward behavior: if the tag value
-matches, either replace the value, sed the value, or delete the value.
+Single-valued tags are pretty straightforward: if the tag value matches, either
+replace the value, sed the value, or delete the value.
 
-For Multi-valued tags, only values matching the pattern are acted upon. So for
-example, given the genre tags `[K-Pop, Dance-Pop, Contemporary R&B]` and the
-action `genre:Pop::sed:p:b`, the result will be `[K-Pob, Dance-Pob, Contemporary R&B]`
-(`Contemporary R&B` is left untouched).
+Multi-valued tags are more complicated. In multi-value tags, only values
+matching the pattern are acted upon. So, for example, given the genre tags
+`[K-Pop, Dance-Pop, Contemporary R&B]` and the action `genre:Pop::sed:p:b`, the
+result will be `[K-Pob, Dance-Pob, Contemporary R&B]` (`Contemporary R&B` is
+left untouched).
 
 In order to act on all the values, the pattern can be set to null. Then the
 action will run over all values in the tag. This can be used to, for example,
@@ -356,10 +357,32 @@ There are three additional mechanics affecting multi-value tags:
 
 ## Rule Language
 
-Rosé provides a Domain Specific Language (DSL) for defining rules. Rosé's
-language has two types of expressions: _matchers_ and _actions_.
+Rosé provides a Domain Specific Language (DSL) for defining rules. The DSL is
+the only way to specify a rule.
 
-TODO
+Matchers are specified as `tags:pattern`. `tags` is a comma-delimited array of
+tags, and `pattern` is a string. For example:
+
+- `tracktitle:Hello`
+- `tracktitle,albumtitle:^Hello`
+
+Actions are specified as `tags:pattern::kind:{kind_args}`. `tags` and `pattern`
+are optional, as they default to the matcher's `tags` and `pattern`. `kind` is
+one of the five supported action kinds. And `kind_args` are comma-delimited
+arguments for the specific kind of action. For example:
+
+- `replace:Hi`
+- `sed:.*:hi`
+- `split: / `
+- `add:Loony`
+- `delete`
+- `genre::replace:K-Pop;Dance-Pop` _(pattern is optional)_
+- `matched:new-pattern::replace:Hi` _(but tags must be specified if pattern is specified)_
+- `label:::delete` _(null pattern)_
+
+Any colon characters that are not delimiters must be escaped with a backslash.
+For example: `sed:\::not-colon` replaces the `:` character with `not-colon`.
+Backslashes must also be escaped.
 
 The formal syntax is defined by the following grammar:
 
@@ -370,7 +393,7 @@ The formal syntax is defined by the following grammar:
 
 <action>         ::= <action-matcher> '::' <subaction> | <subaction>
 <action-matcher> ::= <tags> | <tags> ':' <pattern>
-<subaction>      ::= <replace-action> | <sed-action> | <split-action> | <delete-action>
+<subaction>      ::= <replace-action> | <sed-action> | <split-action> | <add-action> | <delete-action>
 <replace-action> ::= 'replace' ':' string
 <sed-action>     ::= 'sed' ':' string ':' string
 <split-action>   ::= 'split' ':' string
@@ -380,7 +403,28 @@ The formal syntax is defined by the following grammar:
 
 ## Dry Runs
 
-TODO
+You can preview a rule's changes with the `--dry-run` flag. For example:
+
+```bash
+$ rose metadata run-rule --dry-run 'albumartist:^Chuu$' 'genre::add:K-Pop'
+
+CHUU - 2023. Howl/01. Howl.opus
+      genre: [] -> ['K-Pop']
+CHUU - 2023. Howl/02. Underwater.opus
+      genre: [] -> ['K-Pop']
+CHUU - 2023. Howl/03. My Palace.opus
+      genre: [] -> ['K-Pop']
+CHUU - 2023. Howl/04. Aliens.opus
+      genre: [] -> ['K-Pop']
+CHUU - 2023. Howl/05. Hitchhiker.opus
+      genre: [] -> ['K-Pop']
+LOOΠΔ - 2017. Chuu/01. Heart Attack.opus
+      genre: ['Kpop'] -> ['Kpop', 'K-Pop']
+LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
+      genre: ['Kpop'] -> ['Kpop', 'K-Pop']
+
+This is a dry run, aborting. 7 tracks would have been modified.
+```
 
 # Metadata Import & Cover Art Downloading
 

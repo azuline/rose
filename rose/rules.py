@@ -254,6 +254,11 @@ def execute_metadata_rule(
 
     # If we're dry-running, then abort here.
     if dry_run:
+        click.echo()
+        click.secho(
+            f"This is a dry run, aborting. {len(actionable_audiotags)} tracks would have been modified.",
+            dim=True,
+        )
         return
 
     # And then let's go for the confirmation.
@@ -262,9 +267,7 @@ def execute_metadata_rule(
         if len(actionable_audiotags) > enter_number_to_confirm_above_count:
             while True:
                 userconfirmation = click.prompt(
-                    f"Write changes to {len(actionable_audiotags)} tracks? "
-                    f"Enter {click.style(len(actionable_audiotags), bold=True)} to confirm "
-                    "(or 'no' to abort)"
+                    f"Write changes to {len(actionable_audiotags)} tracks? Enter {click.style(len(actionable_audiotags), bold=True)} to confirm (or 'no' to abort)"
                 )
                 if userconfirmation == "no":
                     logger.debug("Aborting planned tag changes after user confirmation")
@@ -291,8 +294,7 @@ def execute_metadata_rule(
             changed_release_ids.add(tags.release_id)
         pathtext = str(tags.path).removeprefix(str(c.music_source_dir) + "/")
         logger.debug(
-            f"Attempting to write {pathtext} changes: "
-            f"{' //// '.join([str(x)+' -> '+str(y) for _, x, y in changes])}"
+            f"Attempting to write {pathtext} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in changes])}"
         )
         tags.flush()
         logger.info(f"Wrote tag changes to {pathtext}")
