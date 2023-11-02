@@ -396,29 +396,35 @@ def remove_cover2(ctx: Context, playlist: str) -> None:
 
 @cli.group()
 def metadata() -> None:
-    """Run metadata improvement tools"""
+    """Run metadata improvement tools."""
 
 
 @metadata.command()
+# fmt: off
 @click.argument("matcher", type=str, nargs=1)
 @click.argument("actions", type=str, nargs=-1)
+@click.option("--dry-run", "-d", is_flag=True, help="Display intended changes without applying them.") # noqa: E501
 @click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
+# fmt: on
 @click.pass_obj
-def run_rule(ctx: Context, matcher: str, actions: list[str], yes: bool) -> None:
-    """Run an ad hoc metadata rule"""
+def run_rule(ctx: Context, matcher: str, actions: list[str], dry_run: bool, yes: bool) -> None:
+    """Run an ad hoc metadata rule."""
     if not actions:
         logger.info("No-Op: No actions passed")
         return
     rule = MetadataRule.parse(matcher, actions)
-    execute_metadata_rule(ctx.config, rule, confirm_yes=not yes)
+    execute_metadata_rule(ctx.config, rule, dry_run=dry_run, confirm_yes=not yes)
 
 
 @metadata.command()
+@click.option(
+    "--dry-run", "-d", is_flag=True, help="Display intended changes without applying them."
+)  # noqa: E501
 @click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
 @click.pass_obj
-def run_stored_rules(ctx: Context, yes: bool) -> None:
-    """Run the stored metadata rules defined in the config"""
-    execute_stored_metadata_rules(ctx.config, confirm_yes=not yes)
+def run_stored_rules(ctx: Context, dry_run: bool, yes: bool) -> None:
+    """Run the stored metadata rules defined in the config."""
+    execute_stored_metadata_rules(ctx.config, dry_run=dry_run, confirm_yes=not yes)
 
 
 @cli.command()

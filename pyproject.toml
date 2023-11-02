@@ -34,6 +34,9 @@ select = [
 ignore = [
   # Allow shadowing builtins on attributes.
   "A003",
+  # Do not enforce max line length via linter. We have an autoformatter, and sometimes we
+  # intentionally turn formatting off.
+  "E501",
   # Fixtures that do not return anything do not need leading underscore.
   "PT004",
 ]

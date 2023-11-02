@@ -39,16 +39,23 @@ class InvalidReplacementValueError(RoseError):
     pass
 
 
-def execute_stored_metadata_rules(c: Config, confirm_yes: bool = False) -> None:
+def execute_stored_metadata_rules(
+    c: Config,
+    *,
+    dry_run: bool = False,
+    confirm_yes: bool = False,
+) -> None:
     for rule in c.stored_metadata_rules:
         click.secho(f"Executing stored metadata rule {rule}", dim=True)
         click.echo()
-        execute_metadata_rule(c, rule, confirm_yes)
+        execute_metadata_rule(c, rule, dry_run=dry_run, confirm_yes=confirm_yes)
 
 
 def execute_metadata_rule(
     c: Config,
     rule: MetadataRule,
+    *,
+    dry_run: bool = False,
     confirm_yes: bool = False,
     enter_number_to_confirm_above_count: int = 25,
 ) -> None:
@@ -223,29 +230,33 @@ def execute_metadata_rule(
         click.echo()
         return
 
-    # === Step 4: Ask user confirmation on the changes ===
+    # === Step 4: Display changes and ask for user confirmation ===
 
+    # Compute the text to display:
+    todisplay: list[tuple[str, list[Changes]]] = []
+    maxpathwidth = 0
+    for tags, changes in actionable_audiotags:
+        pathtext = str(tags.path).lstrip(str(c.music_source_dir) + "/")
+        if len(pathtext) >= 120:
+            pathtext = pathtext[:59] + ".." + pathtext[-59:]
+        maxpathwidth = max(maxpathwidth, len(pathtext))
+        todisplay.append((pathtext, changes))
+
+    # And then display it.
+    for pathtext, changes in todisplay:
+        click.secho(pathtext, underline=True)
+        for name, old, new in changes:
+            click.echo(f"      {name}: ", nl=False)
+            click.secho(old, fg="red", nl=False)
+            click.echo(" -> ", nl=False)
+            click.secho(new, fg="green", bold=True)
+
+    # If we're dry-running, then abort here.
+    if dry_run:
+        return
+
+    # And then let's go for the confirmation.
     if confirm_yes:
-        # Compute the text to display:
-        todisplay: list[tuple[str, list[Changes]]] = []
-        maxpathwidth = 0
-        for tags, changes in actionable_audiotags:
-            pathtext = str(tags.path).lstrip(str(c.music_source_dir) + "/")
-            if len(pathtext) >= 120:
-                pathtext = pathtext[:59] + ".." + pathtext[-59:]
-            maxpathwidth = max(maxpathwidth, len(pathtext))
-            todisplay.append((pathtext, changes))
-
-        # And then display it.
-        for pathtext, changes in todisplay:
-            click.secho(pathtext, underline=True)
-            for name, old, new in changes:
-                click.echo(f"      {name}: ", nl=False)
-                click.secho(old, fg="red", nl=False)
-                click.echo(" -> ", nl=False)
-                click.secho(new, fg="green", bold=True)
-
-        # And then let's go for the confirmation.
         click.echo()
         if len(actionable_audiotags) > enter_number_to_confirm_above_count:
             while True:
