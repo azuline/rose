@@ -1,8 +1,9 @@
 # Rosé
 
 > [!IMPORTANT]
-> Rosé is under active development. See [Issue #1](https://github.com/azuline/rose/issues/1)
-> for progress updates.
+> Rosé is under active development. Not all listed features exist yet. See
+> [Milestone v0.4.0](https://github.com/azuline/rose/milestone/1) for progress
+> updates.
 
 Rosé is a music manager for Unix-based systems. Rosé provides a virtual FUSE
 filesystem for managing your music library and various functions for editing
@@ -152,7 +153,7 @@ by the two interfaces is:
 - Flag and unflag release "new"-ness
 - White/black-list entries in the artist, genre, and label views
 - Edit release metadata as a text file
-- Define and store rules for bulk updating metadata
+- Run and store rules for bulk updating metadata
 - Import metadata and cover art from third-party sources
 - Extract embedded cover art to an external file
 - Extract "phony" single releases from EPs/Albums/etc
@@ -259,19 +260,13 @@ finally (3) play music!
 
    ```bash
    $ rose fs mount
-   [15:41:13] INFO: Refreshing the read cache for 5 releases
-   [15:41:13] INFO: Applying cache updates for release BLACKPINK - 2016. SQUARE TWO
-   [15:41:13] INFO: Applying cache updates for release BLACKPINK - 2016. SQUARE ONE
-   [15:41:13] INFO: Applying cache updates for release LOOΠΔ - 2017. Kim Lip
-   [15:41:13] INFO: Applying cache updates for release NewJeans - 2022. Ditto
-   [15:41:13] INFO: Applying cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
-   [15:41:13] INFO: Evicting cached releases that are not on disk
-   [15:41:13] INFO: Refreshing the read cache for 1 collages
-   [15:41:13] INFO: Applying cache updates for collage Road Trip
-   [15:41:13] INFO: Evicting cached collages that are not on disk
-   [15:41:13] INFO: Refreshing the read cache for 1 playlists
-   [15:41:13] INFO: Applying cache updates for playlist Shower
-   [15:41:13] INFO: Evicting cached playlists that are not on disk
+   [15:41:13] INFO: Updating cache for release BLACKPINK - 2016. SQUARE TWO
+   [15:41:13] INFO: Updating cache for release BLACKPINK - 2016. SQUARE ONE
+   [15:41:13] INFO: Updating cache for release LOOΠΔ - 2017. Kim Lip
+   [15:41:13] INFO: Updating cache for release NewJeans - 2022. Ditto
+   [15:41:13] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
+   [15:41:13] INFO: Updating cache for collage Road Trip
+   [15:41:13] INFO: Updating cache for playlist Shower
    ```
 
    Rosé emits log lines whenever something significant is occurring. This is
@@ -351,8 +346,8 @@ Rosé's CLI is also designed to make scripting against your library easy.
 Operations such as "edit release" and "jump to artist" can be expressed as a
 bash one-liner and integrated into your file manager.
 
-See [Shell Scripting](./SHELL_SCRIPTING.md) for additional documentation on
-scripting with Rosé.
+See [Shell Scripting](./docs/SHELL_SCRIPTING.md) for additional documentation
+on scripting with Rosé.
 
 # Learn More
 
@@ -363,7 +358,8 @@ For additional documentation, please refer to the following files:
 - [Managing Your Music Metadata](./docs/METADATA_MANAGEMENT.md)
 - [Using Playlists & Collages](./docs/PLAYLISTS_COLLAGES.md)
 - [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md)
-- [Shell Scripting](./SHELL_SCRIPTING.md)
+- [Tagging Conventions](./docs/TAGGING_CONVENTIONS.md)
+- [Shell Scripting](./docs/SHELL_SCRIPTING.md)
 - [Architecture](./docs/ARCHITECTURE.md)
 
 # License

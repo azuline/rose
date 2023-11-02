@@ -49,7 +49,7 @@ import uuid6
 
 from rose.artiststr import format_artist_string
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
-from rose.common import VERSION
+from rose.common import VERSION, uniq
 from rose.config import Config
 
 logger = logging.getLogger(__name__)
@@ -290,7 +290,7 @@ def update_cache(c: Config, force: bool = False) -> None:
 
 
 def update_cache_evict_nonexistent_releases(c: Config) -> None:
-    logger.info("Evicting cached releases that are not on disk")
+    logger.debug("Evicting cached releases that are not on disk")
     dirs = [Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()]
     with connect(c) as conn:
         cursor = conn.execute(
@@ -302,7 +302,7 @@ def update_cache_evict_nonexistent_releases(c: Config) -> None:
             [str(d) for d in dirs],
         )
         for row in cursor:
-            logger.info(f"Evicted release {row['source_path']} from cache")
+            logger.info(f"Evicted missing release {row['source_path']} from cache")
 
 
 def update_cache_for_releases(
@@ -340,9 +340,9 @@ def update_cache_for_releases(
         and d.name not in c.ignore_release_directories
     ]
     if not release_dirs:
-        logger.info("No-Op: No whitelisted releases passed into update_cache_for_releases")
+        logger.debug("No-Op: No whitelisted releases passed into update_cache_for_releases")
         return
-    logger.info(f"Refreshing the read cache for {len(release_dirs)} releases")
+    logger.debug(f"Refreshing the read cache for {len(release_dirs)} releases")
     if len(release_dirs) < 10:
         logger.debug(f"Refreshing cached data for {', '.join([r.name for r in release_dirs])}")
 
@@ -602,7 +602,7 @@ def _update_cache_for_releases_executor(
     upd_collage_release_dirnames: dict[str, str] = {}
     upd_playlist_track_filenames: dict[str, str] = {}
     for source_path, preexisting_release_id, files in dir_tree:
-        logger.debug(f"Updating release {source_path.name}")
+        logger.debug(f"Scanning release {source_path.name}")
         # Check to see if we should even process the directory. If the directory does not have
         # any tracks, skip it. And if it does not have any tracks, but is in the cache, remove
         # it from the cache.
@@ -671,7 +671,7 @@ def _update_cache_for_releases_executor(
             with contextlib.suppress(Exception):
                 release_id_from_first_file = AudioTags.from_file(first_audio_file).release_id
             if release_id_from_first_file is not None and not force:
-                logger.info(
+                logger.warning(
                     f"No-Op: Skipping release at {source_path}: files in release already have "
                     f"release_id {release_id_from_first_file}, but .rose.{{uuid}}.toml is missing, "
                     "is another tool in the middle of writing the directory? Run with --force to "
@@ -805,12 +805,12 @@ def _update_cache_for_releases_executor(
 
                 if set(tags.genre) != set(release.genres):
                     logger.debug(f"Release genre change detected for {source_path}, updating")
-                    release.genres = _uniq(tags.genre)
+                    release.genres = uniq(tags.genre)
                     release_dirty = True
 
                 if set(tags.label) != set(release.labels):
                     logger.debug(f"Release label change detected for {source_path}, updating")
-                    release.labels = _uniq(tags.label)
+                    release.labels = uniq(tags.label)
                     release_dirty = True
 
                 release_artists = []
@@ -818,7 +818,7 @@ def _update_cache_for_releases_executor(
                     # Multiple artists may resolve to the same alias (e.g. LOONA members...), so
                     # collect them in a deduplicated way, and then record the deduplicated aliases.
                     aliases: set[str] = set()
-                    for name in _uniq(names):
+                    for name in uniq(names):
                         release_artists.append(CachedArtist(name=name, role=role))
                         aliases.update(c.artist_aliases_parents_map.get(name, []))
                     for name in aliases:
@@ -926,7 +926,7 @@ def _update_cache_for_releases_executor(
                 # Multiple artists may resolve to the same alias (e.g. LOONA members...), so collect
                 # them in a deduplicated way, and then record the deduplicated aliases.
                 aliases = set()
-                for name in _uniq(names):
+                for name in uniq(names):
                     track.artists.append(CachedArtist(name=name, role=role))
                     aliases.update(c.artist_aliases_parents_map.get(name, []))
                 for name in aliases:
@@ -985,7 +985,7 @@ def _update_cache_for_releases_executor(
 
         # Schedule database executions.
         if unknown_cached_tracks or release_dirty or track_ids_to_insert:
-            logger.info(f"Applying cache updates for release {source_path.name}")
+            logger.info(f"Updating cache for release {source_path.name}")
 
         if unknown_cached_tracks:
             logger.debug(f"Deleting {len(unknown_cached_tracks)} unknown tracks from cache")
@@ -1316,7 +1316,7 @@ def update_cache_for_collages(
             continue
         if collage_names is None or path.stem in collage_names:
             files.append((path.resolve(), path.stem, f))
-    logger.info(f"Refreshing the read cache for {len(files)} collages")
+    logger.debug(f"Refreshing the read cache for {len(files)} collages")
 
     cached_collages: dict[str, CachedCollage] = {}
     with connect(c) as conn:
@@ -1380,8 +1380,8 @@ def update_cache_for_collages(
                 # disappearance)? they are recovered in the collage.
                 for rls in releases:
                     if not rls.get("missing", False) and rls["uuid"] not in existing_release_ids:
-                        logger.info(
-                            f"Marking release {rls['description_meta']} "
+                        logger.warning(
+                            f"Marking missing release {rls['description_meta']} "
                             f"as missing in collage {cached_collage.name}"
                         )
                         rls["missing"] = True
@@ -1415,13 +1415,13 @@ def update_cache_for_collages(
 
                 # Update the collage on disk if we have changed information.
                 if releases != original_releases:
-                    logger.info(f"Updating release descriptions for {cached_collage.name}")
+                    logger.debug(f"Updating release descriptions for {cached_collage.name}")
                     data["releases"] = releases
                     with source_path.open("wb") as fp:
                         tomli_w.dump(data, fp)
                     cached_collage.source_mtime = str(os.stat(source_path).st_mtime)
 
-                logger.info(f"Applying cache updates for collage {cached_collage.name}")
+                logger.info(f"Updating cache for collage {cached_collage.name}")
                 conn.execute(
                     """
                     INSERT INTO collages (name, source_mtime) VALUES (?, ?)
@@ -1451,7 +1451,7 @@ def update_cache_for_collages(
 
 
 def update_cache_evict_nonexistent_collages(c: Config) -> None:
-    logger.info("Evicting cached collages that are not on disk")
+    logger.debug("Evicting cached collages that are not on disk")
     collage_names: list[str] = []
     for f in os.scandir(c.music_source_dir / "!collages"):
         p = Path(f.path)
@@ -1468,7 +1468,7 @@ def update_cache_evict_nonexistent_collages(c: Config) -> None:
             collage_names,
         )
         for row in cursor:
-            logger.info(f"Evicted collage {row['name']} from cache")
+            logger.info(f"Evicted missing collage {row['name']} from cache")
 
 
 def update_cache_for_playlists(
@@ -1504,7 +1504,7 @@ def update_cache_for_playlists(
             continue
         if playlist_names is None or path.stem in playlist_names:
             files.append((path.resolve(), path.stem, f))
-    logger.info(f"Refreshing the read cache for {len(files)} playlists")
+    logger.debug(f"Refreshing the read cache for {len(files)} playlists")
 
     cached_playlists: dict[str, CachedPlaylist] = {}
     with connect(c) as conn:
@@ -1590,8 +1590,8 @@ def update_cache_for_playlists(
                 # disappearance)? they are recovered in the playlist.
                 for trk in tracks:
                     if not trk.get("missing", False) and trk["uuid"] not in existing_track_ids:
-                        logger.info(
-                            f"Marking track {trk['description_meta']} "
+                        logger.warning(
+                            f"Marking missing track {trk['description_meta']} "
                             f"as missing in playlist {cached_playlist.name}"
                         )
                         trk["missing"] = True
@@ -1625,13 +1625,13 @@ def update_cache_for_playlists(
 
                 # Update the playlist on disk if we have changed information.
                 if tracks != original_tracks:
-                    logger.info(f"Updating track descriptions for {cached_playlist.name}")
+                    logger.debug(f"Updating track descriptions for {cached_playlist.name}")
                     data["tracks"] = tracks
                     with source_path.open("wb") as fp:
                         tomli_w.dump(data, fp)
                     cached_playlist.source_mtime = str(os.stat(source_path).st_mtime)
 
-                logger.info(f"Applying cache updates for playlist {cached_playlist.name}")
+                logger.info(f"Updating cache for playlist {cached_playlist.name}")
                 conn.execute(
                     """
                     INSERT INTO playlists (name, source_mtime, cover_path) VALUES (?, ?, ?)
@@ -1667,7 +1667,7 @@ def update_cache_for_playlists(
 
 
 def update_cache_evict_nonexistent_playlists(c: Config) -> None:
-    logger.info("Evicting cached playlists that are not on disk")
+    logger.debug("Evicting cached playlists that are not on disk")
     playlist_names: list[str] = []
     for f in os.scandir(c.music_source_dir / "!playlists"):
         p = Path(f.path)
@@ -1684,7 +1684,7 @@ def update_cache_evict_nonexistent_playlists(c: Config) -> None:
             playlist_names,
         )
         for row in cursor:
-            logger.info(f"Evicted playlist {row['name']} from cache")
+            logger.info(f"Evicted missing playlist {row['name']} from cache")
 
 
 def list_releases(
@@ -2232,16 +2232,6 @@ def _flatten(xxs: list[list[T]]) -> list[T]:
     for group in xxs:
         xs.extend(group)
     return xs
-
-
-def _uniq(xs: list[T]) -> list[T]:
-    rv: list[T] = []
-    seen: set[T] = set()
-    for x in xs:
-        if x not in seen:
-            rv.append(x)
-            seen.add(x)
-    return rv
 
 
 def _unpack(*xxs: str, delimiter: str = r" \\ ") -> Iterator[tuple[str, ...]]:

@@ -16,9 +16,10 @@ from rose.cache import (
     get_release_source_paths_from_ids,
     update_cache_for_releases,
 )
-from rose.common import RoseError
+from rose.common import RoseError, uniq
 from rose.config import Config
 from rose.rule_parser import (
+    AddAction,
     DeleteAction,
     MetadataAction,
     MetadataRule,
@@ -38,16 +39,22 @@ class InvalidReplacementValueError(RoseError):
     pass
 
 
-def execute_stored_metadata_rules(c: Config, confirm_yes: bool = False) -> None:
+def execute_stored_metadata_rules(
+    c: Config,
+    *,
+    dry_run: bool = False,
+    confirm_yes: bool = False,
+) -> None:
     for rule in c.stored_metadata_rules:
         click.secho(f"Executing stored metadata rule {rule}", dim=True)
-        click.echo()
-        execute_metadata_rule(c, rule, confirm_yes)
+        execute_metadata_rule(c, rule, dry_run=dry_run, confirm_yes=confirm_yes)
 
 
 def execute_metadata_rule(
     c: Config,
     rule: MetadataRule,
+    *,
+    dry_run: bool = False,
     confirm_yes: bool = False,
     enter_number_to_confirm_above_count: int = 25,
 ) -> None:
@@ -63,6 +70,8 @@ def execute_metadata_rule(
     4. We then prompt the user to confirm the changes, assuming confirm_yes is True.
     5. We then flush the intended changes to disk.
     """
+    # Newline for appearance.
+    click.echo()
 
     # === Step 1: Fast search for matching files ===
 
@@ -222,36 +231,43 @@ def execute_metadata_rule(
         click.echo()
         return
 
-    # === Step 4: Ask user confirmation on the changes ===
+    # === Step 4: Display changes and ask for user confirmation ===
 
+    # Compute the text to display:
+    todisplay: list[tuple[str, list[Changes]]] = []
+    maxpathwidth = 0
+    for tags, changes in actionable_audiotags:
+        pathtext = str(tags.path).removeprefix(str(c.music_source_dir) + "/")
+        if len(pathtext) >= 120:
+            pathtext = pathtext[:59] + ".." + pathtext[-59:]
+        maxpathwidth = max(maxpathwidth, len(pathtext))
+        todisplay.append((pathtext, changes))
+
+    # And then display it.
+    for pathtext, changes in todisplay:
+        click.secho(pathtext, underline=True)
+        for name, old, new in changes:
+            click.echo(f"      {name}: ", nl=False)
+            click.secho(old, fg="red", nl=False)
+            click.echo(" -> ", nl=False)
+            click.secho(new, fg="green", bold=True)
+
+    # If we're dry-running, then abort here.
+    if dry_run:
+        click.echo()
+        click.secho(
+            f"This is a dry run, aborting. {len(actionable_audiotags)} tracks would have been modified.",
+            dim=True,
+        )
+        return
+
+    # And then let's go for the confirmation.
     if confirm_yes:
-        # Compute the text to display:
-        todisplay: list[tuple[str, list[Changes]]] = []
-        maxpathwidth = 0
-        for tags, changes in actionable_audiotags:
-            pathtext = str(tags.path).lstrip(str(c.music_source_dir) + "/")
-            if len(pathtext) >= 120:
-                pathtext = pathtext[:59] + ".." + pathtext[-59:]
-            maxpathwidth = max(maxpathwidth, len(pathtext))
-            todisplay.append((pathtext, changes))
-
-        # And then display it.
-        for pathtext, changes in todisplay:
-            click.secho(pathtext, underline=True)
-            for name, old, new in changes:
-                click.echo(f"      {name}: ", nl=False)
-                click.secho(old, fg="red", nl=False)
-                click.echo(" -> ", nl=False)
-                click.secho(new, fg="green", bold=True)
-
-        # And then let's go for the confirmation.
         click.echo()
         if len(actionable_audiotags) > enter_number_to_confirm_above_count:
             while True:
                 userconfirmation = click.prompt(
-                    f"Write changes to {len(actionable_audiotags)} tracks? "
-                    f"Enter {click.style(len(actionable_audiotags), bold=True)} to confirm "
-                    "(or 'no' to abort)"
+                    f"Write changes to {len(actionable_audiotags)} tracks? Enter {click.style(len(actionable_audiotags), bold=True)} to confirm (or 'no' to abort)"
                 )
                 if userconfirmation == "no":
                     logger.debug("Aborting planned tag changes after user confirmation")
@@ -271,22 +287,24 @@ def execute_metadata_rule(
 
     # === Step 5: Flush writes to disk ===
 
+    logger.info(f"Writing tag changes for rule {rule}")
     changed_release_ids: set[str] = set()
     for tags, changes in actionable_audiotags:
         if tags.release_id:
             changed_release_ids.add(tags.release_id)
-        logger.info(f"Writing tag changes {tags.path} (rule {rule}).")
-        pathtext = str(tags.path).lstrip(str(c.music_source_dir) + "/")
+        pathtext = str(tags.path).removeprefix(str(c.music_source_dir) + "/")
         logger.debug(
-            f"{pathtext} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in changes])}"
+            f"Attempting to write {pathtext} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in changes])}"
         )
         tags.flush()
+        logger.info(f"Wrote tag changes to {pathtext}")
 
     click.echo()
     click.echo(f"Applied tag changes to {len(actionable_audiotags)} tracks!")
 
     # == Step 6: Trigger cache update ===
 
+    click.echo()
     source_paths = get_release_source_paths_from_ids(c, list(changed_release_ids))
     update_cache_for_releases(c, source_paths)
 
@@ -307,7 +325,7 @@ def matches_pattern(pattern: str, value: str | int | None) -> bool:
 # Factor out the logic for executing an action on a single-value tag and a multi-value tag.
 def execute_single_action(action: MetadataAction, value: str | int | None) -> str | None:
     if action.match_pattern and not matches_pattern(action.match_pattern, value):
-        return None
+        return str(value)
 
     bhv = action.behavior
     strvalue = str(value) if value is not None else None
@@ -320,7 +338,7 @@ def execute_single_action(action: MetadataAction, value: str | int | None) -> st
         return bhv.src.sub(bhv.dst, strvalue)
     elif isinstance(bhv, DeleteAction):
         return None
-    raise InvalidRuleActionError(f"Invalid action {type(action.behavior)} for single-value tag")
+    raise InvalidRuleActionError(f"Invalid action {type(bhv)} for single-value tag")
 
 
 def execute_multi_value_action(
@@ -339,27 +357,25 @@ def execute_multi_value_action(
         if not matching_idx:
             return values
 
-    # Handle these cases first; we have no need to loop into the body for them.
-    if action.all and isinstance(bhv, ReplaceAction):
-        return bhv.replacement.split(";")
-    if action.all and isinstance(bhv, DeleteAction):
-        return []
-
-    # Create a copy of the action with the match_pattern set to None. We'll pass this into the
-    # delegated calls in execute_single_action.
-    subaction = copy.deepcopy(action)
-    subaction.match_pattern = None
+    if isinstance(bhv, AddAction):
+        return uniq([*values, bhv.value])
 
     rval: list[str] = []
     for i, v in enumerate(values):
-        if not action.all and i not in matching_idx:
+        if i not in matching_idx:
             rval.append(v)
             continue
-        if isinstance(action.behavior, SplitAction):
-            for newv in v.split(action.behavior.delimiter):
-                newv = newv.strip()
-                if newv:
-                    rval.append(newv.strip())
-        elif newv2 := execute_single_action(action, v):
-            rval.append(newv2)
-    return rval
+        if isinstance(bhv, DeleteAction):
+            continue
+        newvals = [v]
+        if isinstance(bhv, ReplaceAction):
+            newvals = bhv.replacement.split(";")
+        elif isinstance(bhv, SedAction):
+            newvals = bhv.src.sub(bhv.dst, v).split(";")
+        elif isinstance(bhv, SplitAction):
+            newvals = v.split(bhv.delimiter)
+        for nv in newvals:
+            nv = nv.strip()
+            if nv:
+                rval.append(nv)
+    return uniq(rval)

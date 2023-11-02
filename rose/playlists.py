@@ -48,7 +48,7 @@ def create_playlist(c: Config, name: str) -> None:
         if path.exists():
             raise PlaylistAlreadyExistsError(f"Playlist {name} already exists")
         path.touch()
-    logger.info(f"Creating playlist {name} in source directory")
+    logger.info(f"Created playlist {name} in source directory")
     update_cache_for_playlists(c, [name], force=True)
 
 
@@ -58,12 +58,12 @@ def delete_playlist(c: Config, name: str) -> None:
         if not path.exists():
             raise PlaylistDoesNotExistError(f"Playlist {name} does not exist")
         send2trash(path)
-    logger.info(f"Deleting playlist {name} from source directory")
+    logger.info(f"Deleted playlist {name} from source directory")
     update_cache_evict_nonexistent_playlists(c)
 
 
 def rename_playlist(c: Config, old_name: str, new_name: str) -> None:
-    logger.info(f"Renaming playlist {old_name} to {new_name}")
+    logger.info(f"Renamed playlist {old_name} to {new_name}")
     old_path = playlist_path(c, old_name)
     new_path = playlist_path(c, new_name)
     with lock(c, playlist_lock_name(old_name)), lock(c, playlist_lock_name(new_name)):
@@ -104,7 +104,7 @@ def remove_track_from_playlist(
         old_tracks = data.get("tracks", [])
         new_tracks = [r for r in old_tracks if r["uuid"] != track_id]
         if old_tracks == new_tracks:
-            logger.info(f"No-Op: track {track_filename} not in playlist {playlist_name}")
+            logger.info(f"No-Op: Track {track_filename} not in playlist {playlist_name}")
             return
         data["tracks"] = new_tracks
         with path.open("wb") as fp:

@@ -163,14 +163,14 @@ async def event_processor(c: Config, queue: Queue[WatchdogEvent]) -> None:  # pr
         debounce_times[key] = time.time()
 
         if event.collage:
-            logger.info(
+            logger.debug(
                 f"Updating cache in response to {event.type} event on collage {event.collage}"
             )
             await handle_event(c, event)
             continue
 
         if event.playlist:
-            logger.info(
+            logger.debug(
                 f"Updating cache in response to {event.type} event on playlist {event.playlist}"
             )
             await handle_event(c, event)
@@ -179,7 +179,7 @@ async def event_processor(c: Config, queue: Queue[WatchdogEvent]) -> None:  # pr
         assert event.release is not None
         # Launch the handler with the sleep asynchronously. This allows us to not block the main
         # thread, but insert a delay before processing the release.
-        logger.info(
+        logger.debug(
             f"Updating cache in response to {event.type} event on release {event.release.name}"
         )
         asyncio.create_task(handle_event(c, event, 2))

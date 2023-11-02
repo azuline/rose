@@ -8,6 +8,7 @@ For more detailed documentation, please visit the following files:
 - [Using Playlists & Collages](./PLAYLISTS_COLLAGES.md)
 - [Maintaining the Cache](./CACHE_MAINTENANCE.md)
 - [Shell Scripting](./SHELL_SCRIPTING.md)
+- [Tagging Conventions](./docs/TAGGING_CONVENTIONS.md)
 - [Architecture](./ARCHITECTURE.md)
 
 The code is also commented somewhat decently, if you'd like to read the source.

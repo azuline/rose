@@ -110,11 +110,9 @@ Command line:
 $ cd $fuse_mount_dir
 
 $ rose releases toggle-new "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
-[21:47:52] INFO: Refreshing the read cache for 1 releases
-[21:47:52] INFO: Applying cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
-[21:47:52] INFO: Refreshing the read cache for 1 collages
+[21:47:52] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [21:47:52] INFO: Updating release descriptions for Long Flight
-[21:47:52] INFO: Applying cache updates for collage Long Flight
+[21:47:52] INFO: Updating cache for collage Long Flight
 
 $ tree "2. Releases - New/"
 2. Releases - New/
@@ -122,11 +120,9 @@ $ tree "2. Releases - New/"
 └── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
 
 $ rose releases toggle-new "{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
-[21:49:36] INFO: Refreshing the read cache for 1 releases
-[21:49:36] INFO: Applying cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
-[21:49:36] INFO: Refreshing the read cache for 1 collages
+[21:49:36] INFO: Updating cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [21:49:36] INFO: Updating release descriptions for Long Flight
-[21:49:36] INFO: Applying cache updates for collage Long Flight
+[21:49:36] INFO: Updating cache for collage Long Flight
 
 $ tree "2. Releases - New/"
 2. Releases - New/
@@ -164,8 +160,7 @@ $ cd $fuse_mount_dir
 
 $ rose releases set-cover "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]" ./cover.jpg
 [20:43:50] INFO: Set the cover of release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match to cover.jpg
-[20:43:50] INFO: Refreshing the read cache for 1 releases
-[20:43:50] INFO: Applying cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
+[20:43:50] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 
 $ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/"
 1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/
@@ -207,8 +202,7 @@ $ cd $fuse_mount_dir
 
 $ rose releases remove-cover "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
 [02:13:17] INFO: Deleted cover arts of release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
-[02:13:17] INFO: Refreshing the read cache for 1 releases
-[02:13:17] INFO: Applying cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
+[02:13:17] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 
 $ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/"
 1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/
@@ -248,12 +242,10 @@ $ cd $fuse_mount_dir
 
 $ rose releases delete "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
 [21:56:25] INFO: Trashed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]
-[21:56:25] INFO: Evicting cached releases that are not on disk
 [21:56:25] INFO: Evicted release /home/blissful/demo/source/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match from cache
-[21:56:25] INFO: Refreshing the read cache for 1 collages
-[21:56:25] INFO: Removing nonexistent release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop] from collage Long Flight
+[21:56:25] INFO: Marking missing release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop] as missing in collage Long Flight
 [21:56:25] INFO: Updating release descriptions for Long Flight
-[21:56:25] INFO: Applying cache updates for collage Long Flight
+[21:56:25] INFO: Updating cache for collage Long Flight
 
 $ tree "1. Releases/"
 1. Releases/

@@ -5,9 +5,12 @@ module is _typically_ a bad idea, we have few enough things in it that it's OK f
 
 import uuid
 from pathlib import Path
+from typing import TypeVar
 
 with (Path(__file__).parent / ".version").open("r") as fp:
     VERSION = fp.read().strip()
+
+T = TypeVar("T")
 
 
 class RoseError(Exception):
@@ -24,3 +27,13 @@ def valid_uuid(x: str) -> bool:
         return True
     except ValueError:
         return False
+
+
+def uniq(xs: list[T]) -> list[T]:
+    rv: list[T] = []
+    seen: set[T] = set()
+    for x in xs:
+        if x not in seen:
+            rv.append(x)
+            seen.add(x)
+    return rv
