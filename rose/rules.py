@@ -359,6 +359,7 @@ def execute_multi_value_action(
             continue
         if isinstance(action.behavior, SplitAction):
             for newv in v.split(action.behavior.delimiter):
+                newv = newv.strip()
                 if newv:
                     rval.append(newv.strip())
         elif newv2 := execute_single_action(action, v):

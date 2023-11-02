@@ -197,7 +197,12 @@ class MetadataRule:
         # pattern.
         #
         # NOTE: All rules are currently simple; boolean logics not yet implemented.
-        if all(a.tags == "matched" and a.match_pattern is None and not a.all for a in rule.actions):
+        if all(
+            (a.tags == "matched" or a.tags == rule.matcher.tags)
+            and a.match_pattern is None
+            and not a.all
+            for a in rule.actions
+        ):
             for a in rule.actions:
                 a.match_pattern = rule.matcher.pattern
 
@@ -213,7 +218,7 @@ class MetadataRule:
             if single_valued_tags:
                 raise InvalidRuleError(
                     f"Single valued tags {', '.join(single_valued_tags)} cannot be modified by "
-                    f"multi-value action {action}"
+                    f"multi-value action {type(action.behavior).__name__}"
                 )
 
         return rule
@@ -435,7 +440,7 @@ def parse_action(raw: str, action_number: int) -> MetadataAction:
                 "no parameters. Please remove this section.",
             )
         behavior = DeleteAction()
-    else:
+    else:  # pragma: no cover
         raise RoseError(f"Impossible: unknown action_kind {action_kind=}")
 
     return MetadataAction(behavior=behavior, all=all_, tags=tags, match_pattern=pattern)

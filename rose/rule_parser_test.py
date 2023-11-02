@@ -157,6 +157,12 @@ def test_rule_parse_action() -> None:
         match_pattern="lala",
         all=True,
     )
+    assert parse_action("matched:^x::replace-all:lalala", 1) == MetadataAction(
+        behavior=ReplaceAction(replacement="lalala"),
+        tags="matched",
+        match_pattern="^x",
+        all=True,
+    )
 
     assert parse_action("sed:lalala:hahaha", 1) == MetadataAction(
         behavior=SedAction(src=re.compile("lalala"), dst="hahaha"),
@@ -207,6 +213,17 @@ def test_rule_parse_action() -> None:
 Failed to parse action 1, invalid syntax:
 
     haha::delete
+    ^
+    Invalid tag: must be one of matched, {tracktitle, year, tracknumber, discnumber, albumtitle, genre, label, releasetype, trackartist, albumartist}. (And if the value is matched, it must be alone.) The next character after a tag must be ':' or ','.
+""",  # noqa
+    )
+
+    test_err(
+        "tracktitler::delete",
+        """\
+Failed to parse action 1, invalid syntax:
+
+    tracktitler::delete
     ^
     Invalid tag: must be one of matched, {tracktitle, year, tracknumber, discnumber, albumtitle, genre, label, releasetype, trackartist, albumartist}. (And if the value is matched, it must be alone.) The next character after a tag must be ':' or ','.
 """,  # noqa
@@ -290,6 +307,17 @@ Failed to parse action 1, invalid syntax:
     )
 
     test_err(
+        "sed:invalid[",
+        """\
+Failed to parse action 1, invalid syntax:
+
+    sed:invalid[
+        ^
+        Failed to compile the sed pattern regex: invalid pattern: unterminated character set at position 7
+""",  # noqa
+    )
+
+    test_err(
         "sed:hihi:byebye:",
         """\
 Failed to parse action 1, invalid syntax:
@@ -366,14 +394,36 @@ def test_rule_parsing_end_to_end() -> None:
 
 
 def test_rule_parsing_multi_value_validation() -> None:
-    with pytest.raises(InvalidRuleError):
+    with pytest.raises(InvalidRuleError) as e:
         MetadataRule.parse("tracktitle:h", ["split-all:x"])
+    assert (
+        str(e.value)
+        == "Single valued tags tracktitle cannot be modified by multi-value action SplitAction"
+    )
     with pytest.raises(InvalidRuleError):
         MetadataRule.parse("tracktitle:h", ["split:x"])
+    assert (
+        str(e.value)
+        == "Single valued tags tracktitle cannot be modified by multi-value action SplitAction"
+    )
+    with pytest.raises(InvalidRuleError):
+        MetadataRule.parse("genre:h", ["tracktitle::split:x"])
+    assert (
+        str(e.value)
+        == "Single valued tags tracktitle cannot be modified by multi-value action SplitAction"
+    )
+    with pytest.raises(InvalidRuleError):
+        MetadataRule.parse("genre:h", ["split:y", "tracktitle::split:x"])
+    assert (
+        str(e.value)
+        == "Single valued tags tracktitle cannot be modified by multi-value action SplitAction"
+    )
 
 
 def test_rule_parsing_defaults() -> None:
     rule = MetadataRule.parse("tracktitle:Track", ["replace:hi"])
+    assert rule.actions[0].match_pattern == "Track"
+    rule = MetadataRule.parse("tracktitle:Track", ["tracktitle::replace:hi"])
     assert rule.actions[0].match_pattern == "Track"
     rule = MetadataRule.parse("tracktitle:Track", ["tracktitle:Lack::replace:hi"])
     assert rule.actions[0].match_pattern == "Lack"

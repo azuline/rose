@@ -220,6 +220,16 @@ def test_sed_action(config: Config, source_dir: Path) -> None:
     assert af.title == "Trip 1"
 
 
+def test_sed_all(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule(
+        matcher=MetadataMatcher(tags=["genre"], pattern="P"),
+        actions=[MetadataAction(behavior=SedAction(src=re.compile("^.*$"), dst="ip"))],
+    )
+    execute_metadata_rule(config, rule, False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.genre == ["ip", "ip"]
+
+
 def test_split_action(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
         matcher=MetadataMatcher(tags=["label"], pattern="Cool"),
@@ -228,6 +238,16 @@ def test_split_action(config: Config, source_dir: Path) -> None:
     execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.label == ["A", "Label"]
+
+
+def test_split_all_action(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule(
+        matcher=MetadataMatcher(tags=["genre"], pattern="K-Pop"),
+        actions=[MetadataAction(behavior=SplitAction(delimiter="P"), all=True)],
+    )
+    execute_metadata_rule(config, rule, False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.genre == ["K-", "op", "op"]
 
 
 def test_delete_action(config: Config, source_dir: Path) -> None:
@@ -240,6 +260,16 @@ def test_delete_action(config: Config, source_dir: Path) -> None:
     assert af.genre == ["K-Pop"]
 
 
+def test_delete_all_action(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule(
+        matcher=MetadataMatcher(tags=["genre"], pattern="^Pop"),
+        actions=[MetadataAction(behavior=DeleteAction(), match_pattern="^Pop", all=True)],
+    )
+    execute_metadata_rule(config, rule, False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.genre == []
+
+
 def test_preserves_unmatched_multitags(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
         matcher=MetadataMatcher(tags=["genre"], pattern="^Pop$"),
@@ -250,6 +280,42 @@ def test_preserves_unmatched_multitags(config: Config, source_dir: Path) -> None
     execute_metadata_rule(config, rule, False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.genre == ["K-Pop", "lalala"]
+
+
+def test_action_on_different_tag(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule(
+        matcher=MetadataMatcher(tags=["label"], pattern="A Cool Label"),
+        actions=[MetadataAction(behavior=ReplaceAction(replacement="hi"), tags=["genre"])],
+    )
+    execute_metadata_rule(config, rule, False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.genre == ["hi", "hi"]
+
+
+def test_chained_action(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule(
+        matcher=MetadataMatcher(tags=["label"], pattern="A Cool Label"),
+        actions=[
+            MetadataAction(behavior=ReplaceAction(replacement="Jennie"), tags=["label"]),
+            MetadataAction(
+                behavior=ReplaceAction(replacement="Jisoo"),
+                tags=["label"],
+                match_pattern="^Jennie$",
+            ),
+            MetadataAction(
+                behavior=ReplaceAction(replacement="Rose"), tags=["label"], match_pattern="nomatch"
+            ),
+            MetadataAction(
+                behavior=ReplaceAction(replacement="haha"),
+                tags=["genre"],
+                all=True,
+            ),
+        ],
+    )
+    execute_metadata_rule(config, rule, False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.label == ["Jisoo"]
+    assert af.genre == ["haha"]
 
 
 @pytest.mark.timeout(2)
