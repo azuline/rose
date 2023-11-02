@@ -96,19 +96,32 @@ artists = [
 # Rules Engine
 
 Rosé's rule engine allows you to update metadata in bulk across your library.
-The rule engine supports two methods of execution:
+Rules can be ran ad hoc from the command line, or stored in the configuration
+file to be repeatedly ran over the entire library.
 
-1. Running ad hoc rules in the command line.
-2. Storing rules in the configuration to run repeatedly.
+Rules consist of a _matcher_, which matches against tracks in your library, and
+one or more _actions_, which modify the metadata of the matched tracks.
 
-## Example
+The 5 available actions let you _replace_ values, apply a regex substitution
+(_sed_), _split_ one value into multiple values, _delete_ values, and _add_ new
+values.
 
-I have two artists in Rosé: `CHUU` and `Chuu`. They're actually the same
-artist, but capitalized differently. To normalize them, I execute the following
-ad hoc rule:
+## Demo
+
+Before diving into the mechanics and language of the rules engine, let's begin
+with a quick demo of how the rule engine works.
+
+Let's say that I am a LOOΠΔ fan (I mean, who isn't?). In my library, I have
+two of Chuu's releases, but the first is tagged as `CHUU`, and the second as
+`Chuu`. I want to normalize them to both be `Chuu`. The following rule
+expresses this change:
 
 ```bash
-$ rose metadata run-rule 'trackartist,albumartist:CHUU' 'replace:Chuu'
+# The first argument to run-rule is the matcher. We match artist tags with the
+# value CHUU. The second argument is our action. We replace the matched artist
+# tags with Chuu.
+$ rose metadata run-rule 'trackartist,albumartist:^CHUU$' 'replace:Chuu'
+
 CHUU - 2023. Howl/01. Howl.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
       albumartist[main]: ['CHUU'] -> ['Chuu']
@@ -137,17 +150,15 @@ Write changes to 5 tracks?  [Y/n] y
 Applied tag changes to 5 tracks!
 ```
 
-And we now have a single Chuu!
+And we now have a single Chuu artist in our library!
+
+Let's go through one more example. I want all of Chuu's releases to have the
+K-Pop genre. The following rule expresses that: for all releases with the
+albumartist `Chuu`, add the `K-Pop` genre tag.
 
 ```bash
-$ rose tracks print ...
-TODO
-```
+$ rose metadata run-rule 'albumartist:^Chuu$' 'genre::add:K-Pop'
 
-And I also want to set all of Chuu's releases to the `K-Pop` genre:
-
-```bash
-$ rose metadata run-rule 'trackartist,albumartist:Chuu' 'genre::replace-all:K-Pop'
 CHUU - 2023. Howl/01. Howl.opus
       genre: [] -> ['K-Pop']
 CHUU - 2023. Howl/02. Underwater.opus
@@ -159,9 +170,9 @@ CHUU - 2023. Howl/04. Aliens.opus
 CHUU - 2023. Howl/05. Hitchhiker.opus
       genre: [] -> ['K-Pop']
 LOOΠΔ - 2017. Chuu/01. Heart Attack.opus
-      genre: ['Kpop'] -> ['K-Pop']
+      genre: ['Kpop'] -> ['Kpop', 'K-Pop']
 LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
-      genre: ['Kpop'] -> ['K-Pop']
+      genre: ['Kpop'] -> ['Kpop', 'K-Pop']
 
 Write changes to 7 tracks? [Y/n] y
 
@@ -177,21 +188,66 @@ Write changes to 7 tracks? [Y/n] y
 Applied tag changes to 7 tracks!
 ```
 
-Now that I've written these rules, I can also store them in Rosé's configuration in
-order to apply them on all releases I add in the future. I do this by appending
-the following to my configuration file:
+Success! However, notice that one of Chuu's releases has the genre tag `Kpop`.
+Let's convert that `Kpop` tag to `K-Pop`, across the board.
+
+```bash
+$ rose metadata run-rule 'genre:^Kpop$' 'replace:K-Pop'
+G‐Dragon - 2012. ONE OF A KIND/01. One Of A Kind.opus
+      genre: ['Kpop'] -> ['K-Pop']
+G‐Dragon - 2012. ONE OF A KIND/02. 크레용 (Crayon).opus
+      genre: ['Kpop'] -> ['K-Pop']
+G‐Dragon - 2012. ONE OF A KIND/03. 결국.opus
+      genre: ['Kpop'] -> ['K-Pop']
+G‐Dragon - 2012. ONE OF A KIND/04. 그 XX.opus
+      genre: ['Kpop'] -> ['K-Pop']
+G‐Dragon - 2012. ONE OF A KIND/05. Missing You.opus
+      genre: ['Kpop'] -> ['K-Pop']
+G‐Dragon - 2012. ONE OF A KIND/06. Today.opus
+      genre: ['Kpop'] -> ['K-Pop']
+G‐Dragon - 2012. ONE OF A KIND/07. 불 붙여봐라.opus
+      genre: ['Kpop'] -> ['K-Pop']
+LOOΠΔ - 2017. Chuu/01. Heart Attack.opus
+      genre: ['Kpop', 'K-Pop'] -> ['K-Pop']
+LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
+      genre: ['Kpop', 'K-Pop'] -> ['K-Pop']
+
+Write changes to 9 tracks? [Y/n] y
+
+[14:47:26] INFO: Writing tag changes for rule matcher=genre:Kpop action=matched:Kpop::replace:K-Pop
+[14:47:26] INFO: Wrote tag changes to G‐Dragon - 2012. ONE OF A KIND/01. One Of A Kind.opus
+[14:47:26] INFO: Wrote tag changes to G‐Dragon - 2012. ONE OF A KIND/02. 크레용 (Crayon).opus
+[14:47:26] INFO: Wrote tag changes to G‐Dragon - 2012. ONE OF A KIND/03. 결국.opus
+[14:47:26] INFO: Wrote tag changes to G‐Dragon - 2012. ONE OF A KIND/04. 그 XX.opus
+[14:47:26] INFO: Wrote tag changes to G‐Dragon - 2012. ONE OF A KIND/05. Missing You.opus
+[14:47:26] INFO: Wrote tag changes to G‐Dragon - 2012. ONE OF A KIND/06. Today.opus
+[14:47:26] INFO: Wrote tag changes to G‐Dragon - 2012. ONE OF A KIND/07. 불 붙여봐라.opus
+[14:47:26] INFO: Wrote tag changes to LOOΠΔ - 2017. Chuu/01. Heart Attack.opus
+[14:47:26] INFO: Wrote tag changes to LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
+
+Applied tag changes to 7 tracks!
+```
+
+And we also normalized a G-Dragon release's genre tag on the way! I'd like to
+run these rules again in the future, so that all new music I add to my library
+is normalized according to these rules. To do so, the following text goes
+inside my configuration file.
 
 ```toml
 [[stored_metadata_rules]]
-matcher = "trackartist,albumartist:CHUU"
+matcher = "trackartist,albumartist:^CHUU$"
 actions = ["replace:Chuu"]
 [[stored_metadata_rules]]
-matcher = "trackartist,albumartist:Chuu"
-actions = ["genre::replace-all:K-Pop"]
+matcher = "albumartist:^Chuu$"
+actions = ["genre::add:K-Pop"]
+[[stored_metadata_rules]]
+matcher = "genre:^Kpop$"
+actions = ["replace:K-Pop"]
 ```
 
-And with the `rose metadata run-stored-rules` command, I can run these rules,
-as well as the others, repeatedly again in the future.
+Now, the `rose metadata run-stored-rules` command will run the above three
+rules, along with any other rules I have in my configuration file, on the
+entire library.
 
 ## Mechanics
 
@@ -214,22 +270,26 @@ The `^` and `$` characters enable strict prefix and strict suffix matching,
 respectively. So for example, the pattern `^Chu` match `Chuu`, but not `AChuu`.
 And the pattern `Chu$` matches `Chu`, but not `Chuu`.
 
+Case sensitive
+
 ### Actions
 
 Actions are `(tags, pattern, all, kind, *args)` tuples for modifying the
 metadata of a track.
 
+The `tags` and `pattern`, usually by default, equivalent the `matcher`. TODO
+
 Given a track, if the `pattern` matches the `tags`, by the same logic as the
 matchers, the action is applied.
 
-There are four kinds of actions: `replace`, `sed`, `split`, and `delete`. Each
-action has its own set of additional arguments.
+There are five kinds of actions: `replace`, `sed`, `split`, `add`, and
+`delete`. Each action has its own set of additional arguments.
 
-- `replace`:
+- `replace`: Replace a tag. 
+
+### Multi-Value Tags
 
 For multi-valued tags, `all`...
-
-The `tags` and `pattern`, usually by default, equivalent the `matcher`.
 
 ### Track-Based Paradigm
 

@@ -16,7 +16,7 @@ from rose.cache import (
     get_release_source_paths_from_ids,
     update_cache_for_releases,
 )
-from rose.common import RoseError
+from rose.common import RoseError, uniq
 from rose.config import Config
 from rose.rule_parser import (
     AddAction,
@@ -236,7 +236,7 @@ def execute_metadata_rule(
     todisplay: list[tuple[str, list[Changes]]] = []
     maxpathwidth = 0
     for tags, changes in actionable_audiotags:
-        pathtext = str(tags.path).lstrip(str(c.music_source_dir) + "/")
+        pathtext = str(tags.path).removeprefix(str(c.music_source_dir) + "/")
         if len(pathtext) >= 120:
             pathtext = pathtext[:59] + ".." + pathtext[-59:]
         maxpathwidth = max(maxpathwidth, len(pathtext))
@@ -288,13 +288,13 @@ def execute_metadata_rule(
     for tags, changes in actionable_audiotags:
         if tags.release_id:
             changed_release_ids.add(tags.release_id)
-        pathtext = str(tags.path).lstrip(str(c.music_source_dir) + "/")
+        pathtext = str(tags.path).removeprefix(str(c.music_source_dir) + "/")
         logger.debug(
             f"Attempting to write {pathtext} changes: "
             f"{' //// '.join([str(x)+' -> '+str(y) for _, x, y in changes])}"
         )
         tags.flush()
-        logger.info(f"Wrote tag changes to {tags.path}")
+        logger.info(f"Wrote tag changes to {pathtext}")
 
     click.echo()
     click.echo(f"Applied tag changes to {len(actionable_audiotags)} tracks!")
@@ -322,7 +322,7 @@ def matches_pattern(pattern: str, value: str | int | None) -> bool:
 # Factor out the logic for executing an action on a single-value tag and a multi-value tag.
 def execute_single_action(action: MetadataAction, value: str | int | None) -> str | None:
     if action.match_pattern and not matches_pattern(action.match_pattern, value):
-        return None
+        return str(value)
 
     bhv = action.behavior
     strvalue = str(value) if value is not None else None
@@ -356,11 +356,11 @@ def execute_multi_value_action(
 
     # Handle these cases first; we have no need to loop into the body for them.
     if action.all and isinstance(bhv, ReplaceAction):
-        return bhv.replacement.split(";")
+        return uniq(bhv.replacement.split(";"))
     if action.all and isinstance(bhv, DeleteAction):
         return []
     if isinstance(bhv, AddAction):
-        return [*values, bhv.value]
+        return uniq([*values, bhv.value])
 
     # Create a copy of the action with the match_pattern set to None. We'll pass this into the
     # delegated calls in execute_single_action.
@@ -379,4 +379,4 @@ def execute_multi_value_action(
                     rval.append(newv.strip())
         elif newv2 := execute_single_action(action, v):
             rval.append(newv2)
-    return rval
+    return uniq(rval)

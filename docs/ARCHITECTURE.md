@@ -147,19 +147,24 @@ In the very brief testing period, the FTS implementation was around a hundred
 times faster than the naive `LIKE` query. Queries that took multiple seconds
 now completed in tens of milliseconds.
 
-# Read Cache Update
+# Read Cache
 
-The read cache update is optimized to minimize the number of disk accesses, as
-it's a hot path and quite expensive if implemented poorly.
+The read cache fully encapsulates the SQLite database. Other modules do not
+read directly from the SQLite database; they use the higher-level read
+functions from the cache module. (Though we cheap out on tests, which do test
+against the database directly.)
 
-The read cache update first pulls all relevant cached data from SQLite. Stored
+The read cache's update procedure is optimized to minimize the number of disk
+accesses, as it's a hot path and quite expensive if implemented poorly.
+
+The update procedure first pulls all relevant cached data from SQLite. Stored
 on each track is the mtime during the previous cache update. The cache update
 checks whether any files have changed via `readdir` and `stat` calls, and only
 reads the file if the `mtime` has changed. Throughout the update, we take note
 of the changes to apply. At the end of the update, we make a few fat SQL
 queries to batch the writes.
 
-The update process is also parallelizable, so we shard workloads across
+The update procedure is also parallelizable, so we shard workloads across
 multiple processes.
 
 # Logging

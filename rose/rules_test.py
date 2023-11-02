@@ -224,11 +224,11 @@ def test_sed_action(config: Config, source_dir: Path) -> None:
 def test_sed_all(config: Config, source_dir: Path) -> None:
     rule = MetadataRule(
         matcher=MetadataMatcher(tags=["genre"], pattern="P"),
-        actions=[MetadataAction(behavior=SedAction(src=re.compile("^.*$"), dst="ip"))],
+        actions=[MetadataAction(behavior=SedAction(src=re.compile("^(.*)$"), dst=r"i\1"))],
     )
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.genre == ["ip", "ip"]
+    assert af.genre == ["iK-Pop", "iPop"]
 
 
 def test_split_action(config: Config, source_dir: Path) -> None:
@@ -248,7 +248,7 @@ def test_split_all_action(config: Config, source_dir: Path) -> None:
     )
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.genre == ["K-", "op", "op"]
+    assert af.genre == ["K-", "op"]
 
 
 def test_add_action(config: Config, source_dir: Path) -> None:
@@ -300,7 +300,7 @@ def test_action_on_different_tag(config: Config, source_dir: Path) -> None:
     )
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.genre == ["hi", "hi"]
+    assert af.genre == ["hi"]
 
 
 def test_chained_action(config: Config, source_dir: Path) -> None:
