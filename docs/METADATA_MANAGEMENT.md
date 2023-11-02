@@ -96,13 +96,30 @@ artists = [
 # Rules Engine
 
 Rosé's rule engine allows you to update metadata in bulk across your library.
-Rules can be ran ad hoc from the command line, or stored in the configuration
-file to be repeatedly ran over the entire library.
 
 Rules consist of a _matcher_, which matches against tracks in your library, and
 one or more _actions_, which modify the metadata of the matched tracks. The 5
 available actions let you _replace_ values, apply a regex substitution (_sed_),
 _split_ one value into multiple values, _delete_ values, and _add_ new values.
+
+To run an ad hoc rule from the command line, use the following command:
+
+```bash
+# Accepts one or more actions.
+$ rose metadata run-rule [matcher] [action]...
+```
+
+Rules can also be stored in the configuration file to be ran on future
+additions to the library. Add one instance of the following block to the
+configuration file for each rule:
+
+```toml
+[[stored_metadata_rules]]
+matcher = "genre:^Kpop$"  # An example matcher.
+actions = ["replace:K-Pop"]  # Example actions.
+```
+
+And the `rose metadata run-stored-rules` command runs all stored rules.
 
 ## Demo
 
@@ -115,9 +132,6 @@ two of Chuu's releases, but the first is tagged as `CHUU`, and the second as
 this change:
 
 ```bash
-# The first argument to run-rule is the matcher, which matches artist tags with
-# the value CHUU. The second argument is our action, which replaces the matched
-# artist tags with Chuu.
 $ rose metadata run-rule 'trackartist,albumartist:^CHUU$' 'replace:Chuu'
 
 CHUU - 2023. Howl/01. Howl.opus
@@ -148,7 +162,7 @@ Write changes to 5 tracks?  [Y/n] y
 Applied tag changes to 5 tracks!
 ```
 
-And we now have a single Chuu artist in our library!
+And we now have only one Chuu in our library!
 
 Let's go through one more example. I want all of Chuu's releases to have the
 K-Pop genre. The following rule expresses that: for all releases with the
