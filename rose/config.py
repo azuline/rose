@@ -15,7 +15,7 @@ import appdirs
 import tomllib
 
 from rose.common import RoseError
-from rose.rule_parser import InvalidRuleSpecError, MetadataRule
+from rose.rule_parser import MetadataRule, RuleSyntaxError
 
 XDG_CONFIG_ROSE = Path(appdirs.user_config_dir("rose"))
 XDG_CONFIG_ROSE.mkdir(parents=True, exist_ok=True)
@@ -318,15 +318,46 @@ class Config:
             ) from e
 
         stored_metadata_rules: list[MetadataRule] = []
-        d = None
-        try:
-            for d in data.get("stored_metadata_rules", []):
-                stored_metadata_rules.append(MetadataRule.parse_dict(d))
-        except InvalidRuleSpecError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for stored_metadata_rules in configuration file ({cfgpath}): "
-                f"rule {d} could not be parsed: {e}"
-            ) from e
+        for d in data.get("stored_metadata_rules", []):
+            try:
+                matcher = d["matcher"]
+            except KeyError as e:
+                raise InvalidConfigValueError(
+                    f"Missing key `matcher` in stored_metadata_rules in configuration file "
+                    f"({cfgpath}): rule {d}"
+                ) from e
+            if not isinstance(matcher, str):
+                raise InvalidConfigValueError(
+                    f"Invalid value for `matcher` in stored_metadata_rules in configuration file "
+                    f"({cfgpath}): rule {d}: must be a string"
+                )
+
+            try:
+                actions = d["actions"]
+            except KeyError as e:
+                raise InvalidConfigValueError(
+                    f"Missing key `actions` in stored_metadata_rules in configuration file "
+                    f"({cfgpath}): rule {d}"
+                ) from e
+            if not isinstance(actions, list):
+                raise InvalidConfigValueError(
+                    f"Invalid value for `actions` in stored_metadata_rules in configuration file "
+                    f"({cfgpath}): rule {d}: must be a list of strings"
+                )
+            for action in actions:
+                if not isinstance(action, str):
+                    raise InvalidConfigValueError(
+                        f"Invalid value for `actions` in stored_metadata_rules in configuration "
+                        f"file ({cfgpath}): rule {d}: must be a list of strings: got {type(action)}"
+                    )
+
+            try:
+                stored_metadata_rules.append(MetadataRule.parse(matcher, actions))
+            except RuleSyntaxError as e:
+                raise InvalidConfigValueError(
+                    f"Failed to parse stored_metadata_rules in configuration file ({cfgpath}): "
+                    f"rule {d}: {e}"
+                ) from e
 
         return cls(
             music_source_dir=music_source_dir,
