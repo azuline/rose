@@ -25,17 +25,17 @@ LOG_EVEN_THOUGH_WERE_IN_TEST = os.environ.get("LOG_TEST", False)
 # captures logging output on its own, so by default, we do not attach our own.
 if "pytest" not in sys.modules or LOG_EVEN_THOUGH_WERE_IN_TEST:  # pragma: no cover
     stream_template = "[%(asctime)s] %(levelname)s: %(message)s"
-    if LOG_EVEN_THOUGH_WERE_IN_TEST:
-        stream_template = "[ts=%(asctime)s] [pid=%(process)d] [src=%(name)s:%(lineno)s] %(levelname)s: %(message)s"  # noqa: E501
-    stream_formatter = logging.Formatter(stream_template, datefmt="%H:%M:%S")
+    verbose_template = "[ts=%(asctime)s.%(msecs)d] [pid=%(process)d] [src=%(name)s:%(lineno)s] %(levelname)s: %(message)s"  # noqa: E501
+
+    stream_formatter = logging.Formatter(
+        stream_template if not LOG_EVEN_THOUGH_WERE_IN_TEST else verbose_template,
+        datefmt="%H:%M:%S",
+    )
     stream_handler = logging.StreamHandler(sys.stderr)
     stream_handler.setFormatter(stream_formatter)
     logger.addHandler(stream_handler)
 
-    file_formatter = logging.Formatter(
-        "[ts=%(asctime)s.%(msecs)d] [pid=%(process)d] [src=%(name)s:%(lineno)s] %(levelname)s: %(message)s",  # noqa: E501
-        datefmt="%H:%M:%S",
-    )
+    file_formatter = logging.Formatter(verbose_template, datefmt="%H:%M:%S")
     file_handler = logging.handlers.RotatingFileHandler(
         LOGFILE,
         maxBytes=20 * 1024 * 1024,

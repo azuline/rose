@@ -37,6 +37,7 @@ class InvalidReplacementValueError(RoseError):
 def execute_stored_metadata_rules(c: Config, confirm_yes: bool = False) -> None:
     for rule in c.stored_metadata_rules:
         click.secho(f"Executing stored metadata rule {rule}", dim=True)
+        click.echo()
         execute_metadata_rule(c, rule, confirm_yes)
 
 
@@ -147,6 +148,7 @@ def execute_metadata_rule(
             if fields_to_update == "matched":
                 fields_to_update = rule.matcher.tags
             for field in fields_to_update:
+                # fmt: off
                 if field == "tracktitle":
                     tags.title = execute_single_action(act, tags.title)
                     potential_changes.append(("title", origtags.title, tags.title))
@@ -161,22 +163,16 @@ def execute_metadata_rule(
                     potential_changes.append(("year", origtags.year, tags.year))
                 elif field == "tracknumber":
                     tags.track_number = execute_single_action(act, tags.track_number)
-                    potential_changes.append(
-                        ("track_number", origtags.track_number, tags.track_number)
-                    )  # noqa: E501
+                    potential_changes.append(("track_number", origtags.track_number, tags.track_number))  # noqa: E501
                 elif field == "discnumber":
                     tags.disc_number = execute_single_action(act, tags.disc_number)
-                    potential_changes.append(
-                        ("disc_number", origtags.disc_number, tags.disc_number)
-                    )  # noqa: E501
+                    potential_changes.append(("disc_number", origtags.disc_number, tags.disc_number))  # noqa: E501
                 elif field == "albumtitle":
                     tags.album = execute_single_action(act, tags.album)
                     potential_changes.append(("album", origtags.album, tags.album))
                 elif field == "releasetype":
                     tags.release_type = execute_single_action(act, tags.release_type) or "unknown"
-                    potential_changes.append(
-                        ("release_type", origtags.release_type, tags.release_type)
-                    )  # noqa: E501
+                    potential_changes.append(("release_type", origtags.release_type, tags.release_type))  # noqa: E501
                 elif field == "genre":
                     tags.genre = execute_multi_value_action(act, tags.genre)
                     potential_changes.append(("genre", origtags.genre, tags.genre))
@@ -185,45 +181,36 @@ def execute_metadata_rule(
                     potential_changes.append(("label", origtags.label, tags.label))
                 elif field == "trackartist":
                     tags.artists.main = execute_multi_value_action(act, tags.artists.main)
-                    potential_changes.append(("main", origtags.artists.main, tags.artists.main))
+                    potential_changes.append(("trackartist[main]", origtags.artists.main, tags.artists.main))  # noqa: E501
                     tags.artists.guest = execute_multi_value_action(act, tags.artists.guest)
-                    potential_changes.append(("guest", origtags.artists.guest, tags.artists.guest))
+                    potential_changes.append(("trackartist[guest]", origtags.artists.guest, tags.artists.guest))  # noqa: E501
                     tags.artists.remixer = execute_multi_value_action(act, tags.artists.remixer)
-                    potential_changes.append(
-                        ("remixer", origtags.artists.remixer, tags.artists.remixer)
-                    )  # noqa: E501
+                    potential_changes.append(("trackartist[remixer]", origtags.artists.remixer, tags.artists.remixer))  # noqa: E501
                     tags.artists.producer = execute_multi_value_action(act, tags.artists.producer)
-                    potential_changes.append(
-                        ("producer", origtags.artists.producer, tags.artists.producer)
-                    )  # noqa: E501
+                    potential_changes.append(("trackartist[producer]", origtags.artists.producer, tags.artists.producer))  # noqa: E501
                     tags.artists.composer = execute_multi_value_action(act, tags.artists.composer)
-                    potential_changes.append(
-                        ("composer", origtags.artists.composer, tags.artists.composer)
-                    )  # noqa: E501
+                    potential_changes.append(("trackartist[composer]", origtags.artists.composer, tags.artists.composer))  # noqa: E501
                     tags.artists.djmixer = execute_multi_value_action(act, tags.artists.djmixer)
-                    potential_changes.append(
-                        ("djmixer", origtags.artists.djmixer, tags.artists.djmixer)
-                    )  # noqa: E501
+                    potential_changes.append(("trackartist[djmixer]", origtags.artists.djmixer, tags.artists.djmixer))  # noqa: E501
                 elif field == "albumartist":
-                    # fmt: off
                     tags.album_artists.main = execute_multi_value_action(act, tags.album_artists.main)  # noqa: E501
-                    potential_changes.append(("main", origtags.album_artists.main, tags.album_artists.main))  # noqa: E501
+                    potential_changes.append(("albumartist[main]", origtags.album_artists.main, tags.album_artists.main))  # noqa: E501
                     tags.album_artists.guest = execute_multi_value_action(act, tags.album_artists.guest)  # noqa: E501
-                    potential_changes.append(("guest", origtags.album_artists.guest, tags.album_artists.guest))  # noqa: E501
+                    potential_changes.append(("albumartist[guest]", origtags.album_artists.guest, tags.album_artists.guest))  # noqa: E501
                     tags.album_artists.remixer = execute_multi_value_action(act, tags.album_artists.remixer)  # noqa: E501
-                    potential_changes.append(("remixer", origtags.album_artists.remixer, tags.album_artists.remixer))  # noqa: E501
+                    potential_changes.append(("albumartist[remixer]", origtags.album_artists.remixer, tags.album_artists.remixer))  # noqa: E501
                     tags.album_artists.producer = execute_multi_value_action(act, tags.album_artists.producer)  # noqa: E501
-                    potential_changes.append(("producer", origtags.album_artists.producer, tags.album_artists.producer))  # noqa: E501
+                    potential_changes.append(("albumartist[producer]", origtags.album_artists.producer, tags.album_artists.producer))  # noqa: E501
                     tags.album_artists.composer = execute_multi_value_action(act, tags.album_artists.composer)  # noqa: E501
-                    potential_changes.append(("composer", origtags.album_artists.composer, tags.album_artists.composer))  # noqa: E501
+                    potential_changes.append(("albumartist[composer]", origtags.album_artists.composer, tags.album_artists.composer))  # noqa: E501
                     tags.album_artists.djmixer = execute_multi_value_action(act, tags.album_artists.djmixer)  # noqa: E501
-                    potential_changes.append(("djmixer", origtags.album_artists.djmixer, tags.album_artists.djmixer))  # noqa: E501
-                    # fmt: on
+                    potential_changes.append(("albumartist[djmixer]", origtags.album_artists.djmixer, tags.album_artists.djmixer))  # noqa: E501
+                # fmt: on
 
         # Compute real changes by diffing the tags, and then store.
         changes = [(x, y, z) for x, y, z in potential_changes if y != z]
         if changes:
-            actionable_audiotags.append((tags, potential_changes))
+            actionable_audiotags.append((tags, changes))
         else:
             logger.debug(f"Skipping matched track {tags.path}: no changes calculated off tags")
     if not actionable_audiotags:
@@ -234,8 +221,6 @@ def execute_metadata_rule(
     # === Step 4: Ask user confirmation on the changes ===
 
     if confirm_yes:
-        click.echo()
-
         # Compute the text to display:
         todisplay: list[tuple[str, list[Changes]]] = []
         maxpathwidth = 0
@@ -288,8 +273,8 @@ def execute_metadata_rule(
             f"{tags.path} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in changes])}"
         )
         tags.flush()
-        click.echo()
 
+    click.echo()
     click.echo(f"Applied tag changes to {len(actionable_audiotags)} tracks!")
 
 

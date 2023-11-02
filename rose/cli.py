@@ -48,7 +48,8 @@ from rose.releases import (
     set_release_cover_art,
     toggle_release_new,
 )
-from rose.rules import execute_stored_metadata_rules
+from rose.rule_parser import MetadataRule
+from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
 from rose.virtualfs import VirtualPath, mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
@@ -71,7 +72,7 @@ class Context:
 @click.pass_context
 # fmt: on
 def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
-    """A virtual filesystem for music and metadata improvement tooling."""
+    """A music manager with a virtual filesystem."""
     cc.obj = Context(
         config=Config.parse(config_path_override=config),
     )
@@ -399,10 +400,24 @@ def metadata() -> None:
 
 
 @metadata.command()
+@click.argument("matcher", type=str, nargs=1)
+@click.argument("actions", type=str, nargs=-1)
+@click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
+@click.pass_obj
+def run_rule(ctx: Context, matcher: str, actions: list[str], yes: bool) -> None:
+    """Run an ad hoc metadata rule"""
+    if not actions:
+        logger.info("No-Op: No actions passed")
+        return
+    rule = MetadataRule.parse(matcher, actions)
+    execute_metadata_rule(ctx.config, rule, confirm_yes=not yes)
+
+
+@metadata.command()
 @click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
 @click.pass_obj
 def run_stored_rules(ctx: Context, yes: bool) -> None:
-    """Run the metadata rules stored in the config"""
+    """Run the stored metadata rules defined in the config"""
     execute_stored_metadata_rules(ctx.config, confirm_yes=not yes)
 
 

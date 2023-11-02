@@ -192,9 +192,9 @@ $ nix profile install github:azuline/rose/release
 ```
 
 > [!NOTE]
-> The default branch tracks the unstable release, whose documentation may be
+> The master branch tracks the unstable release, whose documentation may be
 > more up-to-date than the latest release's documentation. You can view the
-> latest release's documentation at https://github.com/azuline/rose/blob/release/README.md.
+> latest release's documentation [here](https://github.com/azuline/rose/blob/release/README.md).
 
 Most users should install the latest release version of Rosé. However, if you
 wish to install the latest unstable version of Rosé, you can do so with the
@@ -212,7 +212,7 @@ $ rose
 
 Usage: rose [OPTIONS] COMMAND [ARGS]...
 
-  A virtual filesystem for music and metadata improvement tooling.
+  A music manager with a virtual filesystem.
 
 Options:
   -v, --verbose      Emit verbose logging.
@@ -220,11 +220,13 @@ Options:
   --help             Show this message and exit.
 
 Commands:
-  cache     Manage the read cache.
-  collages  Manage collages.
-  fs        Manage the virtual library.
-  releases  Manage releases.
-  playlists Manage playlists.
+  cache       Manage the read cache.
+  collages    Manage collages.
+  completion  Print a shell completion script.
+  fs          Manage the virtual library.
+  metadata    Run metadata improvement tools
+  playlists   Manage playlists.
+  releases    Manage releases.
 ```
 
 > [!NOTE]
@@ -319,7 +321,6 @@ finally (3) play music!
     Artist: LOOΠΔ ODD EYE CIRCLE
     Album: Mix & Match
     Album_Artist: LOOΠΔ ODD EYE CIRCLE
-    Comment: Cat #: WMED0709
     Date: 2017
     Genre: K-Pop
     Title: Chaotic
