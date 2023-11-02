@@ -87,7 +87,11 @@ def test_config_full() -> None:
             stored_metadata_rules=[
                 MetadataRule(
                     matcher=MetadataMatcher(tags=["tracktitle"], pattern="lala"),
-                    actions=[MetadataAction(behavior=ReplaceAction(replacement="hihi"))],
+                    actions=[
+                        MetadataAction(
+                            behavior=ReplaceAction(replacement="hihi"), match_pattern="lala"
+                        )
+                    ],
                 )
             ],
         )

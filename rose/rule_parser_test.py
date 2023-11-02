@@ -4,6 +4,7 @@ import pytest
 
 from rose.rule_parser import (
     DeleteAction,
+    InvalidRuleError,
     MetadataAction,
     MetadataMatcher,
     MetadataRule,
@@ -49,6 +50,13 @@ def test_rule_str() -> None:
         ],
     )
     assert str(rule) == "matcher=tracktitle:Track action=genre:lala::replace-all:lalala"
+
+    # Test that we print `matched` when action pattern is not null.
+    rule = MetadataRule(
+        matcher=MetadataMatcher(tags=["genre"], pattern="b"),
+        actions=[MetadataAction(behavior=ReplaceAction(replacement="hi"), match_pattern="h")],
+    )
+    assert str(rule) == r"matcher=genre:b action=matched:h::replace:hi"
 
 
 def test_rule_parse_matcher() -> None:
@@ -337,7 +345,7 @@ Failed to parse action 1, invalid syntax:
     )
 
 
-def test_rule_end_to_end() -> None:
+def test_rule_parsing_end_to_end() -> None:
     matcher = "tracktitle:Track"
     action = "delete-all"
     assert f"matcher={matcher} action={action}" == str(MetadataRule.parse(matcher, [action]))
@@ -350,8 +358,28 @@ def test_rule_end_to_end() -> None:
     action = "tracktitle,genre,trackartist,albumartist::delete-all"
     assert f"matcher={matcher} action={action}" == str(MetadataRule.parse(matcher, [action]))
 
+    matcher = "tracktitle:Track"
+    action = "delete"
+    assert f"matcher={matcher} action=matched:Track::{action}" == str(
+        MetadataRule.parse(matcher, [action])
+    )
 
-def test_take() -> None:
+
+def test_rule_parsing_multi_value_validation() -> None:
+    with pytest.raises(InvalidRuleError):
+        MetadataRule.parse("tracktitle:h", ["split-all:x"])
+    with pytest.raises(InvalidRuleError):
+        MetadataRule.parse("tracktitle:h", ["split:x"])
+
+
+def test_rule_parsing_defaults() -> None:
+    rule = MetadataRule.parse("tracktitle:Track", ["replace:hi"])
+    assert rule.actions[0].match_pattern == "Track"
+    rule = MetadataRule.parse("tracktitle:Track", ["tracktitle:Lack::replace:hi"])
+    assert rule.actions[0].match_pattern == "Lack"
+
+
+def test_parser_take() -> None:
     assert take("hello", ":") == ("hello", 5)
     assert take("hello:hi", ":") == ("hello", 6)
     assert take(r"h\:lo:hi", ":") == ("h:lo", 6)

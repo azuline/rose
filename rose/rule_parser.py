@@ -17,7 +17,11 @@ from rose.common import RoseError
 logger = logging.getLogger(__name__)
 
 
-class RuleSyntaxError(RoseError):
+class InvalidRuleError(RoseError):
+    pass
+
+
+class RuleSyntaxError(InvalidRuleError):
     def __init__(self, *, rule_name: str, rule: str, index: int, feedback: str) -> None:
         self.rule_name = rule_name
         self.rule = rule
@@ -69,13 +73,6 @@ SINGLE_VALUE_TAGS: list[Tag] = [
     "discnumber",
     "albumtitle",
     "releasetype",
-]
-
-MULTI_VALUE_TAGS: list[Tag] = [
-    "genre",
-    "label",
-    "trackartist",
-    "albumartist",
 ]
 
 
@@ -157,8 +154,8 @@ class MetadataRule:
 
         for action in self.actions:
             aout = ""
-            if action.tags != "matched":
-                aout += ",".join(action.tags)
+            if action.tags != "matched" or action.match_pattern:
+                aout += ",".join(action.tags) if action.tags != "matched" else "matched"
             if action.match_pattern:
                 aout += ":" + action.match_pattern.replace(":", r"\:")
             if aout:
@@ -190,10 +187,36 @@ class MetadataRule:
 
     @classmethod
     def parse(cls, matcher: str, actions: list[str]) -> MetadataRule:
-        return cls(
+        rule = cls(
             matcher=parse_matcher(matcher),
             actions=[parse_action(a, i + 1) for i, a in enumerate(actions)],
         )
+
+        # If the rule is a simple rule (no boolean logics), all != True, the matching tag is
+        # `matched`, and there is no existing match_pattern, default the actions matchers to the
+        # pattern.
+        #
+        # NOTE: All rules are currently simple; boolean logics not yet implemented.
+        if all(a.tags == "matched" and a.match_pattern is None and not a.all for a in rule.actions):
+            for a in rule.actions:
+                a.match_pattern = rule.matcher.pattern
+
+        # And validate that multi-value actions are not invoked on single-value tags.
+        for action in rule.actions:
+            if not isinstance(action.behavior, SplitAction):
+                # Isn't a multi-value action.
+                continue
+            tags = action.tags
+            if tags == "matched":
+                tags = rule.matcher.tags
+            single_valued_tags = [t for t in tags if t in SINGLE_VALUE_TAGS]
+            if single_valued_tags:
+                raise InvalidRuleError(
+                    f"Single valued tags {', '.join(single_valued_tags)} cannot be modified by "
+                    f"multi-value action {action}"
+                )
+
+        return rule
 
 
 def parse_matcher(raw: str) -> MetadataMatcher:
@@ -416,8 +439,6 @@ def parse_action(raw: str, action_number: int) -> MetadataAction:
         behavior = DeleteAction()
     else:
         raise RoseError(f"Impossible: unknown action_kind {action_kind=}")
-
-    # TODO: Multi-value tag validation.
 
     return MetadataAction(behavior=behavior, all=all_, tags=tags, match_pattern=pattern)
 
