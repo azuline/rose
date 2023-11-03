@@ -119,7 +119,10 @@ matcher = "genre:^Kpop$"  # An example matcher.
 actions = ["replace:K-Pop"]  # Example actions.
 ```
 
-The `rose rules run-stored` command runs all stored rules.
+The `rose rules run-stored` command runs all stored rules. Note that Rosé runs
+rules and actions in the order they're defined in. So if multiple rules would
+modify one track, the earliest defined rule will be applied first, and later
+rules applied on the output of the first rule.
 
 ## Demo
 
