@@ -138,7 +138,7 @@ The rules engine allows you to pattern match tracks in your music library and
 apply tag changes to them. For example:
 
 ```bash
-$ rose metadata run-rule 'trackartist,albumartist:^CHUU$' 'replace:Chuu'
+$ rose rules run 'trackartist,albumartist:^CHUU$' 'replace:Chuu'
 
 CHUU - 2023. Howl/01. Howl.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
@@ -242,13 +242,15 @@ Options:
   --help             Show this message and exit.
 
 Commands:
-  cache       Manage the read cache.
-  collages    Manage collages.
-  completion  Print a shell completion script.
-  fs          Manage the virtual library.
-  metadata    Run metadata improvement tools
-  playlists   Manage playlists.
-  releases    Manage releases.
+  cache           Manage the read cache
+  collages        Manage collages
+  fs              Manage the virtual filesystem
+  gen-completion  Generate a shell completion script
+  playlists       Manage playlists
+  releases        Manage releases
+  tracks          Manage tracks
+  reload          Reload the configuration of active Rosé processes
+  rules           Run metadata update rules on the entire library
 ```
 
 > [!NOTE]
@@ -375,12 +377,14 @@ on scripting with Rosé.
 For additional documentation, please refer to the following files:
 
 - [Configuration](./docs/CONFIGURATION.md)
-- [Browsing with the Virtual Filesystem](./docs/VIRTUAL_FILESYSTEM.md)
+- [Available Commands](./docs/AVAILABLE_COMMANDS.md)
+- [Browsing the Virtual Filesystem](./docs/VIRTUAL_FILESYSTEM.md)
+- [Managing Releases](./docs/RELEASES.md)
+- [Managing Playlists & Collages](./docs/PLAYLISTS_COLLAGES.md)
 - [Managing Your Music Metadata](./docs/METADATA_MANAGEMENT.md)
-- [Using Playlists & Collages](./docs/PLAYLISTS_COLLAGES.md)
 - [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md)
-- [Tagging Conventions](./docs/TAGGING_CONVENTIONS.md)
 - [Shell Scripting](./docs/SHELL_SCRIPTING.md)
+- [Tagging Conventions](./docs/TAGGING_CONVENTIONS.md)
 - [Architecture](./docs/ARCHITECTURE.md)
 
 # License

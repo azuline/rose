@@ -78,11 +78,11 @@ directory name. NEW releases have their virtual directory name prefixed with
 
 By default, Rosé flags releases as new when they are first imported.
 
-NEW-ness has no effects besides prefixing the directory name with `{NEW}` and
-adding the release to the `2. Releases - New` top-level directory. NEW-ness is
+"New"-ness has no effects besides prefixing the directory name with `{NEW}` and
+adding the release to the `2. Releases - New` top-level directory. "New"-ness is
 designed for you, the human operator, to edit manually.
 
-Rosé tracks NEW-ness within a release's `.rose.{uuid}.toml` file. See
+Rosé tracks "new"-ness within a release's `.rose.{uuid}.toml` file. See
 [Architecture](./ARCHITECTURE.md) for more information about this file.
 
 # Hiding Artists, Genres, and Labels
@@ -110,7 +110,7 @@ All command line commands accept releases in three formats:
 3. The path to the release in the virtual filesystem. The virtual filesystem
    must be mounted for this format to work.
 
-## Toggle Release NEW-ness
+## Toggle Release "new"-ness
 
 Command line:
 

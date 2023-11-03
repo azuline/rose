@@ -1,4 +1,4 @@
-# Using Playlists & Collages
+# Managing Playlists & Collages
 
 Rosé supports the creation and management of collages (lists of releases) and
 playlists (lists of tracks).

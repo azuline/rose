@@ -109,6 +109,10 @@ cache_dir = "~/.cache/rose"
 max_proc = 4
 ```
 
+# Reloading
+
+TBD
+
 # Shell Completion
 
 Rosé supports optional shell completion for the `bash`, `zsh`, and `fish`
@@ -116,15 +120,15 @@ shells. The following commands enable shell completion:
 
 ```bash
 # Bash
-$ rose completion bash > ~/.config/rose/completion.bash
+$ rose gen-completion bash > ~/.config/rose/completion.bash
 $ echo ". ~/.config/rose/.completion.bash" >> ~/.bashrc
 
 # Zsh
-$ rose completion zsh > ~/.config/rose/completion.zsh
+$ rose gen-completion zsh > ~/.config/rose/completion.zsh
 $ echo ". ~/.config/rose/.completion.zsh" >> ~/.zshrc
 
 # Fish
-$ rose completion fish > ~/.config/fish/completions/rose.fish
+$ rose gen-completion fish > ~/.config/fish/completions/rose.fish
 ```
 
 # Systemd
