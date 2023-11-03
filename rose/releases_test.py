@@ -1,3 +1,4 @@
+import json
 import shutil
 from pathlib import Path
 from typing import Any
@@ -20,10 +21,6 @@ from rose.releases import (
     set_release_cover_art,
     toggle_release_new,
 )
-
-
-def test_dump_releases(config: Config) -> None:
-    assert dump_releases(config) == "[]"
 
 
 def test_delete_release(config: Config) -> None:
@@ -238,6 +235,60 @@ def test_extract_single_release(config: Config) -> None:
     assert af.disc_number == "1"
     assert af.release_type == "single"
     assert af.album_artists == af.artists
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_dump_releases(config: Config) -> None:
+    assert json.loads(dump_releases(config)) == [
+        {
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "artists": [
+                {"alias": False, "name": "Bass Man", "role": "main"},
+                {"alias": False, "name": "Techno Man", "role": "main"},
+            ],
+            "cover_image_path": None,
+            "formatted_artists": "Techno Man;Bass Man",
+            "genres": ["Deep House", "Techno"],
+            "id": "r1",
+            "labels": ["Silk Music"],
+            "new": False,
+            "releasetype": "album",
+            "source_path": f"{config.music_source_dir}/r1",
+            "title": "Release 1",
+            "year": 2023,
+        },
+        {
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "artists": [
+                {"alias": False, "name": "Conductor Woman", "role": "guest"},
+                {"alias": False, "name": "Violin Woman", "role": "main"},
+            ],
+            "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
+            "formatted_artists": "Violin Woman feat. Conductor Woman",
+            "genres": ["Classical"],
+            "id": "r2",
+            "labels": ["Native State"],
+            "new": False,
+            "releasetype": "album",
+            "source_path": f"{config.music_source_dir}/r2",
+            "title": "Release 2",
+            "year": 2021,
+        },
+        {
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "artists": [],
+            "cover_image_path": None,
+            "formatted_artists": "",
+            "genres": [],
+            "id": "r3",
+            "labels": [],
+            "new": True,
+            "releasetype": "album",
+            "source_path": f"{config.music_source_dir}/r3",
+            "title": "Release 3",
+            "year": 2021,
+        },
+    ]
 
 
 def test_resolve_release_ids(config: Config) -> None:

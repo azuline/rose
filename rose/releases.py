@@ -9,7 +9,6 @@ import logging
 import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
 
 import click
 import tomli_w
@@ -47,16 +46,8 @@ class UnknownArtistRoleError(RoseError):
     pass
 
 
-class CustomJSONEncoder(json.JSONEncoder):
-    def default(self, obj: Any) -> Any:
-        if isinstance(obj, Path):
-            return str(obj)
-        return super().default(obj)
-
-
 def dump_releases(c: Config) -> str:
-    releases = [asdict(r) for r in list_releases(c)]
-    return json.dumps(releases, cls=CustomJSONEncoder)
+    return json.dumps([r.dump() for r in list_releases(c)])
 
 
 def delete_release(c: Config, release_id_or_virtual_dirname: str) -> None:
