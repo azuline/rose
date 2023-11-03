@@ -5,6 +5,8 @@ previews, and executes rules.
 
 import copy
 import logging
+import shlex
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +24,7 @@ from rose.rule_parser import (
     AddAction,
     DeleteAction,
     MetadataAction,
+    MetadataMatcher,
     MetadataRule,
     ReplaceAction,
     SedAction,
@@ -72,9 +75,38 @@ def execute_metadata_rule(
     """
     # Newline for appearance.
     click.echo()
+    fast_search_results = fast_search_for_matching_files(c, rule.matcher)
+    if not fast_search_results:
+        click.secho("No matching tracks found", dim=True, italic=True)
+        click.echo()
+        return
+    matcher_audiotags = filter_false_positives_using_tags(rule.matcher, fast_search_results)
+    if not matcher_audiotags:
+        click.secho("No matching tracks found", dim=True, italic=True)
+        click.echo()
+        return
+    execute_metadata_actions(
+        c,
+        rule.actions,
+        matcher_audiotags,
+        dry_run=dry_run,
+        confirm_yes=confirm_yes,
+        enter_number_to_confirm_above_count=enter_number_to_confirm_above_count,
+    )
 
-    # === Step 1: Fast search for matching files ===
 
+@dataclass
+class FastSearchResult:
+    track_id: str
+    track_path: Path
+    release_id: str
+
+
+def fast_search_for_matching_files(c: Config, matcher: MetadataMatcher) -> list[FastSearchResult]:
+    """
+    Run a search with the matcher on the Full Text Search index. This is _fast_, but will produce
+    false positives. The caller must filter out the false positives after pulling the results.
+    """
     # Convert the matcher to a SQL expression for SQLite FTS. We won't be doing the precise
     # prefix/suffix matching here: for performance, we abuse SQLite FTS by making every character
     # its own token, which grants us the ability to search for arbitrary substrings. However, FTS
@@ -85,7 +117,7 @@ def execute_metadata_rule(
     # Therefore we strip the `^$` and convert the text into SQLite FTS Match query. We use NEAR to
     # assert that all the characters are within a substring equivalent to the length of the query,
     # which should filter out most false positives.
-    matchsqlstr = rule.matcher.pattern
+    matchsqlstr = matcher.pattern
     if matchsqlstr.startswith("^"):
         matchsqlstr = matchsqlstr[1:]
     if matchsqlstr.endswith("$"):
@@ -96,15 +128,15 @@ def execute_metadata_rule(
     # matched substring must be less than or equal to a given number. For us, that number is
     # len(matchsqlstr) - 2, as we subtract the first and last characters.
     matchsql = f'NEAR("{matchsql}", {max(0, len(matchsqlstr)-2)})'
-    logger.debug(f"Converted match {rule.matcher=} to {matchsql=}")
+    logger.debug(f"Converted match {matcher=} to {matchsql=}")
 
     # Build the query to fetch a superset of tracks to attempt to execute the rules against. Note
     # that we directly use string interpolation here instead of prepared queries, because we are
     # constructing a complex match string and everything is escaped and spaced-out with a random
     # paragraph character, so there's no risk of SQL being interpreted.
-    ftsquery = f"{{{' '.join(rule.matcher.tags)}}} : {matchsql}"
+    ftsquery = f"{{{' '.join(matcher.tags)}}} : {matchsql}"
     query = f"""
-        SELECT DISTINCT t.source_path
+        SELECT DISTINCT t.id, t.source_path, t.release_id
         FROM rules_engine_fts
         JOIN tracks t ON rules_engine_fts.rowid = t.rowid
         WHERE rules_engine_fts MATCH '{ftsquery}'
@@ -114,49 +146,68 @@ def execute_metadata_rule(
     # And then execute the SQL query. Note that we don't pull the tag values here. This query is
     # only used to identify the matching tracks. Afterwards, we will read each track's tags from
     # disk and apply the action on those tag values.
+    results: list[FastSearchResult] = []
     with connect(c) as conn:
-        track_paths = [Path(row["source_path"]).resolve() for row in conn.execute(query)]
-    logger.debug(f"Matched {len(track_paths)} tracks from the read cache")
-    if not track_paths:
-        click.secho("No matching tracks found", dim=True, italic=True)
-        click.echo()
-        return
+        for row in conn.execute(query):
+            results.append(
+                FastSearchResult(
+                    track_id=row["id"],
+                    track_path=Path(row["source_path"]).resolve(),
+                    release_id=row["release_id"],
+                )
+            )
+    logger.debug(f"Matched {len(results)} tracks from the read cache")
+    return results
 
-    # === Step 2: Filter out false positives ===
 
+def filter_false_positives_using_tags(
+    matcher: MetadataMatcher,
+    fast_search_results: list[FastSearchResult],
+) -> list[AudioTags]:
     matcher_audiotags: list[AudioTags] = []
-    for tpath in track_paths:
-        tags = AudioTags.from_file(tpath)
-        for field in rule.matcher.tags:
+    for fsr in fast_search_results:
+        tags = AudioTags.from_file(fsr.track_path)
+        for field in matcher.tags:
             match = False
             # fmt: off
-            match = match or (field == "tracktitle" and matches_pattern(rule.matcher.pattern, tags.title))  
-            match = match or (field == "year" and matches_pattern(rule.matcher.pattern, tags.year))  
-            match = match or (field == "tracknumber" and matches_pattern(rule.matcher.pattern, tags.tracknumber))  
-            match = match or (field == "discnumber" and matches_pattern(rule.matcher.pattern, tags.discnumber))  
-            match = match or (field == "albumtitle" and matches_pattern(rule.matcher.pattern, tags.album))  
-            match = match or (field == "releasetype" and matches_pattern(rule.matcher.pattern, tags.releasetype))  
-            match = match or (field == "genre" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.genre))  
-            match = match or (field == "label" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.label))  
-            match = match or (field == "trackartist" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.trackartists.all))  
-            match = match or (field == "albumartist" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.albumartists.all))  
+            match = match or (field == "tracktitle" and matches_pattern(matcher.pattern, tags.title))  
+            match = match or (field == "year" and matches_pattern(matcher.pattern, tags.year))  
+            match = match or (field == "tracknumber" and matches_pattern(matcher.pattern, tags.tracknumber))  
+            match = match or (field == "discnumber" and matches_pattern(matcher.pattern, tags.discnumber))  
+            match = match or (field == "albumtitle" and matches_pattern(matcher.pattern, tags.album))  
+            match = match or (field == "releasetype" and matches_pattern(matcher.pattern, tags.releasetype))  
+            match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in tags.genre))  
+            match = match or (field == "label" and any(matches_pattern(matcher.pattern, x) for x in tags.label))  
+            match = match or (field == "trackartist" and any(matches_pattern(matcher.pattern, x) for x in tags.trackartists.all))  
+            match = match or (field == "albumartist" and any(matches_pattern(matcher.pattern, x) for x in tags.albumartists.all))  
             # fmt: on
             if match:
                 matcher_audiotags.append(tags)
                 break
-    if not matcher_audiotags:
-        click.secho("No matching tracks found", dim=True, italic=True)
-        click.echo()
-        return
+    return matcher_audiotags
 
+
+def execute_metadata_actions(
+    c: Config,
+    actions: list[MetadataAction],
+    audiotags: list[AudioTags],
+    *,
+    dry_run: bool = False,
+    confirm_yes: bool = False,
+    enter_number_to_confirm_above_count: int = 25,
+) -> None:
+    """
+    This function executes steps 3-5 of the rule executor. See that function's docstring. This is
+    split out to enable running actions on known releases/tracks.
+    """
     # === Step 3: Prepare updates on in-memory tags ===
 
     Changes = tuple[str, Any, Any]  # (old, new)  # noqa: N806
     actionable_audiotags: list[tuple[AudioTags, list[Changes]]] = []
-    for tags in matcher_audiotags:
+    for tags in audiotags:
         origtags = copy.deepcopy(tags)
         potential_changes: list[Changes] = []
-        for act in rule.actions:
+        for act in actions:
             fields_to_update = act.tags
             for field in fields_to_update:
                 # fmt: off
@@ -285,7 +336,9 @@ def execute_metadata_rule(
 
     # === Step 5: Flush writes to disk ===
 
-    logger.info(f"Writing tag changes for rule {rule}")
+    logger.info(
+        f"Writing tag changes for actions {' '.join([shlex.quote(str(a)) for a in actions])}"
+    )
     changed_release_ids: set[str] = set()
     for tags, changes in actionable_audiotags:
         if tags.release_id:
