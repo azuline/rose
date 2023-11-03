@@ -578,6 +578,19 @@ def test_update_cache_releases_ignores_directories(config: Config) -> None:
         assert cursor.fetchone()[0] == 0
 
 
+def test_update_cache_releases_notices_deleted_track(config: Config) -> None:
+    """Test that we notice when a track is deleted."""
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    update_cache(config)
+
+    (release_dir / "02.m4a").unlink()
+    update_cache(config)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM tracks")
+        assert cursor.fetchone()[0] == 1
+
+
 def test_update_cache_releases_ignores_partially_written_directory(config: Config) -> None:
     """Test that a partially-written cached release is ignored."""
     # 1. Write the directory and index it. This should give it IDs and shit.

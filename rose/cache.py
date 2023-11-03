@@ -354,7 +354,7 @@ def update_cache_for_releases(
     # multithreaded. Starting other processes from threads is bad!
     if not force_multiprocessing and len(release_dirs) < 50:
         logger.debug(
-            "Running cache update executor in same process because {len(release_dirs)=} < 50"
+            f"Running cache update executor in same process because {len(release_dirs)=} < 50"
         )
         known_virtual_dirnames_hi: dict[str, bool] = {}
         _update_cache_for_releases_executor(c, release_dirs, force, known_virtual_dirnames_hi)
@@ -628,8 +628,7 @@ def _update_cache_for_releases_executor(
             release, cached_tracks = cached_releases[preexisting_release_id or ""]
         except KeyError:
             logger.debug(
-                f"First-time unidentified release found at release {source_path}, "
-                "writing UUID and new"
+                f"First-time unidentified release found at release {source_path}, writing UUID and new"
             )
             release_dirty = True
             release = CachedRelease(
@@ -863,8 +862,7 @@ def _update_cache_for_releases_executor(
                     ):
                         break
                     logger.debug(
-                        "Virtual dirname collision: "
-                        f"{release_virtual_dirname=} {known_virtual_dirnames=}"
+                        f"Virtual dirname collision: {release_virtual_dirname=} {known_virtual_dirnames=}"
                     )
                     release_virtual_dirname = f"{original_virtual_dirname} [{collision_no}]"
                     collision_no += 1
@@ -936,7 +934,7 @@ def _update_cache_for_releases_executor(
         # Now calculate whether this release is multidisc, and then assign virtual_filenames and
         # formatted_release_positions for each track that lacks one.
         # Only recompute this if any tracks have changed. Otherwise, save CPU cycles.
-        if track_ids_to_insert:
+        if track_ids_to_insert or unknown_cached_tracks:
             multidisc = len({t.disc_number for t in tracks}) > 1
             if release.multidisc != multidisc:
                 logger.debug(f"Release multidisc change detected for {source_path}, updating")
@@ -952,8 +950,7 @@ def _update_cache_for_releases_executor(
                     formatted_release_position += f"{t.track_number:0>2}"
                 if formatted_release_position != t.formatted_release_position:
                     logger.debug(
-                        f"Track formatted release position change detected for {t.source_path}, "
-                        "updating"
+                        f"Track formatted release position change detected for {t.source_path}, updating"
                     )
                     tracks[i].formatted_release_position = formatted_release_position
                     track_ids_to_insert.add(t.id)
@@ -1054,10 +1051,7 @@ def _update_cache_for_releases_executor(
     with connect(c) as conn:
         if upd_delete_source_paths:
             conn.execute(
-                f"""
-                DELETE FROM releases
-                WHERE source_path IN ({','.join(['?']*len(upd_delete_source_paths))})
-                """,
+                f"DELETE FROM releases WHERE source_path IN ({','.join(['?']*len(upd_delete_source_paths))})",
                 upd_delete_source_paths,
             )
         if upd_unknown_cached_tracks_args:
@@ -1381,21 +1375,18 @@ def update_cache_for_collages(
                 for rls in releases:
                     if not rls.get("missing", False) and rls["uuid"] not in existing_release_ids:
                         logger.warning(
-                            f"Marking missing release {rls['description_meta']} "
-                            f"as missing in collage {cached_collage.name}"
+                            f"Marking missing release {rls['description_meta']} as missing in collage {cached_collage.name}"
                         )
                         rls["missing"] = True
                     elif rls.get("missing", False) and rls["uuid"] in existing_release_ids:
                         logger.info(
-                            f"Missing release {rls['description_meta']} in collage "
-                            f"{cached_collage.name} found: removing missing flag"
+                            f"Missing release {rls['description_meta']} in collage {cached_collage.name} found: removing missing flag"
                         )
                         del rls["missing"]
 
                 cached_collage.release_ids = [r["uuid"] for r in releases]
                 logger.debug(
-                    f"Found {len(cached_collage.release_ids)} release(s) (including missing) "
-                    f"in {source_path}"
+                    f"Found {len(cached_collage.release_ids)} release(s) (including missing) in {source_path}"
                 )
 
                 # Update the description_metas.
@@ -1591,21 +1582,18 @@ def update_cache_for_playlists(
                 for trk in tracks:
                     if not trk.get("missing", False) and trk["uuid"] not in existing_track_ids:
                         logger.warning(
-                            f"Marking missing track {trk['description_meta']} "
-                            f"as missing in playlist {cached_playlist.name}"
+                            f"Marking missing track {trk['description_meta']} as missing in playlist {cached_playlist.name}"
                         )
                         trk["missing"] = True
                     elif trk.get("missing", False) and trk["uuid"] in existing_track_ids:
                         logger.info(
-                            f"Missing trk {trk['description_meta']} in playlist "
-                            f"{cached_playlist.name} found: removing missing flag"
+                            f"Missing trk {trk['description_meta']} in playlist {cached_playlist.name} found: removing missing flag"
                         )
                         del trk["missing"]
 
                 cached_playlist.track_ids = [t["uuid"] for t in tracks]
                 logger.debug(
-                    f"Found {len(cached_playlist.track_ids)} track(s) (including missing) "
-                    f"in {source_path}"
+                    f"Found {len(cached_playlist.track_ids)} track(s) (including missing) in {source_path}"
                 )
 
                 # Update the description_metas.
