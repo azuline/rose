@@ -221,11 +221,44 @@ $ tree "1. Releases/"
 
 ## Edit Release Metadata
 
-Editing a release's metadata is only possible via the command line.
-
-See the "Text-Based Release Editing" section in [Improving Your Music Metadata](./METADATA_TOOLS.md)
-for documentation on this operation.
+See the "Text-Based Release Editing" section in [Improving Your Music Metadata](./METADATA_TOOLS.md).
 
 ## Create "Phony" Single Release
 
-TODO
+Let's say that you did not enjoy a release, and want to delete it from your
+library, but you did enjoy one standout track and wish to keep only that track.
+
+Rosé allows you to create a new, "phony," single release for that track alone,
+so that you can get rid of the release while keeping the track(s) you liked.
+
+To demonstrate:
+
+```bash
+$ cd $fuse_mount_dir
+
+$ rose releases create-single "1. Releases/ITZY - 2022. CHECKMATE [K-Pop]/01.\ SNEAKERS.opus"
+[12:16:06] INFO: Created phony single release ITZY - 2022. SNEAKERS
+[12:16:06] INFO: Updating cache for release ITZY - 2022. SNEAKERS
+[12:16:06] INFO: Toggled "new"-ness of release /home/blissful/.music-source/ITZY - 2022. SNEAKERS to False
+[12:16:06] INFO: Updating cache for release ITZY - 2022. SNEAKERS
+
+$ tree "1. Releases/ITZY - 2022. SNEAKERS - Single [K-Pop]/"
+1. Releases/ITZY - 2022. SNEAKERS - Single [K-Pop]/
+├── 01. ITZY - SNEAKERS.opus
+└── cover.jpg
+```
+
+The original track is unmodified by the command: the new release contains a
+copy of the previous track with some modified tags. If cover art is present in
+the directory of the given track, that cover art is also copied to the new
+single release.
+
+The new single release's tags are modified from the original track, like so:
+
+```
+albumtitle = $tracktitle
+releasetype = "single"
+albumartists = $trackartists
+tracknumber = 1
+discnumber = 1
+```

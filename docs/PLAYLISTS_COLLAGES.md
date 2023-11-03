@@ -201,7 +201,7 @@ $ tree "8. Playlists/Evening/"
 
 ## Reordering Releases/Tracks
 
-Reordering releases/tracks is only possible via the command line.
+Reordering releases/tracks is only supported via the command line.
 
 _Releases and tracks can also be removed from the collage or playlist by
 deleting their line entry from the text file._

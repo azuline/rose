@@ -81,7 +81,7 @@ def toggle_release_new(c: Config, release_id_or_virtual_dirname: str) -> None:
             data["new"] = not data["new"]
             with f.open("wb") as fp:
                 tomli_w.dump(data, fp)
-        logger.info(f'Toggled "new"-ness of release {source_path} to {data["new"]=}')
+        logger.info(f'Toggled "new"-ness of release {source_path} to {data["new"]}')
         update_cache_for_releases(c, [source_path], force=True)
         return
 
@@ -351,6 +351,7 @@ def create_single_release(c: Config, track_path: Path) -> None:
     af.id = None
     af.flush()
     af = AudioTags.from_file(new_track_path)
+    logger.info(f"Created phony single release {source_path.name}")
     # Step 4: Update the cache!
     update_cache_for_releases(c, [source_path])
     # Step 5: Default extracted singles to not new: if it is new, why are you meddling with it?
