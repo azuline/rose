@@ -14,7 +14,7 @@ from send2trash import send2trash
 
 from rose.cache import (
     collage_lock_name,
-    list_collage_releases,
+    get_collage,
     list_collages,
     lock,
     update_cache_evict_nonexistent_collages,
@@ -138,12 +138,15 @@ def add_release_to_collage(
 
 
 def dump_collages(c: Config) -> str:
-    out: dict[str, list[dict[str, Any]]] = {}
+    out: list[dict[str, Any]] = []
     collage_names = list(list_collages(c))
     for name in collage_names:
-        out[name] = []
-        for pos, virtual_dirname, _ in list_collage_releases(c, name):
-            out[name].append({"position": pos, "release": virtual_dirname})
+        cdata = get_collage(c, name)
+        assert cdata is not None
+        releases: list[dict[str, Any]] = []
+        for idx, rls in enumerate(cdata[1]):
+            releases.append({"position": idx + 1, **rls.dump()})
+        out.append({"name": name, "releases": releases})
     return json.dumps(out)
 
 

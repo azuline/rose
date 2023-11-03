@@ -13,6 +13,7 @@ from rose.cache import (
     CACHE_SCHEMA_PATH,
     STORED_DATA_FILE_REGEX,
     CachedArtist,
+    CachedCollage,
     CachedPlaylist,
     CachedRelease,
     CachedTrack,
@@ -22,6 +23,7 @@ from rose.cache import (
     connect,
     cover_exists,
     genre_exists,
+    get_collage,
     get_playlist,
     get_release,
     get_release_id_from_virtual_dirname,
@@ -31,7 +33,6 @@ from rose.cache import (
     get_track_filename,
     label_exists,
     list_artists,
-    list_collage_releases,
     list_collages,
     list_genres,
     list_labels,
@@ -1250,14 +1251,114 @@ def test_list_collages(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_list_collage_releases(config: Config) -> None:
-    releases = list(list_collage_releases(config, "Rose Gold"))
-    assert set(releases) == {
-        (1, "r1", config.music_source_dir / "r1"),
-        (2, "r2", config.music_source_dir / "r2"),
-    }
-    releases = list(list_collage_releases(config, "Ruby Red"))
+def test_get_collage(config: Config) -> None:
+    cdata = get_collage(config, "Rose Gold")
+    assert cdata is not None
+    collage, releases = cdata
+    assert collage == CachedCollage(
+        name="Rose Gold",
+        source_mtime="999",
+        release_ids=["r1", "r2"],
+    )
+    assert releases == [
+        CachedRelease(
+            id="r1",
+            source_path=config.music_source_dir / "r1",
+            cover_image_path=None,
+            added_at="0000-01-01T00:00:00+00:00",
+            datafile_mtime="999",
+            virtual_dirname="r1",
+            title="Release 1",
+            releasetype="album",
+            year=2023,
+            new=False,
+            multidisc=False,
+            genres=["Deep House", "Techno"],
+            labels=["Silk Music"],
+            artists=[
+                CachedArtist(name="Bass Man", role="main", alias=False),
+                CachedArtist(name="Techno Man", role="main", alias=False),
+            ],
+            formatted_artists="Techno Man;Bass Man",
+        ),
+        CachedRelease(
+            id="r2",
+            source_path=config.music_source_dir / "r2",
+            cover_image_path=config.music_source_dir / "r2" / "cover.jpg",
+            added_at="0000-01-01T00:00:00+00:00",
+            datafile_mtime="999",
+            virtual_dirname="r2",
+            title="Release 2",
+            releasetype="album",
+            year=2021,
+            new=False,
+            multidisc=False,
+            genres=["Classical"],
+            labels=["Native State"],
+            artists=[
+                CachedArtist(name="Conductor Woman", role="guest", alias=False),
+                CachedArtist(name="Violin Woman", role="main", alias=False),
+            ],
+            formatted_artists="Violin Woman feat. Conductor Woman",
+        ),
+    ]
+
+    cdata = get_collage(config, "Ruby Red")
+    assert cdata is not None
+    collage, releases = cdata
+    assert collage == CachedCollage(
+        name="Ruby Red",
+        source_mtime="999",
+        release_ids=[],
+    )
     assert releases == []
+
+    # lalalisa
+    pdata = get_playlist(config, "Lala Lisa")
+    assert pdata is not None
+    playlist, tracks = pdata
+    assert playlist == CachedPlaylist(
+        name="Lala Lisa",
+        source_mtime="999",
+        cover_path=config.music_source_dir / "!playlists" / "Lala Lisa.jpg",
+        track_ids=["t1", "t3"],
+    )
+    assert tracks == [
+        CachedTrack(
+            id="t1",
+            source_path=config.music_source_dir / "r1" / "01.m4a",
+            source_mtime="999",
+            virtual_filename="01.m4a",
+            title="Track 1",
+            release_id="r1",
+            track_number="01",
+            disc_number="01",
+            formatted_release_position="01",
+            duration_seconds=120,
+            artists=[
+                CachedArtist(name="Bass Man", role="main", alias=False),
+                CachedArtist(name="Techno Man", role="main", alias=False),
+            ],
+            formatted_artists="Techno Man;Bass Man",
+        ),
+        CachedTrack(
+            id="t3",
+            source_path=config.music_source_dir / "r2" / "01.m4a",
+            source_mtime="999",
+            virtual_filename="01.m4a",
+            title="Track 1",
+            release_id="r2",
+            track_number="01",
+            disc_number="01",
+            formatted_release_position="01",
+            duration_seconds=120,
+            artists=[
+                CachedArtist(name="Conductor Woman", role="guest", alias=False),
+                CachedArtist(name="Violin Woman", role="main", alias=False),
+            ],
+            formatted_artists="Violin Woman feat. Conductor Woman",
+        ),
+    ]
 
 
 @pytest.mark.usefixtures("seeded_cache")

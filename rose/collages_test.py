@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Any
 
@@ -123,9 +124,50 @@ def test_rename_collage(config: Config, source_dir: Path) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_dump_collages(config: Config) -> None:
     out = dump_collages(config)
-    # fmt: off
-    assert out == '{"Rose Gold": [{"position": 1, "release": "r1"}, {"position": 2, "release": "r2"}], "Ruby Red": []}' # noqa: E501
-    # fmt: on
+    assert json.loads(out) == [
+        {
+            "name": "Rose Gold",
+            "releases": [
+                {
+                    "position": 1,
+                    "id": "r1",
+                    "source_path": f"{config.music_source_dir}/r1",
+                    "cover_image_path": None,
+                    "added_at": "0000-01-01T00:00:00+00:00",
+                    "title": "Release 1",
+                    "releasetype": "album",
+                    "year": 2023,
+                    "new": False,
+                    "genres": ["Deep House", "Techno"],
+                    "labels": ["Silk Music"],
+                    "artists": [
+                        {"name": "Bass Man", "role": "main", "alias": False},
+                        {"name": "Techno Man", "role": "main", "alias": False},
+                    ],
+                    "formatted_artists": "Techno Man;Bass Man",
+                },
+                {
+                    "position": 2,
+                    "id": "r2",
+                    "source_path": f"{config.music_source_dir}/r2",
+                    "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
+                    "added_at": "0000-01-01T00:00:00+00:00",
+                    "title": "Release 2",
+                    "releasetype": "album",
+                    "year": 2021,
+                    "new": False,
+                    "genres": ["Classical"],
+                    "labels": ["Native State"],
+                    "artists": [
+                        {"name": "Conductor Woman", "role": "guest", "alias": False},
+                        {"name": "Violin Woman", "role": "main", "alias": False},
+                    ],
+                    "formatted_artists": "Violin Woman feat. Conductor Woman",
+                },
+            ],
+        },
+        {"name": "Ruby Red", "releases": []},
+    ]
 
 
 def test_edit_collages_ordering(monkeypatch: Any, config: Config, source_dir: Path) -> None:

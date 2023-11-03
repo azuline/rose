@@ -156,17 +156,17 @@ def test_virtual_filesystem_collage_actions(config: Config) -> None:
                 "cp",
                 "-rp",
                 str(root / "1. Releases" / "r1"),
-                str(root / "7. Collages" / "New Jeans" / "r1"),
+                str(root / "7. Collages" / "New Jeans" / "1. r1"),
             ],
             check=True,
         )
-        assert (root / "7. Collages" / "New Jeans" / "r1").is_dir()
-        assert (root / "7. Collages" / "New Jeans" / "r1" / "01. 01.m4a").is_file()
+        assert (root / "7. Collages" / "New Jeans" / "1. r1").is_dir()
+        assert (root / "7. Collages" / "New Jeans" / "1. r1" / "01. 01.m4a").is_file()
         with (src / "!collages" / "New Jeans.toml").open("r") as fp:
             assert "r1" in fp.read()
         # Delete release from collage.
-        (root / "7. Collages" / "New Jeans" / "r1").rmdir()
-        assert not (root / "7. Collages" / "New Jeans" / "r1").exists()
+        (root / "7. Collages" / "New Jeans" / "1. r1").rmdir()
+        assert not (root / "7. Collages" / "New Jeans" / "1. r1").exists()
         with (src / "!collages" / "New Jeans.toml").open("r") as fp:
             assert "r1" not in fp.read()
         # Delete collage.
@@ -187,8 +187,8 @@ def test_virtual_filesystem_add_collage_release_prefix_stripping(config: Config)
 
     with start_virtual_fs(config):
         for d in dirs:
-            shutil.copytree(d, root / "7. Collages" / "Ruby Red" / "r1")
-            (root / "7. Collages" / "Ruby Red" / "r1").rmdir()
+            shutil.copytree(d, root / "7. Collages" / "Ruby Red" / "1. r1")
+            (root / "7. Collages" / "Ruby Red" / "1. r1").rmdir()
 
 
 def test_virtual_filesystem_playlist_actions(

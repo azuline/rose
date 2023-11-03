@@ -49,15 +49,14 @@ import llfuse
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
 from rose.cache import (
     artist_exists,
-    collage_exists,
     cover_exists,
     genre_exists,
+    get_collage,
     get_playlist,
     get_release,
     get_release_source_path_from_id,
     label_exists,
     list_artists,
-    list_collage_releases,
     list_collages,
     list_genres,
     list_labels,
@@ -481,12 +480,17 @@ class RoseLogicalCore:
 
         # 7. Collages
         if p.collage:
-            if not collage_exists(self.config, p.collage):
-                raise llfuse.FUSEError(errno.ENOENT)
+            try:
+                _, releases = get_collage(self.config, p.collage)  # type: ignore
+            except TypeError as e:
+                raise llfuse.FUSEError(errno.ENOENT) from e
             if p.release:
-                for _, virtual_dirname, src_path in list_collage_releases(self.config, p.collage):
-                    if virtual_dirname == p.release:
-                        return getattr_release(src_path)
+                if p.release_position:
+                    for idx, release in enumerate(releases):
+                        if release.virtual_dirname == p.release and idx + 1 == int(
+                            p.release_position
+                        ):
+                            return getattr_release(release.source_path)
                 raise llfuse.FUSEError(errno.ENOENT)
             return self.stat("dir")
 
@@ -615,12 +619,12 @@ class RoseLogicalCore:
             return
 
         if p.view == "Collages" and p.collage:
-            releases = list(list_collage_releases(self.config, p.collage))
+            _, releases = get_collage(self.config, p.collage)  # type: ignore
             # Two zeros because `max(single_arg)` assumes that the single_arg is enumerable.
-            pad_size = max(0, 0, *[len(str(r[0])) for r in releases])
-            for idx, virtual_dirname, source_dir in releases:
-                v = f"{str(idx).zfill(pad_size)}. {virtual_dirname}"
-                yield v, self.stat("dir", source_dir)
+            pad_size = max(0, 0, *[len(str(i + 1)) for i, _ in enumerate(releases)])
+            for idx, release in enumerate(releases):
+                v = f"{str(idx+1).zfill(pad_size)}. {release.virtual_dirname}"
+                yield v, self.stat("dir", release.source_path)
             return
 
         if p.view == "Collages":

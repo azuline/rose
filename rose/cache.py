@@ -199,6 +199,13 @@ class CachedArtist:
     # virtual dirname and tags.
     alias: bool = False
 
+    def dump(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "role": self.role,
+            "alias": self.alias,
+        }
+
 
 @dataclass
 class CachedRelease:
@@ -217,6 +224,24 @@ class CachedRelease:
     labels: list[str]
     artists: list[CachedArtist]
     formatted_artists: str
+
+    def dump(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "source_path": str(self.source_path.resolve()),
+            "cover_image_path": str(self.cover_image_path.resolve())
+            if self.cover_image_path
+            else None,
+            "added_at": self.added_at,
+            "title": self.title,
+            "releasetype": self.releasetype,
+            "year": self.year,
+            "new": self.new,
+            "genres": self.genres,
+            "labels": self.labels,
+            "artists": [a.dump() for a in self.artists],
+            "formatted_artists": self.formatted_artists,
+        }
 
 
 @dataclass
@@ -2144,21 +2169,103 @@ def list_collages(c: Config) -> Iterator[str]:
             yield row["name"]
 
 
-def list_collage_releases(c: Config, collage_name: str) -> Iterator[tuple[int, str, Path]]:
+def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[CachedRelease]] | None:
     """Returns tuples of (position, release_virtual_dirname, release_source_path)."""
     with connect(c) as conn:
         cursor = conn.execute(
-            """
-            SELECT cr.position, r.virtual_dirname, r.source_path
-            FROM collages_releases cr
-            JOIN releases r ON r.id = cr.release_id
+            "SELECT name, source_mtime FROM collages WHERE name = ?",
+            (collage_name,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        collage = CachedCollage(
+            name=row["name"],
+            source_mtime=row["source_mtime"],
+            # Accumulated below when we query the releases.
+            release_ids=[],
+        )
+        cursor = conn.execute(
+            r"""
+            WITH genres AS (
+                SELECT
+                    release_id
+                  , GROUP_CONCAT(genre, ' \\ ') AS genres
+                FROM (SELECT * FROM releases_genres ORDER BY genre)
+                GROUP BY release_id
+            ), labels AS (
+                SELECT
+                    release_id
+                  , GROUP_CONCAT(label, ' \\ ') AS labels
+                FROM (SELECT * FROM releases_labels ORDER BY label)
+                GROUP BY release_id
+            ), artists AS (
+                SELECT
+                    release_id
+                  , GROUP_CONCAT(artist, ' \\ ') AS names
+                  , GROUP_CONCAT(role, ' \\ ') AS roles
+                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
+                FROM (SELECT * FROM releases_artists ORDER BY artist, role, alias)
+                GROUP BY release_id
+            )
+            SELECT
+                r.id
+              , r.source_path
+              , r.cover_image_path
+              , r.added_at
+              , r.datafile_mtime
+              , r.virtual_dirname
+              , r.title
+              , r.release_type
+              , r.release_year
+              , r.multidisc
+              , r.new
+              , r.formatted_artists
+              , COALESCE(g.genres, '') AS genres
+              , COALESCE(l.labels, '') AS labels
+              , COALESCE(a.names, '') AS art_names
+              , COALESCE(a.roles, '') AS art_roles
+              , COALESCE(a.aliases, '') AS art_aliases
+            FROM releases r
+            LEFT JOIN genres g ON g.release_id = r.id
+            LEFT JOIN labels l ON l.release_id = r.id
+            LEFT JOIN artists a ON a.release_id = r.id
+            JOIN collages_releases cr ON cr.release_id = r.id
             WHERE cr.collage_name = ?
-            ORDER BY cr.position
+            ORDER BY cr.position ASC
             """,
             (collage_name,),
         )
+        releases: list[CachedRelease] = []
         for row in cursor:
-            yield (row["position"], row["virtual_dirname"], Path(row["source_path"]))
+            rartists = [
+                CachedArtist(name=n, role=r, alias=bool(int(a)))
+                for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+            ]
+            collage.release_ids.append(row["id"])
+            releases.append(
+                CachedRelease(
+                    id=row["id"],
+                    source_path=Path(row["source_path"]),
+                    cover_image_path=Path(row["cover_image_path"])
+                    if row["cover_image_path"]
+                    else None,
+                    added_at=row["added_at"],
+                    datafile_mtime=row["datafile_mtime"],
+                    virtual_dirname=row["virtual_dirname"],
+                    title=row["title"],
+                    releasetype=row["release_type"],
+                    year=row["release_year"],
+                    multidisc=bool(row["multidisc"]),
+                    new=bool(row["new"]),
+                    genres=row["genres"].split(r" \\ ") if row["genres"] else [],
+                    labels=row["labels"].split(r" \\ ") if row["labels"] else [],
+                    artists=rartists,
+                    formatted_artists=row["formatted_artists"],
+                )
+            )
+
+    return (collage, releases)
 
 
 def release_exists(c: Config, virtual_dirname: str) -> Path | None:
