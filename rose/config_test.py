@@ -89,7 +89,9 @@ def test_config_full() -> None:
                     matcher=MetadataMatcher(tags=["tracktitle"], pattern="lala"),
                     actions=[
                         MetadataAction(
-                            behavior=ReplaceAction(replacement="hihi"), match_pattern="lala"
+                            behavior=ReplaceAction(replacement="hihi"),
+                            tags=["tracktitle"],
+                            pattern="lala",
                         )
                     ],
                 )

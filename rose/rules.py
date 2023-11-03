@@ -158,8 +158,6 @@ def execute_metadata_rule(
         potential_changes: list[Changes] = []
         for act in rule.actions:
             fields_to_update = act.tags
-            if fields_to_update == "matched":
-                fields_to_update = rule.matcher.tags
             for field in fields_to_update:
                 # fmt: off
                 if field == "tracktitle":
@@ -324,7 +322,7 @@ def matches_pattern(pattern: str, value: str | int | None) -> bool:
 
 # Factor out the logic for executing an action on a single-value tag and a multi-value tag.
 def execute_single_action(action: MetadataAction, value: str | int | None) -> str | None:
-    if action.match_pattern and not matches_pattern(action.match_pattern, value):
+    if action.pattern and not matches_pattern(action.pattern, value):
         return str(value)
 
     bhv = action.behavior
@@ -349,10 +347,10 @@ def execute_multi_value_action(
 
     # If match_pattern is specified, check which values match. And if none match, bail out.
     matching_idx = list(range(len(values)))
-    if action.match_pattern:
+    if action.pattern:
         matching_idx = []
         for i, v in enumerate(values):
-            if matches_pattern(action.match_pattern, v):
+            if matches_pattern(action.pattern, v):
                 matching_idx.append(i)
         if not matching_idx:
             return values
