@@ -77,7 +77,7 @@ def connect(c: Config) -> Iterator[sqlite3.Connection]:
             conn.close()
 
 
-def migrate_database(c: Config) -> None:
+def maybe_invalidate_cache_database(c: Config) -> None:
     """
     "Migrate" the database. If the schema in the database does not match that on disk, then nuke the
     database and recreate it from scratch. Otherwise, no op.
@@ -1318,7 +1318,7 @@ def _update_cache_for_releases_executor(
                 WHERE t.id IN ({",".join(["?"]*len(upd_track_ids))})
                    OR r.id IN ({",".join(["?"]*len(upd_release_ids))})
                 GROUP BY t.id
-                """,  # noqa: E501
+                """,
                 [*upd_track_ids, *upd_release_ids],
             )
 

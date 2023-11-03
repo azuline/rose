@@ -226,7 +226,7 @@ def set_playlist_cover_art(c: Config, playlist_name: str, new_cover_art_path: Pa
     update_cache_for_playlists(c, [playlist_name])
 
 
-def remove_playlist_cover_art(c: Config, playlist_name: str) -> None:
+def delete_playlist_cover_art(c: Config, playlist_name: str) -> None:
     """This function removes all potential cover arts for the playlist."""
     path = playlist_path(c, playlist_name)
     if not path.exists():

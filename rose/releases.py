@@ -81,7 +81,7 @@ def toggle_release_new(c: Config, release_id_or_virtual_dirname: str) -> None:
             data["new"] = not data["new"]
             with f.open("wb") as fp:
                 tomli_w.dump(data, fp)
-        logger.info(f"Toggled NEW-ness of release {source_path} to {data['new']=}")
+        logger.info(f'Toggled "new"-ness of release {source_path} to {data["new"]}')
         update_cache_for_releases(c, [source_path], force=True)
         return
 
@@ -118,7 +118,7 @@ def set_release_cover_art(
     update_cache_for_releases(c, [source_path])
 
 
-def remove_release_cover_art(c: Config, release_id_or_virtual_dirname: str) -> None:
+def delete_release_cover_art(c: Config, release_id_or_virtual_dirname: str) -> None:
     """This function deletes all potential cover arts in the release source directory."""
     release_id, release_dirname = resolve_release_ids(c, release_id_or_virtual_dirname)
     source_path = get_release_source_path_from_id(c, release_id)
@@ -311,7 +311,7 @@ def edit_release(c: Config, release_id_or_virtual_dirname: str) -> None:
     update_cache_for_releases(c, [release.source_path], force=True)
 
 
-def extract_single_release(c: Config, track_path: Path) -> None:
+def create_single_release(c: Config, track_path: Path) -> None:
     """Takes a track and copies it into a brand new "single" release with only that track."""
     if not track_path.is_file():
         raise FileNotFoundError(f"Failed to extract single: file {track_path} not found")
@@ -351,6 +351,7 @@ def extract_single_release(c: Config, track_path: Path) -> None:
     af.id = None
     af.flush()
     af = AudioTags.from_file(new_track_path)
+    logger.info(f"Created phony single release {source_path.name}")
     # Step 4: Update the cache!
     update_cache_for_releases(c, [source_path])
     # Step 5: Default extracted singles to not new: if it is new, why are you meddling with it?

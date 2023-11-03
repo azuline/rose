@@ -107,7 +107,17 @@ cache_dir = "~/.cache/rose"
 # and the number of works that the virtual filesystem can spin up to handle a
 # request.
 max_proc = 4
+
+# Stored metadata rules to be repeatedly ran in the future. See the Managing
+# Your Music Metadata document for more details.
+[[stored_metadata_rules]]
+matcher = "genre:^Kpop$"
+actions = ["replace:K-Pop"]
 ```
+
+# Reloading
+
+TODO
 
 # Shell Completion
 
@@ -116,15 +126,15 @@ shells. The following commands enable shell completion:
 
 ```bash
 # Bash
-$ rose completion bash > ~/.config/rose/completion.bash
+$ rose gen-completion bash > ~/.config/rose/completion.bash
 $ echo ". ~/.config/rose/.completion.bash" >> ~/.bashrc
 
 # Zsh
-$ rose completion zsh > ~/.config/rose/completion.zsh
+$ rose gen-completion zsh > ~/.config/rose/completion.zsh
 $ echo ". ~/.config/rose/.completion.zsh" >> ~/.zshrc
 
 # Fish
-$ rose completion fish > ~/.config/fish/completions/rose.fish
+$ rose gen-completion fish > ~/.config/fish/completions/rose.fish
 ```
 
 # Systemd

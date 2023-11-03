@@ -45,12 +45,13 @@ changes made _through_ Rosé. Any updates made through the virtual filesystem or
 command line automatically trigger a cache update for the changed files. Rosé
 will also update the cache when the virtual filesystem is mounted.
 
-However, even with that improvement, you would still need to run `rose cache
-update` automatically whenever changes are made directly to the source
-directory. Thus, Rosé provides the `rose cache watch` command, which runs a
-watcher that listens for file update events in the source directory. This
-watcher will trigger a cache update whenever a file in the source directory
-changes.
+However, even with that improvement, if you directly change the source
+directory with a tool that isn't Rosé, the cache will not automatically update
+in response. If you make all edits through Rosé, then this isn't a problem! But
+for users with other tools that directly edit the source directory, Rosé
+provides the `rose cache watch` command, which runs a watcher that listens for
+file update events in the source directory. This watcher will trigger a cache
+update whenever a file in the source directory changes.
 
 # Cache Resets
 

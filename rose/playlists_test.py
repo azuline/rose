@@ -13,9 +13,9 @@ from rose.playlists import (
     add_track_to_playlist,
     create_playlist,
     delete_playlist,
+    delete_playlist_cover_art,
     dump_playlists,
     edit_playlist_in_editor,
-    remove_playlist_cover_art,
     remove_track_from_playlist,
     rename_playlist,
     set_playlist_cover_art,
@@ -305,7 +305,7 @@ def test_remove_playlist_cover_art(config: Config) -> None:
     (playlists_dir / "Turtle Rabbit.jpg").touch()
     update_cache(config)
 
-    remove_playlist_cover_art(config, "Turtle Rabbit")
+    delete_playlist_cover_art(config, "Turtle Rabbit")
     assert not (playlists_dir / "Turtle Rabbit.jpg").exists()
     with connect(config) as conn:
         cursor = conn.execute("SELECT cover_path FROM playlists")

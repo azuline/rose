@@ -1,7 +1,7 @@
 """
 The artiststr module encapsulates the artist parsing and formatting logic. Because Rose gives a shit
 about which role an artist has on a release, we have a meaningful scheme for reading and writing
-artist tags. See `docs/METADATA_MANAGEMENT.md` for more information.
+artist tags. See `docs/METADATA_TOOLS.md` for more information.
 """
 
 import logging

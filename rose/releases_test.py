@@ -12,11 +12,11 @@ from rose.cache import CachedArtist, CachedRelease, CachedTrack, connect, get_re
 from rose.config import Config
 from rose.releases import (
     ReleaseDoesNotExistError,
+    create_single_release,
     delete_release,
+    delete_release_cover_art,
     dump_releases,
     edit_release,
-    extract_single_release,
-    remove_release_cover_art,
     resolve_release_ids,
     set_release_cover_art,
     toggle_release_new,
@@ -103,7 +103,7 @@ def test_remove_release_cover_art(config: Config) -> None:
         cursor = conn.execute("SELECT id FROM releases")
         release_id = cursor.fetchone()["id"]
 
-    remove_release_cover_art(config, release_id)
+    delete_release_cover_art(config, release_id)
     assert not (release_dir / "folder.png").exists()
     with connect(config) as conn:
         cursor = conn.execute("SELECT cover_image_path FROM releases")
@@ -165,7 +165,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         cover_image_path=None,
         added_at=release.added_at,
         datafile_mtime=release.datafile_mtime,
-        virtual_dirname="{NEW} BLACKPINK;JISOO - 2222. I Really Love Blackpink - Single [J-Pop;Pop-Rap]",  # noqa: E501
+        virtual_dirname="{NEW} BLACKPINK;JISOO - 2222. I Really Love Blackpink - Single [J-Pop;Pop-Rap]",
         title="I Really Love Blackpink",
         releasetype="single",
         year=2222,
@@ -220,7 +220,7 @@ def test_extract_single_release(config: Config) -> None:
     cover_art_path = config.music_source_dir / TEST_RELEASE_1.name / "cover.jpg"
     cover_art_path.touch()
     update_cache(config)
-    extract_single_release(config, config.music_source_dir / TEST_RELEASE_1.name / "02.m4a")
+    create_single_release(config, config.music_source_dir / TEST_RELEASE_1.name / "02.m4a")
     # Assert nothing happened to the files we "extracted."
     assert (config.music_source_dir / TEST_RELEASE_1.name / "02.m4a").is_file()
     assert cover_art_path.is_file()

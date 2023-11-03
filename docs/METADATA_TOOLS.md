@@ -1,4 +1,4 @@
-# Managing Your Music Metadata
+# Improving Your Music Metadata
 
 Rosé relies on the metadata embedded in your music files to organize your music
 into a useful virtual filesystem. This means that the quality of the music tags
@@ -106,7 +106,7 @@ To run an ad hoc rule from the command line, use the following command:
 
 ```bash
 # Accepts one or more actions.
-$ rose metadata run-rule [matcher] [action]...
+$ rose rules run [matcher] [action]...
 ```
 
 Rules can also be stored in the configuration file to be ran on future
@@ -132,7 +132,7 @@ two of Chuu's releases, but the first is tagged as `CHUU`, and the second as
 this change:
 
 ```bash
-$ rose metadata run-rule 'trackartist,albumartist:^CHUU$' 'replace:Chuu'
+$ rose rules run 'trackartist,albumartist:^CHUU$' 'replace:Chuu'
 
 CHUU - 2023. Howl/01. Howl.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
@@ -169,7 +169,7 @@ K-Pop genre. The following rule expresses that: for all releases with the
 albumartist `Chuu`, add the `K-Pop` genre tag.
 
 ```bash
-$ rose metadata run-rule 'albumartist:^Chuu$' 'genre::add:K-Pop'
+$ rose rules run 'albumartist:^Chuu$' 'genre::add:K-Pop'
 
 CHUU - 2023. Howl/01. Howl.opus
       genre: [] -> ['K-Pop']
@@ -204,7 +204,7 @@ Success! However, notice that one of Chuu's releases has the genre tag `Kpop`.
 Let's convert that `Kpop` tag to `K-Pop`, across the board.
 
 ```bash
-$ rose metadata run-rule 'genre:^Kpop$' 'replace:K-Pop'
+$ rose rules run 'genre:^Kpop$' 'replace:K-Pop'
 
 G‐Dragon - 2012. ONE OF A KIND/01. One Of A Kind.opus
       genre: ['Kpop'] -> ['K-Pop']
@@ -420,7 +420,7 @@ The formal syntax is defined by the following grammar:
 You can preview a rule's changes with the `--dry-run` flag. For example:
 
 ```bash
-$ rose metadata run-rule --dry-run 'albumartist:^Chuu$' 'genre::add:K-Pop'
+$ rose rules run --dry-run 'albumartist:^Chuu$' 'genre::add:K-Pop'
 
 CHUU - 2023. Howl/01. Howl.opus
       genre: [] -> ['K-Pop']

@@ -1,4 +1,4 @@
-# Using Playlists & Collages
+# Managing Playlists & Collages
 
 Rosé supports the creation and management of collages (lists of releases) and
 playlists (lists of tracks).
@@ -78,7 +78,7 @@ configurable. See [Configuration](./CONFIGURATION.md).
 
 However, working with this file directly is quite annoying, so Rosé allows you
 to manage collages and playlists via the command line and the virtual
-filesystem. In the rest of this document, we'll demonstrate the basic
+filesystem. In the rest of this document, we'll demonstrate the supported
 operations.
 
 ## Creating a Collage/Playlist
@@ -201,7 +201,7 @@ $ tree "8. Playlists/Evening/"
 
 ## Reordering Releases/Tracks
 
-Reordering releases/tracks is only possible via the command line.
+Reordering releases/tracks is only supported via the command line.
 
 _Releases and tracks can also be removed from the collage or playlist by
 deleting their line entry from the text file._
@@ -366,7 +366,7 @@ $ tree "8. Playlists/Shower/"
 └── cover.jpg
 ```
 
-## Remove Playlist Cover Art
+## Delete Playlist Cover Art
 
 _This operation is playlist-only, as collages do not have their own cover art._
 
@@ -375,7 +375,7 @@ Command line:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rose playlists remove-cover "Shower"
+$ rose playlists delete-cover "Shower"
 [02:10:34] INFO: Deleted cover arts of playlist Lounge
 [02:10:34] INFO: Updating cache for playlist Lounge
 

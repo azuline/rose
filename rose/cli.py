@@ -17,7 +17,7 @@ from pathlib import Path
 
 import click
 
-from rose.cache import migrate_database, update_cache
+from rose.cache import maybe_invalidate_cache_database, update_cache
 from rose.collages import (
     add_release_to_collage,
     create_collage,
@@ -33,19 +33,19 @@ from rose.playlists import (
     add_track_to_playlist,
     create_playlist,
     delete_playlist,
+    delete_playlist_cover_art,
     dump_playlists,
     edit_playlist_in_editor,
-    remove_playlist_cover_art,
     remove_track_from_playlist,
     rename_playlist,
     set_playlist_cover_art,
 )
 from rose.releases import (
+    create_single_release,
     delete_release,
+    delete_release_cover_art,
     dump_releases,
     edit_release,
-    extract_single_release,
-    remove_release_cover_art,
     set_release_cover_art,
     toggle_release_new,
 )
@@ -55,6 +55,10 @@ from rose.virtualfs import VirtualPath, mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
 logger = logging.getLogger(__name__)
+
+
+class UnimplementedError(RoseError):
+    pass
 
 
 class DaemonAlreadyRunningError(RoseError):
@@ -69,44 +73,55 @@ class Context:
 # fmt: off
 @click.group()
 @click.option("--verbose", "-v", is_flag=True, help="Emit verbose logging.")
-@click.option("--config", "-c", type=click.Path(path_type=Path), help="Override the config file location.")  # noqa: E501
+@click.option("--config", "-c", type=click.Path(path_type=Path), help="Override the config file location.")  
 @click.pass_context
 # fmt: on
 def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
-    """A music manager with a virtual filesystem."""
+    """A music manager with a virtual filesystem"""
     cc.obj = Context(
         config=Config.parse(config_path_override=config),
     )
-
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
+    maybe_invalidate_cache_database(cc.obj.config)
 
-    # Migrate the database on every command invocation.
-    migrate_database(cc.obj.config)
+
+@cli.command()
+@click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]), nargs=1)
+def gen_completion(shell: str) -> None:
+    """Generate a shell completion script"""
+    os.environ["_ROSE_COMPLETE"] = f"{shell}_source"
+    subprocess.run(["rose"], env=os.environ)
+
+
+@cli.command()
+def reload() -> None:
+    """Reload the configuration of active Rosé processes"""
+    raise UnimplementedError("Coming soon!")
 
 
 @cli.group()
 def cache() -> None:
-    """Manage the read cache."""
+    """Manage the read cache"""
 
 
 # fmt: off
 @cache.command()
-@click.option("--force", "-f", is_flag=True, help="Force re-read all data from disk, even for unchanged files.")  # noqa: E501
+@click.option("--force", "-f", is_flag=True, help="Force re-read all data from disk, even for unchanged files.")  
 @click.pass_obj
 # fmt: on
 def update(ctx: Context, force: bool) -> None:
-    """Update the read cache from disk data."""
+    """Synchronize the read cache with new changes in the source directory"""
     update_cache(ctx.config, force)
 
 
 # fmt: off
 @cache.command()
-@click.option("--foreground", "-f", is_flag=True, help="Run the filesystem watcher in the foreground (default: daemon).")  # noqa: E501
+@click.option("--foreground", "-f", is_flag=True, help="Run the filesystem watcher in the foreground (default: daemon).")  
 @click.pass_obj
 # fmt: on
 def watch(ctx: Context, foreground: bool) -> None:
-    """Start a watchdog that will auto-refresh the cache on changes in music_source_dir."""
+    """Start a watchdog to auto-update the cache when the source directory changes"""
     if not foreground:
         daemonize(pid_path=ctx.config.watchdog_pid_path)
 
@@ -116,7 +131,7 @@ def watch(ctx: Context, foreground: bool) -> None:
 @cache.command()
 @click.pass_obj
 def unwatch(ctx: Context) -> None:
-    """Stop the running watchdog."""
+    """Stop the running watchdog"""
     if not ctx.config.watchdog_pid_path.exists():
         logger.info("No-Op: No known watchdog running")
         exit(1)
@@ -132,16 +147,16 @@ def unwatch(ctx: Context) -> None:
 
 @cli.group()
 def fs() -> None:
-    """Manage the virtual library."""
+    """Manage the virtual filesystem"""
 
 
 # fmt: off
 @fs.command()
-@click.option("--foreground", "-f", is_flag=True, help="Run the FUSE controller in the foreground (default: daemon).")  # noqa: E501
+@click.option("--foreground", "-f", is_flag=True, help="Run the FUSE controller in the foreground (default: daemon).")  
 @click.pass_obj
 # fmt: on
 def mount(ctx: Context, foreground: bool) -> None:
-    """Mount the virtual library."""
+    """Mount the virtual filesystem"""
     if not foreground:
         daemonize()
 
@@ -159,19 +174,20 @@ def mount(ctx: Context, foreground: bool) -> None:
 @fs.command()
 @click.pass_obj
 def unmount(ctx: Context) -> None:
-    """Unmount the virtual library."""
+    """Unmount the virtual filesystem"""
     unmount_virtualfs(ctx.config)
 
 
 @cli.group()
 def releases() -> None:
-    """Manage releases."""
+    """Manage releases"""
+    # TODO: print / run-rule / extract-covers / add-metadata-url / search-metadata-urls / create-single / import
 
 
-@releases.command(name="print")
+@releases.command(name="print-all")
 @click.pass_obj
-def print1(ctx: Context) -> None:
-    """Print JSON-encoded releases."""
+def print_all(ctx: Context) -> None:
+    """Print all releases (in JSON)"""
     print(dump_releases(ctx.config))
 
 
@@ -179,10 +195,7 @@ def print1(ctx: Context) -> None:
 @click.argument("release", type=str, nargs=1)
 @click.pass_obj
 def edit2(ctx: Context, release: str) -> None:
-    """
-    Edit a release's metadata in $EDITOR. Accepts a release UUID, virtual directory name, or virtual
-    filesystem path.
-    """
+    """Edit a release's metadata in $EDITOR"""
     release = parse_release_from_potential_path(ctx.config, release)
     edit_release(ctx.config, release)
 
@@ -191,37 +204,9 @@ def edit2(ctx: Context, release: str) -> None:
 @click.argument("release", type=str, nargs=1)
 @click.pass_obj
 def toggle_new(ctx: Context, release: str) -> None:
-    """
-    Toggle whether a release is new. Accepts a release UUID, virtual directory name, or virtual
-    filesystem path.
-    """
+    """Toggle a release's "new"-ness"""
     release = parse_release_from_potential_path(ctx.config, release)
     toggle_release_new(ctx.config, release)
-
-
-@releases.command()
-@click.argument("release", type=str, nargs=1)
-@click.argument("cover", type=click.Path(path_type=Path), nargs=1)
-@click.pass_obj
-def set_cover(ctx: Context, release: str, cover: Path) -> None:
-    """
-    Set the cover art of a release. For the release argument, accepts a release UUID, virtual
-    directory name, or virtual filesystem path. For the cover argument, accept a path to the image.
-    """
-    release = parse_release_from_potential_path(ctx.config, release)
-    set_release_cover_art(ctx.config, release, cover)
-
-
-@releases.command()
-@click.argument("release", type=str, nargs=1)
-@click.pass_obj
-def remove_cover(ctx: Context, release: str) -> None:
-    """
-    Remove the cover art of a release. For the release argument, accepts a release UUID, virtual
-    directory name, or virtual filesystem path.
-    """
-    release = parse_release_from_potential_path(ctx.config, release)
-    remove_release_cover_art(ctx.config, release)
 
 
 @releases.command(name="delete")
@@ -229,31 +214,58 @@ def remove_cover(ctx: Context, release: str) -> None:
 @click.pass_obj
 def delete3(ctx: Context, release: str) -> None:
     """
-    Delete a release. The release is moved to the trash bin, following the freedesktop spec. Accepts
-    a release UUID, virtual directory name, or virtual filesystem path.
+    Delete a release from the library. The release is moved to the trash bin, following the
+    freedesktop spec.
     """
     release = parse_release_from_potential_path(ctx.config, release)
     delete_release(ctx.config, release)
 
 
 @releases.command()
+@click.argument("release", type=str, nargs=1)
+@click.argument("cover", type=click.Path(path_type=Path), nargs=1)
+@click.pass_obj
+def set_cover(ctx: Context, release: str, cover: Path) -> None:
+    """Set/replace the cover art of a release"""
+    release = parse_release_from_potential_path(ctx.config, release)
+    set_release_cover_art(ctx.config, release, cover)
+
+
+@releases.command()
+@click.argument("release", type=str, nargs=1)
+@click.pass_obj
+def delete_cover(ctx: Context, release: str) -> None:
+    """Delete the cover art of a release"""
+    release = parse_release_from_potential_path(ctx.config, release)
+    delete_release_cover_art(ctx.config, release)
+
+
+@releases.command()
 @click.argument("track_path", type=click.Path(path_type=Path), nargs=1)
 @click.pass_obj
-def extract_single(ctx: Context, track_path: Path) -> None:
-    """Create a single release with the given track. The given track is copied, not moved."""
-    extract_single_release(ctx.config, track_path)
+def create_single(ctx: Context, track_path: Path) -> None:
+    """Create a single release for the given track, and copy the track into it"""
+    create_single_release(ctx.config, track_path)
+
+
+@cli.group()
+def tracks() -> None:
+    """Manage tracks"""
+    # TODO: print / print-all / run-rule
+    raise UnimplementedError("Coming soon!")
 
 
 @cli.group()
 def collages() -> None:
-    """Manage collages."""
+    """Manage collages"""
+    # TODO: print
 
 
 @collages.command()
 @click.argument("name", type=str, nargs=1)
 @click.pass_obj
 def create(ctx: Context, name: str) -> None:
-    """Create a new collage."""
+    """Create a new collage"""
     create_collage(ctx.config, name)
 
 
@@ -262,7 +274,7 @@ def create(ctx: Context, name: str) -> None:
 @click.argument("new_name", type=str, nargs=1)
 @click.pass_obj
 def rename(ctx: Context, old_name: str, new_name: str) -> None:
-    """Rename a collage."""
+    """Rename a collage"""
     rename_collage(ctx.config, old_name, new_name)
 
 
@@ -270,7 +282,7 @@ def rename(ctx: Context, old_name: str, new_name: str) -> None:
 @click.argument("name", type=str, nargs=1)
 @click.pass_obj
 def delete(ctx: Context, name: str) -> None:
-    """Delete a collage."""
+    """Delete a collage"""
     delete_collage(ctx.config, name)
 
 
@@ -279,10 +291,7 @@ def delete(ctx: Context, name: str) -> None:
 @click.argument("release", type=str, nargs=1)
 @click.pass_obj
 def add_release(ctx: Context, collage: str, release: str) -> None:
-    """
-    Add a release to a collage. Accepts a release UUID, virtual directory name, or virtual
-    filesystem path.
-    """
+    """Add a release to a collage"""
     release = parse_release_from_potential_path(ctx.config, release)
     add_release_to_collage(ctx.config, collage, release)
 
@@ -292,10 +301,7 @@ def add_release(ctx: Context, collage: str, release: str) -> None:
 @click.argument("release", type=str, nargs=1)
 @click.pass_obj
 def remove_release(ctx: Context, collage: str, release: str) -> None:
-    """
-    Remove a release from a collage. Accepts a release UUID, virtual directory name, or virtual
-    filesystem path.
-    """
+    """Remove a release from a collage"""
     release = parse_release_from_potential_path(ctx.config, release)
     remove_release_from_collage(ctx.config, collage, release)
 
@@ -304,30 +310,28 @@ def remove_release(ctx: Context, collage: str, release: str) -> None:
 @click.argument("collage", type=str, nargs=1)
 @click.pass_obj
 def edit(ctx: Context, collage: str) -> None:
-    """
-    Edit a collage in $EDITOR. Reorder lines to update the ordering of releases. Delete lines to
-    delete releases from the collage.
-    """
+    """Edit (reorder/remove releases from) a collage in $EDITOR"""
     edit_collage_in_editor(ctx.config, collage)
 
 
-@collages.command(name="print")
+@collages.command(name="print-all")
 @click.pass_obj
-def print2(ctx: Context) -> None:
-    """Print JSON-encoded collages."""
+def print_all1(ctx: Context) -> None:
+    """Print all collages (in JSON)"""
     print(dump_collages(ctx.config))
 
 
 @cli.group()
 def playlists() -> None:
-    """Manage playlists."""
+    """Manage playlists"""
+    # TODO: print
 
 
 @playlists.command(name="create")
 @click.argument("name", type=str, nargs=1)
 @click.pass_obj
 def create2(ctx: Context, name: str) -> None:
-    """Create a new playlist."""
+    """Create a new playlist"""
     create_playlist(ctx.config, name)
 
 
@@ -336,7 +340,7 @@ def create2(ctx: Context, name: str) -> None:
 @click.argument("new_name", type=str, nargs=1)
 @click.pass_obj
 def rename2(ctx: Context, old_name: str, new_name: str) -> None:
-    """Rename a playlist."""
+    """Rename a playlist"""
     rename_playlist(ctx.config, old_name, new_name)
 
 
@@ -344,7 +348,7 @@ def rename2(ctx: Context, old_name: str, new_name: str) -> None:
 @click.argument("name", type=str, nargs=1)
 @click.pass_obj
 def delete2(ctx: Context, name: str) -> None:
-    """Delete a playlist."""
+    """Delete a playlist"""
     delete_playlist(ctx.config, name)
 
 
@@ -353,7 +357,7 @@ def delete2(ctx: Context, name: str) -> None:
 @click.argument("track", type=str, nargs=1)
 @click.pass_obj
 def add_track(ctx: Context, playlist: str, track: str) -> None:
-    """Add a track to a playlist. Accepts a playlist name and a track's UUID."""
+    """Add a track to a playlist. Accepts a playlist name and a track's UUID"""
     add_track_to_playlist(ctx.config, playlist, track)
 
 
@@ -362,7 +366,7 @@ def add_track(ctx: Context, playlist: str, track: str) -> None:
 @click.argument("track", type=str, nargs=1)
 @click.pass_obj
 def remove_track(ctx: Context, playlist: str, track: str) -> None:
-    """Remove a track from a playlist. Accepts a playlist name and a track's UUID."""
+    """Remove a track from a playlist. Accepts a playlist name and a track's UUID"""
     remove_track_from_playlist(ctx.config, playlist, track)
 
 
@@ -377,10 +381,10 @@ def edit3(ctx: Context, playlist: str) -> None:
     edit_playlist_in_editor(ctx.config, playlist)
 
 
-@playlists.command(name="print")
+@playlists.command(name="print-all")
 @click.pass_obj
-def print3(ctx: Context) -> None:
-    """Print JSON-encoded playlists."""
+def print_all2(ctx: Context) -> None:
+    """Print all playlists (in JSON)"""
     print(dump_playlists(ctx.config))
 
 
@@ -395,29 +399,29 @@ def set_cover2(ctx: Context, playlist: str, cover: Path) -> None:
     set_playlist_cover_art(ctx.config, playlist, cover)
 
 
-@playlists.command(name="remove-cover")
+@playlists.command(name="delete-cover")
 @click.argument("playlist", type=str, nargs=1)
 @click.pass_obj
-def remove_cover2(ctx: Context, playlist: str) -> None:
-    """Remove the cover art of a playlist. Accepts a playlist name."""
-    remove_playlist_cover_art(ctx.config, playlist)
+def delete_cover2(ctx: Context, playlist: str) -> None:
+    """Delete the cover art of a playlist. Accepts a playlist name"""
+    delete_playlist_cover_art(ctx.config, playlist)
 
 
 @cli.group()
-def metadata() -> None:
-    """Run metadata improvement tools."""
+def rules() -> None:
+    """Run metadata update rules on the entire library"""
 
 
-@metadata.command()
+@rules.command()
 # fmt: off
 @click.argument("matcher", type=str, nargs=1)
 @click.argument("actions", type=str, nargs=-1)
-@click.option("--dry-run", "-d", is_flag=True, help="Display intended changes without applying them.") # noqa: E501
+@click.option("--dry-run", "-d", is_flag=True, help="Display intended changes without applying them.") 
 @click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
 # fmt: on
 @click.pass_obj
-def run_rule(ctx: Context, matcher: str, actions: list[str], dry_run: bool, yes: bool) -> None:
-    """Run an ad hoc metadata rule."""
+def run(ctx: Context, matcher: str, actions: list[str], dry_run: bool, yes: bool) -> None:
+    """Run an ad hoc rule"""
     if not actions:
         logger.info("No-Op: No actions passed")
         return
@@ -425,23 +429,15 @@ def run_rule(ctx: Context, matcher: str, actions: list[str], dry_run: bool, yes:
     execute_metadata_rule(ctx.config, rule, dry_run=dry_run, confirm_yes=not yes)
 
 
-@metadata.command()
-@click.option(
-    "--dry-run", "-d", is_flag=True, help="Display intended changes without applying them."
-)  # noqa: E501
+@rules.command()
+# fmt: off
+@click.option("--dry-run", "-d", is_flag=True, help="Display intended changes without applying them.")
 @click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
+# fmt: on
 @click.pass_obj
-def run_stored_rules(ctx: Context, dry_run: bool, yes: bool) -> None:
-    """Run the stored metadata rules defined in the config."""
+def run_stored(ctx: Context, dry_run: bool, yes: bool) -> None:
+    """Run the rules stored in the config"""
     execute_stored_metadata_rules(ctx.config, dry_run=dry_run, confirm_yes=not yes)
-
-
-@cli.command()
-@click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]), nargs=1)
-def completion(shell: str) -> None:
-    """Print a shell completion script."""
-    os.environ["_ROSE_COMPLETE"] = f"{shell}_source"
-    subprocess.run(["rose"], env=os.environ)
 
 
 def parse_release_from_potential_path(c: Config, r: str) -> str:
