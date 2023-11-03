@@ -117,7 +117,9 @@ actions = ["replace:K-Pop"]
 
 # Reloading
 
-TODO
+After changing the configuration file, you may need to restart the active Rosé
+processes. If you have a running Virtual Filesystem or Cache Watcher, they will
+not use the new configuration file until they are restarted.
 
 # Shell Completion
 

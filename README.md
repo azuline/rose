@@ -249,7 +249,6 @@ Commands:
   playlists       Manage playlists
   releases        Manage releases
   tracks          Manage tracks
-  reload          Reload the configuration of active Rosé processes
   rules           Run metadata update rules on the entire library
 ```
 

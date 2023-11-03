@@ -57,10 +57,6 @@ from rose.watcher import start_watchdog
 logger = logging.getLogger(__name__)
 
 
-class UnimplementedError(RoseError):
-    pass
-
-
 class DaemonAlreadyRunningError(RoseError):
     pass
 
@@ -92,12 +88,6 @@ def gen_completion(shell: str) -> None:
     """Generate a shell completion script"""
     os.environ["_ROSE_COMPLETE"] = f"{shell}_source"
     subprocess.run(["rose"], env=os.environ)
-
-
-@cli.command()
-def reload() -> None:
-    """Reload the configuration of active Rosé processes"""
-    raise UnimplementedError("Coming soon!")
 
 
 @cli.group()
@@ -252,7 +242,6 @@ def create_single(ctx: Context, track_path: Path) -> None:
 def tracks() -> None:
     """Manage tracks"""
     # TODO: print / print-all / run-rule
-    raise UnimplementedError("Coming soon!")
 
 
 @cli.group()

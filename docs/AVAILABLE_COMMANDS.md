@@ -74,6 +74,4 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
   - `rules run`: Run an ad hoc rule in the command line interface. You can also
     easily test rules with the `--dry-run` flag.
   - `rules run-stored`: Run the rules stored in the configuration file.
-- `reload`: Informs any active processes, meaning the Virtual Filesystem and
-  Cache Watcher, to reload their configurations from disk.
 - `gen-completion`: Print a shell completion script for Rosé to stdout.
