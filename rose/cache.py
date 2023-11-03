@@ -94,7 +94,6 @@ def maybe_invalidate_cache_database(c: Config) -> None:
     config_hash_fields = {
         "music_source_dir": str(c.music_source_dir),
         "cache_dir": str(c.cache_dir),
-        "artist_aliases": c.artist_aliases_map,
         "cover_art_stems": c.cover_art_stems,
         "valid_art_exts": c.valid_art_exts,
         "ignore_release_directories": c.ignore_release_directories,
@@ -194,16 +193,17 @@ class CachedArtist:
     name: str
     role: str
     # Whether this artist is an aliased name of the artist that the release was actually released
-    # under. We include aliased artists in the cached state because it lets us relate releases from
-    # the aliased name to the main artist. However, we ignore these artists when computing the
-    # virtual dirname and tags.
+    # under. These artists are not stored in the cache database and are also not used to compute any
+    # file/directory names.
     alias: bool = False
+
+    def __hash__(self) -> int:
+        return hash(f"{self.name}+{self.role}+{self.alias}")
 
     def dump(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "role": self.role,
-            "alias": self.alias,
         }
 
 
@@ -239,7 +239,7 @@ class CachedRelease:
             "new": self.new,
             "genres": self.genres,
             "labels": self.labels,
-            "artists": [a.dump() for a in self.artists],
+            "artists": [a.dump() for a in self.artists if not a.alias],
             "formatted_artists": self.formatted_artists,
         }
 
@@ -269,7 +269,7 @@ class CachedTrack:
             "tracknumber": self.tracknumber,
             "discnumber": self.discnumber,
             "duration_seconds": self.duration_seconds,
-            "artists": [a.dump() for a in self.artists],
+            "artists": [a.dump() for a in self.artists if not a.alias],
             "formatted_artists": self.formatted_artists,
         }
 
@@ -541,7 +541,6 @@ def _update_cache_for_releases_executor(
                     release_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
-                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
                 FROM releases_artists
                 GROUP BY release_id
             )
@@ -562,7 +561,6 @@ def _update_cache_for_releases_executor(
               , COALESCE(l.labels, '') AS labels
               , COALESCE(a.names, '') AS art_names
               , COALESCE(a.roles, '') AS art_roles
-              , COALESCE(a.aliases, '') AS art_aliases
             FROM releases r
             LEFT JOIN genres g ON g.release_id = r.id
             LEFT JOIN labels l ON l.release_id = r.id
@@ -573,8 +571,7 @@ def _update_cache_for_releases_executor(
         )
         for row in cursor:
             release_artists = [
-                CachedArtist(name=n, role=r, alias=bool(int(a)))
-                for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+                CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
             ]
             cached_releases[row["id"]] = (
                 CachedRelease(
@@ -609,7 +606,6 @@ def _update_cache_for_releases_executor(
                     track_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
-                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
                 FROM tracks_artists
                 GROUP BY track_id
             )
@@ -627,7 +623,6 @@ def _update_cache_for_releases_executor(
               , t.formatted_artists
               , COALESCE(a.names, '') AS art_names
               , COALESCE(a.roles, '') AS art_roles
-              , COALESCE(a.aliases, '') AS art_aliases
             FROM tracks t
             JOIN releases r ON r.id = t.release_id
             LEFT JOIN artists a ON a.track_id = t.id
@@ -638,8 +633,7 @@ def _update_cache_for_releases_executor(
         num_tracks_found = 0
         for row in cursor:
             track_artists = [
-                CachedArtist(name=n, role=r, alias=bool(int(a)))
-                for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+                CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
             ]
             cached_releases[row["release_id"]][1][row["source_path"]] = CachedTrack(
                 id=row["id"],
@@ -891,14 +885,8 @@ def _update_cache_for_releases_executor(
 
                 release_artists = []
                 for role, names in asdict(tags.albumartists).items():
-                    # Multiple artists may resolve to the same alias (e.g. LOONA members...), so
-                    # collect them in a deduplicated way, and then record the deduplicated aliases.
-                    aliases: set[str] = set()
                     for name in uniq(names):
                         release_artists.append(CachedArtist(name=name, role=role))
-                        aliases.update(c.artist_aliases_parents_map.get(name, []))
-                    for name in aliases:
-                        release_artists.append(CachedArtist(name=name, role=role, alias=True))
                 if release_artists != release.artists:
                     logger.debug(f"Release artists change detected for {source_path}, updating")
                     release.artists = release_artists
@@ -998,14 +986,8 @@ def _update_cache_for_releases_executor(
             )
             tracks.append(track)
             for role, names in asdict(tags.trackartists).items():
-                # Multiple artists may resolve to the same alias (e.g. LOONA members...), so collect
-                # them in a deduplicated way, and then record the deduplicated aliases.
-                aliases = set()
                 for name in uniq(names):
                     track.artists.append(CachedArtist(name=name, role=role))
-                    aliases.update(c.artist_aliases_parents_map.get(name, []))
-                for name in aliases:
-                    track.artists.append(CachedArtist(name=name, role=role, alias=True))
             track_ids_to_insert.add(track.id)
 
         # Now calculate whether this release is multidisc, and then assign virtual_filenames and
@@ -1090,7 +1072,7 @@ def _update_cache_for_releases_executor(
                 upd_release_label_args.append([release.id, label, _sanitize_filename(label)])
             for art in release.artists:
                 upd_release_artist_args.append(
-                    [release.id, art.name, _sanitize_filename(art.name), art.role, art.alias]
+                    [release.id, art.name, _sanitize_filename(art.name), art.role]
                 )
 
         if track_ids_to_insert:
@@ -1116,7 +1098,7 @@ def _update_cache_for_releases_executor(
                 upd_track_ids.append(track.id)
                 for art in track.artists:
                     upd_track_artist_args.append(
-                        [track.id, art.name, _sanitize_filename(art.name), art.role, art.alias]
+                        [track.id, art.name, _sanitize_filename(art.name), art.role]
                     )
     logger.debug(f"Release update scheduling loop time {time.time() - loop_start=}")
 
@@ -1210,8 +1192,8 @@ def _update_cache_for_releases_executor(
             )
             conn.execute(
                 f"""
-                INSERT INTO releases_artists (release_id, artist, artist_sanitized, role, alias)
-                VALUES {",".join(["(?,?,?,?,?)"]*len(upd_release_artist_args))}
+                INSERT INTO releases_artists (release_id, artist, artist_sanitized, role)
+                VALUES {",".join(["(?,?,?,?)"]*len(upd_release_artist_args))}
                 """,
                 _flatten(upd_release_artist_args),
             )
@@ -1256,8 +1238,8 @@ def _update_cache_for_releases_executor(
             )
             conn.execute(
                 f"""
-                INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role, alias)
-                VALUES {",".join(["(?,?,?,?,?)"]*len(upd_track_artist_args))}
+                INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role)
+                VALUES {",".join(["(?,?,?,?)"]*len(upd_track_artist_args))}
                 """,
                 _flatten(upd_track_artist_args),
             )
@@ -1784,8 +1766,7 @@ def list_releases(
                     release_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
-                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
-                FROM (SELECT * FROM releases_artists ORDER BY artist, role, alias)
+                FROM (SELECT * FROM releases_artists ORDER BY artist, role)
                 GROUP BY release_id
             )
             SELECT
@@ -1805,7 +1786,6 @@ def list_releases(
               , COALESCE(l.labels, '') AS labels
               , COALESCE(a.names, '') AS art_names
               , COALESCE(a.roles, '') AS art_roles
-              , COALESCE(a.aliases, '') AS art_aliases
             FROM releases r
             LEFT JOIN genres g ON g.release_id = r.id
             LEFT JOIN labels l ON l.release_id = r.id
@@ -1845,9 +1825,9 @@ def list_releases(
         cursor = conn.execute(query, args)
         for row in cursor:
             artists = [
-                CachedArtist(name=n, role=r, alias=bool(int(a)))
-                for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+                CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
             ]
+            artists = _add_artist_aliases(c, artists)
             yield CachedRelease(
                 id=row["id"],
                 source_path=Path(row["source_path"]),
@@ -1891,8 +1871,7 @@ def get_release(
                     release_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
-                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
-                FROM (SELECT * FROM releases_artists ORDER BY artist, role, alias)
+                FROM (SELECT * FROM releases_artists ORDER BY artist, role)
                 GROUP BY release_id
             )
             SELECT
@@ -1912,7 +1891,6 @@ def get_release(
               , COALESCE(l.labels, '') AS labels
               , COALESCE(a.names, '') AS art_names
               , COALESCE(a.roles, '') AS art_roles
-              , COALESCE(a.aliases, '') AS art_aliases
             FROM releases r
             LEFT JOIN genres g ON g.release_id = r.id
             LEFT JOIN labels l ON l.release_id = r.id
@@ -1925,9 +1903,9 @@ def get_release(
         if not row:
             return None
         rartists = [
-            CachedArtist(name=n, role=r, alias=bool(int(a)))
-            for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+            CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
         ]
+        rartists = _add_artist_aliases(c, rartists)
         release = CachedRelease(
             id=row["id"],
             source_path=Path(row["source_path"]),
@@ -1954,8 +1932,7 @@ def get_release(
                     track_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
-                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
-                FROM (SELECT * FROM tracks_artists ORDER BY artist, role, alias)
+                FROM (SELECT * FROM tracks_artists ORDER BY artist, role)
                 GROUP BY track_id
             )
             SELECT
@@ -1972,7 +1949,6 @@ def get_release(
               , t.formatted_artists
               , COALESCE(a.names, '') AS art_names
               , COALESCE(a.roles, '') AS art_roles
-              , COALESCE(a.aliases, '') AS art_aliases
             FROM tracks t
             JOIN releases r ON r.id = t.release_id
             LEFT JOIN artists a ON a.track_id = t.id
@@ -1983,9 +1959,9 @@ def get_release(
         )
         for row in cursor:
             tartists = [
-                CachedArtist(name=n, role=r, alias=bool(int(a)))
-                for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+                CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
             ]
+            tartists = _add_artist_aliases(c, tartists)
             tracks.append(
                 CachedTrack(
                     id=row["id"],
@@ -2121,8 +2097,7 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
                     track_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
-                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
-                FROM (SELECT * FROM tracks_artists ORDER BY artist, role, alias)
+                FROM (SELECT * FROM tracks_artists ORDER BY artist, role)
                 GROUP BY track_id
             )
             SELECT
@@ -2139,7 +2114,6 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
               , t.formatted_artists
               , COALESCE(a.names, '') AS art_names
               , COALESCE(a.roles, '') AS art_roles
-              , COALESCE(a.aliases, '') AS art_aliases
             FROM tracks t
             JOIN playlists_tracks pt ON pt.track_id = t.id
             LEFT JOIN artists a ON a.track_id = t.id
@@ -2151,9 +2125,9 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
         tracks: list[CachedTrack] = []
         for row in cursor:
             tartists = [
-                CachedArtist(name=n, role=r, alias=bool(int(a)))
-                for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+                CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
             ]
+            tartists = _add_artist_aliases(c, tartists)
             playlist.track_ids.append(row["id"])
             tracks.append(
                 CachedTrack(
@@ -2217,8 +2191,7 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
                     release_id
                   , GROUP_CONCAT(artist, ' \\ ') AS names
                   , GROUP_CONCAT(role, ' \\ ') AS roles
-                  , GROUP_CONCAT(alias, ' \\ ') AS aliases
-                FROM (SELECT * FROM releases_artists ORDER BY artist, role, alias)
+                FROM (SELECT * FROM releases_artists ORDER BY artist, role)
                 GROUP BY release_id
             )
             SELECT
@@ -2238,7 +2211,6 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
               , COALESCE(l.labels, '') AS labels
               , COALESCE(a.names, '') AS art_names
               , COALESCE(a.roles, '') AS art_roles
-              , COALESCE(a.aliases, '') AS art_aliases
             FROM releases r
             LEFT JOIN genres g ON g.release_id = r.id
             LEFT JOIN labels l ON l.release_id = r.id
@@ -2252,9 +2224,9 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
         releases: list[CachedRelease] = []
         for row in cursor:
             rartists = [
-                CachedArtist(name=n, role=r, alias=bool(int(a)))
-                for n, r, a in _unpack(row["art_names"], row["art_roles"], row["art_aliases"])
+                CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
             ]
+            rartists = _add_artist_aliases(c, rartists)
             collage.release_ids.append(row["id"])
             releases.append(
                 CachedRelease(
@@ -2374,6 +2346,15 @@ def playlist_exists(c: Config, name: str) -> bool:
 
 
 ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]+')
+
+
+def _add_artist_aliases(c: Config, unaliased: list[CachedArtist]) -> list[CachedArtist]:
+    out: list[CachedArtist] = []
+    for art in unaliased:
+        out.append(art)
+        for alias in c.artist_aliases_parents_map.get(art.name, []):
+            out.append(CachedArtist(name=alias, role=art.role, alias=True))
+    return uniq(out)
 
 
 def _sanitize_filename(x: str) -> str:

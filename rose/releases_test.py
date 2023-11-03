@@ -243,8 +243,8 @@ def test_dump_releases(config: Config) -> None:
         {
             "added_at": "0000-01-01T00:00:00+00:00",
             "artists": [
-                {"alias": False, "name": "Bass Man", "role": "main"},
-                {"alias": False, "name": "Techno Man", "role": "main"},
+                {"name": "Bass Man", "role": "main"},
+                {"name": "Techno Man", "role": "main"},
             ],
             "cover_image_path": None,
             "formatted_artists": "Techno Man;Bass Man",
@@ -260,8 +260,8 @@ def test_dump_releases(config: Config) -> None:
         {
             "added_at": "0000-01-01T00:00:00+00:00",
             "artists": [
-                {"alias": False, "name": "Conductor Woman", "role": "guest"},
-                {"alias": False, "name": "Violin Woman", "role": "main"},
+                {"name": "Conductor Woman", "role": "guest"},
+                {"name": "Violin Woman", "role": "main"},
             ],
             "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
             "formatted_artists": "Violin Woman feat. Conductor Woman",

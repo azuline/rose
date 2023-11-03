@@ -486,14 +486,14 @@ def test_update_cache_releases_evicts_relations(config: Config) -> None:
         )
         conn.execute(
             """
-            INSERT INTO releases_artists (release_id, artist, artist_sanitized, role, alias)
-            VALUES ('ilovecarly', 'lalala', 'lalala', 'main', false)
+            INSERT INTO releases_artists (release_id, artist, artist_sanitized, role)
+            VALUES ('ilovecarly', 'lalala', 'lalala', 'main')
             """,
         )
         conn.execute(
             """
-            INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role, alias)
-            SELECT id, 'lalala', 'lalala', 'main', false FROM tracks
+            INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role)
+            SELECT id, 'lalala', 'lalala', 'main' FROM tracks
             """,
         )
     # Second cache refresh.
@@ -516,49 +516,6 @@ def test_update_cache_releases_evicts_relations(config: Config) -> None:
             "SELECT EXISTS (SELECT * FROM tracks_artists WHERE artist = 'lalala')"
         )
         assert not cursor.fetchone()[0]
-
-
-def test_update_cache_releases_adds_aliased_artist(config: Config) -> None:
-    """Test that an artist alias is properly recorded in the read cache."""
-    config = Config(
-        **{
-            **asdict(config),
-            "artist_aliases_parents_map": {"BLACKPINK": ["HAHA"]},
-            "artist_aliases_map": {"HAHA": ["BLACKPINK"]},
-        }
-    )
-    release_dir = config.music_source_dir / TEST_RELEASE_1.name
-    shutil.copytree(TEST_RELEASE_1, release_dir)
-    update_cache_for_releases(config, [release_dir])
-
-    with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT artist, role, alias FROM releases_artists",
-        )
-        artists = {(r["artist"], r["role"], bool(r["alias"])) for r in cursor.fetchall()}
-        assert artists == {
-            ("BLACKPINK", "main", False),
-            ("HAHA", "main", True),
-        }
-
-        for f in release_dir.iterdir():
-            if f.suffix != ".m4a":
-                continue
-
-            cursor = conn.execute(
-                """
-                SELECT ta.artist, ta.role, ta.alias
-                FROM tracks_artists ta
-                JOIN tracks t ON t.id = ta.track_id
-                WHERE t.source_path = ?
-                """,
-                (str(f),),
-            )
-            artists = {(r["artist"], r["role"], bool(r["alias"])) for r in cursor.fetchall()}
-            assert artists == {
-                ("BLACKPINK", "main", False),
-                ("HAHA", "main", True),
-            }
 
 
 def test_update_cache_releases_ignores_directories(config: Config) -> None:
@@ -1187,6 +1144,32 @@ def test_get_release(config: Config) -> None:
             ),
         ],
     )
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_get_release_applies_artist_aliases(config: Config) -> None:
+    config = Config(
+        **{
+            **asdict(config),
+            "artist_aliases_map": {"Hype Boy": ["Bass Man"]},
+            "artist_aliases_parents_map": {"Bass Man": ["Hype Boy"]},
+        },
+    )
+    rdata = get_release(config, "r1")
+    assert rdata is not None
+    release, tracks = rdata
+
+    assert release.artists == [
+        CachedArtist(name="Bass Man", role="main"),
+        CachedArtist(name="Hype Boy", role="main", alias=True),
+        CachedArtist(name="Techno Man", role="main"),
+    ]
+    for t in tracks:
+        assert t.artists == [
+            CachedArtist(name="Bass Man", role="main"),
+            CachedArtist(name="Hype Boy", role="main", alias=True),
+            CachedArtist(name="Techno Man", role="main"),
+        ]
 
 
 @pytest.mark.usefixtures("seeded_cache")

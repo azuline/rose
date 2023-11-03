@@ -133,20 +133,20 @@ VALUES ('t1', '{musicpaths[0]}', '999'       , '01.m4a'        , '01'           
      , ('t4', '{musicpaths[3]}', '999'       , '01.m4a'        , '02'                      , 'Track 1', 'r3'      , '01'       , '01'      , 120             , '');
 
 INSERT INTO releases_artists
-       (release_id, artist           , artist_sanitized , role   , alias)
-VALUES ('r1'      , 'Techno Man'     , 'Techno Man'     , 'main' , false)
-     , ('r1'      , 'Bass Man'       , 'Bass Man'       , 'main' , false)
-     , ('r2'      , 'Violin Woman'   , 'Violin Woman'   , 'main' , false)
-     , ('r2'      , 'Conductor Woman', 'Conductor Woman', 'guest', false);
+       (release_id, artist           , artist_sanitized , role   )
+VALUES ('r1'      , 'Techno Man'     , 'Techno Man'     , 'main' )
+     , ('r1'      , 'Bass Man'       , 'Bass Man'       , 'main' )
+     , ('r2'      , 'Violin Woman'   , 'Violin Woman'   , 'main' )
+     , ('r2'      , 'Conductor Woman', 'Conductor Woman', 'guest');
 
 INSERT INTO tracks_artists
-       (track_id, artist           , artist_sanitized , role   , alias)
-VALUES ('t1'    , 'Techno Man'     , 'Techno Man'     , 'main' , false)
-     , ('t1'    , 'Bass Man'       , 'Bass Man'       , 'main' , false)
-     , ('t2'    , 'Techno Man'     , 'Techno Man'     , 'main' , false)
-     , ('t2'    , 'Bass Man'       , 'Bass Man'       , 'main' , false)
-     , ('t3'    , 'Violin Woman'   , 'Violin Woman'   , 'main' , false)
-     , ('t3'    , 'Conductor Woman', 'Conductor Woman', 'guest', false);
+       (track_id, artist           , artist_sanitized , role   )
+VALUES ('t1'    , 'Techno Man'     , 'Techno Man'     , 'main' )
+     , ('t1'    , 'Bass Man'       , 'Bass Man'       , 'main' )
+     , ('t2'    , 'Techno Man'     , 'Techno Man'     , 'main' )
+     , ('t2'    , 'Bass Man'       , 'Bass Man'       , 'main' )
+     , ('t3'    , 'Violin Woman'   , 'Violin Woman'   , 'main' )
+     , ('t3'    , 'Conductor Woman', 'Conductor Woman', 'guest');
 
 INSERT INTO collages
        (name       , source_mtime)

@@ -141,8 +141,8 @@ def test_dump_collages(config: Config) -> None:
                     "genres": ["Deep House", "Techno"],
                     "labels": ["Silk Music"],
                     "artists": [
-                        {"name": "Bass Man", "role": "main", "alias": False},
-                        {"name": "Techno Man", "role": "main", "alias": False},
+                        {"name": "Bass Man", "role": "main"},
+                        {"name": "Techno Man", "role": "main"},
                     ],
                     "formatted_artists": "Techno Man;Bass Man",
                 },
@@ -159,8 +159,8 @@ def test_dump_collages(config: Config) -> None:
                     "genres": ["Classical"],
                     "labels": ["Native State"],
                     "artists": [
-                        {"name": "Conductor Woman", "role": "guest", "alias": False},
-                        {"name": "Violin Woman", "role": "main", "alias": False},
+                        {"name": "Conductor Woman", "role": "guest"},
+                        {"name": "Violin Woman", "role": "main"},
                     ],
                     "formatted_artists": "Violin Woman feat. Conductor Woman",
                 },

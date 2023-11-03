@@ -133,8 +133,8 @@ def test_dump_playlists(config: Config) -> None:
             "tracks": [
                 {
                     "artists": [
-                        {"alias": False, "name": "Bass Man", "role": "main"},
-                        {"alias": False, "name": "Techno Man", "role": "main"},
+                        {"name": "Bass Man", "role": "main"},
+                        {"name": "Techno Man", "role": "main"},
                     ],
                     "discnumber": "01",
                     "duration_seconds": 120,
@@ -148,8 +148,8 @@ def test_dump_playlists(config: Config) -> None:
                 },
                 {
                     "artists": [
-                        {"alias": False, "name": "Conductor Woman", "role": "guest"},
-                        {"alias": False, "name": "Violin Woman", "role": "main"},
+                        {"name": "Conductor Woman", "role": "guest"},
+                        {"name": "Violin Woman", "role": "main"},
                     ],
                     "discnumber": "01",
                     "duration_seconds": 120,
