@@ -2026,16 +2026,60 @@ def get_release_source_paths_from_ids(c: Config, uuids: list[str]) -> list[Path]
         return [Path(r["source_path"]) for r in cursor]
 
 
-def get_track_filename(c: Config, uuid: str) -> str | None:
+def get_track(c: Config, uuid: str) -> CachedTrack | None:
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT virtual_filename FROM tracks WHERE id = ?",
+            r"""
+            WITH artists AS (
+                SELECT
+                    track_id
+                  , GROUP_CONCAT(artist, ' \\ ') AS names
+                  , GROUP_CONCAT(role, ' \\ ') AS roles
+                FROM (SELECT * FROM tracks_artists ORDER BY artist, role)
+                GROUP BY track_id
+            )
+            SELECT
+                t.id
+              , t.source_path
+              , t.source_mtime
+              , t.virtual_filename
+              , t.title
+              , t.release_id
+              , t.tracknumber
+              , t.discnumber
+              , t.formatted_release_position
+              , t.duration_seconds
+              , t.formatted_artists
+              , COALESCE(a.names, '') AS art_names
+              , COALESCE(a.roles, '') AS art_roles
+            FROM tracks t
+            LEFT JOIN artists a ON a.track_id = t.id
+            WHERE t.id = ?
+            ORDER BY t.formatted_release_position
+            """,
             (uuid,),
         )
-        if row := cursor.fetchone():
-            assert isinstance(row["virtual_filename"], str)
-            return row["virtual_filename"]
-    return None
+        row = cursor.fetchone()
+        if not row:
+            return None
+        tartists = [
+            CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
+        ]
+        tartists = _add_artist_aliases(c, tartists)
+        return CachedTrack(
+            id=row["id"],
+            source_path=Path(row["source_path"]),
+            source_mtime=row["source_mtime"],
+            virtual_filename=row["virtual_filename"],
+            title=row["title"],
+            release_id=row["release_id"],
+            tracknumber=row["tracknumber"],
+            discnumber=row["discnumber"],
+            formatted_release_position=row["formatted_release_position"],
+            duration_seconds=row["duration_seconds"],
+            formatted_artists=row["formatted_artists"],
+            artists=tartists,
+        )
 
 
 def list_artists(c: Config) -> Iterator[tuple[str, str]]:

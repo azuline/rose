@@ -257,7 +257,7 @@ The Strokes - 2001. Is This It/10. Trying Your Luck.opus
 The Strokes - 2001. Is This It/11. Take It or Leave It.opus
       genre: [] -> ['Indie Rock']
 
-Write changes to 11 tracks? [Y/n] y  
+Write changes to 11 tracks? [Y/n] y
 
 [16:26:42] INFO: Writing tag changes for actions genre::add
 [16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/01. Is This It.opus
@@ -271,6 +271,24 @@ Write changes to 11 tracks? [Y/n] y
 [16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/09. When It Started.opus
 [16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/10. Trying Your Luck.opus
 [16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/11. Take It or Leave It.opus
+
+Applied tag changes to 11 tracks!
+```
+
+## Run Rule Engine Action on Track
+
+Similar to how you can run a rule engine action on a release, Rosé also allows
+you to run an action on a single track.
+
+```bash
+$ rose tracks run-rule '018b6514-6fb7-7cc6-9d23-8eaf0b1beee8' 'tracktitle::replace:Certified Banger'
+LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match/04. Chaotic.opus
+      title: Chaotic -> Certified Banger
+
+Write changes to 1 tracks? [Y/n] y
+
+[16:40:16] INFO: Writing tag changes for actions tracktitle::replace:Certified Banger
+[16:40:16] INFO: Wrote tag changes to LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match/04. Chaotic.opus
 
 Applied tag changes to 11 tracks!
 ```

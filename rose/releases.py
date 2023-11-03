@@ -39,7 +39,7 @@ from rose.config import Config
 from rose.rule_parser import MetadataAction
 from rose.rules import execute_metadata_actions
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class ReleaseDoesNotExistError(RoseError):

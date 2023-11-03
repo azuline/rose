@@ -30,7 +30,7 @@ from rose.cache import (
     get_release_source_path_from_id,
     get_release_source_paths_from_ids,
     get_release_virtual_dirname_from_id,
-    get_track_filename,
+    get_track,
     label_exists,
     list_artists,
     list_collages,
@@ -1196,8 +1196,24 @@ def test_get_release_source_paths_dirname_from_ids(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_track_filename(config: Config) -> None:
-    assert get_track_filename(config, "t1") == "01.m4a"
+def test_get_track(config: Config) -> None:
+    assert get_track(config, "t1") == CachedTrack(
+        id="t1",
+        source_path=config.music_source_dir / "r1" / "01.m4a",
+        source_mtime="999",
+        virtual_filename="01.m4a",
+        title="Track 1",
+        release_id="r1",
+        tracknumber="01",
+        discnumber="01",
+        formatted_release_position="01",
+        duration_seconds=120,
+        artists=[
+            CachedArtist(name="Bass Man", role="main", alias=False),
+            CachedArtist(name="Techno Man", role="main", alias=False),
+        ],
+        formatted_artists="Techno Man;Bass Man",
+    )
 
 
 @pytest.mark.usefixtures("seeded_cache")

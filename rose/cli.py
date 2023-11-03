@@ -52,6 +52,7 @@ from rose.releases import (
 )
 from rose.rule_parser import MetadataAction, MetadataRule
 from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
+from rose.tracks import run_actions_on_track
 from rose.virtualfs import VirtualPath, mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
@@ -172,7 +173,7 @@ def unmount(ctx: Context) -> None:
 @cli.group()
 def releases() -> None:
     """Manage releases"""
-    # TODO: print / run-rule / extract-covers / add-metadata-url / search-metadata-urls / create-single / import
+    # TODO: print / extract-covers / add-metadata-url / search-metadata-urls / create-single / import
 
 
 @releases.command(name="print-all")
@@ -267,6 +268,26 @@ def create_single(ctx: Context, track_path: Path) -> None:
 def tracks() -> None:
     """Manage tracks"""
     # TODO: print / print-all / run-rule
+
+
+@tracks.command(name="run-rule")
+# fmt: off
+@click.argument("track", type=str, nargs=1)
+@click.argument("actions", type=str, nargs=-1)
+@click.option("--dry-run", "-d", is_flag=True, help="Display intended changes without applying them.") 
+@click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
+# fmt: on
+@click.pass_obj
+def run_rule2(ctx: Context, track: str, actions: list[str], dry_run: bool, yes: bool) -> None:
+    """Run rule engine actions on a single track"""
+    parsed_actions = [MetadataAction.parse(a) for a in actions]
+    run_actions_on_track(
+        ctx.config,
+        track,
+        parsed_actions,
+        dry_run=dry_run,
+        confirm_yes=not yes,
+    )
 
 
 @cli.group()
