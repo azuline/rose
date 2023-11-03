@@ -72,7 +72,7 @@ the filename in the source directory.
 
 # New Releases
 
-Rose supports flagging releases as "NEW" and making that evident in the virtual
+Rosé supports flagging releases as "NEW" and making that evident in the virtual
 directory name. NEW releases have their virtual directory name prefixed with
 `{NEW}`.
 
@@ -84,6 +84,14 @@ designed for you, the human operator, to edit manually.
 
 Rosé tracks NEW-ness within a release's `.rose.{uuid}.toml` file. See
 [Architecture](./ARCHITECTURE.md) for more information about this file.
+
+# Hiding Artists, Genres, and Labels
+
+Rosé supports hiding individual artists, genres, and labels in their view
+directories (`4. Artists`, `5. Genres`, and `6. Labels`) with the
+`fuse_x_blacklist` and `fuse_x_whitelist` configuration parameters. See
+[Configuration](./CONFIGURATION.md) for additional documentation on configuring
+the blacklist or whitelist.
 
 # Operations
 
