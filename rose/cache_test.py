@@ -740,6 +740,34 @@ def test_update_cache_collages_missing_release_id(config: Config) -> None:
     assert len([r for r in data["releases"] if "missing" not in r]) == 2
 
 
+def test_update_cache_collages_missing_release_id_multiprocessing(config: Config) -> None:
+    shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
+    update_cache(config)
+
+    # Assert that the releases in the collage were read as missing.
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM collages_releases WHERE missing")
+        assert cursor.fetchone()[0] == 2
+    # Assert that source file was updated to set the releases missing.
+    with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
+        data = tomllib.load(fp)
+    assert len(data["releases"]) == 2
+    assert len([r for r in data["releases"] if r["missing"]]) == 2
+
+    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+    shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
+    update_cache(config, force_multiprocessing=True)
+
+    # Assert that the releases in the collage were unflagged as missing.
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT COUNT(*) FROM collages_releases WHERE NOT missing")
+        assert cursor.fetchone()[0] == 2
+    # Assert that source file was updated to remove the missing flag.
+    with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
+        data = tomllib.load(fp)
+    assert len([r for r in data["releases"] if "missing" not in r]) == 2
+
+
 def test_update_cache_collages_on_release_rename(config: Config) -> None:
     """
     Test that a renamed release source directory does not remove the release from any collages. This
@@ -820,7 +848,10 @@ def test_update_cache_playlists_missing_track_id(config: Config) -> None:
     assert len([r for r in data["tracks"] if "missing" not in r]) == 2
 
 
-def test_update_releases_updates_collages_description_meta(config: Config) -> None:
+@pytest.mark.parametrize("multiprocessing", [True, False])
+def test_update_releases_updates_collages_description_meta(
+    config: Config, multiprocessing: bool
+) -> None:
     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
     shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
@@ -862,7 +893,7 @@ description_meta = "hahaha"
 
     # Second cache update: releases exist, collages exist, release is "updated." This should also
     # trigger a metadata update.
-    update_cache(config, force=True)
+    update_cache_for_releases(config, force=True, force_multiprocessing=multiprocessing)
     with cpath.open("r") as fp:
         assert (
             fp.read()
@@ -878,7 +909,10 @@ description_meta = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
         )
 
 
-def test_update_tracks_updates_playlists_description_meta(config: Config) -> None:
+@pytest.mark.parametrize("multiprocessing", [True, False])
+def test_update_tracks_updates_playlists_description_meta(
+    config: Config, multiprocessing: bool
+) -> None:
     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
     shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
     ppath = config.music_source_dir / "!playlists" / "Lala Lisa.toml"
@@ -915,7 +949,7 @@ description_meta = "hahaha"
 
     # Second cache update: tracks exist, playlists exist, track is "updated." This should also
     # trigger a metadata update.
-    update_cache(config, force=True)
+    update_cache_for_releases(config, force=True, force_multiprocessing=multiprocessing)
     with ppath.open("r") as fp:
         assert (
             fp.read()

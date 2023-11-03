@@ -276,12 +276,17 @@ RELEASE_TYPE_FORMATTER = {
 STORED_DATA_FILE_REGEX = re.compile(r"\.rose\.([^.]+)\.toml")
 
 
-def update_cache(c: Config, force: bool = False) -> None:
+def update_cache(
+    c: Config,
+    force: bool = False,
+    # For testing.
+    force_multiprocessing: bool = False,
+) -> None:
     """
     Update the read cache to match the data for all releases in the music source directory. Delete
     any cached releases that are no longer present on disk.
     """
-    update_cache_for_releases(c, None, force)
+    update_cache_for_releases(c, None, force, force_multiprocessing=force_multiprocessing)
     update_cache_evict_nonexistent_releases(c)
     update_cache_for_collages(c, None, force)
     update_cache_evict_nonexistent_collages(c)
@@ -371,6 +376,11 @@ def update_cache_for_releases(
     # all processes, because we want to compare against the global set of known virtual dirnames.
     manager = multiprocessing.Manager()
     known_virtual_dirnames = manager.dict()
+    # Have each process propagate the collages and playlists it wants to update back upwards. We
+    # will dispatch the force updater only once in the main process, instead of many times in each
+    # process.
+    collages_to_force_update = manager.list()
+    playlists_to_force_update = manager.list()
     # Create a queue to propagate exceptions back up to the parent.
     error_queue = manager.Queue()
 
@@ -383,7 +393,15 @@ def update_cache_for_releases(
             )
             pool.apply_async(
                 _update_cache_for_releases_process,
-                (c, release_dirs[i : i + batch_size], force, known_virtual_dirnames, error_queue),
+                (
+                    c,
+                    release_dirs[i : i + batch_size],
+                    force,
+                    known_virtual_dirnames,
+                    collages_to_force_update,
+                    playlists_to_force_update,
+                    error_queue,
+                ),
             )
         pool.close()
         pool.join()
@@ -392,17 +410,31 @@ def update_cache_for_releases(
         etype, tb = error_queue.get()
         raise etype(f"Error in cache update subprocess.\n{tb}")
 
+    if collages_to_force_update:
+        update_cache_for_collages(c, uniq(list(collages_to_force_update)), force=True)
+    if playlists_to_force_update:
+        update_cache_for_playlists(c, uniq(list(playlists_to_force_update)), force=True)
+
 
 def _update_cache_for_releases_process(
     c: Config,
     release_dirs: list[Path],
     force: bool,
     known_virtual_dirnames: dict[str, bool],
+    collages_to_force_update: list[str],
+    playlists_to_force_update: list[str],
     error_queue: "multiprocessing.Queue[Any]",
 ) -> None:  # pragma: no cover
     """General error handling stuff for the cache update subprocess."""
     try:
-        return _update_cache_for_releases_executor(c, release_dirs, force, known_virtual_dirnames)
+        return _update_cache_for_releases_executor(
+            c,
+            release_dirs,
+            force,
+            known_virtual_dirnames,
+            collages_to_force_update_receiver=collages_to_force_update,
+            playlists_to_force_update_receiver=playlists_to_force_update,
+        )
     except Exception as e:
         # Use traceback.format_exc() to get the formatted traceback string
         tb = traceback.format_exc()
@@ -414,6 +446,13 @@ def _update_cache_for_releases_executor(
     release_dirs: list[Path],
     force: bool,
     known_virtual_dirnames: dict[str, bool],
+    *,
+    # If these are not None, we will store the collages and playlists to update in here instead of
+    # invoking the update functions directly. If these are None, we will not put anything in them
+    # and instead invoke update_cache_for_{collages,playlists} directly. This is a Bad Pattern, but
+    # good enough.
+    collages_to_force_update_receiver: list[str] | None = None,
+    playlists_to_force_update_receiver: list[str] | None = None,
 ) -> None:  # pragma: no cover
     """The implementation logic, split out for multiprocessing."""
     # First, call readdir on every release directory. We store the results in a map of
@@ -1272,9 +1311,15 @@ def _update_cache_for_releases_executor(
             update_playlists = [row["playlist_name"] for row in cursor]
 
     if update_collages:
-        update_cache_for_collages(c, update_collages, force=True)
+        if collages_to_force_update_receiver is not None:
+            collages_to_force_update_receiver.extend(update_collages)
+        else:
+            update_cache_for_collages(c, update_collages, force=True)
     if update_playlists:
-        update_cache_for_playlists(c, update_playlists, force=True)
+        if playlists_to_force_update_receiver is not None:
+            playlists_to_force_update_receiver.extend(update_playlists)
+        else:
+            update_cache_for_playlists(c, update_playlists, force=True)
 
     logger.debug(f"Database execution loop time {time.time() - exec_start=}")
 
