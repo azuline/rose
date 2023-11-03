@@ -223,6 +223,58 @@ $ tree "1. Releases/"
 
 See the "Text-Based Release Editing" section in [Improving Your Music Metadata](./METADATA_TOOLS.md).
 
+## Run Rule Engine Action on Release
+
+Rosé allows you to run an action from the rule engine on all tracks in a
+release. With this command, you do not need to specify a matcher; this command
+auto-matches all tracks in the release.
+
+See [Improving Your Music Metadata](./METADATA_TOOLS.md) for documentation on
+the rules engine.
+
+```bash
+$ rose releases run-rule '{NEW} The Strokes - 2001. Is This It' 'genre::add:Indie Rock'
+The Strokes - 2001. Is This It/01. Is This It.opus
+      genre: [] -> ['Indie Rock']
+The Strokes - 2001. Is This It/02. The Modern Age.opus
+      genre: [] -> ['Indie Rock']
+The Strokes - 2001. Is This It/03. Soma.opus
+      genre: [] -> ['Indie Rock']
+The Strokes - 2001. Is This It/04. Barely Legal.opus
+      genre: [] -> ['Indie Rock']
+The Strokes - 2001. Is This It/05. Someday.opus
+      genre: [] -> ['Indie Rock']
+The Strokes - 2001. Is This It/06. Alone, Together.opus
+      genre: [] -> ['Indie Rock']
+The Strokes - 2001. Is This It/07. Last Nite.opus
+      genre: [] -> ['Indie Rock']
+The Strokes - 2001. Is This It/08. Hard to Explain.opus
+      genre: [] -> ['Indie Rock']
+The Strokes - 2001. Is This It/09. When It Started.opus
+      genre: [] -> ['Indie Rock']
+The Strokes - 2001. Is This It/10. Trying Your Luck.opus
+      genre: [] -> ['Indie Rock']
+The Strokes - 2001. Is This It/11. Take It or Leave It.opus
+      genre: [] -> ['Indie Rock']
+
+Write changes to 11 tracks? [Y/n] y  
+
+[16:26:42] INFO: Writing tag changes for actions genre::add
+[16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/01. Is This It.opus
+[16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/02. The Modern Age.opus
+[16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/03. Soma.opus
+[16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/04. Barely Legal.opus
+[16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/05. Someday.opus
+[16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/06. Alone, Together.opus
+[16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/07. Last Nite.opus
+[16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/08. Hard to Explain.opus
+[16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/09. When It Started.opus
+[16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/10. Trying Your Luck.opus
+[16:26:42] INFO: Wrote tag changes to The Strokes - 2001. Is This It/11. Take It or Leave It.opus
+
+Applied tag changes to 11 tracks!
+```
+
 ## Create "Phony" Single Release
 
 Let's say that you did not enjoy a release, and want to delete it from your

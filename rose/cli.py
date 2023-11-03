@@ -46,10 +46,11 @@ from rose.releases import (
     delete_release_cover_art,
     dump_releases,
     edit_release,
+    run_actions_on_release,
     set_release_cover_art,
     toggle_release_new,
 )
-from rose.rule_parser import MetadataRule
+from rose.rule_parser import MetadataAction, MetadataRule
 from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
 from rose.virtualfs import VirtualPath, mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
@@ -231,6 +232,27 @@ def delete_cover(ctx: Context, release: str) -> None:
     """Delete the cover art of a release"""
     release = parse_release_from_potential_path(ctx.config, release)
     delete_release_cover_art(ctx.config, release)
+
+
+@releases.command()
+# fmt: off
+@click.argument("release", type=str, nargs=1)
+@click.argument("actions", type=str, nargs=-1)
+@click.option("--dry-run", "-d", is_flag=True, help="Display intended changes without applying them.") 
+@click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
+# fmt: on
+@click.pass_obj
+def run_rule(ctx: Context, release: str, actions: list[str], dry_run: bool, yes: bool) -> None:
+    """Run rule engine actions on all tracks in a release"""
+    release = parse_release_from_potential_path(ctx.config, release)
+    parsed_actions = [MetadataAction.parse(a) for a in actions]
+    run_actions_on_release(
+        ctx.config,
+        release,
+        parsed_actions,
+        dry_run=dry_run,
+        confirm_yes=not yes,
+    )
 
 
 @releases.command()

@@ -184,7 +184,9 @@ class MetadataMatcher:
                 feedback="Found another section after the pattern, but the pattern must be the last section. Perhaps you meant to escape this colon?",
             )
 
-        return cls(tags=tags, pattern=pattern)
+        matcher = cls(tags=tags, pattern=pattern)
+        logger.debug(f"Parsed rule matcher {raw=} as {matcher=}")
+        return matcher
 
 
 @dataclass
@@ -230,13 +232,15 @@ class MetadataAction:
     def parse(
         cls,
         raw: str,
-        action_number: int,
+        action_number: int | None = None,
         # If there is a matcher for the action, pass it here to set the defaults.
         matcher: MetadataMatcher | None = None,
     ) -> MetadataAction:
         idx = 0
         # Common arguments to feed into Syntax Error.
-        err = {"rule_name": f"action {action_number}", "rule": raw}
+        err = {"rule": raw, "rule_name": "action"}
+        if action_number:
+            err["rule_name"] += f" {action_number}"
 
         # First, determine whether we have a matcher section or not. The matcher section is optional,
         # but present if there is an unescaped `::`.
@@ -436,7 +440,9 @@ class MetadataAction:
         else:  # pragma: no cover
             raise RoseError(f"Impossible: unknown action_kind {action_kind=}")
 
-        return cls(behavior=behavior, tags=tags, pattern=pattern)
+        action = cls(behavior=behavior, tags=tags, pattern=pattern)
+        logger.debug(f"Parsed rule action {raw=} {matcher=} as {action=}")
+        return action
 
 
 @dataclass

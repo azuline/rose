@@ -20,9 +20,11 @@ from rose.releases import (
     dump_releases,
     edit_release,
     resolve_release_ids,
+    run_actions_on_release,
     set_release_cover_art,
     toggle_release_new,
 )
+from rose.rule_parser import MetadataAction
 
 
 def test_delete_release(config: Config) -> None:
@@ -448,6 +450,13 @@ def test_dump_releases(config: Config) -> None:
             "year": 2021,
         },
     ]
+
+
+def test_run_action_on_release(config: Config, source_dir: Path) -> None:
+    action = MetadataAction.parse("tracktitle::replace:Bop")
+    run_actions_on_release(config, "ilovecarly", [action])
+    af = AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a")
+    assert af.title == "Bop"
 
 
 def test_resolve_release_ids(config: Config) -> None:

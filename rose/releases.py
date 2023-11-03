@@ -36,6 +36,8 @@ from rose.cache import (
 )
 from rose.common import InvalidCoverArtFileError, RoseError, valid_uuid
 from rose.config import Config
+from rose.rule_parser import MetadataAction
+from rose.rules import execute_metadata_actions
 
 logger = logging.getLogger()
 
@@ -365,6 +367,22 @@ You can reattempt the release edit and fix the metadata file with the command:
         resume_file.unlink()
 
     update_cache_for_releases(c, [release.source_path], force=True)
+
+
+def run_actions_on_release(
+    c: Config,
+    release_id_or_virtual_dirname: str,
+    actions: list[MetadataAction],
+    *,
+    dry_run: bool = False,
+    confirm_yes: bool = False,
+) -> None:
+    """Run rule engine actions on a release."""
+    rdata = get_release(c, release_id_or_virtual_dirname)
+    if rdata is None:
+        raise ReleaseDoesNotExistError(f"Release {release_id_or_virtual_dirname} does not exist")
+    audiotags = [AudioTags.from_file(t.source_path) for t in rdata[1]]
+    execute_metadata_actions(c, actions, audiotags, dry_run=dry_run, confirm_yes=confirm_yes)
 
 
 def create_single_release(c: Config, track_path: Path) -> None:
