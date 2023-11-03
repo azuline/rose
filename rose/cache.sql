@@ -161,9 +161,9 @@ CREATE INDEX playlists_tracks_access ON playlists_tracks(playlist_name, missing,
 -- performant substring search, without requiring us to do a bunch of custom shit (just yet!). So
 -- our shitty working hack is to create a shitload of single-character tokens.
 --
--- We keep the virtual table in sync by hand at the end of the cache update sequence using this
--- view. We don't use automatic triggers in order to avoid write amplification affecting cache
--- update performance.
+-- We sync the virtual table with the source data by hand at the end of the
+-- cache update sequence. We don't use automatic triggers in order to avoid
+-- write amplification potentially affecting cache update performance.
 CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
     tracktitle
   , tracknumber

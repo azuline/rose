@@ -182,12 +182,15 @@ def print_all(ctx: Context) -> None:
 
 
 @releases.command(name="edit")
+# fmt: off
 @click.argument("release", type=str, nargs=1)
+@click.option("--resume", "-r", type=click.Path(path_type=Path), nargs=1, help="Resume a failed release edit.")
+# fmt: on
 @click.pass_obj
-def edit2(ctx: Context, release: str) -> None:
+def edit2(ctx: Context, release: str, resume: Path | None) -> None:
     """Edit a release's metadata in $EDITOR"""
     release = parse_release_from_potential_path(ctx.config, release)
-    edit_release(ctx.config, release)
+    edit_release(ctx.config, release, resume_file=resume)
 
 
 @releases.command()

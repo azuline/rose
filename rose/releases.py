@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import json
 import logging
+import re
+import shlex
 import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -39,6 +41,14 @@ logger = logging.getLogger()
 
 
 class ReleaseDoesNotExistError(RoseError):
+    pass
+
+
+class ReleaseEditFailedError(RoseError):
+    pass
+
+
+class InvalidReleaseEditResumeFileError(RoseError):
     pass
 
 
@@ -227,7 +237,16 @@ class MetadataRelease:
         )
 
 
-def edit_release(c: Config, release_id_or_virtual_dirname: str) -> None:
+FAILED_RELEASE_EDIT_FILENAME_REGEX = re.compile(r"failed-release-edit\.([^.]+)\.toml")
+
+
+def edit_release(
+    c: Config,
+    release_id_or_virtual_dirname: str,
+    *,
+    # Will use this file as the starting TOML instead of reading the cache.
+    resume_file: Path | None = None,
+) -> None:
     release_id, _ = resolve_release_ids(c, release_id_or_virtual_dirname)
 
     # Trigger a quick cache update to ensure we are reading the liveliest data.
@@ -242,71 +261,108 @@ def edit_release(c: Config, release_id_or_virtual_dirname: str) -> None:
                 f"Release {release_id_or_virtual_dirname} does not exist"
             )
         release, tracks = cachedata
-        original_metadata = MetadataRelease.from_cache(release, tracks)
-        toml = click.edit(original_metadata.serialize(), extension=".toml")
+
+        if resume_file is not None:
+            m = FAILED_RELEASE_EDIT_FILENAME_REGEX.match(resume_file.name)
+            if not m:
+                raise InvalidReleaseEditResumeFileError(
+                    f"{resume_file.name} is not a valid release edit resume file"
+                )
+            resume_uuid = m[1]
+            if resume_uuid != release_id:
+                raise InvalidReleaseEditResumeFileError(
+                    f"{resume_file.name} is not associated with this release"
+                )
+            with resume_file.open("r") as fp:
+                original_toml = fp.read()
+        else:
+            original_metadata = MetadataRelease.from_cache(release, tracks)
+            original_toml = original_metadata.serialize()
+
+        toml = click.edit(original_toml, extension=".toml")
         if not toml:
             logger.info("Aborting manual release edit: metadata file not submitted.")
             return
-        release_meta = original_metadata.from_toml(toml)
-        if original_metadata == release_meta:
+        if original_toml == toml:
             logger.info("Aborting manual release edit: no metadata change detected.")
             return
+        try:
+            release_meta = MetadataRelease.from_toml(toml)
+            for t in tracks:
+                track_meta = release_meta.tracks[t.id]
+                tags = AudioTags.from_file(t.source_path)
 
-        for t in tracks:
-            track_meta = release_meta.tracks[t.id]
-            tags = AudioTags.from_file(t.source_path)
+                dirty = False
 
-            dirty = False
+                # Track tags.
+                if tags.tracknumber != track_meta.tracknumber:
+                    tags.tracknumber = track_meta.tracknumber
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: tracknumber")
+                if tags.discnumber != track_meta.discnumber:
+                    tags.discnumber = track_meta.discnumber
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: discnumber")
+                if tags.title != track_meta.title:
+                    tags.title = track_meta.title
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: title")
+                tart = MetadataArtist.to_mapping(track_meta.artists)
+                if tags.trackartists != tart:
+                    tags.trackartists = tart
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: artists")
 
-            # Track tags.
-            if tags.tracknumber != track_meta.tracknumber:
-                tags.tracknumber = track_meta.tracknumber
-                dirty = True
-                logger.debug(f"Modified tag detected for {t.source_path}: tracknumber")
-            if tags.discnumber != track_meta.discnumber:
-                tags.discnumber = track_meta.discnumber
-                dirty = True
-                logger.debug(f"Modified tag detected for {t.source_path}: discnumber")
-            if tags.title != track_meta.title:
-                tags.title = track_meta.title
-                dirty = True
-                logger.debug(f"Modified tag detected for {t.source_path}: title")
-            tart = MetadataArtist.to_mapping(track_meta.artists)
-            if tags.trackartists != tart:
-                tags.trackartists = tart
-                dirty = True
-                logger.debug(f"Modified tag detected for {t.source_path}: artists")
+                # Album tags.
+                if tags.album != release_meta.title:
+                    tags.album = release_meta.title
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: album")
+                if tags.releasetype != release_meta.releasetype:
+                    tags.releasetype = release_meta.releasetype.lower()
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: releasetype")
+                if tags.year != release_meta.year:
+                    tags.year = release_meta.year
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: year")
+                if tags.genre != release_meta.genres:
+                    tags.genre = release_meta.genres
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: genre")
+                if tags.label != release_meta.labels:
+                    tags.label = release_meta.labels
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: label")
+                aart = MetadataArtist.to_mapping(release_meta.artists)
+                if tags.albumartists != aart:
+                    tags.albumartists = aart
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: album_artists")
 
-            # Album tags.
-            if tags.album != release_meta.title:
-                tags.album = release_meta.title
-                dirty = True
-                logger.debug(f"Modified tag detected for {t.source_path}: album")
-            if tags.releasetype != release_meta.releasetype:
-                tags.releasetype = release_meta.releasetype.lower()
-                dirty = True
-                logger.debug(f"Modified tag detected for {t.source_path}: releasetype")
-            if tags.year != release_meta.year:
-                tags.year = release_meta.year
-                dirty = True
-                logger.debug(f"Modified tag detected for {t.source_path}: year")
-            if tags.genre != release_meta.genres:
-                tags.genre = release_meta.genres
-                dirty = True
-                logger.debug(f"Modified tag detected for {t.source_path}: genre")
-            if tags.label != release_meta.labels:
-                tags.label = release_meta.labels
-                dirty = True
-                logger.debug(f"Modified tag detected for {t.source_path}: label")
-            aart = MetadataArtist.to_mapping(release_meta.artists)
-            if tags.albumartists != aart:
-                tags.albumartists = aart
-                dirty = True
-                logger.debug(f"Modified tag detected for {t.source_path}: album_artists")
+                if dirty:
+                    logger.info(f"Flushing changed tags to {t.source_path}")
+                    tags.flush()
+        except RoseError as e:
+            new_resume_path = c.cache_dir / f"failed-release-edit.{release_id}.toml"
+            with new_resume_path.open("w") as fp:
+                fp.write(toml)
+            raise ReleaseEditFailedError(
+                f"""\
+Failed to apply release edit: {e}
 
-            if dirty:
-                logger.info(f"Flushing changed tags to {t.source_path}")
-                tags.flush()
+--------
+
+The submitted metadata TOML file has been written to {new_resume_path.resolve()}.
+
+You can reattempt the release edit and fix the metadata file with the command:
+
+    $ rose releases edit --resume {shlex.quote(str(new_resume_path.resolve()))} {shlex.quote(release_id_or_virtual_dirname)}
+        """
+            ) from e
+
+    if resume_file:
+        resume_file.unlink()
 
     update_cache_for_releases(c, [release.source_path], force=True)
 
