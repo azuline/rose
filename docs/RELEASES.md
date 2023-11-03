@@ -142,14 +142,14 @@ $ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;F
 └── cover.jpg
 ```
 
-## Remove Release Cover Art
+## Delete Release Cover Art
 
 Command line:
 
 ```bash
 $ cd $fuse_mount_dir
 
-$ rose releases remove-cover "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
+$ rose releases delete-cover "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
 [02:13:17] INFO: Deleted cover arts of release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [02:13:17] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 
@@ -218,3 +218,14 @@ $ tree "1. Releases/"
 ├── NewJeans - 2022. Ditto - Single [Contemporary R&B;K-Pop][K-Pop]/...
 └── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
 ```
+
+## Edit Release Metadata
+
+Editing a release's metadata is only possible via the command line.
+
+See the "Text-Based Release Editing" section in [Improving Your Music Metadata](./METADATA_TOOLS.md)
+for documentation on this operation.
+
+## Create "Phony" Single Release
+
+TODO

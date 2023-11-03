@@ -366,7 +366,7 @@ $ tree "8. Playlists/Shower/"
 └── cover.jpg
 ```
 
-## Remove Playlist Cover Art
+## Delete Playlist Cover Art
 
 _This operation is playlist-only, as collages do not have their own cover art._
 
@@ -375,7 +375,7 @@ Command line:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rose playlists remove-cover "Shower"
+$ rose playlists delete-cover "Shower"
 [02:10:34] INFO: Deleted cover arts of playlist Lounge
 [02:10:34] INFO: Updating cache for playlist Lounge
 
