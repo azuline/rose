@@ -44,6 +44,7 @@ from rose.releases import (
     delete_release,
     dump_releases,
     edit_release,
+    extract_single_release,
     remove_release_cover_art,
     set_release_cover_art,
     toggle_release_new,
@@ -233,6 +234,14 @@ def delete3(ctx: Context, release: str) -> None:
     """
     release = parse_release_from_potential_path(ctx.config, release)
     delete_release(ctx.config, release)
+
+
+@releases.command()
+@click.argument("track_path", type=click.Path(path_type=Path), nargs=1)
+@click.pass_obj
+def extract_single(ctx: Context, track_path: Path) -> None:
+    """Create a single release with the given track. The given track is copied, not moved."""
+    extract_single_release(ctx.config, track_path)
 
 
 @cli.group()

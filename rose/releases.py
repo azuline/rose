@@ -16,7 +16,7 @@ import tomli_w
 import tomllib
 from send2trash import send2trash
 
-from rose.artiststr import ArtistMapping
+from rose.artiststr import ArtistMapping, format_artist_string
 from rose.audiotags import AudioTags
 from rose.cache import (
     STORED_DATA_FILE_REGEX,
@@ -318,6 +318,60 @@ def edit_release(c: Config, release_id_or_virtual_dirname: str) -> None:
                 tags.flush()
 
     update_cache_for_releases(c, [release.source_path], force=True)
+
+
+def extract_single_release(c: Config, track_path: Path) -> None:
+    """Takes a track and copies it into a brand new "single" release with only that track."""
+    if not track_path.is_file():
+        raise FileNotFoundError(f"Failed to extract single: file {track_path} not found")
+
+    # Step 1. Compute the new directory name for the single.
+    af = AudioTags.from_file(track_path)
+    dirname = f"{format_artist_string(af.artists)} - "
+    if af.year:
+        dirname += f"{af.year}. "
+    dirname += af.title or "Unknown Title"
+    # Handle directory name collisions.
+    collision_no = 2
+    original_dirname = dirname
+    while True:
+        if not (c.music_source_dir / dirname).exists():
+            break
+        dirname = f"{original_dirname} [{collision_no}]"
+        collision_no += 1
+    # Step 2. Make the new directory and copy the track. If cover art is in track's current
+    # directory, copy that over too.
+    source_path = c.music_source_dir / dirname
+    source_path.mkdir()
+    new_track_path = source_path / f"01. {af.title}{track_path.suffix}"
+    shutil.copyfile(track_path, new_track_path)
+    for f in track_path.parent.iterdir():
+        if f.name.lower() in c.valid_cover_arts:
+            shutil.copyfile(f, source_path / f.name)
+            break
+    # Step 3. Update the tags of the new track. Clear the Rose IDs too: this is a brand new track.
+    af = AudioTags.from_file(new_track_path)
+    af.album = af.title
+    af.release_type = "single"
+    af.album_artists = af.artists
+    af.track_number = "1"
+    af.disc_number = "1"
+    af.release_id = None
+    af.id = None
+    af.flush()
+    af = AudioTags.from_file(new_track_path)
+    # Step 4: Update the cache!
+    update_cache_for_releases(c, [source_path])
+    # Step 5: Default extracted singles to not new: if it is new, why are you meddling with it?
+    for f in source_path.iterdir():
+        if m := STORED_DATA_FILE_REGEX.match(f.name):
+            release_id = m[1]
+            break
+    else:
+        raise RoseError(
+            f"Impossible: Failed to parse release ID from newly created single directory {source_path}"
+        )
+    toggle_release_new(c, release_id)
 
 
 def resolve_release_ids(c: Config, release_id_or_virtual_dirname: str) -> tuple[str, str]:

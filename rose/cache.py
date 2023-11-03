@@ -708,7 +708,7 @@ def _update_cache_for_releases_executor(
             release_id_from_first_file = None
             with contextlib.suppress(Exception):
                 release_id_from_first_file = AudioTags.from_file(first_audio_file).release_id
-            if release_id_from_first_file is not None and not force:
+            if release_id_from_first_file and not force:
                 logger.warning(
                     f"No-Op: Skipping release at {source_path}: files in release already have "
                     f"release_id {release_id_from_first_file}, but .rose.{{uuid}}.toml is missing, "

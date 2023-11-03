@@ -6,6 +6,7 @@ import pytest
 import tomllib
 
 from conftest import TEST_RELEASE_1
+from rose.audiotags import AudioTags
 from rose.cache import CachedArtist, CachedRelease, CachedTrack, connect, get_release, update_cache
 from rose.config import Config
 from rose.releases import (
@@ -13,6 +14,7 @@ from rose.releases import (
     delete_release,
     dump_releases,
     edit_release,
+    extract_single_release,
     remove_release_cover_art,
     resolve_release_ids,
     set_release_cover_art,
@@ -214,6 +216,28 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             formatted_artists="JISOO",
         ),
     ]
+
+
+def test_extract_single_release(config: Config) -> None:
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    cover_art_path = config.music_source_dir / TEST_RELEASE_1.name / "cover.jpg"
+    cover_art_path.touch()
+    update_cache(config)
+    extract_single_release(config, config.music_source_dir / TEST_RELEASE_1.name / "02.m4a")
+    # Assert nothing happened to the files we "extracted."
+    assert (config.music_source_dir / TEST_RELEASE_1.name / "02.m4a").is_file()
+    assert cover_art_path.is_file()
+    # Assert that we've successfully written/copied our files.
+    source_path = config.music_source_dir / "BLACKPINK - 1990. Track 2"
+    assert source_path.is_dir()
+    assert (source_path / "01. Track 2.m4a").is_file()
+    assert (source_path / "cover.jpg").is_file()
+    af = AudioTags.from_file(source_path / "01. Track 2.m4a")
+    assert af.album == "Track 2"
+    assert af.track_number == "1"
+    assert af.disc_number == "1"
+    assert af.release_type == "single"
+    assert af.album_artists == af.artists
 
 
 def test_resolve_release_ids(config: Config) -> None:
