@@ -119,7 +119,7 @@ matcher = "genre:^Kpop$"  # An example matcher.
 actions = ["replace:K-Pop"]  # Example actions.
 ```
 
-And the `rose metadata run-stored-rules` command runs all stored rules.
+The `rose rules run-stored` command runs all stored rules.
 
 ## Demo
 
@@ -259,9 +259,8 @@ matcher = "genre:^Kpop$"
 actions = ["replace:K-Pop"]
 ```
 
-The `rose metadata run-stored-rules` command will run the above three rules,
-along with any other rules I have in my configuration file, on the entire
-library.
+The `rose rules run-stored` command will run the above three rules, along with
+any other rules I have in my configuration file, on the entire library.
 
 ## Mechanics
 

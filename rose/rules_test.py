@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from rose.audiotags import AudioTags
+from rose.cache import update_cache
 from rose.config import Config
 from rose.rule_parser import (
     AddAction,
@@ -199,6 +200,19 @@ def test_rules_fields_match_trackartist(config: Config, source_dir: Path) -> Non
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.trackartists.main == ["8"]
+
+
+def test_match_backslash(config: Config, source_dir: Path) -> None:
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    af.title = r"X \\ Y"
+    af.flush()
+    update_cache(config)
+
+    # Test wit
+    rule = MetadataRule.parse(r"tracktitle: \\\\ ", [r"sed: \\\\\\\\ : / "])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.title == "X / Y"
 
 
 def test_action_replace_with_delimiter(config: Config, source_dir: Path) -> None:

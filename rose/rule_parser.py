@@ -84,7 +84,6 @@ class ReplaceAction:
     """
 
     replacement: str
-    tags: Literal["matched"] | list[Tag] = "matched"
 
 
 @dataclass
@@ -465,8 +464,8 @@ def take(x: str, until: str, including: bool = True) -> tuple[str, int]:
     escaped = False
     seen_idx = 0
     for i, c in enumerate(x):
-        if c == "\\":
-            escaped = not escaped
+        if c == "\\" and not escaped:
+            escaped = True
             seen_idx += 1
             continue
         if x[i : i + len(until)] == until and not escaped:
