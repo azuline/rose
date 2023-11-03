@@ -7,7 +7,7 @@ For more detailed documentation, please visit the following files:
 - [Browsing the Virtual Filesystem](./VIRTUAL_FILESYSTEM.md)
 - [Managing Playlists & Collages](./PLAYLISTS_COLLAGES.md)
 - [Managing Releases](./RELEASES.md)
-- [Managing Your Music Metadata](./METADATA_MANAGEMENT.md)
+- [Improving Your Music Metadata](./METADATA_TOOLS.md)
 - [Maintaining the Cache](./CACHE_MAINTENANCE.md)
 - [Shell Scripting](./SHELL_SCRIPTING.md)
 - [Tagging Conventions](./docs/TAGGING_CONVENTIONS.md)

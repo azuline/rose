@@ -62,6 +62,9 @@ prefix of `%DISC_NUMBER%-%TRACK_NUMBER%. `. Collages and playlists apply a
 position prefix to each release/track in them. The Recently Added Releases view
 adds a date prefix to each release.
 
+"New" releases are prefixed with `{NEW}` in the virtual filesystem and appear
+in the `2. Releases - New` top-level directory.
+
 > [!NOTE]
 > The command line commands accept a release's virtual directory name as a
 > valid method of identifying a release. The virtual directory name passed to
@@ -69,21 +72,6 @@ adds a date prefix to each release.
 
 Rosé also exposes all cover art under the filename `cover.{ext}`, regardless of
 the filename in the source directory.
-
-# New Releases
-
-Rosé supports flagging releases as "NEW" and making that evident in the virtual
-directory name. NEW releases have their virtual directory name prefixed with
-`{NEW}`.
-
-By default, Rosé flags releases as new when they are first imported.
-
-"New"-ness has no effects besides prefixing the directory name with `{NEW}` and
-adding the release to the `2. Releases - New` top-level directory. "New"-ness is
-designed for you, the human operator, to edit manually.
-
-Rosé tracks "new"-ness within a release's `.rose.{uuid}.toml` file. See
-[Architecture](./ARCHITECTURE.md) for more information about this file.
 
 # Hiding Artists, Genres, and Labels
 

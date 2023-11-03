@@ -70,7 +70,7 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
   - `playlists set-cover`: Set the cover art for a playlist. Replaces any existing
     cover art.
   - `playlists delete-cover`: Remove the cover art of a playlist.
-- rules/ _(see [Managing Your Music Metadata](./METADATA_MANAGEMENT.md))_
+- rules/ _(see [Improving Your Music Metadata](./METADATA_TOOLS.md))_
   - `rules run`: Run an ad hoc rule in the command line interface. You can also
     easily test rules with the `--dry-run` flag.
   - `rules run-stored`: Run the rules stored in the configuration file.

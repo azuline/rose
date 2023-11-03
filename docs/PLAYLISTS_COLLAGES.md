@@ -78,7 +78,7 @@ configurable. See [Configuration](./CONFIGURATION.md).
 
 However, working with this file directly is quite annoying, so Rosé allows you
 to manage collages and playlists via the command line and the virtual
-filesystem. In the rest of this document, we'll demonstrate the basic
+filesystem. In the rest of this document, we'll demonstrate the supported
 operations.
 
 ## Creating a Collage/Playlist

@@ -157,7 +157,7 @@ CHUU - 2023. Howl/05. Hitchhiker.opus
       albumartist[main]: ['CHUU'] -> ['Chuu']
 ```
 
-_Demo Video TBD_
+_Demo Video TODO_
 
 # Features
 
@@ -381,7 +381,7 @@ For additional documentation, please refer to the following files:
 - [Browsing the Virtual Filesystem](./docs/VIRTUAL_FILESYSTEM.md)
 - [Managing Releases](./docs/RELEASES.md)
 - [Managing Playlists & Collages](./docs/PLAYLISTS_COLLAGES.md)
-- [Managing Your Music Metadata](./docs/METADATA_MANAGEMENT.md)
+- [Improving Your Music Metadata](./docs/METADATA_TOOLS.md)
 - [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md)
 - [Shell Scripting](./docs/SHELL_SCRIPTING.md)
 - [Tagging Conventions](./docs/TAGGING_CONVENTIONS.md)

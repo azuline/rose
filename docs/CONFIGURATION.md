@@ -107,11 +107,17 @@ cache_dir = "~/.cache/rose"
 # and the number of works that the virtual filesystem can spin up to handle a
 # request.
 max_proc = 4
+
+# Stored metadata rules to be repeatedly ran in the future. See the Managing
+# Your Music Metadata document for more details.
+[[stored_metadata_rules]]
+matcher = "genre:^Kpop$"
+actions = ["replace:K-Pop"]
 ```
 
 # Reloading
 
-TBD
+TODO
 
 # Shell Completion
 

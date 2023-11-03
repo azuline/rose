@@ -1,4 +1,4 @@
-# Managing Your Music Metadata
+# Improving Your Music Metadata
 
 Rosé relies on the metadata embedded in your music files to organize your music
 into a useful virtual filesystem. This means that the quality of the music tags

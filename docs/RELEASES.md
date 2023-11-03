@@ -1,10 +1,50 @@
 # Managing Releases
 
-The virtual filesystem makes some actions available as filesystem operations.
-All actions available in the Virtual Filesystem are also available as a CLI
-operation.
+# Release & Track Identifiers
 
-All command line commands accept releases in three formats:
+Rosé assigns a UUID to each release and track in order to identify them across
+cache updates. The UUIDs are also used to track membership in collages and
+playlists.
+
+These UUIDs are persisted to the source files on first scan:
+
+- A `.rose.{uuid}.toml` file is created in each release directory. This file
+  also stores release state. The release UUID is also written to the
+  nonstandard `rosereleaseid` audio tag in each track.
+- The track UUID is written to each track's nonstandard `roseid` audio tag.
+
+# Storage Format
+
+The `.rose.{uuid}.toml` file stores release state that is not suitable to be
+written to the audio tags. The format of this file is:
+
+```toml
+# Release "new"-ness.
+new = false
+# The timestamp that the release was "added" to the library. Rosé uses the
+# timestamp when the `.rose.{uuid}.toml` file was created, as that is
+# equivalent to the first time Rosé scanned the release.
+added_at = 2018-10-01 00:00:00-04:00
+```
+
+# "New" Releases
+
+Rosé supports flagging releases as "new." "New"-ness has no effects besides
+prefixing the release's virtual filesystem name with `{NEW}` and adding the
+release to the `2. Releases - New` top-level directory.
+
+On first import, releases are flagged as new by default. "New"-ness can be
+toggled manually afterwards. This feature is designed to allow you to
+distinguish between music you've listened to and music you're planning on
+listening to.
+
+# Operations
+
+Rosé allows you to manage releases via the command line and the virtual
+filesystem. In the rest of this document, we'll demonstrate the supported
+operations.
+
+Note: All command line commands accept releases in three formats:
 
 1. The release's UUID.
 2. The release's virtual directory name, excluding prefixes.
