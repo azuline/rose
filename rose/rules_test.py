@@ -128,7 +128,7 @@ def test_rules_fields_match_releasetype(config: Config, source_dir: Path) -> Non
     )
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.release_type == "live"
+    assert af.releasetype == "live"
 
 
 def test_rules_fields_match_tracknumber(config: Config, source_dir: Path) -> None:
@@ -138,7 +138,7 @@ def test_rules_fields_match_tracknumber(config: Config, source_dir: Path) -> Non
     )
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.track_number == "8"
+    assert af.tracknumber == "8"
 
 
 def test_rules_fields_match_discnumber(config: Config, source_dir: Path) -> None:
@@ -148,7 +148,7 @@ def test_rules_fields_match_discnumber(config: Config, source_dir: Path) -> None
     )
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.disc_number == "8"
+    assert af.discnumber == "8"
 
 
 def test_rules_fields_match_albumtitle(config: Config, source_dir: Path) -> None:
@@ -188,7 +188,7 @@ def test_rules_fields_match_albumartist(config: Config, source_dir: Path) -> Non
     )
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.album_artists.main == ["8"]
+    assert af.albumartists.main == ["8"]
 
 
 def test_rules_fields_match_trackartist(config: Config, source_dir: Path) -> None:
@@ -198,7 +198,7 @@ def test_rules_fields_match_trackartist(config: Config, source_dir: Path) -> Non
     )
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.artists.main == ["8"]
+    assert af.trackartists.main == ["8"]
 
 
 def test_action_replace_with_delimiter(config: Config, source_dir: Path) -> None:

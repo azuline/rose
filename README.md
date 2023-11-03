@@ -169,13 +169,11 @@ by the two interfaces is:
 - Create collages of releases and playlists of tracks
 - Group artist aliases together under a primary artist
 - Flag and unflag release "new"-ness
-- White/black-list entries in the artist, genre, and label views
 - Edit release metadata as a text file
-- Run and store rules for bulk updating metadata
+- Run and store rules for (bulk) updating metadata
 - Import metadata and cover art from third-party sources
 - Extract embedded cover art to an external file
-- Extract "phony" single releases from EPs/Albums/etc
-- Refresh the read cache automatically on metadata changes
+- Create "phony" single releases from any individual track
 - Support for `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` files
 - Support for multiple artist, label, and genre tags.
 

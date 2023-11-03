@@ -116,7 +116,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(release_path),))
         release_id = cursor.fetchone()["id"]
         cursor = conn.execute(
-            "SELECT id FROM tracks WHERE release_id = ? ORDER BY track_number", (str(release_id),)
+            "SELECT id FROM tracks WHERE release_id = ? ORDER BY tracknumber", (str(release_id),)
         )
         track_ids = [r["id"] for r in cursor]
         assert len(track_ids) == 2
@@ -138,16 +138,16 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         ]
 
         [tracks.{track_ids[0]}]
-        disc_number = "1"
-        track_number = "1"
+        discnumber = "1"
+        tracknumber = "1"
         title = "I Do Like That"
         artists = [
             {{ name = "BLACKPINK", role = "main" }},
         ]
 
         [tracks.{track_ids[1]}]
-        disc_number = "1"
-        track_number = "2"
+        discnumber = "1"
+        tracknumber = "2"
         title = "All Eyes On Me"
         artists = [
             {{ name = "JISOO", role = "main" }},
@@ -187,8 +187,8 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             virtual_filename="BLACKPINK - I Do Like That.m4a",
             title="I Do Like That",
             release_id=release_id,
-            track_number="1",
-            disc_number="1",
+            tracknumber="1",
+            discnumber="1",
             formatted_release_position="01",
             duration_seconds=2,
             artists=[
@@ -203,8 +203,8 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             virtual_filename="JISOO - All Eyes On Me.m4a",
             title="All Eyes On Me",
             release_id=release_id,
-            track_number="2",
-            disc_number="1",
+            tracknumber="2",
+            discnumber="1",
             formatted_release_position="02",
             duration_seconds=2,
             artists=[
@@ -231,10 +231,10 @@ def test_extract_single_release(config: Config) -> None:
     assert (source_path / "cover.jpg").is_file()
     af = AudioTags.from_file(source_path / "01. Track 2.m4a")
     assert af.album == "Track 2"
-    assert af.track_number == "1"
-    assert af.disc_number == "1"
-    assert af.release_type == "single"
-    assert af.album_artists == af.artists
+    assert af.tracknumber == "1"
+    assert af.discnumber == "1"
+    assert af.releasetype == "single"
+    assert af.albumartists == af.trackartists
 
 
 @pytest.mark.usefixtures("seeded_cache")

@@ -132,7 +132,7 @@ def test_update_cache_all(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases (id, source_path, virtual_dirname, added_at, datafile_mtime, title, release_type, multidisc, formatted_artists)
+            INSERT INTO releases (id, source_path, virtual_dirname, added_at, datafile_mtime, title, releasetype, multidisc, formatted_artists)
             VALUES ('aaaaaa', '/nonexistent', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
             """  # noqa: E501
         )
@@ -174,7 +174,7 @@ def test_update_cache_releases(config: Config) -> None:
     with connect(config) as conn:
         cursor = conn.execute(
             """
-            SELECT id, source_path, title, release_type, release_year, new
+            SELECT id, source_path, title, releasetype, year, new
             FROM releases WHERE id = ?
             """,
             (release_id,),
@@ -182,8 +182,8 @@ def test_update_cache_releases(config: Config) -> None:
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
-        assert row["release_type"] == "album"
-        assert row["release_year"] == 1990
+        assert row["releasetype"] == "album"
+        assert row["year"] == 1990
         assert row["new"]
 
         cursor = conn.execute(
@@ -217,7 +217,7 @@ def test_update_cache_releases(config: Config) -> None:
             cursor = conn.execute(
                 """
                 SELECT
-                    id, source_path, title, release_id, track_number, disc_number, duration_seconds
+                    id, source_path, title, release_id, tracknumber, discnumber, duration_seconds
                 FROM tracks WHERE source_path = ?
                 """,
                 (str(f),),
@@ -226,8 +226,8 @@ def test_update_cache_releases(config: Config) -> None:
             track_id = row["id"]
             assert row["title"].startswith("Track")
             assert row["release_id"] == release_id
-            assert row["track_number"] != ""
-            assert row["disc_number"] == "1"
+            assert row["tracknumber"] != ""
+            assert row["discnumber"] == "1"
             assert row["duration_seconds"] == 2
 
             cursor = conn.execute(
@@ -327,13 +327,13 @@ def test_update_cache_releases_already_fully_cached(config: Config) -> None:
     # Assert that the release metadata was read correctly.
     with connect(config) as conn:
         cursor = conn.execute(
-            "SELECT id, source_path, title, release_type, release_year, new FROM releases",
+            "SELECT id, source_path, title, releasetype, year, new FROM releases",
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
-        assert row["release_type"] == "album"
-        assert row["release_year"] == 1990
+        assert row["releasetype"] == "album"
+        assert row["year"] == 1990
         assert row["new"]
 
 
@@ -352,13 +352,13 @@ def test_update_cache_releases_disk_update_to_previously_cached(config: Config) 
     # Assert that the release metadata was re-read and updated correctly.
     with connect(config) as conn:
         cursor = conn.execute(
-            "SELECT id, source_path, title, release_type, release_year, new FROM releases",
+            "SELECT id, source_path, title, releasetype, year, new FROM releases",
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
-        assert row["release_type"] == "album"
-        assert row["release_year"] == 1990
+        assert row["releasetype"] == "album"
+        assert row["year"] == 1990
         assert row["new"]
 
 
@@ -412,13 +412,13 @@ def test_update_cache_releases_source_path_renamed(config: Config) -> None:
     # Assert that the release metadata was re-read and updated correctly.
     with connect(config) as conn:
         cursor = conn.execute(
-            "SELECT id, source_path, title, release_type, release_year, new FROM releases",
+            "SELECT id, source_path, title, releasetype, year, new FROM releases",
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(moved_release_dir)
         assert row["title"] == "I Love Blackpink"
-        assert row["release_type"] == "album"
-        assert row["release_year"] == 1990
+        assert row["releasetype"] == "album"
+        assert row["year"] == 1990
         assert row["new"]
 
 
@@ -427,7 +427,7 @@ def test_update_cache_releases_delete_nonexistent(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases (id, source_path, virtual_dirname, added_at, datafile_mtime, title, release_type, multidisc, formatted_artists)
+            INSERT INTO releases (id, source_path, virtual_dirname, added_at, datafile_mtime, title, releasetype, multidisc, formatted_artists)
             VALUES ('aaaaaa', '/nonexistent', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
             """  # noqa: E501
         )
@@ -1158,8 +1158,8 @@ def test_get_release(config: Config) -> None:
                 virtual_filename="01.m4a",
                 title="Track 1",
                 release_id="r1",
-                track_number="01",
-                disc_number="01",
+                tracknumber="01",
+                discnumber="01",
                 formatted_release_position="01",
                 duration_seconds=120,
                 artists=[
@@ -1175,8 +1175,8 @@ def test_get_release(config: Config) -> None:
                 virtual_filename="02.m4a",
                 title="Track 2",
                 release_id="r1",
-                track_number="02",
-                disc_number="01",
+                tracknumber="02",
+                discnumber="01",
                 formatted_release_position="02",
                 duration_seconds=240,
                 artists=[
@@ -1331,8 +1331,8 @@ def test_get_collage(config: Config) -> None:
             virtual_filename="01.m4a",
             title="Track 1",
             release_id="r1",
-            track_number="01",
-            disc_number="01",
+            tracknumber="01",
+            discnumber="01",
             formatted_release_position="01",
             duration_seconds=120,
             artists=[
@@ -1348,8 +1348,8 @@ def test_get_collage(config: Config) -> None:
             virtual_filename="01.m4a",
             title="Track 1",
             release_id="r2",
-            track_number="01",
-            disc_number="01",
+            tracknumber="01",
+            discnumber="01",
             formatted_release_position="01",
             duration_seconds=120,
             artists=[
@@ -1386,8 +1386,8 @@ def test_get_playlist(config: Config) -> None:
             virtual_filename="01.m4a",
             title="Track 1",
             release_id="r1",
-            track_number="01",
-            disc_number="01",
+            tracknumber="01",
+            discnumber="01",
             formatted_release_position="01",
             duration_seconds=120,
             artists=[
@@ -1403,8 +1403,8 @@ def test_get_playlist(config: Config) -> None:
             virtual_filename="01.m4a",
             title="Track 1",
             release_id="r2",
-            track_number="01",
-            disc_number="01",
+            tracknumber="01",
+            discnumber="01",
             formatted_release_position="01",
             duration_seconds=120,
             artists=[

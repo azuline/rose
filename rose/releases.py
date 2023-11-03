@@ -158,8 +158,8 @@ class MetadataArtist:
 
 @dataclass
 class MetadataTrack:
-    disc_number: str
-    track_number: str
+    discnumber: str
+    tracknumber: str
     title: str
     artists: list[MetadataArtist]
 
@@ -187,8 +187,8 @@ class MetadataRelease:
             ],
             tracks={
                 t.id: MetadataTrack(
-                    disc_number=t.disc_number,
-                    track_number=t.track_number,
+                    discnumber=t.discnumber,
+                    tracknumber=t.tracknumber,
                     title=t.title,
                     artists=[
                         MetadataArtist(name=a.name, role=a.role) for a in t.artists if not a.alias
@@ -217,8 +217,8 @@ class MetadataRelease:
             artists=[MetadataArtist(name=a["name"], role=a["role"]) for a in d["artists"]],
             tracks={
                 tid: MetadataTrack(
-                    track_number=t["track_number"],
-                    disc_number=t["disc_number"],
+                    tracknumber=t["tracknumber"],
+                    discnumber=t["discnumber"],
                     title=t["title"],
                     artists=[MetadataArtist(name=a["name"], role=a["role"]) for a in t["artists"]],
                 )
@@ -259,21 +259,21 @@ def edit_release(c: Config, release_id_or_virtual_dirname: str) -> None:
             dirty = False
 
             # Track tags.
-            if tags.track_number != track_meta.track_number:
-                tags.track_number = track_meta.track_number
+            if tags.tracknumber != track_meta.tracknumber:
+                tags.tracknumber = track_meta.tracknumber
                 dirty = True
-                logger.debug(f"Modified tag detected for {t.source_path}: track_number")
-            if tags.disc_number != track_meta.disc_number:
-                tags.disc_number = track_meta.disc_number
+                logger.debug(f"Modified tag detected for {t.source_path}: tracknumber")
+            if tags.discnumber != track_meta.discnumber:
+                tags.discnumber = track_meta.discnumber
                 dirty = True
-                logger.debug(f"Modified tag detected for {t.source_path}: disc_number")
+                logger.debug(f"Modified tag detected for {t.source_path}: discnumber")
             if tags.title != track_meta.title:
                 tags.title = track_meta.title
                 dirty = True
                 logger.debug(f"Modified tag detected for {t.source_path}: title")
             tart = MetadataArtist.to_mapping(track_meta.artists)
-            if tags.artists != tart:
-                tags.artists = tart
+            if tags.trackartists != tart:
+                tags.trackartists = tart
                 dirty = True
                 logger.debug(f"Modified tag detected for {t.source_path}: artists")
 
@@ -282,10 +282,10 @@ def edit_release(c: Config, release_id_or_virtual_dirname: str) -> None:
                 tags.album = release_meta.title
                 dirty = True
                 logger.debug(f"Modified tag detected for {t.source_path}: album")
-            if tags.release_type != release_meta.releasetype:
-                tags.release_type = release_meta.releasetype.lower()
+            if tags.releasetype != release_meta.releasetype:
+                tags.releasetype = release_meta.releasetype.lower()
                 dirty = True
-                logger.debug(f"Modified tag detected for {t.source_path}: release_type")
+                logger.debug(f"Modified tag detected for {t.source_path}: releasetype")
             if tags.year != release_meta.year:
                 tags.year = release_meta.year
                 dirty = True
@@ -299,8 +299,8 @@ def edit_release(c: Config, release_id_or_virtual_dirname: str) -> None:
                 dirty = True
                 logger.debug(f"Modified tag detected for {t.source_path}: label")
             aart = MetadataArtist.to_mapping(release_meta.artists)
-            if tags.album_artists != aart:
-                tags.album_artists = aart
+            if tags.albumartists != aart:
+                tags.albumartists = aart
                 dirty = True
                 logger.debug(f"Modified tag detected for {t.source_path}: album_artists")
 
@@ -318,7 +318,7 @@ def extract_single_release(c: Config, track_path: Path) -> None:
 
     # Step 1. Compute the new directory name for the single.
     af = AudioTags.from_file(track_path)
-    dirname = f"{format_artist_string(af.artists)} - "
+    dirname = f"{format_artist_string(af.trackartists)} - "
     if af.year:
         dirname += f"{af.year}. "
     dirname += af.title or "Unknown Title"
@@ -343,10 +343,10 @@ def extract_single_release(c: Config, track_path: Path) -> None:
     # Step 3. Update the tags of the new track. Clear the Rose IDs too: this is a brand new track.
     af = AudioTags.from_file(new_track_path)
     af.album = af.title
-    af.release_type = "single"
-    af.album_artists = af.artists
-    af.track_number = "1"
-    af.disc_number = "1"
+    af.releasetype = "single"
+    af.albumartists = af.trackartists
+    af.tracknumber = "1"
+    af.discnumber = "1"
     af.release_id = None
     af.id = None
     af.flush()

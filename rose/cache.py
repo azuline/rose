@@ -252,8 +252,8 @@ class CachedTrack:
     virtual_filename: str
     title: str
     release_id: str
-    track_number: str
-    disc_number: str
+    tracknumber: str
+    discnumber: str
     formatted_release_position: str
     duration_seconds: int
 
@@ -266,8 +266,8 @@ class CachedTrack:
             "source_path": str(self.source_path.resolve()),
             "title": self.title,
             "release_id": self.release_id,
-            "tracknumber": self.track_number,
-            "discnumber": self.disc_number,
+            "tracknumber": self.tracknumber,
+            "discnumber": self.discnumber,
             "duration_seconds": self.duration_seconds,
             "artists": [a.dump() for a in self.artists],
             "formatted_artists": self.formatted_artists,
@@ -553,8 +553,8 @@ def _update_cache_for_releases_executor(
               , r.datafile_mtime
               , r.virtual_dirname
               , r.title
-              , r.release_type
-              , r.release_year
+              , r.releasetype
+              , r.year
               , r.multidisc
               , r.new
               , r.formatted_artists
@@ -587,8 +587,8 @@ def _update_cache_for_releases_executor(
                     datafile_mtime=row["datafile_mtime"],
                     virtual_dirname=row["virtual_dirname"],
                     title=row["title"],
-                    releasetype=row["release_type"],
-                    year=row["release_year"],
+                    releasetype=row["releasetype"],
+                    year=row["year"],
                     multidisc=bool(row["multidisc"]),
                     new=bool(row["new"]),
                     genres=row["genres"].split(r" \\ ") if row["genres"] else [],
@@ -620,8 +620,8 @@ def _update_cache_for_releases_executor(
               , t.virtual_filename
               , t.title
               , t.release_id
-              , t.track_number
-              , t.disc_number
+              , t.tracknumber
+              , t.discnumber
               , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
@@ -648,8 +648,8 @@ def _update_cache_for_releases_executor(
                 virtual_filename=row["virtual_filename"],
                 title=row["title"],
                 release_id=row["release_id"],
-                track_number=row["track_number"],
-                disc_number=row["disc_number"],
+                tracknumber=row["tracknumber"],
+                discnumber=row["discnumber"],
                 formatted_release_position=row["formatted_release_position"],
                 duration_seconds=row["duration_seconds"],
                 artists=track_artists,
@@ -868,10 +868,10 @@ def _update_cache_for_releases_executor(
                     release.title = release_title
                     release_dirty = True
 
-                release_type = tags.release_type
-                if release_type != release.releasetype:
+                releasetype = tags.releasetype
+                if releasetype != release.releasetype:
                     logger.debug(f"Release type change detected for {source_path}, updating")
-                    release.releasetype = release_type
+                    release.releasetype = releasetype
                     release_dirty = True
 
                 if tags.year != release.year:
@@ -890,7 +890,7 @@ def _update_cache_for_releases_executor(
                     release_dirty = True
 
                 release_artists = []
-                for role, names in asdict(tags.album_artists).items():
+                for role, names in asdict(tags.albumartists).items():
                     # Multiple artists may resolve to the same alias (e.g. LOONA members...), so
                     # collect them in a deduplicated way, and then record the deduplicated aliases.
                     aliases: set[str] = set()
@@ -904,7 +904,7 @@ def _update_cache_for_releases_executor(
                     release.artists = release_artists
                     release_dirty = True
 
-                release_formatted_artists = format_artist_string(tags.album_artists)
+                release_formatted_artists = format_artist_string(tags.albumartists)
                 if release_formatted_artists != release.formatted_artists:
                     logger.debug(
                         f"Release formatted artists change detected for {source_path}, updating"
@@ -988,16 +988,16 @@ def _update_cache_for_releases_executor(
                 release_id=release.id,
                 # Remove `.` here because we use `.` to parse out discno/trackno in the virtual
                 # filesystem. It should almost never happen, but better to be safe.
-                track_number=(tags.track_number or "1").replace(".", ""),
-                disc_number=(tags.disc_number or "1").replace(".", ""),
+                tracknumber=(tags.tracknumber or "1").replace(".", ""),
+                discnumber=(tags.discnumber or "1").replace(".", ""),
                 # This is calculated with the virtual filename.
                 formatted_release_position="",
                 duration_seconds=tags.duration_sec,
                 artists=[],
-                formatted_artists=format_artist_string(tags.artists),
+                formatted_artists=format_artist_string(tags.trackartists),
             )
             tracks.append(track)
-            for role, names in asdict(tags.artists).items():
+            for role, names in asdict(tags.trackartists).items():
                 # Multiple artists may resolve to the same alias (e.g. LOONA members...), so collect
                 # them in a deduplicated way, and then record the deduplicated aliases.
                 aliases = set()
@@ -1012,7 +1012,7 @@ def _update_cache_for_releases_executor(
         # formatted_release_positions for each track that lacks one.
         # Only recompute this if any tracks have changed. Otherwise, save CPU cycles.
         if track_ids_to_insert or unknown_cached_tracks:
-            multidisc = len({t.disc_number for t in tracks}) > 1
+            multidisc = len({t.discnumber for t in tracks}) > 1
             if release.multidisc != multidisc:
                 logger.debug(f"Release multidisc change detected for {source_path}, updating")
                 release_dirty = True
@@ -1021,10 +1021,10 @@ def _update_cache_for_releases_executor(
             seen_track_names: set[str] = set()
             for i, t in enumerate(tracks):
                 formatted_release_position = ""
-                if release.multidisc and t.disc_number:
-                    formatted_release_position += f"{t.disc_number:0>2}-"
-                if t.track_number:
-                    formatted_release_position += f"{t.track_number:0>2}"
+                if release.multidisc and t.discnumber:
+                    formatted_release_position += f"{t.discnumber:0>2}-"
+                if t.tracknumber:
+                    formatted_release_position += f"{t.tracknumber:0>2}"
                 if formatted_release_position != t.formatted_release_position:
                     logger.debug(
                         f"Track formatted release position change detected for {t.source_path}, updating"
@@ -1106,8 +1106,8 @@ def _update_cache_for_releases_executor(
                         track.virtual_filename,
                         track.title,
                         track.release_id,
-                        track.track_number,
-                        track.disc_number,
+                        track.tracknumber,
+                        track.discnumber,
                         track.formatted_release_position,
                         track.duration_seconds,
                         track.formatted_artists,
@@ -1149,24 +1149,24 @@ def _update_cache_for_releases_executor(
                   , datafile_mtime
                   , virtual_dirname
                   , title
-                  , release_type
-                  , release_year
+                  , releasetype
+                  , year
                   , multidisc
                   , new
                   , formatted_artists
                 ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
                 ON CONFLICT (id) DO UPDATE SET
-                    source_path       = excluded.source_path
-                  , cover_image_path  = excluded.cover_image_path
-                  , added_at          = excluded.added_at
-                  , datafile_mtime    = excluded.datafile_mtime
-                  , virtual_dirname   = excluded.virtual_dirname
-                  , title             = excluded.title
-                  , release_type      = excluded.release_type
-                  , release_year      = excluded.release_year
-                  , multidisc         = excluded.multidisc
-                  , new               = excluded.new
-                  , formatted_artists = excluded.formatted_artists
+                    source_path      = excluded.source_path
+                  , cover_image_path = excluded.cover_image_path
+                  , added_at         = excluded.added_at
+                  , datafile_mtime   = excluded.datafile_mtime
+                  , virtual_dirname  = excluded.virtual_dirname
+                  , title            = excluded.title
+                  , releasetype      = excluded.releasetype
+                  , year             = excluded.year
+                  , multidisc        = excluded.multidisc
+                  , new              = excluded.new
+                  , formatted_artists= excluded.formatted_artists
                 """,
                 _flatten(upd_release_args),
             )
@@ -1225,8 +1225,8 @@ def _update_cache_for_releases_executor(
                   , virtual_filename
                   , title
                   , release_id
-                  , track_number
-                  , disc_number
+                  , tracknumber
+                  , discnumber
                   , formatted_release_position
                   , duration_seconds
                   , formatted_artists
@@ -1238,8 +1238,8 @@ def _update_cache_for_releases_executor(
                   , virtual_filename           = excluded.virtual_filename
                   , title                      = excluded.title
                   , release_id                 = excluded.release_id
-                  , track_number               = excluded.track_number
-                  , disc_number                = excluded.disc_number
+                  , tracknumber               = excluded.tracknumber
+                  , discnumber                = excluded.discnumber
                   , formatted_release_position = excluded.formatted_release_position
                   , duration_seconds           = excluded.duration_seconds
                   , formatted_artists          = excluded.formatted_artists
@@ -1300,11 +1300,11 @@ def _update_cache_for_releases_executor(
                 SELECT
                     t.rowid
                   , process_string_for_fts(t.title) AS tracktitle
-                  , process_string_for_fts(t.track_number) AS tracknumber
-                  , process_string_for_fts(t.disc_number) AS discnumber
+                  , process_string_for_fts(t.tracknumber) AS tracknumber
+                  , process_string_for_fts(t.discnumber) AS discnumber
                   , process_string_for_fts(r.title) AS albumtitle
-                  , process_string_for_fts(r.release_year) AS year
-                  , process_string_for_fts(r.release_type) AS releasetype
+                  , process_string_for_fts(r.year) AS year
+                  , process_string_for_fts(r.releasetype) AS releasetype
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, ' '), '')) AS genre
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, ' '), '')) AS label
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(ra.artist, ' '), '')) AS albumartist
@@ -1796,8 +1796,8 @@ def list_releases(
               , r.datafile_mtime
               , r.virtual_dirname
               , r.title
-              , r.release_type
-              , r.release_year
+              , r.releasetype
+              , r.year
               , r.multidisc
               , r.new
               , r.formatted_artists
@@ -1856,8 +1856,8 @@ def list_releases(
                 datafile_mtime=row["datafile_mtime"],
                 virtual_dirname=row["virtual_dirname"],
                 title=row["title"],
-                releasetype=row["release_type"],
-                year=row["release_year"],
+                releasetype=row["releasetype"],
+                year=row["year"],
                 multidisc=bool(row["multidisc"]),
                 new=bool(row["new"]),
                 genres=row["genres"].split(r" \\ ") if row["genres"] else [],
@@ -1903,8 +1903,8 @@ def get_release(
               , r.datafile_mtime
               , r.virtual_dirname
               , r.title
-              , r.release_type
-              , r.release_year
+              , r.releasetype
+              , r.year
               , r.multidisc
               , r.new
               , r.formatted_artists
@@ -1936,8 +1936,8 @@ def get_release(
             datafile_mtime=row["datafile_mtime"],
             virtual_dirname=row["virtual_dirname"],
             title=row["title"],
-            releasetype=row["release_type"],
-            year=row["release_year"],
+            releasetype=row["releasetype"],
+            year=row["year"],
             multidisc=bool(row["multidisc"]),
             new=bool(row["new"]),
             genres=row["genres"].split(r" \\ ") if row["genres"] else [],
@@ -1965,8 +1965,8 @@ def get_release(
               , t.virtual_filename
               , t.title
               , t.release_id
-              , t.track_number
-              , t.disc_number
+              , t.tracknumber
+              , t.discnumber
               , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
@@ -1994,8 +1994,8 @@ def get_release(
                     virtual_filename=row["virtual_filename"],
                     title=row["title"],
                     release_id=row["release_id"],
-                    track_number=row["track_number"],
-                    disc_number=row["disc_number"],
+                    tracknumber=row["tracknumber"],
+                    discnumber=row["discnumber"],
                     formatted_release_position=row["formatted_release_position"],
                     duration_seconds=row["duration_seconds"],
                     formatted_artists=row["formatted_artists"],
@@ -2132,8 +2132,8 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
               , t.virtual_filename
               , t.title
               , t.release_id
-              , t.track_number
-              , t.disc_number
+              , t.tracknumber
+              , t.discnumber
               , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
@@ -2163,8 +2163,8 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
                     virtual_filename=row["virtual_filename"],
                     title=row["title"],
                     release_id=row["release_id"],
-                    track_number=row["track_number"],
-                    disc_number=row["disc_number"],
+                    tracknumber=row["tracknumber"],
+                    discnumber=row["discnumber"],
                     formatted_release_position=row["formatted_release_position"],
                     duration_seconds=row["duration_seconds"],
                     formatted_artists=row["formatted_artists"],
@@ -2229,8 +2229,8 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
               , r.datafile_mtime
               , r.virtual_dirname
               , r.title
-              , r.release_type
-              , r.release_year
+              , r.releasetype
+              , r.year
               , r.multidisc
               , r.new
               , r.formatted_artists
@@ -2267,8 +2267,8 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
                     datafile_mtime=row["datafile_mtime"],
                     virtual_dirname=row["virtual_dirname"],
                     title=row["title"],
-                    releasetype=row["release_type"],
-                    year=row["release_year"],
+                    releasetype=row["releasetype"],
+                    year=row["year"],
                     multidisc=bool(row["multidisc"]),
                     new=bool(row["new"]),
                     genres=row["genres"].split(r" \\ ") if row["genres"] else [],

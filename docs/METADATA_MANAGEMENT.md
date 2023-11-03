@@ -53,40 +53,40 @@ artists = [
 ]
 
 [tracks.018b6514-6fb8-729f-bf86-7590187ff377]
-disc_number = "1"
-track_number = "1"
+discnumber = "1"
+tracknumber = "1"
 title = "ODD"
 artists = [
     { name = "LOOΠΔ ODD EYE CIRCLE", role = "main" },
 ]
 
 [tracks.018b6514-6fba-7508-8576-c8e82ad4b7bc]
-disc_number = "1"
-track_number = "2"
+discnumber = "1"
+tracknumber = "2"
 title = "Girl Front"
 artists = [
     { name = "LOOΠΔ ODD EYE CIRCLE", role = "main" },
 ]
 
 [tracks.018b6514-6fb9-73f1-a139-18ecefcf55da]
-disc_number = "1"
-track_number = "3"
+discnumber = "1"
+tracknumber = "3"
 title = "LOONATIC"
 artists = [
     { name = "LOOΠΔ ODD EYE CIRCLE", role = "main" },
 ]
 
 [tracks.018b6514-6fb7-7cc6-9d23-8eaf0b1beee8]
-disc_number = "1"
-track_number = "4"
+discnumber = "1"
+tracknumber = "4"
 title = "Chaotic"
 artists = [
     { name = "LOOΠΔ ODD EYE CIRCLE", role = "main" },
 ]
 
 [tracks.018b6514-6fb6-766f-8430-c6ea3f48966d]
-disc_number = "1"
-track_number = "5"
+discnumber = "1"
+tracknumber = "5"
 title = "Starlight"
 artists = [
     { name = "LOOΠΔ ODD EYE CIRCLE", role = "main" },

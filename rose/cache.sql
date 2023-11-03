@@ -5,8 +5,8 @@ CREATE TABLE locks (
     PRIMARY KEY (name, valid_until)
 );
 
-CREATE TABLE release_type_enum (value TEXT PRIMARY KEY);
-INSERT INTO release_type_enum (value) VALUES
+CREATE TABLE releasetype_enum (value TEXT PRIMARY KEY);
+INSERT INTO releasetype_enum (value) VALUES
     ('album'),
     ('single'),
     ('ep'),
@@ -29,8 +29,8 @@ CREATE TABLE releases (
     datafile_mtime TEXT NOT NULL,
     virtual_dirname TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
-    release_type TEXT NOT NULL REFERENCES release_type_enum(value),
-    release_year INTEGER,
+    releasetype TEXT NOT NULL REFERENCES releasetype_enum(value),
+    year INTEGER,
     multidisc BOOLEAN NOT NULL,
     new BOOLEAN NOT NULL DEFAULT true,
     -- This is its own state because ordering matters--we preserve the ordering in the tags.
@@ -38,9 +38,9 @@ CREATE TABLE releases (
     formatted_artists TEXT NOT NULL
 );
 CREATE INDEX releases_source_path ON releases(source_path);
-CREATE INDEX releases_release_year ON releases(release_year);
+CREATE INDEX releases_year ON releases(year);
 CREATE INDEX releases_title ON releases(title);
-CREATE INDEX releases_type ON releases(release_type);
+CREATE INDEX releases_type ON releases(releasetype);
 
 CREATE TABLE releases_genres (
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
@@ -69,9 +69,9 @@ CREATE TABLE tracks (
     virtual_filename TEXT NOT NULL,
     title TEXT NOT NULL,
     release_id TEXT NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
-    track_number TEXT NOT NULL,
-    disc_number TEXT NOT NULL,
-    -- Formatted disc_number/track_number combination that prefixes the virtual_filename in the
+    tracknumber TEXT NOT NULL,
+    discnumber TEXT NOT NULL,
+    -- Formatted discnumber/tracknumber combination that prefixes the virtual_filename in the
     -- release view. This can be derived on-the-fly, but doesn't hurt to compute it once and pull it
     -- from the cache after.
     formatted_release_position TEXT NOT NULL,
@@ -83,10 +83,10 @@ CREATE TABLE tracks (
 );
 CREATE INDEX tracks_source_path ON tracks(source_path);
 CREATE INDEX tracks_release_id ON tracks(release_id);
-CREATE INDEX tracks_ordering ON tracks(release_id, disc_number, track_number);
+CREATE INDEX tracks_ordering ON tracks(release_id, discnumber, tracknumber);
 CREATE INDEX tracks_title ON tracks(title);
-CREATE INDEX tracks_track_number ON tracks(track_number);
-CREATE INDEX tracks_disc_number ON tracks(disc_number);
+CREATE INDEX tracks_tracknumber ON tracks(tracknumber);
+CREATE INDEX tracks_discnumber ON tracks(discnumber);
 
 CREATE TABLE artist_role_enum (value TEXT PRIMARY KEY);
 INSERT INTO artist_role_enum (value) VALUES

@@ -132,14 +132,14 @@ def execute_metadata_rule(
             # fmt: off
             match = match or (field == "tracktitle" and matches_pattern(rule.matcher.pattern, tags.title))  # noqa: E501
             match = match or (field == "year" and matches_pattern(rule.matcher.pattern, tags.year))  # noqa: E501
-            match = match or (field == "tracknumber" and matches_pattern(rule.matcher.pattern, tags.track_number))  # noqa: E501
-            match = match or (field == "discnumber" and matches_pattern(rule.matcher.pattern, tags.disc_number))  # noqa: E501
+            match = match or (field == "tracknumber" and matches_pattern(rule.matcher.pattern, tags.tracknumber))  # noqa: E501
+            match = match or (field == "discnumber" and matches_pattern(rule.matcher.pattern, tags.discnumber))  # noqa: E501
             match = match or (field == "albumtitle" and matches_pattern(rule.matcher.pattern, tags.album))  # noqa: E501
-            match = match or (field == "releasetype" and matches_pattern(rule.matcher.pattern, tags.release_type))  # noqa: E501
+            match = match or (field == "releasetype" and matches_pattern(rule.matcher.pattern, tags.releasetype))  # noqa: E501
             match = match or (field == "genre" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.genre))  # noqa: E501
             match = match or (field == "label" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.label))  # noqa: E501
-            match = match or (field == "trackartist" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.artists.all))  # noqa: E501
-            match = match or (field == "albumartist" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.album_artists.all))  # noqa: E501
+            match = match or (field == "trackartist" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.trackartists.all))  # noqa: E501
+            match = match or (field == "albumartist" and any(matches_pattern(rule.matcher.pattern, x) for x in tags.albumartists.all))  # noqa: E501
             # fmt: on
             if match:
                 matcher_audiotags.append(tags)
@@ -171,21 +171,21 @@ def execute_metadata_rule(
                         tags.year = int(v) if v else None
                     except ValueError as e:
                         raise InvalidReplacementValueError(
-                            f"Failed to assign new value {v} to release_year: value must be integer"
+                            f"Failed to assign new value {v} to year: value must be integer"
                         ) from e
                     potential_changes.append(("year", origtags.year, tags.year))
                 elif field == "tracknumber":
-                    tags.track_number = execute_single_action(act, tags.track_number)
-                    potential_changes.append(("track_number", origtags.track_number, tags.track_number))  # noqa: E501
+                    tags.tracknumber = execute_single_action(act, tags.tracknumber)
+                    potential_changes.append(("tracknumber", origtags.tracknumber, tags.tracknumber))  # noqa: E501
                 elif field == "discnumber":
-                    tags.disc_number = execute_single_action(act, tags.disc_number)
-                    potential_changes.append(("disc_number", origtags.disc_number, tags.disc_number))  # noqa: E501
+                    tags.discnumber = execute_single_action(act, tags.discnumber)
+                    potential_changes.append(("discnumber", origtags.discnumber, tags.discnumber))  # noqa: E501
                 elif field == "albumtitle":
                     tags.album = execute_single_action(act, tags.album)
                     potential_changes.append(("album", origtags.album, tags.album))
                 elif field == "releasetype":
-                    tags.release_type = execute_single_action(act, tags.release_type) or "unknown"
-                    potential_changes.append(("release_type", origtags.release_type, tags.release_type))  # noqa: E501
+                    tags.releasetype = execute_single_action(act, tags.releasetype) or "unknown"
+                    potential_changes.append(("releasetype", origtags.releasetype, tags.releasetype))  # noqa: E501
                 elif field == "genre":
                     tags.genre = execute_multi_value_action(act, tags.genre)
                     potential_changes.append(("genre", origtags.genre, tags.genre))
@@ -193,31 +193,31 @@ def execute_metadata_rule(
                     tags.label = execute_multi_value_action(act, tags.label)
                     potential_changes.append(("label", origtags.label, tags.label))
                 elif field == "trackartist":
-                    tags.artists.main = execute_multi_value_action(act, tags.artists.main)
-                    potential_changes.append(("trackartist[main]", origtags.artists.main, tags.artists.main))  # noqa: E501
-                    tags.artists.guest = execute_multi_value_action(act, tags.artists.guest)
-                    potential_changes.append(("trackartist[guest]", origtags.artists.guest, tags.artists.guest))  # noqa: E501
-                    tags.artists.remixer = execute_multi_value_action(act, tags.artists.remixer)
-                    potential_changes.append(("trackartist[remixer]", origtags.artists.remixer, tags.artists.remixer))  # noqa: E501
-                    tags.artists.producer = execute_multi_value_action(act, tags.artists.producer)
-                    potential_changes.append(("trackartist[producer]", origtags.artists.producer, tags.artists.producer))  # noqa: E501
-                    tags.artists.composer = execute_multi_value_action(act, tags.artists.composer)
-                    potential_changes.append(("trackartist[composer]", origtags.artists.composer, tags.artists.composer))  # noqa: E501
-                    tags.artists.djmixer = execute_multi_value_action(act, tags.artists.djmixer)
-                    potential_changes.append(("trackartist[djmixer]", origtags.artists.djmixer, tags.artists.djmixer))  # noqa: E501
+                    tags.trackartists.main = execute_multi_value_action(act, tags.trackartists.main)
+                    potential_changes.append(("trackartist[main]", origtags.trackartists.main, tags.trackartists.main))  # noqa: E501
+                    tags.trackartists.guest = execute_multi_value_action(act, tags.trackartists.guest)
+                    potential_changes.append(("trackartist[guest]", origtags.trackartists.guest, tags.trackartists.guest))  # noqa: E501
+                    tags.trackartists.remixer = execute_multi_value_action(act, tags.trackartists.remixer)
+                    potential_changes.append(("trackartist[remixer]", origtags.trackartists.remixer, tags.trackartists.remixer))  # noqa: E501
+                    tags.trackartists.producer = execute_multi_value_action(act, tags.trackartists.producer)
+                    potential_changes.append(("trackartist[producer]", origtags.trackartists.producer, tags.trackartists.producer))  # noqa: E501
+                    tags.trackartists.composer = execute_multi_value_action(act, tags.trackartists.composer)
+                    potential_changes.append(("trackartist[composer]", origtags.trackartists.composer, tags.trackartists.composer))  # noqa: E501
+                    tags.trackartists.djmixer = execute_multi_value_action(act, tags.trackartists.djmixer)
+                    potential_changes.append(("trackartist[djmixer]", origtags.trackartists.djmixer, tags.trackartists.djmixer))  # noqa: E501
                 elif field == "albumartist":
-                    tags.album_artists.main = execute_multi_value_action(act, tags.album_artists.main)  # noqa: E501
-                    potential_changes.append(("albumartist[main]", origtags.album_artists.main, tags.album_artists.main))  # noqa: E501
-                    tags.album_artists.guest = execute_multi_value_action(act, tags.album_artists.guest)  # noqa: E501
-                    potential_changes.append(("albumartist[guest]", origtags.album_artists.guest, tags.album_artists.guest))  # noqa: E501
-                    tags.album_artists.remixer = execute_multi_value_action(act, tags.album_artists.remixer)  # noqa: E501
-                    potential_changes.append(("albumartist[remixer]", origtags.album_artists.remixer, tags.album_artists.remixer))  # noqa: E501
-                    tags.album_artists.producer = execute_multi_value_action(act, tags.album_artists.producer)  # noqa: E501
-                    potential_changes.append(("albumartist[producer]", origtags.album_artists.producer, tags.album_artists.producer))  # noqa: E501
-                    tags.album_artists.composer = execute_multi_value_action(act, tags.album_artists.composer)  # noqa: E501
-                    potential_changes.append(("albumartist[composer]", origtags.album_artists.composer, tags.album_artists.composer))  # noqa: E501
-                    tags.album_artists.djmixer = execute_multi_value_action(act, tags.album_artists.djmixer)  # noqa: E501
-                    potential_changes.append(("albumartist[djmixer]", origtags.album_artists.djmixer, tags.album_artists.djmixer))  # noqa: E501
+                    tags.albumartists.main = execute_multi_value_action(act, tags.albumartists.main)  # noqa: E501
+                    potential_changes.append(("albumartist[main]", origtags.albumartists.main, tags.albumartists.main))  # noqa: E501
+                    tags.albumartists.guest = execute_multi_value_action(act, tags.albumartists.guest)  # noqa: E501
+                    potential_changes.append(("albumartist[guest]", origtags.albumartists.guest, tags.albumartists.guest))  # noqa: E501
+                    tags.albumartists.remixer = execute_multi_value_action(act, tags.albumartists.remixer)  # noqa: E501
+                    potential_changes.append(("albumartist[remixer]", origtags.albumartists.remixer, tags.albumartists.remixer))  # noqa: E501
+                    tags.albumartists.producer = execute_multi_value_action(act, tags.albumartists.producer)  # noqa: E501
+                    potential_changes.append(("albumartist[producer]", origtags.albumartists.producer, tags.albumartists.producer))  # noqa: E501
+                    tags.albumartists.composer = execute_multi_value_action(act, tags.albumartists.composer)  # noqa: E501
+                    potential_changes.append(("albumartist[composer]", origtags.albumartists.composer, tags.albumartists.composer))  # noqa: E501
+                    tags.albumartists.djmixer = execute_multi_value_action(act, tags.albumartists.djmixer)  # noqa: E501
+                    potential_changes.append(("albumartist[djmixer]", origtags.albumartists.djmixer, tags.albumartists.djmixer))  # noqa: E501
                 # fmt: on
 
         # Compute real changes by diffing the tags, and then store.

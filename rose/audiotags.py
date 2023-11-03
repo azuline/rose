@@ -80,15 +80,15 @@ class AudioTags:
     release_id: str | None
     title: str | None
     year: int | None
-    track_number: str | None
-    disc_number: str | None
+    tracknumber: str | None
+    discnumber: str | None
     album: str | None
     genre: list[str]
     label: list[str]
-    release_type: str
+    releasetype: str
 
-    album_artists: ArtistMapping
-    artists: ArtistMapping
+    albumartists: ArtistMapping
+    trackartists: ArtistMapping
 
     duration_sec: int
 
@@ -121,14 +121,14 @@ class AudioTags:
                 release_id=_get_tag(m.tags, ["TXXX:ROSERELEASEID"]),
                 title=_get_tag(m.tags, ["TIT2"]),
                 year=_parse_year(_get_tag(m.tags, ["TDRC", "TYER"])),
-                track_number=_parse_num(_get_tag(m.tags, ["TRCK"], first=True)),
-                disc_number=_parse_num(_get_tag(m.tags, ["TPOS"], first=True)),
+                tracknumber=_parse_num(_get_tag(m.tags, ["TRCK"], first=True)),
+                discnumber=_parse_num(_get_tag(m.tags, ["TPOS"], first=True)),
                 album=_get_tag(m.tags, ["TALB"]),
                 genre=_split_tag(_get_tag(m.tags, ["TCON"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["TPUB"], split=True)),
-                release_type=_normalize_rtype(_get_tag(m.tags, ["TXXX:RELEASETYPE"], first=True)),
-                album_artists=parse_artist_string(main=_get_tag(m.tags, ["TPE2"], split=True)),
-                artists=parse_artist_string(
+                releasetype=_normalize_rtype(_get_tag(m.tags, ["TXXX:RELEASETYPE"], first=True)),
+                albumartists=parse_artist_string(main=_get_tag(m.tags, ["TPE2"], split=True)),
+                trackartists=parse_artist_string(
                     main=_get_tag(m.tags, ["TPE1"], split=True),
                     remixer=_get_tag(m.tags, ["TPE4"], split=True),
                     composer=_get_tag(m.tags, ["TCOM"], split=True),
@@ -145,16 +145,16 @@ class AudioTags:
                 release_id=_get_tag(m.tags, ["----:net.sunsetglow.rose:RELEASEID"]),
                 title=_get_tag(m.tags, ["\xa9nam"]),
                 year=_parse_year(_get_tag(m.tags, ["\xa9day"])),
-                track_number=_get_tag(m.tags, ["trkn"], first=True),
-                disc_number=_get_tag(m.tags, ["disk"], first=True),
+                tracknumber=_get_tag(m.tags, ["trkn"], first=True),
+                discnumber=_get_tag(m.tags, ["disk"], first=True),
                 album=_get_tag(m.tags, ["\xa9alb"]),
                 genre=_split_tag(_get_tag(m.tags, ["\xa9gen"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["----:com.apple.iTunes:LABEL"], split=True)),
-                release_type=_normalize_rtype(
+                releasetype=_normalize_rtype(
                     _get_tag(m.tags, ["----:com.apple.iTunes:RELEASETYPE"], first=True)
                 ),
-                album_artists=parse_artist_string(main=_get_tag(m.tags, ["aART"], split=True)),
-                artists=parse_artist_string(
+                albumartists=parse_artist_string(main=_get_tag(m.tags, ["aART"], split=True)),
+                trackartists=parse_artist_string(
                     main=_get_tag(m.tags, ["\xa9ART"], split=True),
                     remixer=_get_tag(m.tags, ["----:com.apple.iTunes:REMIXER"], split=True),
                     producer=_get_tag(m.tags, ["----:com.apple.iTunes:PRODUCER"], split=True),
@@ -171,18 +171,18 @@ class AudioTags:
                 release_id=_get_tag(m.tags, ["rosereleaseid"]),
                 title=_get_tag(m.tags, ["title"]),
                 year=_parse_year(_get_tag(m.tags, ["date", "year"])),
-                track_number=_get_tag(m.tags, ["tracknumber"], first=True),
-                disc_number=_get_tag(m.tags, ["discnumber"], first=True),
+                tracknumber=_get_tag(m.tags, ["tracknumber"], first=True),
+                discnumber=_get_tag(m.tags, ["discnumber"], first=True),
                 album=_get_tag(m.tags, ["album"]),
                 genre=_split_tag(_get_tag(m.tags, ["genre"], split=True)),
                 label=_split_tag(
                     _get_tag(m.tags, ["organization", "label", "recordlabel"], split=True)
                 ),
-                release_type=_normalize_rtype(_get_tag(m.tags, ["releasetype"], first=True)),
-                album_artists=parse_artist_string(
+                releasetype=_normalize_rtype(_get_tag(m.tags, ["releasetype"], first=True)),
+                albumartists=parse_artist_string(
                     main=_get_tag(m.tags, ["albumartist"], split=True)
                 ),
-                artists=parse_artist_string(
+                trackartists=parse_artist_string(
                     main=_get_tag(m.tags, ["artist"], split=True),
                     remixer=_get_tag(m.tags, ["remixer"], split=True),
                     producer=_get_tag(m.tags, ["producer"], split=True),
@@ -202,10 +202,10 @@ class AudioTags:
         if not validate and "pytest" not in sys.modules:
             raise Exception("Validate can only be turned off by tests.")
 
-        self.release_type = (self.release_type or "unknown").lower()
-        if validate and self.release_type not in SUPPORTED_RELEASE_TYPES:
+        self.releasetype = (self.releasetype or "unknown").lower()
+        if validate and self.releasetype not in SUPPORTED_RELEASE_TYPES:
             raise UnsupportedTagValueTypeError(
-                f"Release type {self.release_type} is not a supported release type.\n"
+                f"Release type {self.releasetype} is not a supported release type.\n"
                 f"Supported release types: {', '.join(SUPPORTED_RELEASE_TYPES)}"
             )
 
@@ -235,14 +235,14 @@ class AudioTags:
             _write_tag_with_description("TXXX:ROSERELEASEID", self.release_id)
             _write_standard_tag("TIT2", self.title)
             _write_standard_tag("TDRC", str(self.year).zfill(4))
-            _write_standard_tag("TRCK", self.track_number)
-            _write_standard_tag("TPOS", self.disc_number)
+            _write_standard_tag("TRCK", self.tracknumber)
+            _write_standard_tag("TPOS", self.discnumber)
             _write_standard_tag("TALB", self.album)
             _write_standard_tag("TCON", ";".join(self.genre))
             _write_standard_tag("TPUB", ";".join(self.label))
-            _write_tag_with_description("TXXX:RELEASETYPE", self.release_type)
-            _write_standard_tag("TPE2", format_artist_string(self.album_artists))
-            _write_standard_tag("TPE1", format_artist_string(self.artists))
+            _write_tag_with_description("TXXX:RELEASETYPE", self.releasetype)
+            _write_standard_tag("TPE2", format_artist_string(self.albumartists))
+            _write_standard_tag("TPE1", format_artist_string(self.trackartists))
             # Wipe the alt. role artist tags, since we encode the full artist into the main tag.
             m.tags.delall("TPE4")
             m.tags.delall("TCOM")
@@ -263,9 +263,9 @@ class AudioTags:
             m.tags["\xa9alb"] = self.album or ""
             m.tags["\xa9gen"] = ";".join(self.genre)
             m.tags["----:com.apple.iTunes:LABEL"] = ";".join(self.label).encode()
-            m.tags["----:com.apple.iTunes:RELEASETYPE"] = self.release_type.encode()
-            m.tags["aART"] = format_artist_string(self.album_artists)
-            m.tags["\xa9ART"] = format_artist_string(self.artists)
+            m.tags["----:com.apple.iTunes:RELEASETYPE"] = self.releasetype.encode()
+            m.tags["aART"] = format_artist_string(self.albumartists)
+            m.tags["\xa9ART"] = format_artist_string(self.trackartists)
             # Wipe the alt. role artist tags, since we encode the full artist into the main tag.
             with contextlib.suppress(KeyError):
                 del m.tags["----:com.apple.iTunes:REMIXER"]
@@ -280,8 +280,8 @@ class AudioTags:
 
             # The track and disc numbers in MP4 are a bit annoying, because they must be a
             # single-element list of 2-tuple ints. We preserve the previous tracktotal/disctotal (as
-            # Rose does not care about those values), and then attempt to write our own track_number
-            # and disc_number.
+            # Rose does not care about those values), and then attempt to write our own tracknumber
+            # and discnumber.
             try:
                 prev_tracktotal = m.tags["trkn"][0][1]
             except (KeyError, IndexError):
@@ -291,12 +291,12 @@ class AudioTags:
             except (KeyError, IndexError):
                 prev_disctotal = 1
             try:
-                m.tags["trkn"] = [(int(self.track_number or "0"), prev_tracktotal)]
-                m.tags["disk"] = [(int(self.disc_number or "0"), prev_disctotal)]
+                m.tags["trkn"] = [(int(self.tracknumber or "0"), prev_tracktotal)]
+                m.tags["disk"] = [(int(self.discnumber or "0"), prev_disctotal)]
             except ValueError as e:
                 raise UnsupportedTagValueTypeError(
                     "Could not write m4a trackno/discno tags: must be integers. "
-                    f"Got: {self.track_number=} / {self.disc_number=}"
+                    f"Got: {self.tracknumber=} / {self.discnumber=}"
                 ) from e
 
             m.save()
@@ -314,14 +314,14 @@ class AudioTags:
             m.tags["rosereleaseid"] = self.release_id or ""
             m.tags["title"] = self.title or ""
             m.tags["date"] = str(self.year).zfill(4)
-            m.tags["tracknumber"] = self.track_number or ""
-            m.tags["discnumber"] = self.disc_number or ""
+            m.tags["tracknumber"] = self.tracknumber or ""
+            m.tags["discnumber"] = self.discnumber or ""
             m.tags["album"] = self.album or ""
             m.tags["genre"] = ";".join(self.genre)
             m.tags["organization"] = ";".join(self.label)
-            m.tags["releasetype"] = self.release_type
-            m.tags["albumartist"] = format_artist_string(self.album_artists)
-            m.tags["artist"] = format_artist_string(self.artists)
+            m.tags["releasetype"] = self.releasetype
+            m.tags["albumartist"] = format_artist_string(self.albumartists)
+            m.tags["artist"] = format_artist_string(self.trackartists)
             # Wipe the alt. role artist tags, since we encode the full artist into the main tag.
             with contextlib.suppress(KeyError):
                 del m.tags["remixer"]
