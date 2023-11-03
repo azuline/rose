@@ -139,8 +139,7 @@ def add_release_to_collage(
 
 def dump_collages(c: Config) -> str:
     out: list[dict[str, Any]] = []
-    collage_names = list(list_collages(c))
-    for name in collage_names:
+    for name in list_collages(c):
         cdata = get_collage(c, name)
         assert cdata is not None
         releases: list[dict[str, Any]] = []

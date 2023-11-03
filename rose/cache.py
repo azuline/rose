@@ -260,6 +260,19 @@ class CachedTrack:
     artists: list[CachedArtist]
     formatted_artists: str
 
+    def dump(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "source_path": str(self.source_path.resolve()),
+            "title": self.title,
+            "release_id": self.release_id,
+            "tracknumber": self.track_number,
+            "discnumber": self.disc_number,
+            "duration_seconds": self.duration_seconds,
+            "artists": [a.dump() for a in self.artists],
+            "formatted_artists": self.formatted_artists,
+        }
+
 
 @dataclass
 class CachedCollage:

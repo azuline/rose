@@ -140,21 +140,20 @@ def add_track_to_playlist(
 
 
 def dump_playlists(c: Config) -> str:
-    out: dict[str, list[dict[str, Any]]] = {}
-    playlist_names = list(list_playlists(c))
-    for name in playlist_names:
-        out[name] = []
-        cachedata = get_playlist(c, name)
-        assert cachedata is not None
-        _, tracks = cachedata
-        for idx, track in enumerate(tracks):
-            out[name].append(
-                {
-                    "position": idx + 1,
-                    "track_id": track.id,
-                    "track_filename": track.virtual_filename,
-                }
-            )
+    out: list[dict[str, Any]] = []
+    for name in list_playlists(c):
+        pdata = get_playlist(c, name)
+        assert pdata is not None
+        tracks: list[dict[str, Any]] = []
+        for idx, trk in enumerate(pdata[1]):
+            tracks.append({"position": idx + 1, **trk.dump()})
+        out.append(
+            {
+                "name": name,
+                "cover_image_path": str(pdata[0].cover_path) if pdata[0].cover_path else None,
+                "tracks": tracks,
+            }
+        )
     return json.dumps(out)
 
 

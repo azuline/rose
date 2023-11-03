@@ -1,3 +1,4 @@
+import json
 import shutil
 from pathlib import Path
 from typing import Any
@@ -125,9 +126,45 @@ def test_rename_playlist(config: Config, source_dir: Path) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_dump_playlists(config: Config) -> None:
     out = dump_playlists(config)
-    # fmt: off
-    assert out == '{"Lala Lisa": [{"position": 1, "track_id": "t1", "track_filename": "01.m4a"}, {"position": 2, "track_id": "t3", "track_filename": "01.m4a"}], "Turtle Rabbit": []}' # noqa: E501
-    # fmt: on
+    assert json.loads(out) == [
+        {
+            "cover_image_path": f"{config.music_source_dir}/!playlists/Lala Lisa.jpg",
+            "name": "Lala Lisa",
+            "tracks": [
+                {
+                    "artists": [
+                        {"alias": False, "name": "Bass Man", "role": "main"},
+                        {"alias": False, "name": "Techno Man", "role": "main"},
+                    ],
+                    "discnumber": "01",
+                    "duration_seconds": 120,
+                    "formatted_artists": "Techno Man;Bass Man",
+                    "id": "t1",
+                    "position": 1,
+                    "release_id": "r1",
+                    "source_path": f"{config.music_source_dir}/r1/01.m4a",
+                    "title": "Track 1",
+                    "tracknumber": "01",
+                },
+                {
+                    "artists": [
+                        {"alias": False, "name": "Conductor Woman", "role": "guest"},
+                        {"alias": False, "name": "Violin Woman", "role": "main"},
+                    ],
+                    "discnumber": "01",
+                    "duration_seconds": 120,
+                    "formatted_artists": "Violin Woman feat. Conductor Woman",
+                    "id": "t3",
+                    "position": 2,
+                    "release_id": "r2",
+                    "source_path": f"{config.music_source_dir}/r2/01.m4a",
+                    "title": "Track 1",
+                    "tracknumber": "01",
+                },
+            ],
+        },
+        {"cover_image_path": None, "name": "Turtle Rabbit", "tracks": []},
+    ]
 
 
 def test_edit_playlists_ordering(monkeypatch: Any, config: Config, source_dir: Path) -> None:
