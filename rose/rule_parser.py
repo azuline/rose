@@ -337,7 +337,7 @@ def parse_action(raw: str, action_number: int) -> MetadataAction:
         "split",
         "add",
         "delete",
-    ]  # noqa: E501
+    ]
     if action_kind not in valid_actions:
         feedback = f"Invalid action kind: must be one of {{{', '.join(valid_actions)}}}."
         if idx == 0 and ":" in raw:

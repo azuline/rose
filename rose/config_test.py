@@ -48,7 +48,7 @@ def test_config_full() -> None:
                 [[stored_metadata_rules]]
                 matcher = "tracktitle:lala"
                 actions = ["replace:hihi"]
-                """  # noqa: E501
+                """
             )
 
         c = Config.parse(config_path_override=path)
@@ -333,7 +333,7 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Cannot specify both fuse_artists_whitelist and fuse_artists_blacklist in configuration file ({path}): must specify only one or the other"  # noqa: E501
+            == f"Cannot specify both fuse_artists_whitelist and fuse_artists_blacklist in configuration file ({path}): must specify only one or the other"
         )
 
         # fuse_genres_whitelist + fuse_genres_blacklist
@@ -342,7 +342,7 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Cannot specify both fuse_genres_whitelist and fuse_genres_blacklist in configuration file ({path}): must specify only one or the other"  # noqa: E501
+            == f"Cannot specify both fuse_genres_whitelist and fuse_genres_blacklist in configuration file ({path}): must specify only one or the other"
         )
 
         # fuse_labels_whitelist + fuse_labels_blacklist
@@ -351,7 +351,7 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Cannot specify both fuse_labels_whitelist and fuse_labels_blacklist in configuration file ({path}): must specify only one or the other"  # noqa: E501
+            == f"Cannot specify both fuse_labels_whitelist and fuse_labels_blacklist in configuration file ({path}): must specify only one or the other"
         )
 
         # cover_art_stems
@@ -411,12 +411,12 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value in stored_metadata_rules in configuration file ({path}): list values must be a dict: got <class 'str'>"  # noqa: E501
+            == f"Invalid value in stored_metadata_rules in configuration file ({path}): list values must be a dict: got <class 'str'>"
         )
         write(
             config
             + '\nstored_metadata_rules = [{ matcher = "tracktitle:hi", actions = ["delete:hi"] }]'
-        )  # noqa: E501
+        )
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
@@ -427,5 +427,5 @@ Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'ma
     delete:hi
            ^
            Found another section after the action kind, but the delete action has no parameters. Please remove this section.
-"""  # noqa: E501
+"""
         )

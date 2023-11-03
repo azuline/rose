@@ -17,7 +17,7 @@ from pathlib import Path
 
 import click
 
-from rose.cache import migrate_database, update_cache
+from rose.cache import maybe_invalidate_cache_database, update_cache
 from rose.collages import (
     add_release_to_collage,
     create_collage,
@@ -73,7 +73,7 @@ class Context:
 # fmt: off
 @click.group()
 @click.option("--verbose", "-v", is_flag=True, help="Emit verbose logging.")
-@click.option("--config", "-c", type=click.Path(path_type=Path), help="Override the config file location.")  # noqa: E501
+@click.option("--config", "-c", type=click.Path(path_type=Path), help="Override the config file location.")  
 @click.pass_context
 # fmt: on
 def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
@@ -81,12 +81,9 @@ def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
     cc.obj = Context(
         config=Config.parse(config_path_override=config),
     )
-
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
-
-    # Migrate the database on every command invocation.
-    migrate_database(cc.obj.config)
+    maybe_invalidate_cache_database(cc.obj.config)
 
 
 @cli.command()
@@ -110,7 +107,7 @@ def cache() -> None:
 
 # fmt: off
 @cache.command()
-@click.option("--force", "-f", is_flag=True, help="Force re-read all data from disk, even for unchanged files.")  # noqa: E501
+@click.option("--force", "-f", is_flag=True, help="Force re-read all data from disk, even for unchanged files.")  
 @click.pass_obj
 # fmt: on
 def update(ctx: Context, force: bool) -> None:
@@ -120,7 +117,7 @@ def update(ctx: Context, force: bool) -> None:
 
 # fmt: off
 @cache.command()
-@click.option("--foreground", "-f", is_flag=True, help="Run the filesystem watcher in the foreground (default: daemon).")  # noqa: E501
+@click.option("--foreground", "-f", is_flag=True, help="Run the filesystem watcher in the foreground (default: daemon).")  
 @click.pass_obj
 # fmt: on
 def watch(ctx: Context, foreground: bool) -> None:
@@ -155,7 +152,7 @@ def fs() -> None:
 
 # fmt: off
 @fs.command()
-@click.option("--foreground", "-f", is_flag=True, help="Run the FUSE controller in the foreground (default: daemon).")  # noqa: E501
+@click.option("--foreground", "-f", is_flag=True, help="Run the FUSE controller in the foreground (default: daemon).")  
 @click.pass_obj
 # fmt: on
 def mount(ctx: Context, foreground: bool) -> None:
@@ -184,6 +181,7 @@ def unmount(ctx: Context) -> None:
 @cli.group()
 def releases() -> None:
     """Manage releases"""
+    # TODO: print / run-rule / extract-covers / add-metadata-url / search-metadata-urls / create-single / import
 
 
 @releases.command(name="print-all")
@@ -211,6 +209,18 @@ def toggle_new(ctx: Context, release: str) -> None:
     toggle_release_new(ctx.config, release)
 
 
+@releases.command(name="delete")
+@click.argument("release", type=str, nargs=1)
+@click.pass_obj
+def delete3(ctx: Context, release: str) -> None:
+    """
+    Delete a release from the library. The release is moved to the trash bin, following the
+    freedesktop spec.
+    """
+    release = parse_release_from_potential_path(ctx.config, release)
+    delete_release(ctx.config, release)
+
+
 @releases.command()
 @click.argument("release", type=str, nargs=1)
 @click.argument("cover", type=click.Path(path_type=Path), nargs=1)
@@ -230,18 +240,6 @@ def delete_cover(ctx: Context, release: str) -> None:
     delete_release_cover_art(ctx.config, release)
 
 
-@releases.command(name="delete")
-@click.argument("release", type=str, nargs=1)
-@click.pass_obj
-def delete3(ctx: Context, release: str) -> None:
-    """
-    Delete a release from the library. The release is moved to the trash bin, following the
-    freedesktop spec.
-    """
-    release = parse_release_from_potential_path(ctx.config, release)
-    delete_release(ctx.config, release)
-
-
 @releases.command()
 @click.argument("track_path", type=click.Path(path_type=Path), nargs=1)
 @click.pass_obj
@@ -253,12 +251,14 @@ def create_single(ctx: Context, track_path: Path) -> None:
 @cli.group()
 def tracks() -> None:
     """Manage tracks"""
+    # TODO: print / print-all / run-rule
     raise UnimplementedError("Coming soon!")
 
 
 @cli.group()
 def collages() -> None:
     """Manage collages"""
+    # TODO: print
 
 
 @collages.command()
@@ -324,6 +324,7 @@ def print_all1(ctx: Context) -> None:
 @cli.group()
 def playlists() -> None:
     """Manage playlists"""
+    # TODO: print
 
 
 @playlists.command(name="create")
@@ -406,13 +407,6 @@ def delete_cover2(ctx: Context, playlist: str) -> None:
     delete_playlist_cover_art(ctx.config, playlist)
 
 
-@playlists.command()
-@click.pass_obj
-def extract_covers(ctx: Context) -> None:  # noqa: ARG001
-    """Extract all embedded cover arts to external cover art files"""
-    raise UnimplementedError("Coming soon!")
-
-
 @cli.group()
 def rules() -> None:
     """Run metadata update rules on the entire library"""
@@ -422,7 +416,7 @@ def rules() -> None:
 # fmt: off
 @click.argument("matcher", type=str, nargs=1)
 @click.argument("actions", type=str, nargs=-1)
-@click.option("--dry-run", "-d", is_flag=True, help="Display intended changes without applying them.") # noqa: E501
+@click.option("--dry-run", "-d", is_flag=True, help="Display intended changes without applying them.") 
 @click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
 # fmt: on
 @click.pass_obj
@@ -436,10 +430,10 @@ def run(ctx: Context, matcher: str, actions: list[str], dry_run: bool, yes: bool
 
 
 @rules.command()
-@click.option(
-    "--dry-run", "-d", is_flag=True, help="Display intended changes without applying them."
-)  # noqa: E501
+# fmt: off
+@click.option("--dry-run", "-d", is_flag=True, help="Display intended changes without applying them.")
 @click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
+# fmt: on
 @click.pass_obj
 def run_stored(ctx: Context, dry_run: bool, yes: bool) -> None:
     """Run the rules stored in the config"""

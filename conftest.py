@@ -167,7 +167,7 @@ INSERT INTO playlists_tracks
        (playlist_name, track_id, position, missing)
 VALUES ('Lala Lisa'  , 't1'    , 1       , false)
      , ('Lala Lisa'  , 't3'    , 2       , false);
-            """  # noqa: E501
+            """
         )
 
     (config.music_source_dir / "!collages").mkdir()

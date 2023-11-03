@@ -39,7 +39,7 @@ from rose.cache import (
     list_playlists,
     list_releases,
     lock,
-    migrate_database,
+    maybe_invalidate_cache_database,
     playlist_exists,
     release_exists,
     track_exists,
@@ -55,7 +55,7 @@ def test_schema(config: Config) -> None:
     """Test that the schema successfully bootstraps."""
     with CACHE_SCHEMA_PATH.open("rb") as fp:
         schema_hash = hashlib.sha256(fp.read()).hexdigest()
-    migrate_database(config)
+    maybe_invalidate_cache_database(config)
     with connect(config) as conn:
         cursor = conn.execute("SELECT schema_hash, config_hash, version FROM _schema_hash")
         row = cursor.fetchone()
@@ -87,7 +87,7 @@ def test_migration(config: Config) -> None:
 
     with CACHE_SCHEMA_PATH.open("rb") as fp:
         latest_schema_hash = hashlib.sha256(fp.read()).hexdigest()
-    migrate_database(config)
+    maybe_invalidate_cache_database(config)
     with connect(config) as conn:
         cursor = conn.execute("SELECT schema_hash, config_hash, version FROM _schema_hash")
         row = cursor.fetchone()
@@ -134,7 +134,7 @@ def test_update_cache_all(config: Config) -> None:
             """
             INSERT INTO releases (id, source_path, virtual_dirname, added_at, datafile_mtime, title, releasetype, multidisc, formatted_artists)
             VALUES ('aaaaaa', '/nonexistent', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
-            """  # noqa: E501
+            """
         )
 
     update_cache(config)
@@ -283,7 +283,7 @@ def test_update_cache_releases_preserves_track_ids_across_rebuilds(config: Confi
 
     # Nuke the database.
     config.cache_database_path.unlink()
-    migrate_database(config)
+    maybe_invalidate_cache_database(config)
 
     # Repeat cache population.
     update_cache_for_releases(config, [release_dir])
@@ -429,7 +429,7 @@ def test_update_cache_releases_delete_nonexistent(config: Config) -> None:
             """
             INSERT INTO releases (id, source_path, virtual_dirname, added_at, datafile_mtime, title, releasetype, multidisc, formatted_artists)
             VALUES ('aaaaaa', '/nonexistent', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
-            """  # noqa: E501
+            """
         )
     update_cache_evict_nonexistent_releases(config)
     with connect(config) as conn:

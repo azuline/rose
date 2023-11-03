@@ -5,21 +5,21 @@ This document enumerates the commands available in Rosé's CLI.
 First, a quick note on the structure: Rosé primarily organizes commands by the
 resource they effect. Most commands are of the structure `rose {resource} {action}`.
 
-- `fs/` _(See [Browsing with the Virtual Filesystem](./VIRTUAL_FILESYSTEM.md))_
+- fs/ _(see [Browsing with the Virtual Filesystem](./VIRTUAL_FILESYSTEM.md))_
   - `fs mount`: Mount the virtual filesystem onto the configured `$fuse_mount_dir`.
   - `fs unmount`: Unmount the virtual filesystem by invoking `umount`.
-- `cache/` _(See [Maintaining the Cache](./CACHE_MAINTENANCE.md))_
+- cache/ _(see [Maintaining the Cache](./CACHE_MAINTENANCE.md))_
   - `cache update`: Scan the source directory and update the read cache with
     any new metadata changes.
   - `cache watch`: Start a watcher that will trigger `cache update` for any
     files and directories that have been modified.
   - `cache unwatch`: Kill the running cache watcher process.
-- `releases/` _(See [Managing Releases](./RELEASES.md))_
+- releases/ _(see [Managing Releases](./RELEASES.md))_
   - `releases print`: Print a single release's metadata in JSON.
   - `releases print-all`: Print all releases' metadata in JSON, with an
     optional matcher rule to filter out releases.
   - `releases import`: Import a release directory into the managed source
-  - directory.
+    directory.
   - `releases edit`: Edit a release's metadata as a text file in your
     `$EDITOR`.
   - `releases toggle-new`: Toggle the "new"-ness of a release.
@@ -40,12 +40,12 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
     suggest metadata improvements.
   - `releases create-single`: Create a "phony" single release from a track and
     copy the track into the new release.
-- `tracks/`
+- tracks/
   - `tracks print`: Print a single track's metadata in JSON.
   - `tracks print-all`: Print all tracks' metadata in JSON, with an optional
     matcher rule to filter out tracks.
   - `tracks run-rule`: Run one or more metadata actions on a track.
-- `collages/` _(See [Managing Playlists & Collages](./PLAYLISTS_COLLAGES.md))_
+- collages/ _(see [Managing Playlists & Collages](./PLAYLISTS_COLLAGES.md))_
   - `collages print`: Print a single collage's metadata in JSON.
   - `collages print-all`: Print all collages' metadata in JSON.
   - `collages create`: Create a new collage.
@@ -56,7 +56,7 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
   - `collages rename`: Rename a collage.
   - `collages add-release`: Add a release to a collage.
   - `collages remove-release`: Remove a release from a collage.
-- `playlists/` _(See [Managing Playlists & Collages](./PLAYLISTS_COLLAGES.md))_
+- playlists/ _(see [Managing Playlists & Collages](./PLAYLISTS_COLLAGES.md))_
   - `playlists print`: Print a single playlist's metadata in JSON.
   - `playlists print-all`: Print all playlists' metadata in JSON.
   - `playlists create`: Create a new playlist.
@@ -70,7 +70,7 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
   - `playlists set-cover`: Set the cover art for a playlist. Replaces any existing
     cover art.
   - `playlists delete-cover`: Remove the cover art of a playlist.
-- `rules/` _(See [Managing Your Music Metadata](./METADATA_MANAGEMENT.md))_
+- rules/ _(see [Managing Your Music Metadata](./METADATA_MANAGEMENT.md))_
   - `rules run`: Run an ad hoc rule in the command line interface. You can also
     easily test rules with the `--dry-run` flag.
   - `rules run-stored`: Run the rules stored in the configuration file.
