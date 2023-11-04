@@ -49,7 +49,7 @@ import uuid6
 
 from rose.artiststr import format_artist_string
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
-from rose.common import VERSION, uniq
+from rose.common import VERSION, sanitize_filename, uniq
 from rose.config import Config
 
 logger = logging.getLogger(__name__)
@@ -915,7 +915,7 @@ def _update_cache_for_releases_executor(
                     release_virtual_dirname += " [" + ";".join(sorted(release.genres)) + "]"
                 if release.new:
                     release_virtual_dirname = "{NEW} " + release_virtual_dirname
-                release_virtual_dirname = _sanitize_filename(release_virtual_dirname)
+                release_virtual_dirname = sanitize_filename(release_virtual_dirname)
                 # And in case of a name collision, add an extra number at the end. Iterate to
                 # find the first unused number.
                 original_virtual_dirname = release_virtual_dirname
@@ -1018,7 +1018,7 @@ def _update_cache_for_releases_executor(
                 virtual_filename += f"{t.formatted_artists} - "
                 virtual_filename += t.title or "Unknown Title"
                 virtual_filename += t.source_path.suffix
-                virtual_filename = _sanitize_filename(virtual_filename)
+                virtual_filename = sanitize_filename(virtual_filename)
                 # And in case of a name collision, add an extra number at the end. Iterate to find
                 # the first unused number.
                 original_virtual_filename = virtual_filename
@@ -1067,12 +1067,12 @@ def _update_cache_for_releases_executor(
             )
             upd_release_ids.append(release.id)
             for genre in release.genres:
-                upd_release_genre_args.append([release.id, genre, _sanitize_filename(genre)])
+                upd_release_genre_args.append([release.id, genre, sanitize_filename(genre)])
             for label in release.labels:
-                upd_release_label_args.append([release.id, label, _sanitize_filename(label)])
+                upd_release_label_args.append([release.id, label, sanitize_filename(label)])
             for art in release.artists:
                 upd_release_artist_args.append(
-                    [release.id, art.name, _sanitize_filename(art.name), art.role]
+                    [release.id, art.name, sanitize_filename(art.name), art.role]
                 )
 
         if track_ids_to_insert:
@@ -1098,7 +1098,7 @@ def _update_cache_for_releases_executor(
                 upd_track_ids.append(track.id)
                 for art in track.artists:
                     upd_track_artist_args.append(
-                        [track.id, art.name, _sanitize_filename(art.name), art.role]
+                        [track.id, art.name, sanitize_filename(art.name), art.role]
                     )
     logger.debug(f"Release update scheduling loop time {time.time() - loop_start=}")
 
@@ -1794,13 +1794,16 @@ def list_releases(
         """
         args: list[str | bool] = []
         if sanitized_artist_filter:
-            query += """
+            sanitized_artists: list[str] = [sanitized_artist_filter]
+            for alias in c.sanitized_artist_aliases_map.get(sanitized_artist_filter, []):
+                sanitized_artists.append(alias)
+            query += f"""
                 AND EXISTS (
                     SELECT * FROM releases_artists
-                    WHERE release_id = r.id AND artist_sanitized = ?
+                    WHERE release_id = r.id AND artist_sanitized IN ({','.join(['?']*len(sanitized_artists))})
                 )
             """
-            args.append(sanitized_artist_filter)
+            args.extend(sanitized_artists)
         if sanitized_genre_filter:
             query += """
                 AND EXISTS (
@@ -2345,10 +2348,18 @@ def cover_exists(c: Config, release_virtual_dirname: str, cover_name: str) -> Pa
 
 
 def artist_exists(c: Config, artist_sanitized: str) -> bool:
+    args: list[str] = [artist_sanitized]
+    for alias in c.sanitized_artist_aliases_map.get(artist_sanitized, []):
+        args.append(alias)
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT EXISTS(SELECT * FROM releases_artists WHERE artist_sanitized = ?)",
-            (artist_sanitized,),
+            f"""
+            SELECT EXISTS(
+                SELECT * FROM releases_artists
+                WHERE artist_sanitized IN ({','.join(['?']*len(args))})
+            )
+            """,
+            args,
         )
         return bool(cursor.fetchone()[0])
 
@@ -2389,9 +2400,6 @@ def playlist_exists(c: Config, name: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
-ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]+')
-
-
 def _add_artist_aliases(c: Config, unaliased: list[CachedArtist]) -> list[CachedArtist]:
     out: list[CachedArtist] = []
     for art in unaliased:
@@ -2399,10 +2407,6 @@ def _add_artist_aliases(c: Config, unaliased: list[CachedArtist]) -> list[Cached
         for alias in c.artist_aliases_parents_map.get(art.name, []):
             out.append(CachedArtist(name=alias, role=art.role, alias=True))
     return uniq(out)
-
-
-def _sanitize_filename(x: str) -> str:
-    return ILLEGAL_FS_CHARS_REGEX.sub("_", x)
 
 
 def _flatten(xxs: list[list[T]]) -> list[T]:

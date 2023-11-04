@@ -1035,6 +1035,39 @@ def test_list_releases(config: Config) -> None:
         ),
     ]
 
+    # Test with artist aliases.
+    config_with_aliases = Config(
+        **{
+            **asdict(config),
+            "artist_aliases_map": {"Hype Boy": ["Bass Man"]},
+            "artist_aliases_parents_map": {"Bass Man": ["Hype Boy"]},
+        },
+    )
+    releases = list(list_releases(config_with_aliases, sanitized_artist_filter="Hype Boy"))
+    assert releases == [
+        CachedRelease(
+            datafile_mtime="999",
+            id="r1",
+            source_path=Path(config.music_source_dir / "r1"),
+            cover_image_path=None,
+            added_at="0000-01-01T00:00:00+00:00",
+            virtual_dirname="r1",
+            title="Release 1",
+            releasetype="album",
+            year=2023,
+            multidisc=False,
+            new=False,
+            genres=["Deep House", "Techno"],
+            labels=["Silk Music"],
+            artists=[
+                CachedArtist(name="Bass Man", role="main"),
+                CachedArtist(name="Hype Boy", role="main", alias=True),
+                CachedArtist(name="Techno Man", role="main"),
+            ],
+            formatted_artists="Techno Man;Bass Man",
+        ),
+    ]
+
     releases = list(list_releases(config, sanitized_genre_filter="Techno"))
     assert releases == [
         CachedRelease(
@@ -1439,6 +1472,18 @@ def test_cover_exists(config: Config) -> None:
 def test_artist_exists(config: Config) -> None:
     assert artist_exists(config, "Bass Man")
     assert not artist_exists(config, "lalala")
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_artist_exists_with_alias(config: Config) -> None:
+    config = Config(
+        **{
+            **asdict(config),
+            "artist_aliases_map": {"Hype Boy": ["Bass Man"]},
+            "artist_aliases_parents_map": {"Bass Man": ["Hype Boy"]},
+        },
+    )
+    assert artist_exists(config, "Hype Boy")
 
 
 @pytest.mark.usefixtures("seeded_cache")

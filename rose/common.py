@@ -3,6 +3,7 @@ The common module is our ugly grab bag of miscellaneous things. Though a fully g
 module is _typically_ a bad idea, we have few enough things in it that it's OK for now.
 """
 
+import re
 import uuid
 from pathlib import Path
 from typing import TypeVar
@@ -37,3 +38,10 @@ def uniq(xs: list[T]) -> list[T]:
             rv.append(x)
             seen.add(x)
     return rv
+
+
+ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]+')
+
+
+def sanitize_filename(x: str) -> str:
+    return ILLEGAL_FS_CHARS_REGEX.sub("_", x)

@@ -14,7 +14,7 @@ from pathlib import Path
 import appdirs
 import tomllib
 
-from rose.common import RoseError
+from rose.common import RoseError, sanitize_filename
 from rose.rule_parser import MetadataRule, RuleSyntaxError
 
 XDG_CONFIG_ROSE = Path(appdirs.user_config_dir("rose"))
@@ -395,3 +395,11 @@ class Config:
     @functools.cached_property
     def watchdog_pid_path(self) -> Path:
         return self.cache_dir / "watchdog.pid"
+
+    @functools.cached_property
+    def sanitized_artist_aliases_map(self) -> dict[str, list[str]]:
+        return {sanitize_filename(k): v for k, v in self.artist_aliases_map.items()}
+
+    @functools.cached_property
+    def sanitized_artist_aliases_parents_map(self) -> dict[str, list[str]]:
+        return {sanitize_filename(k): v for k, v in self.artist_aliases_parents_map.items()}
