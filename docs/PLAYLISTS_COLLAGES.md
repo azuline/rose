@@ -29,11 +29,11 @@ An example of the contents of the `.toml` file are, for a collage:
 
 [[releases]]
 uuid = "018b268e-ef68-7180-a01e-19bc3fdf970e"
-description_meta = "BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]"
+description_meta = "BLACKPINK - 2016. SQUARE TWO - Single"
 
 [[releases]]
 uuid = "018b4ff1-acdf-7ff1-bcd6-67757aea0fed"
-description_meta = "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
+description_meta = "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 ```
 
 and for a playlist:
@@ -125,12 +125,14 @@ directory name is globally unique, while track virtual filenames are not
 globally unique._
 
 ```bash
-$ rose collages add-release "Morning" "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
-[17:59:38] INFO: Added release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop] to collage Morning
+$ cd $fuse_mount_dir
+
+$ rose collages add-release "Morning" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+[17:59:38] INFO: Added release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP to collage Morning
 [17:59:38] INFO: Updating cache for collage Morning
 
 $ rose collages add-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
-[17:59:44] INFO: Added release BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop] to collage Morning
+[17:59:44] INFO: Added release BLACKPINK - 2016. SQUARE TWO - Single to collage Morning
 [17:59:44] INFO: Updating cache for collage Morning
 
 $ rose playlists add-track "Evening" "018b6514-6fb7-7cc6-9d23-8eaf0b1beee8"
@@ -143,15 +145,15 @@ Virtual filesystem:
 ```bash
 $ cd $fuse_mount_dir
 
-$ cp -r "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]" "7. Collages/Morning/"
-cp: cannot create directory '7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]': No such file or directory
+$ cp -r "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP" "7. Collages/Morning/"
+cp: cannot create directory '7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP': No such file or directory
 
 $ tree "7. Collages/Morning/"
 7. Collages/Morning/
-├── 1. BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]/...
-└── 2. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
+├── 1. BLACKPINK - 2016. SQUARE TWO - Single/...
+└── 2. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/...
 
-$ cp "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus" "8. Playlists/Evening/"
+$ cp "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus" "8. Playlists/Evening/"
 
 $ tree "8. Playlists/Evening/"
 8. Playlists/Evening/
@@ -168,12 +170,13 @@ directory name is globally unique, while track virtual filenames are not
 globally unique._
 
 ```bash
-$ rose collages remove-release "Morning" "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
-[18:11:43] INFO: Removed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop] from collage Morning
+$ cd $fuse_mount_dir
+$ rose collages remove-release "Morning" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+[18:11:43] INFO: Removed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP from collage Morning
 [18:11:43] INFO: Updating cache for collage Morning
 
 $ rose collages remove-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
-[18:12:03] INFO: Removed release BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop] from collage Morning
+[18:12:03] INFO: Removed release BLACKPINK - 2016. SQUARE TWO - Single from collage Morning
 [18:12:03] INFO: Updating cache for collage Morning
 
 $ rose playlists remove-track "Evening" "018b6514-6fb7-7cc6-9d23-8eaf0b1beee8"
@@ -186,13 +189,13 @@ Virtual filesystem:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rmdir "7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
+$ rmdir "7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 
 $ tree "7. Collages/Morning/"
 7. Collages/Morning/
 0 directories, 0 files
 
-$ rm "8. Playlists/Evening/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus"
+$ rm "8. Playlists/Evening/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus"
 
 $ tree "8. Playlists/Evening/"
 8. Playlists/Evening/
@@ -209,19 +212,19 @@ deleting their line entry from the text file._
 ```bash
 $ rose collages edit "Road Trip"
 # Opens the following text in $EDITOR:
-BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]
-LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]
+BLACKPINK - 2016. SQUARE TWO - Single
+LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP
 # We will save the following text:
-LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]
-BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]
+LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP
+BLACKPINK - 2016. SQUARE TWO - Single
 # And the logs printed to stderr are:
 [18:20:53] INFO: Edited collage Road Trip from EDITOR
 [18:20:53] INFO: Updating cache for collage Road Trip
 
 $ tree "7. Collages/Road Trip/"
 7. Collages/Road Trip/
-├── 1. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
-└── 2. BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]/...
+├── 1. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/...
+└── 2. BLACKPINK - 2016. SQUARE TWO - Single/...
 
 $ rose playlists edit "Shower"
 # Opens the following text in $EDITOR:

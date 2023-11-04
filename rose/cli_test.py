@@ -1,10 +1,11 @@
 import os
+import uuid
 from typing import Any
 
 import pytest
 from click.testing import CliRunner
 
-from rose.cli import Context, parse_release_from_potential_path, unwatch, watch
+from rose.cli import Context, InvalidReleaseArgError, parse_release_argument, unwatch, watch
 from rose.config import Config
 from rose.virtualfs_test import start_virtual_fs
 
@@ -14,18 +15,21 @@ def test_parse_release_from_path(config: Config) -> None:
     with start_virtual_fs(config):
         # Directory is resolved.
         path = str(config.fuse_mount_dir / "1. Releases" / "r1")
-        assert parse_release_from_potential_path(config, path) == "r1"
-        # Normal string is no-opped.
-        assert parse_release_from_potential_path(config, "r1") == "r1"
-        # Non-existent path is no-opped.
-        path = str(config.fuse_mount_dir / "1. Releases" / "lalala")
-        assert parse_release_from_potential_path(config, path) == path
-        # Non-release directory is no-opped.
-        path = str(config.fuse_mount_dir / "1. Releases")
-        assert parse_release_from_potential_path(config, path) == path
+        assert parse_release_argument(path) == "r1"
+        # UUID is no-opped.
+        uuid_value = str(uuid.uuid4())
+        assert parse_release_argument(uuid_value) == uuid_value
+        # Non-existent path raises error.
+        with pytest.raises(InvalidReleaseArgError):
+            assert parse_release_argument(str(config.fuse_mount_dir / "1. Releases" / "lalala"))
+        # Non-release directory raises error.
+        with pytest.raises(InvalidReleaseArgError):
+            assert parse_release_argument(str(config.fuse_mount_dir / "1. Releases"))
         # File is no-opped.
-        path = str(config.fuse_mount_dir / "1. Releases" / "r1" / "01.m4a")
-        assert parse_release_from_potential_path(config, path) == path
+        with pytest.raises(InvalidReleaseArgError):
+            assert parse_release_argument(
+                str(config.fuse_mount_dir / "1. Releases" / "r1" / "01.m4a")
+            )
 
 
 def test_cache_watch_unwatch(monkeypatch: Any, config: Config) -> None:

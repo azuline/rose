@@ -7,6 +7,7 @@ but not for other operations. In other operations, we want to have the performan
 the Virtual Filesystem and Watcher run subthreads, which cannot fork off.
 """
 
+import contextlib
 import logging
 import os
 import signal
@@ -17,7 +18,7 @@ from pathlib import Path
 
 import click
 
-from rose.cache import maybe_invalidate_cache_database, update_cache
+from rose.cache import STORED_DATA_FILE_REGEX, maybe_invalidate_cache_database, update_cache
 from rose.collages import (
     add_release_to_collage,
     create_collage,
@@ -27,7 +28,7 @@ from rose.collages import (
     remove_release_from_collage,
     rename_collage,
 )
-from rose.common import RoseError
+from rose.common import RoseError, valid_uuid
 from rose.config import Config
 from rose.playlists import (
     add_track_to_playlist,
@@ -53,10 +54,14 @@ from rose.releases import (
 from rose.rule_parser import MetadataAction, MetadataRule
 from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
 from rose.tracks import run_actions_on_track
-from rose.virtualfs import VirtualPath, mount_virtualfs, unmount_virtualfs
+from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
 logger = logging.getLogger(__name__)
+
+
+class InvalidReleaseArgError(RoseError):
+    pass
 
 
 class DaemonAlreadyRunningError(RoseError):
@@ -191,7 +196,7 @@ def print_all(ctx: Context) -> None:
 @click.pass_obj
 def edit2(ctx: Context, release: str, resume: Path | None) -> None:
     """Edit a release's metadata in $EDITOR"""
-    release = parse_release_from_potential_path(ctx.config, release)
+    release = parse_release_argument(release)
     edit_release(ctx.config, release, resume_file=resume)
 
 
@@ -200,7 +205,7 @@ def edit2(ctx: Context, release: str, resume: Path | None) -> None:
 @click.pass_obj
 def toggle_new(ctx: Context, release: str) -> None:
     """Toggle a release's "new"-ness"""
-    release = parse_release_from_potential_path(ctx.config, release)
+    release = parse_release_argument(release)
     toggle_release_new(ctx.config, release)
 
 
@@ -212,7 +217,7 @@ def delete3(ctx: Context, release: str) -> None:
     Delete a release from the library. The release is moved to the trash bin, following the
     freedesktop spec.
     """
-    release = parse_release_from_potential_path(ctx.config, release)
+    release = parse_release_argument(release)
     delete_release(ctx.config, release)
 
 
@@ -222,7 +227,7 @@ def delete3(ctx: Context, release: str) -> None:
 @click.pass_obj
 def set_cover(ctx: Context, release: str, cover: Path) -> None:
     """Set/replace the cover art of a release"""
-    release = parse_release_from_potential_path(ctx.config, release)
+    release = parse_release_argument(release)
     set_release_cover_art(ctx.config, release, cover)
 
 
@@ -231,7 +236,7 @@ def set_cover(ctx: Context, release: str, cover: Path) -> None:
 @click.pass_obj
 def delete_cover(ctx: Context, release: str) -> None:
     """Delete the cover art of a release"""
-    release = parse_release_from_potential_path(ctx.config, release)
+    release = parse_release_argument(release)
     delete_release_cover_art(ctx.config, release)
 
 
@@ -245,7 +250,7 @@ def delete_cover(ctx: Context, release: str) -> None:
 @click.pass_obj
 def run_rule(ctx: Context, release: str, actions: list[str], dry_run: bool, yes: bool) -> None:
     """Run rule engine actions on all tracks in a release"""
-    release = parse_release_from_potential_path(ctx.config, release)
+    release = parse_release_argument(release)
     parsed_actions = [MetadataAction.parse(a) for a in actions]
     run_actions_on_release(
         ctx.config,
@@ -327,7 +332,7 @@ def delete(ctx: Context, name: str) -> None:
 @click.pass_obj
 def add_release(ctx: Context, collage: str, release: str) -> None:
     """Add a release to a collage"""
-    release = parse_release_from_potential_path(ctx.config, release)
+    release = parse_release_argument(release)
     add_release_to_collage(ctx.config, collage, release)
 
 
@@ -337,7 +342,7 @@ def add_release(ctx: Context, collage: str, release: str) -> None:
 @click.pass_obj
 def remove_release(ctx: Context, collage: str, release: str) -> None:
     """Remove a release from a collage"""
-    release = parse_release_from_potential_path(ctx.config, release)
+    release = parse_release_argument(release)
     remove_release_from_collage(ctx.config, collage, release)
 
 
@@ -475,27 +480,37 @@ def run_stored(ctx: Context, dry_run: bool, yes: bool) -> None:
     execute_stored_metadata_rules(ctx.config, dry_run=dry_run, confirm_yes=not yes)
 
 
-def parse_release_from_potential_path(c: Config, r: str) -> str:
+def parse_release_argument(r: str) -> str:
     """
-    Support paths from the virtual filesystem as valid releases. By default, we accept virtual
-    directory names. This function expands that to accept paths.
+    Takes in a release argument and normalizes it to the release ID. We accept two options for
+    releases:
+
+    1. The release UUID (useful when scripting)
+    2. The source path of a release
+    3. The virtual path of a release
     """
-    p = Path(r).resolve()
-    # Exit early if it's not even a real path lol.
-    if not p.is_dir():
+    if valid_uuid(r):
+        logger.debug(f"Treating release argument {r} as UUID")
         return r
-    # And also exit if it's not in the virtual filesystem lol.
-    if not str(p).startswith(str(c.fuse_mount_dir)):
-        return r
+    # We treat cases (2) and (3) the same way: look for a .rose.{uuid}.toml file. Parse the release
+    # ID from that file.
+    with contextlib.suppress(FileNotFoundError, NotADirectoryError):
+        p = Path(r).resolve()
+        for f in p.iterdir():
+            if m := STORED_DATA_FILE_REGEX.match(f.name):
+                logger.debug(f"Parsed release ID {m[1]} from release argument {r}")
+                return m[1]
+    raise InvalidReleaseArgError(
+        f"""\
+{r} is not a valid release argument. Release arguments must be:
 
-    # Parse the virtual path with the standard function.
-    vpath = VirtualPath.parse(Path(str(p).removeprefix(str(c.fuse_mount_dir))))
-    # If there is no release, or there is a file, abort lol.
-    if not vpath.release or vpath.file:
-        return r
+1. The release UUID
+2. The path of the source directory of a release
+3. The path of the release in the virtual filesystem
 
-    # Otherwise return the parsed release.
-    return vpath.release
+{r} is not recognized as any of the above.
+"""
+    )
 
 
 def daemonize(pid_path: Path | None = None) -> None:

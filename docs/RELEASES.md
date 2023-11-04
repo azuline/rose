@@ -44,12 +44,12 @@ Rosé allows you to manage releases via the command line and the virtual
 filesystem. In the rest of this document, we'll demonstrate the supported
 operations.
 
-Note: All command line commands accept releases in three formats:
+Note: Rosé supports multiple methods of identifying a release as a command line
+argument:
 
-1. The release's UUID.
-2. The release's virtual directory name, excluding prefixes.
-3. The path to the release in the virtual filesystem. The virtual filesystem
-   must be mounted for this format to work.
+1. The release's UUID. This is mainly useful when scripting.
+2. The path of the release's source directory.
+3. One of the paths of the release in the virtual filesystem.
 
 ## Toggle Release "new"-ness
 
@@ -58,24 +58,24 @@ Command line:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rose releases toggle-new "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
+$ rose releases toggle-new "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [21:47:52] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [21:47:52] INFO: Updating release descriptions for Long Flight
 [21:47:52] INFO: Updating cache for collage Long Flight
 
 $ tree "2. Releases - New/"
 2. Releases - New/
-├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
-└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
+├── {NEW} LOOΠΔ - 2017. Kim Lip - Single/...
+└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/...
 
-$ rose releases toggle-new "{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
+$ rose releases toggle-new "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [21:49:36] INFO: Updating cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [21:49:36] INFO: Updating release descriptions for Long Flight
 [21:49:36] INFO: Updating cache for collage Long Flight
 
 $ tree "2. Releases - New/"
 2. Releases - New/
-└── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
+└── {NEW} LOOΠΔ - 2017. Kim Lip - Single/...
 ```
 
 Virtual filesystem:
@@ -83,18 +83,18 @@ Virtual filesystem:
 ```bash
 $ cd $fuse_mount_dir
 
-$ mv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]" "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
+$ mv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP" "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 
 $ tree "2. Releases - New/"
 2. Releases - New/
-├── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
-└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/...
+├── {NEW} LOOΠΔ - 2017. Kim Lip - Single/...
+└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/...
 
-$ mv "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]"
+$ mv "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 
 $ tree "2. Releases - New/"
 2. Releases - New/
-└── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
+└── {NEW} LOOΠΔ - 2017. Kim Lip - Single/...
 ```
 
 ## Set Release Cover Art
@@ -107,12 +107,12 @@ Command line:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rose releases set-cover "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]" ./cover.jpg
+$ rose releases set-cover "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP" ./cover.jpg
 [20:43:50] INFO: Set the cover of release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match to cover.jpg
 [20:43:50] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 
-$ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/"
-1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/
+$ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/"
+1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/
 ├── 01. LOOΠΔ ODD EYE CIRCLE - ODD.opus
 ├── 02. LOOΠΔ ODD EYE CIRCLE - Girl Front.opus
 ├── 03. LOOΠΔ ODD EYE CIRCLE - LOONATIC.opus
@@ -130,10 +130,10 @@ documented in [Configuration](./CONFIGURATION.md)._
 ```bash
 $ cd $fuse_mount_dir
 
-$ mv ~/downloads/cover.jpg "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/cover.jpg"
+$ mv ~/downloads/cover.jpg "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/cover.jpg"
 
-$ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/"
-1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/
+$ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/"
+1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/
 ├── 01. LOOΠΔ ODD EYE CIRCLE - ODD.opus
 ├── 02. LOOΠΔ ODD EYE CIRCLE - Girl Front.opus
 ├── 03. LOOΠΔ ODD EYE CIRCLE - LOONATIC.opus
@@ -149,12 +149,12 @@ Command line:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rose releases delete-cover "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
+$ rose releases delete-cover "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [02:13:17] INFO: Deleted cover arts of release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [02:13:17] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 
-$ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/"
-1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/
+$ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/"
+1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/
 ├── 01. LOOΠΔ ODD EYE CIRCLE - ODD.opus
 ├── 02. LOOΠΔ ODD EYE CIRCLE - Girl Front.opus
 ├── 03. LOOΠΔ ODD EYE CIRCLE - LOONATIC.opus
@@ -167,10 +167,10 @@ Virtual filesystem:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rm "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/cover.jpg"
+$ rm "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/cover.jpg"
 
-$ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]/"
-1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [K-Pop]/
+$ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/"
+1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/
 ├── 01. LOOΠΔ ODD EYE CIRCLE - ODD.opus
 ├── 02. LOOΠΔ ODD EYE CIRCLE - Girl Front.opus
 ├── 03. LOOΠΔ ODD EYE CIRCLE - LOONATIC.opus
@@ -189,19 +189,19 @@ Command line:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rose releases delete "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
-[21:56:25] INFO: Trashed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]
+$ rose releases delete "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+[21:56:25] INFO: Trashed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP
 [21:56:25] INFO: Evicted release /home/blissful/demo/source/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match from cache
-[21:56:25] INFO: Marking missing release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop] as missing in collage Long Flight
+[21:56:25] INFO: Marking missing release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP as missing in collage Long Flight
 [21:56:25] INFO: Updating release descriptions for Long Flight
 [21:56:25] INFO: Updating cache for collage Long Flight
 
 $ tree "1. Releases/"
 1. Releases/
-├── BLACKPINK - 2016. SQUARE ONE - Single [Big Room House;Dance-Pop;K-Pop]/...
-├── BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]/...
-├── NewJeans - 2022. Ditto - Single [Contemporary R&B;K-Pop][K-Pop]/...
-└── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
+├── BLACKPINK - 2016. SQUARE ONE - Single/...
+├── BLACKPINK - 2016. SQUARE TWO - Single/...
+├── NewJeans - 2022. Ditto - Single/...
+└── {NEW} LOOΠΔ - 2017. Kim Lip - Single/...
 ```
 
 Virtual filesystem:
@@ -209,14 +209,14 @@ Virtual filesystem:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rmdir "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
+$ rmdir "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 
 $ tree "1. Releases/"
 1. Releases/
-├── BLACKPINK - 2016. SQUARE ONE - Single [Big Room House;Dance-Pop;K-Pop]/...
-├── BLACKPINK - 2016. SQUARE TWO - Single [Dance-Pop;K-Pop]/...
-├── NewJeans - 2022. Ditto - Single [Contemporary R&B;K-Pop][K-Pop]/...
-└── {NEW} LOOΠΔ - 2017. Kim Lip - Single [Contemporary R&B;Dance-Pop;K-Pop]/...
+├── BLACKPINK - 2016. SQUARE ONE - Single/...
+├── BLACKPINK - 2016. SQUARE TWO - Single/...
+├── NewJeans - 2022. Ditto - Single/...
+└── {NEW} LOOΠΔ - 2017. Kim Lip - Single/...
 ```
 
 ## Edit Release Metadata
@@ -306,14 +306,14 @@ To demonstrate:
 ```bash
 $ cd $fuse_mount_dir
 
-$ rose releases create-single "1. Releases/ITZY - 2022. CHECKMATE [K-Pop]/01.\ SNEAKERS.opus"
+$ rose releases create-single "1. Releases/ITZY - 2022. CHECKMATE/01.\ SNEAKERS.opus"
 [12:16:06] INFO: Created phony single release ITZY - 2022. SNEAKERS
 [12:16:06] INFO: Updating cache for release ITZY - 2022. SNEAKERS
 [12:16:06] INFO: Toggled "new"-ness of release /home/blissful/.music-source/ITZY - 2022. SNEAKERS to False
 [12:16:06] INFO: Updating cache for release ITZY - 2022. SNEAKERS
 
-$ tree "1. Releases/ITZY - 2022. SNEAKERS - Single [K-Pop]/"
-1. Releases/ITZY - 2022. SNEAKERS - Single [K-Pop]/
+$ tree "1. Releases/ITZY - 2022. SNEAKERS - Single/"
+1. Releases/ITZY - 2022. SNEAKERS - Single/
 ├── 01. ITZY - SNEAKERS.opus
 └── cover.jpg
 ```

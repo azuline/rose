@@ -24,7 +24,7 @@ virtual filesystem directory name.
 So for example:
 
 ```bash
-$ rose releases edit "LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [Dance-Pop;Future Bass;K-Pop]"
+$ rose releases edit "$fuse_mount_dir/1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 $ rose releases edit "018b4ff1-acdf-7ff1-bcd6-67757aea0fed"
 ```
 
@@ -32,17 +32,18 @@ This command opens up a TOML representation of the release's metadata in your
 `$EDITOR`. Upon save and exit, the TOML's metadata is written to the file tags.
 
 > [!NOTE]
-> Rosé validates the Artist Role and Release Type fields upon metadata edit.
-> The values provided must be one of the supported values. The supported values
-> are documented in [Artist Tags](#artist-tags) and [Release Type Tags](#release-type-tags).
+> The Artist Role and Release Type fields must be one of the supported enum
+> values. The supported values are documented in [Tagging Conventions](./TAGGING_CONVENTIONS.md).
 
-An example of the editing TOML:
+An example of the release's TOML representation:
 
 ```toml
 title = "Mix & Match"
 releasetype = "ep"
 year = 2017
 genres = [
+    "Dance-Pop",
+    "Future Bass",
     "K-Pop",
 ]
 labels = [
