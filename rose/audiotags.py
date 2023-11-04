@@ -99,7 +99,10 @@ class AudioTags:
         """Read the tags of an audio file on disk."""
         if not any(p.suffix.lower() == ext for ext in SUPPORTED_AUDIO_EXTENSIONS):
             raise UnsupportedFiletypeError(f"{p.suffix} not a supported filetype")
-        m = mutagen.File(p)  # type: ignore
+        try:
+            m = mutagen.File(p)  # type: ignore
+        except mutagen.MutagenError as e:  # type: ignore
+            raise UnsupportedFiletypeError(f"Failed to open file: {e}") from e
         if isinstance(m, mutagen.mp3.MP3):
             # ID3 returns trackno/discno tags as no/total. We have to parse.
             def _parse_num(x: str | None) -> str | None:

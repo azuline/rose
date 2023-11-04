@@ -44,12 +44,9 @@ Rosé allows you to manage releases via the command line and the virtual
 filesystem. In the rest of this document, we'll demonstrate the supported
 operations.
 
-Note: Rosé supports multiple methods of identifying a release as a command line
-argument:
-
-1. The release's UUID. This is mainly useful when scripting.
-2. The path of the release's source directory.
-3. One of the paths of the release in the virtual filesystem.
+Note: Rosé supports passing releases and tracks by both their UUIDs and by
+path. Paths in the source directory and paths in the virtual directory are both
+supported. All views in the virtual directory are supported as well.
 
 ## Toggle Release "new"-ness
 

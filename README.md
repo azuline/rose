@@ -242,14 +242,14 @@ Options:
   --help             Show this message and exit.
 
 Commands:
-  cache           Manage the read cache
-  collages        Manage collages
-  fs              Manage the virtual filesystem
-  gen-completion  Generate a shell completion script
-  playlists       Manage playlists
-  releases        Manage releases
-  tracks          Manage tracks
-  rules           Run metadata update rules on the entire library
+  cache           Manage the read cache.
+  collages        Manage collages.
+  fs              Manage the virtual filesystem.
+  gen-completion  Generate a shell completion script.
+  playlists       Manage playlists.
+  releases        Manage releases.
+  tracks          Manage tracks.
+  rules           Run metadata update rules on the entire library.
 ```
 
 > [!NOTE]

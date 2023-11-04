@@ -119,10 +119,8 @@ $ tree "8. Playlists/"
 
 Command line:
 
-_Releases can be added by UUID, virtual directory name, or virtual filesystem
-path. Tracks can only be added by UUID. This is because the release virtual
-directory name is globally unique, while track virtual filenames are not
-globally unique._
+_Releases and tracks can be added by UUID or path. Rosé accepts both source
+directory paths and virtual filesystem paths._
 
 ```bash
 $ cd $fuse_mount_dir
@@ -134,6 +132,10 @@ $ rose collages add-release "Morning" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017
 $ rose collages add-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
 [17:59:44] INFO: Added release BLACKPINK - 2016. SQUARE TWO - Single to collage Morning
 [17:59:44] INFO: Updating cache for collage Morning
+
+$ rose playlists add-track "Morning" "1. Releases/NewJeans - 2022. Ditto - Single/01. NewJeans - Ditto.opus"
+[18:02:10] INFO: Added track NewJeans - Ditto.opus to playlist Evening
+[18:02:10] INFO: Updating cache for playlist Evening
 
 $ rose playlists add-track "Evening" "018b6514-6fb7-7cc6-9d23-8eaf0b1beee8"
 [18:02:21] INFO: Added track LOOΠΔ ODD EYE CIRCLE - Chaotic.opus to playlist Evening
@@ -164,20 +166,22 @@ $ tree "8. Playlists/Evening/"
 
 Command line:
 
-_Releases can be removed by UUID, virtual directory name, or virtual filesystem
-path. Tracks can only be removed by UUID. This is because the release virtual
-directory name is globally unique, while track virtual filenames are not
-globally unique._
+_Releases and tracks can be removed by UUID or path. Rosé accepts both source
+directory paths and virtual filesystem paths._
 
 ```bash
 $ cd $fuse_mount_dir
-$ rose collages remove-release "Morning" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+$ rose collages remove-release "Morning" "7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [18:11:43] INFO: Removed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP from collage Morning
 [18:11:43] INFO: Updating cache for collage Morning
 
 $ rose collages remove-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
 [18:12:03] INFO: Removed release BLACKPINK - 2016. SQUARE TWO - Single from collage Morning
 [18:12:03] INFO: Updating cache for collage Morning
+
+$ rose playlists remove-track "Evening" "8. Playlists/Evening/01. NewJeans - Ditto.opus"
+[18:12:10] INFO: Removed track NewJeans - Ditto.opus from playlist Evening
+[18:12:10] INFO: Updating cache for playlist Evening
 
 $ rose playlists remove-track "Evening" "018b6514-6fb7-7cc6-9d23-8eaf0b1beee8"
 [18:12:22] INFO: Removed track LOOΠΔ ODD EYE CIRCLE - Chaotic.opus from playlist Evening
