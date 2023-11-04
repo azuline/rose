@@ -20,22 +20,22 @@ from rose.cache import (
     update_cache_evict_nonexistent_collages,
     update_cache_for_collages,
 )
-from rose.common import RoseError
+from rose.common import RoseExpectedError
 from rose.config import Config
 from rose.releases import resolve_release_ids
 
 logger = logging.getLogger(__name__)
 
 
-class DescriptionMismatchError(RoseError):
+class DescriptionMismatchError(RoseExpectedError):
     pass
 
 
-class CollageDoesNotExistError(RoseError):
+class CollageDoesNotExistError(RoseExpectedError):
     pass
 
 
-class CollageAlreadyExistsError(RoseError):
+class CollageAlreadyExistsError(RoseExpectedError):
     pass
 
 

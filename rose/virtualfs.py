@@ -327,10 +327,6 @@ class CanShower:
         return True
 
 
-class UnknownFileHandleError(RoseError):
-    pass
-
-
 class FileHandleManager:
     """
     FileDescriptorGenerator generates file descriptors and handles wrapping so that we do not go

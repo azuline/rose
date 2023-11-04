@@ -13,12 +13,14 @@ import shlex
 from dataclasses import dataclass
 from typing import Literal
 
-from rose.common import RoseError
+import click
+
+from rose.common import RoseError, RoseExpectedError
 
 logger = logging.getLogger(__name__)
 
 
-class InvalidRuleError(RoseError):
+class InvalidRuleError(RoseExpectedError):
     pass
 
 
@@ -35,8 +37,8 @@ class RuleSyntaxError(InvalidRuleError):
 Failed to parse {self.rule_name}, invalid syntax:
 
     {self.rule}
-    {" " * self.index}^
-    {" " * self.index}{self.feedback}
+    {" " * self.index}{click.style("^", fg="red")}
+    {" " * self.index}{click.style(self.feedback, bold=True)}
 """
 
 

@@ -34,7 +34,7 @@ from rose.cache import (
     update_cache_for_collages,
     update_cache_for_releases,
 )
-from rose.common import InvalidCoverArtFileError, RoseError, valid_uuid
+from rose.common import RoseError, RoseExpectedError, valid_uuid
 from rose.config import Config
 from rose.rule_parser import MetadataAction
 from rose.rules import execute_metadata_actions
@@ -42,19 +42,23 @@ from rose.rules import execute_metadata_actions
 logger = logging.getLogger(__name__)
 
 
-class ReleaseDoesNotExistError(RoseError):
+class InvalidCoverArtFileError(RoseExpectedError):
     pass
 
 
-class ReleaseEditFailedError(RoseError):
+class ReleaseDoesNotExistError(RoseExpectedError):
     pass
 
 
-class InvalidReleaseEditResumeFileError(RoseError):
+class ReleaseEditFailedError(RoseExpectedError):
     pass
 
 
-class UnknownArtistRoleError(RoseError):
+class InvalidReleaseEditResumeFileError(RoseExpectedError):
+    pass
+
+
+class UnknownArtistRoleError(RoseExpectedError):
     pass
 
 

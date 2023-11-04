@@ -24,7 +24,7 @@ import mutagen.oggopus
 import mutagen.oggvorbis
 
 from rose.artiststr import ArtistMapping, format_artist_string, parse_artist_string
-from rose.common import RoseError
+from rose.common import RoseError, RoseExpectedError
 
 TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")
 YEAR_REGEX = re.compile(r"\d{4}$")
@@ -66,11 +66,11 @@ def _normalize_rtype(x: str | None) -> str:
     return "unknown"
 
 
-class UnsupportedFiletypeError(RoseError):
+class UnsupportedFiletypeError(RoseExpectedError):
     pass
 
 
-class UnsupportedTagValueTypeError(RoseError):
+class UnsupportedTagValueTypeError(RoseExpectedError):
     pass
 
 

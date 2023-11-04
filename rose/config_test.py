@@ -1,6 +1,7 @@
 import tempfile
 from pathlib import Path
 
+import click
 import pytest
 
 from rose.config import Config, ConfigNotFoundError, InvalidConfigValueError, MissingConfigKeyError
@@ -422,7 +423,7 @@ def test_config_value_validation() -> None:
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
-            str(excinfo.value)
+            click.unstyle(str(excinfo.value))
             == f"""\
 Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'matcher': 'tracktitle:hi', 'actions': ['delete:hi']}}: Failed to parse action 1, invalid syntax:
 

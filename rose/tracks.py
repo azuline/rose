@@ -10,7 +10,7 @@ from rose.audiotags import AudioTags
 from rose.cache import (
     get_track,
 )
-from rose.common import RoseError
+from rose.common import RoseExpectedError
 from rose.config import Config
 from rose.rule_parser import MetadataAction
 from rose.rules import execute_metadata_actions
@@ -18,7 +18,7 @@ from rose.rules import execute_metadata_actions
 logger = logging.getLogger(__name__)
 
 
-class TrackDoesNotExistError(RoseError):
+class TrackDoesNotExistError(RoseExpectedError):
     pass
 
 

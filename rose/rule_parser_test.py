@@ -1,5 +1,6 @@
 import re
 
+import click
 import pytest
 
 from rose.rule_parser import (
@@ -93,7 +94,7 @@ def test_rule_parse_matcher() -> None:
     def test_err(rule: str, err: str) -> None:
         with pytest.raises(RuleSyntaxError) as exc:
             MetadataMatcher.parse(rule)
-        assert str(exc.value) == err
+        assert click.unstyle(str(exc.value)) == err
 
     test_err(
         "tracknumber^Track$",
@@ -234,7 +235,7 @@ def test_rule_parse_action() -> None:
     def test_err(rule: str, err: str, matcher: MetadataMatcher | None = None) -> None:
         with pytest.raises(RuleSyntaxError) as exc:
             MetadataAction.parse(rule, 1, matcher)
-        assert str(exc.value) == err
+        assert click.unstyle(str(exc.value)) == err
 
     test_err(
         "haha::delete",

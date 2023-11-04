@@ -18,7 +18,7 @@ from rose.cache import (
     get_release_source_paths_from_ids,
     update_cache_for_releases,
 )
-from rose.common import RoseError, uniq
+from rose.common import RoseError, RoseExpectedError, uniq
 from rose.config import Config
 from rose.rule_parser import (
     AddAction,
@@ -34,11 +34,7 @@ from rose.rule_parser import (
 logger = logging.getLogger(__name__)
 
 
-class InvalidRuleActionError(RoseError):
-    pass
-
-
-class InvalidReplacementValueError(RoseError):
+class InvalidReplacementValueError(RoseExpectedError):
     pass
 
 
@@ -389,7 +385,9 @@ def execute_single_action(action: MetadataAction, value: str | int | None) -> st
         return bhv.src.sub(bhv.dst, strvalue)
     elif isinstance(bhv, DeleteAction):
         return None
-    raise InvalidRuleActionError(f"Invalid action {type(bhv)} for single-value tag")
+    raise RoseError(
+        f"Invalid action {type(bhv)} for single-value tag: Should have been caught in parsing"
+    )
 
 
 def execute_multi_value_action(

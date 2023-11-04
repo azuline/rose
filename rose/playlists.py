@@ -23,25 +23,29 @@ from rose.cache import (
     update_cache_evict_nonexistent_playlists,
     update_cache_for_playlists,
 )
-from rose.common import InvalidCoverArtFileError, RoseError
+from rose.common import RoseExpectedError
 from rose.config import Config
 
 logger = logging.getLogger(__name__)
 
 
-class DescriptionMismatchError(RoseError):
+class InvalidCoverArtFileError(RoseExpectedError):
     pass
 
 
-class PlaylistDoesNotExistError(RoseError):
+class DescriptionMismatchError(RoseExpectedError):
     pass
 
 
-class TrackDoesNotExistError(RoseError):
+class PlaylistDoesNotExistError(RoseExpectedError):
     pass
 
 
-class PlaylistAlreadyExistsError(RoseError):
+class TrackDoesNotExistError(RoseExpectedError):
+    pass
+
+
+class PlaylistAlreadyExistsError(RoseExpectedError):
     pass
 
 

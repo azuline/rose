@@ -14,7 +14,7 @@ from pathlib import Path
 import appdirs
 import tomllib
 
-from rose.common import RoseError, sanitize_filename
+from rose.common import RoseExpectedError, sanitize_filename
 from rose.rule_parser import MetadataRule, RuleSyntaxError
 
 XDG_CONFIG_ROSE = Path(appdirs.user_config_dir("rose"))
@@ -25,19 +25,19 @@ XDG_CACHE_ROSE = Path(appdirs.user_cache_dir("rose"))
 XDG_CACHE_ROSE.mkdir(parents=True, exist_ok=True)
 
 
-class ConfigNotFoundError(RoseError):
+class ConfigNotFoundError(RoseExpectedError):
     pass
 
 
-class ConfigDecodeError(RoseError):
+class ConfigDecodeError(RoseExpectedError):
     pass
 
 
-class MissingConfigKeyError(RoseError):
+class MissingConfigKeyError(RoseExpectedError):
     pass
 
 
-class InvalidConfigValueError(RoseError, ValueError):
+class InvalidConfigValueError(RoseExpectedError, ValueError):
     pass
 
 

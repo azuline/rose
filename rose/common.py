@@ -18,7 +18,9 @@ class RoseError(Exception):
     pass
 
 
-class InvalidCoverArtFileError(RoseError):
+class RoseExpectedError(RoseError):
+    """These errors are printed without traceback."""
+
     pass
 
 

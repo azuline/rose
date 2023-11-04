@@ -29,7 +29,7 @@ from rose.collages import (
     remove_release_from_collage,
     rename_collage,
 )
-from rose.common import RoseError, valid_uuid
+from rose.common import RoseExpectedError, valid_uuid
 from rose.config import Config
 from rose.playlists import (
     add_track_to_playlist,
@@ -61,15 +61,15 @@ from rose.watcher import start_watchdog
 logger = logging.getLogger(__name__)
 
 
-class InvalidReleaseArgError(RoseError):
+class InvalidReleaseArgError(RoseExpectedError):
     pass
 
 
-class InvalidTrackArgError(RoseError):
+class InvalidTrackArgError(RoseExpectedError):
     pass
 
 
-class DaemonAlreadyRunningError(RoseError):
+class DaemonAlreadyRunningError(RoseExpectedError):
     pass
 
 
@@ -506,11 +506,13 @@ def parse_release_argument(r: str) -> str:
                 return m[1]
     raise InvalidReleaseArgError(
         f"""\
-{r} is not a valid release argument. Release arguments must be:
+{r} is not a valid release argument.
 
-1. The release UUID
-2. The path of the source directory of a release
-3. The path of the release in the virtual filesystem (from any view)
+Release arguments must be:
+
+  1. The release UUID
+  2. The path of the source directory of a release
+  3. The path of the release in the virtual filesystem (from any view)
 
 {r} is not recognized as any of the above.
 """
@@ -530,11 +532,13 @@ def parse_track_argument(t: str) -> str:
             return af.id
     raise InvalidTrackArgError(
         f"""\
-{t} is not a valid track argument. Track arguments must be:
+{t} is not a valid track argument.
 
-1. The track UUID
-2. The path of the track in the source directory
-3. The path of the track in the virtual filesystem (from any view)
+Track arguments must be:
+
+  1. The track UUID
+  2. The path of the track in the source directory
+  3. The path of the track in the virtual filesystem (from any view)
 
 {t} is not recognized as any of the above.
 """
