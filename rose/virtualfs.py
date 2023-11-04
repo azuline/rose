@@ -48,6 +48,7 @@ import llfuse
 
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
 from rose.cache import (
+    CachedRelease,
     artist_exists,
     cover_exists,
     genre_exists,
@@ -62,7 +63,6 @@ from rose.cache import (
     list_labels,
     list_playlists,
     list_releases,
-    release_exists,
     track_exists,
     update_cache_for_releases,
 )
@@ -449,16 +449,18 @@ class RoseLogicalCore:
         logger.debug(f"LOGICAL: Received getattr for {p=}")
 
         # Common logic that gets called for each release.
-        def getattr_release(rp: Path) -> dict[str, Any]:
+        def getattr_release(release: CachedRelease) -> dict[str, Any]:
             assert p.release is not None
             # If no file, return stat for the release dir.
             if not p.file:
-                return self.stat("dir", rp)
+                return self.stat("dir", release.source_path)
             # If there is a file, getattr the file.
             if tp := track_exists(self.config, p.release, p.file):
                 return self.stat("file", tp)
             if cp := cover_exists(self.config, p.release, p.file):
                 return self.stat("file", cp)
+            if p.file == f".rose.{release.id}.toml":
+                return self.stat("file")
             # If no file matches, return errno.ENOENT.
             raise llfuse.FUSEError(errno.ENOENT)
 
@@ -490,7 +492,7 @@ class RoseLogicalCore:
                         if release.virtual_dirname == p.release and idx + 1 == int(
                             p.release_position
                         ):
-                            return getattr_release(release.source_path)
+                            return getattr_release(release)
                 raise llfuse.FUSEError(errno.ENOENT)
             return self.stat("dir")
 
@@ -501,7 +503,7 @@ class RoseLogicalCore:
             if p.release:
                 for r in list_releases(self.config, sanitized_label_filter=p.label):
                     if r.virtual_dirname == p.release:
-                        return getattr_release(r.source_path)
+                        return getattr_release(r)
                 raise llfuse.FUSEError(errno.ENOENT)
             return self.stat("dir")
 
@@ -512,7 +514,7 @@ class RoseLogicalCore:
             if p.release:
                 for r in list_releases(self.config, sanitized_genre_filter=p.genre):
                     if r.virtual_dirname == p.release:
-                        return getattr_release(r.source_path)
+                        return getattr_release(r)
                 raise llfuse.FUSEError(errno.ENOENT)
             return self.stat("dir")
 
@@ -523,7 +525,7 @@ class RoseLogicalCore:
             if p.release:
                 for r in list_releases(self.config, sanitized_artist_filter=p.artist):
                     if r.virtual_dirname == p.release:
-                        return getattr_release(r.source_path)
+                        return getattr_release(r)
                 raise llfuse.FUSEError(errno.ENOENT)
             return self.stat("dir")
 
@@ -531,8 +533,8 @@ class RoseLogicalCore:
         if p.release:
             if p.view == "New" and not p.release.startswith("{NEW} "):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if rp := release_exists(self.config, p.release):
-                return getattr_release(rp)
+            if rdata := get_release(self.config, p.release):
+                return getattr_release(rdata[0])
             raise llfuse.FUSEError(errno.ENOENT)
 
         # 0. Root
@@ -577,6 +579,7 @@ class RoseLogicalCore:
                     yield filename, self.stat("file", track.source_path)
                 if release.cover_image_path:
                     yield release.cover_image_path.name, self.stat("file", release.cover_image_path)
+                yield f".rose.{release.id}.toml", self.stat("file")
                 return
             raise llfuse.FUSEError(errno.ENOENT)
 
@@ -811,6 +814,9 @@ class RoseLogicalCore:
                         if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
                             self.update_release_on_fh_close[fh] = track.release_id
                         return fh
+            # If the file is the datafile, pass it through.
+            if p.file == f".rose.{release.id}.toml":
+                return self.fhandler.wrap_host(os.open(str(release.source_path / p.file), flags))
             # If the file matches the current cover image, then simply pass it through.
             if release.cover_image_path and p.file == f"cover{release.cover_image_path.suffix}":
                 return self.fhandler.wrap_host(os.open(str(release.cover_image_path), flags))

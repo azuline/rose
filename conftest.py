@@ -174,10 +174,9 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
     (config.music_source_dir / "!playlists").mkdir()
 
     for d in dirpaths:
-        d.parent.mkdir(parents=True, exist_ok=True)
         d.mkdir()
+        (d / f".rose.{d.name}.toml").touch()
     for f in musicpaths + imagepaths:
-        f.parent.mkdir(parents=True, exist_ok=True)
         f.touch()
     for cn in ["Rose Gold", "Ruby Red"]:
         (config.music_source_dir / "!collages" / f"{cn}.toml").touch()

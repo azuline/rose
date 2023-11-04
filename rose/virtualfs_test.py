@@ -51,6 +51,9 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert not (root / "1. Releases" / "r1" / "cover.jpg").exists()
         assert not (root / "1. Releases" / "r2" / "cover.png").exists()
 
+        assert (root / "1. Releases" / "r2" / ".rose.r2.toml").is_file()
+        assert can_read(root / "1. Releases" / "r2" / ".rose.r2.toml")
+
         assert (root / "2. Releases - New").is_dir()
         assert (root / "2. Releases - New" / "{NEW} r3").is_dir()
         assert not (root / "2. Releases - New" / "r2").exists()
