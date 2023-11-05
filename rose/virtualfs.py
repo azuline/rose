@@ -428,6 +428,8 @@ class VirtualNameGenerator:
         try:
             r = self._release_store[(p.release_parent, p.release)]
             logger.debug(f"VNAMES: Successfully resolved release virtual name {p} to {r}")
+            # Bump the expiration time for another 15 minutes.
+            self._release_store[(p.release_parent, p.release)] = r
             return r  # type: ignore
         except KeyError:
             logger.debug(f"VNAMES: Failed to resolve release virtual name {p}")
@@ -439,44 +441,12 @@ class VirtualNameGenerator:
         try:
             r = self._track_store[(p.track_parent, p.file)]
             logger.debug(f"VNAMES: Successfully resolved track virtual name {p} to {r}")
+            # Bump the expiration time for another 15 minutes.
+            self._track_store[(p.track_parent, p.file)] = r
             return r  # type: ignore
         except KeyError:
             logger.debug(f"VNAMES: Failed to resolve track virtual name {p}")
             return None
-
-    def bump_release_expiry(self, release_parent: VirtualPath, virtual_name: str) -> None:
-        """
-        Support "bumping" the expiration date of a path in the cache. This should be called on file
-        accesses.
-        """
-        with contextlib.suppress(KeyError):
-            self._release_store[(release_parent, virtual_name)] = self._release_store[
-                (release_parent, virtual_name)
-            ]
-
-    def bump_track_expiry(self, track_parent: VirtualPath, virtual_name: str) -> None:
-        """
-        Support "bumping" the expiration date of a path in the cache. This should be called on file
-        accesses.
-        """
-        with contextlib.suppress(KeyError):
-            self._track_store[(track_parent, virtual_name)] = self._track_store[
-                (track_parent, virtual_name)
-            ]
-
-    def expire_release(self, p: VirtualPath) -> None:
-        """Support premature expiration of a virtual path. This should be called on rmdir."""
-        assert p.release is not None
-        with contextlib.suppress(KeyError):
-            del self._release_store[(p.release_parent, p.release)]
-            logger.debug(f"VNAMES: Expired release {p} from the release mapping")
-
-    def expire_track(self, p: VirtualPath) -> None:
-        """Support premature expiration of a virtual path. This should be called on unlink."""
-        assert p.file is not None
-        with contextlib.suppress(KeyError):
-            del self._track_store[(p.track_parent, p.file)]
-            logger.debug(f"VNAMES: Expired track {p} from the track mapping")
 
 
 class CanShower:
@@ -653,10 +623,7 @@ class RoseLogicalCore:
             for t in tracks:
                 if t.id == track_id:
                     return self.stat("file", t.source_path)
-            logger.debug(
-                f"LOGICAL: Resolved track_id not found in the given tracklist: expiring {p}"
-            )
-            self.vnames.expire_track(p)
+            logger.debug("LOGICAL: Resolved track_id not found in the given tracklist")
             raise llfuse.FUSEError(errno.ENOENT)
 
         # Common logic that gets called for each release.
@@ -678,8 +645,7 @@ class RoseLogicalCore:
             rdata = get_release(self.config, release_id)
             # Handle a potential release deletion here.
             if rdata is None:
-                logger.debug(f"LOGICAL: Resolved release_id does not exist in cache: expiring {p}")
-                self.vnames.expire_release(p)
+                logger.debug("LOGICAL: Resolved release_id does not exist in cache")
                 raise llfuse.FUSEError(errno.ENOENT)
             release, tracks = rdata
 
@@ -881,7 +847,6 @@ class RoseLogicalCore:
             and (track_id := self.vnames.lookup_track(p))
         ):
             remove_track_from_playlist(self.config, p.playlist, track_id)
-            self.vnames.expire_track(p)
             return
         if (
             p.release
@@ -928,14 +893,12 @@ class RoseLogicalCore:
             and (release_id := self.vnames.lookup_release(p))
         ):
             remove_release_from_collage(self.config, p.collage, release_id)
-            self.vnames.expire_release(p)
             return
         if p.view == "Playlists" and p.playlist and p.file is None:
             delete_playlist(self.config, p.playlist)
             return
         if p.view != "Collages" and p.release and (release_id := self.vnames.lookup_release(p)):
             delete_release(self.config, release_id)
-            self.vnames.expire_release(p)
             return
 
         raise llfuse.FUSEError(errno.EACCES)
@@ -956,7 +919,6 @@ class RoseLogicalCore:
             and old.release.startswith("{NEW} ") != new.release.startswith("{NEW} ")
         ):
             toggle_release_new(self.config, release_id)
-            self.vnames.expire_release(old)
             return
         if (
             old.view == "Collages"

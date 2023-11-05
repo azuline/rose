@@ -157,26 +157,27 @@ def test_virtual_filesystem_collage_actions(config: Config) -> None:
         assert (src / "!collages" / "New Jeans.toml").is_file()
         assert not (src / "!collages" / "New Tee.toml").exists()
         # Add release to collage.
+        collage_dir = root / "7. Collages" / "New Jeans"
         subprocess.run(
             [
                 "cp",
                 "-rp",
                 str(root / "1. Releases" / R1_VNAME),
-                str(root / "7. Collages" / "New Jeans" / f"1. {R1_VNAME}"),
+                str(collage_dir / f"1. {R1_VNAME}"),
             ],
             check=True,
         )
-        assert (root / "7. Collages" / "New Jeans" / f"1. {R1_VNAME}").is_dir()
-        assert (root / "7. Collages" / "New Jeans" / f"1. {R1_VNAME}" / "01. Track 1.m4a").is_file()
+        assert (collage_dir / f"1. {R1_VNAME}").is_dir()
+        assert (collage_dir / f"1. {R1_VNAME}" / "01. Track 1.m4a").is_file()
         with (src / "!collages" / "New Jeans.toml").open("r") as fp:
             assert "r1" in fp.read()
         # Delete release from collage.
-        (root / "7. Collages" / "New Jeans" / f"1. {R1_VNAME}").rmdir()
-        assert not (root / "7. Collages" / "New Jeans" / f"1. {R1_VNAME}").exists()
+        (collage_dir / f"1. {R1_VNAME}").rmdir()
+        assert (collage_dir / f"1. {R1_VNAME}").exists()
         with (src / "!collages" / "New Jeans.toml").open("r") as fp:
             assert "r1" not in fp.read()
         # Delete collage.
-        (root / "7. Collages" / "New Jeans").rmdir()
+        collage_dir.rmdir()
         assert not (src / "!collages" / "New Jeans.toml").exists()
 
 
@@ -381,10 +382,12 @@ def test_virtual_filesystem_toggle_new(config: Config, source_dir: Path) -> None
     with start_virtual_fs(config):
         (root / "1. Releases" / dirname).rename(root / "1. Releases" / f"{{NEW}} {dirname}")
         assert (root / "1. Releases" / f"{{NEW}} {dirname}").is_dir()
-        assert not (root / "1. Releases" / dirname).exists()
+        assert (root / "1. Releases" / dirname) not in set((root / "1. Releases").iterdir())
         (root / "1. Releases" / f"{{NEW}} {dirname}").rename(root / "1. Releases" / dirname)
         assert (root / "1. Releases" / dirname).is_dir()
-        assert not (root / "1. Releases" / f"{{NEW}} {dirname}").exists()
+        assert (root / "1. Releases" / f"{{NEW}} {dirname}") not in set(
+            (root / "1. Releases").iterdir()
+        )
         with pytest.raises(OSError):  # noqa: PT011
             (root / "1. Releases" / dirname).rename(root / "1. Releases" / "lalala")
 
