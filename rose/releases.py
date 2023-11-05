@@ -24,7 +24,7 @@ from rose.cache import (
     CachedRelease,
     CachedTrack,
     get_release,
-    get_release_logging_identifier,
+    get_release_logtext,
     get_release_source_path,
     list_releases,
     lock,
@@ -66,7 +66,7 @@ def dump_releases(c: Config) -> str:
 
 
 def delete_release(c: Config, release_id: str) -> None:
-    release_logtext = get_release_logging_identifier(c, release_id)
+    release_logtext = get_release_logtext(c, release_id)
     if not release_logtext:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
     with lock(c, release_lock_name(release_id)):
@@ -80,7 +80,7 @@ def delete_release(c: Config, release_id: str) -> None:
 
 
 def toggle_release_new(c: Config, release_id: str) -> None:
-    release_logtext = get_release_logging_identifier(c, release_id)
+    release_logtext = get_release_logtext(c, release_id)
     if not release_logtext:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
@@ -118,7 +118,7 @@ def set_release_cover_art(
             "To change this, please read the configuration documentation"
         )
 
-    release_logtext = get_release_logging_identifier(c, release_id)
+    release_logtext = get_release_logtext(c, release_id)
     if not release_logtext:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
@@ -135,7 +135,7 @@ def set_release_cover_art(
 
 def delete_release_cover_art(c: Config, release_id: str) -> None:
     """This function deletes all potential cover arts in the release source directory."""
-    release_logtext = get_release_logging_identifier(c, release_id)
+    release_logtext = get_release_logtext(c, release_id)
     if not release_logtext:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
@@ -254,7 +254,7 @@ def edit_release(
     # Will use this file as the starting TOML instead of reading the cache.
     resume_file: Path | None = None,
 ) -> None:
-    release_logtext = get_release_logging_identifier(c, release_id)
+    release_logtext = get_release_logtext(c, release_id)
     if not release_logtext:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 

@@ -16,7 +16,7 @@ from send2trash import send2trash
 
 from rose.cache import (
     get_playlist,
-    get_track,
+    get_track_logtext,
     list_playlists,
     lock,
     playlist_lock_name,
@@ -102,8 +102,8 @@ def remove_track_from_playlist(
     playlist_name: str,
     track_id: str,
 ) -> None:
-    track = get_track(c, track_id)
-    if not track:
+    track_logtext = get_track_logtext(c, track_id)
+    if not track_logtext:
         raise TrackDoesNotExistError(f"Track {track_id} does not exist")
     path = playlist_path(c, playlist_name)
     if not path.exists():
@@ -114,12 +114,12 @@ def remove_track_from_playlist(
         old_tracks = data.get("tracks", [])
         new_tracks = [r for r in old_tracks if r["uuid"] != track_id]
         if old_tracks == new_tracks:
-            logger.info(f"No-Op: Track {track.virtual_filename} not in playlist {playlist_name}")
+            logger.info(f"No-Op: Track {track_logtext} not in playlist {playlist_name}")
             return
         data["tracks"] = new_tracks
         with path.open("wb") as fp:
             tomli_w.dump(data, fp)
-    logger.info(f"Removed track {track.virtual_filename} from playlist {playlist_name}")
+    logger.info(f"Removed track {track_logtext} from playlist {playlist_name}")
     update_cache_for_playlists(c, [playlist_name], force=True)
 
 
@@ -128,8 +128,8 @@ def add_track_to_playlist(
     playlist_name: str,
     track_id: str,
 ) -> None:
-    track = get_track(c, track_id)
-    if not track:
+    track_logtext = get_track_logtext(c, track_id)
+    if not track_logtext:
         raise TrackDoesNotExistError(f"Track {track_id} does not exist")
     path = playlist_path(c, playlist_name)
     if not path.exists():
@@ -142,14 +142,12 @@ def add_track_to_playlist(
         # duplicate playlist entries.
         for r in data["tracks"]:
             if r["uuid"] == track_id:
-                logger.info(
-                    f"No-Op: Track {track.virtual_filename} already in playlist {playlist_name}"
-                )
+                logger.info(f"No-Op: Track {track_logtext} already in playlist {playlist_name}")
                 return
-        data["tracks"].append({"uuid": track_id, "description_meta": track.virtual_filename})
+        data["tracks"].append({"uuid": track_id, "description_meta": track_logtext})
         with path.open("wb") as fp:
             tomli_w.dump(data, fp)
-    logger.info(f"Added track {track.virtual_filename} to playlist {playlist_name}")
+    logger.info(f"Added track {track_logtext} to playlist {playlist_name}")
     update_cache_for_playlists(c, [playlist_name], force=True)
 
 

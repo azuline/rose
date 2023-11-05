@@ -15,7 +15,7 @@ from send2trash import send2trash
 from rose.cache import (
     collage_lock_name,
     get_collage,
-    get_release_logging_identifier,
+    get_release_logtext,
     list_collages,
     lock,
     update_cache_evict_nonexistent_collages,
@@ -92,7 +92,7 @@ def rename_collage(c: Config, old_name: str, new_name: str) -> None:
 
 
 def remove_release_from_collage(c: Config, collage_name: str, release_id: str) -> None:
-    release_logtext = get_release_logging_identifier(c, release_id)
+    release_logtext = get_release_logtext(c, release_id)
     if not release_logtext:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
@@ -119,7 +119,7 @@ def add_release_to_collage(
     collage_name: str,
     release_id: str,
 ) -> None:
-    release_logtext = get_release_logging_identifier(c, release_id)
+    release_logtext = get_release_logtext(c, release_id)
     if not release_logtext:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 

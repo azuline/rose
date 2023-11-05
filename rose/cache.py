@@ -214,7 +214,6 @@ class CachedRelease:
     cover_image_path: Path | None
     added_at: str  # ISO8601 timestamp
     datafile_mtime: str
-    virtual_dirname: str
     title: str
     releasetype: str
     year: int | None
@@ -249,7 +248,6 @@ class CachedTrack:
     id: str
     source_path: Path
     source_mtime: str
-    virtual_filename: str
     title: str
     release_id: str
     tracknumber: str
@@ -613,7 +611,6 @@ def _update_cache_for_releases_executor(
                 t.id
               , t.source_path
               , t.source_mtime
-              , t.virtual_filename
               , t.title
               , t.release_id
               , t.tracknumber
@@ -639,7 +636,6 @@ def _update_cache_for_releases_executor(
                 id=row["id"],
                 source_path=Path(row["source_path"]),
                 source_mtime=row["source_mtime"],
-                virtual_filename=row["virtual_filename"],
                 title=row["title"],
                 release_id=row["release_id"],
                 tracknumber=row["tracknumber"],
@@ -971,7 +967,6 @@ def _update_cache_for_releases_executor(
                 id=track_id,
                 source_path=Path(f),
                 source_mtime=track_mtime,
-                virtual_filename="",
                 title=tags.title or "Unknown Title",
                 release_id=release.id,
                 # Remove `.` here because we use `.` to parse out discno/trackno in the virtual
@@ -1939,7 +1934,6 @@ def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedT
                 t.id
               , t.source_path
               , t.source_mtime
-              , t.virtual_filename
               , t.title
               , t.release_id
               , t.tracknumber
@@ -1967,7 +1961,6 @@ def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedT
                     id=row["id"],
                     source_path=Path(row["source_path"]),
                     source_mtime=row["source_mtime"],
-                    virtual_filename=row["virtual_filename"],
                     title=row["title"],
                     release_id=row["release_id"],
                     tracknumber=row["tracknumber"],
@@ -1982,7 +1975,7 @@ def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedT
     return (release, tracks)
 
 
-def get_release_logging_identifier(c: Config, release_id: str) -> str | None:
+def get_release_logtext(c: Config, release_id: str) -> str | None:
     """Get a human-readable identifier for a release suitable for logging."""
     with connect(c) as conn:
         cursor = conn.execute(
@@ -1992,17 +1985,17 @@ def get_release_logging_identifier(c: Config, release_id: str) -> str | None:
         row = cursor.fetchone()
         if not row:
             return None
-        rval: str = row["formatted_artists"] + " - "
+        logtext: str = row["formatted_artists"] + " - "
         if row["year"]:
-            rval += str(row["year"]) + ". "
-        rval += row["title"]
+            logtext += str(row["year"]) + ". "
+        logtext += row["title"]
         if row["releasetype"] not in ["album", "other", "unknown"] and not (
             row["releasetype"] == "remix" and "remix" in row["title"].lower()
         ):
-            rval += " - " + RELEASE_TYPE_FORMATTER.get(
+            logtext += " - " + RELEASE_TYPE_FORMATTER.get(
                 row["releasetype"], row["releasetype"].title()
             )
-        return rval
+        return logtext
 
 
 def get_release_source_path(c: Config, uuid: str) -> Path | None:
@@ -2041,7 +2034,6 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
                 t.id
               , t.source_path
               , t.source_mtime
-              , t.virtual_filename
               , t.title
               , t.release_id
               , t.tracknumber
@@ -2069,7 +2061,6 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
             id=row["id"],
             source_path=Path(row["source_path"]),
             source_mtime=row["source_mtime"],
-            virtual_filename=row["virtual_filename"],
             title=row["title"],
             release_id=row["release_id"],
             tracknumber=row["tracknumber"],
@@ -2081,25 +2072,21 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
         )
 
 
-def list_artists(c: Config) -> Iterator[tuple[str, str]]:
+def get_track_logtext(c: Config, track_id: str) -> str | None:
+    """Get a human-readable identifier for a track suitable for logging."""
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT artist, artist_sanitized FROM releases_artists")
-        for row in cursor:
-            yield row["artist"], row["artist_sanitized"]
+        cursor = conn.execute(
+            "SELECT title, formatted_artists, source_path FROM track sWHERE id = ?",
+            (track_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
 
-
-def list_genres(c: Config) -> Iterator[tuple[str, str]]:
-    with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT genre, genre_sanitized FROM releases_genres")
-        for row in cursor:
-            yield row["genre"], row["genre_sanitized"]
-
-
-def list_labels(c: Config) -> Iterator[tuple[str, str]]:
-    with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT label, label_sanitized FROM releases_labels")
-        for row in cursor:
-            yield row["label"], row["label_sanitized"]
+        logtext = f"{row['formatted_artists']} - "
+        logtext += row["title"] or "Unknown Title"
+        logtext += Path(row["source_path"]).suffix
+        return sanitize_filename(logtext)
 
 
 def list_playlists(c: Config) -> Iterator[str]:
@@ -2147,7 +2134,6 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
                 t.id
               , t.source_path
               , t.source_mtime
-              , t.virtual_filename
               , t.title
               , t.release_id
               , t.tracknumber
@@ -2177,7 +2163,6 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
                     id=row["id"],
                     source_path=Path(row["source_path"]),
                     source_mtime=row["source_mtime"],
-                    virtual_filename=row["virtual_filename"],
                     title=row["title"],
                     release_id=row["release_id"],
                     tracknumber=row["tracknumber"],
@@ -2200,7 +2185,6 @@ def list_collages(c: Config) -> Iterator[str]:
 
 
 def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[CachedRelease]] | None:
-    """Returns tuples of (position, release_virtual_dirname, release_source_path)."""
     with connect(c) as conn:
         cursor = conn.execute(
             "SELECT name, source_mtime FROM collages WHERE name = ?",
@@ -2243,7 +2227,6 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
               , r.cover_image_path
               , r.added_at
               , r.datafile_mtime
-              , r.virtual_dirname
               , r.title
               , r.releasetype
               , r.year
@@ -2280,7 +2263,6 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
                     else None,
                     added_at=row["added_at"],
                     datafile_mtime=row["datafile_mtime"],
-                    virtual_dirname=row["virtual_dirname"],
                     title=row["title"],
                     releasetype=row["releasetype"],
                     year=row["year"],
@@ -2296,51 +2278,11 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
     return (collage, releases)
 
 
-def release_exists(c: Config, virtual_dirname: str) -> Path | None:
+def list_artists(c: Config) -> Iterator[tuple[str, str]]:
     with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT source_path FROM releases WHERE virtual_dirname = ?",
-            (virtual_dirname,),
-        )
-        if row := cursor.fetchone():
-            return Path(row["source_path"])
-        return None
-
-
-def track_exists(
-    c: Config,
-    release_virtual_dirname: str,
-    track_virtual_filename: str,
-) -> Path | None:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            """
-            SELECT t.source_path
-            FROM tracks t
-            JOIN releases r ON t.release_id = r.id
-            WHERE r.virtual_dirname = ? AND t.virtual_filename = ?
-            """,
-            (
-                release_virtual_dirname,
-                track_virtual_filename,
-            ),
-        )
-        if row := cursor.fetchone():
-            return Path(row["source_path"])
-        return None
-
-
-def cover_exists(c: Config, release_virtual_dirname: str, cover_name: str) -> Path | None:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT cover_image_path FROM releases r WHERE r.virtual_dirname = ?",
-            (release_virtual_dirname,),
-        )
-        if (row := cursor.fetchone()) and row["cover_image_path"]:
-            p = Path(row["cover_image_path"])
-            if p.name == cover_name:
-                return p
-        return None
+        cursor = conn.execute("SELECT DISTINCT artist, artist_sanitized FROM releases_artists")
+        for row in cursor:
+            yield row["artist"], row["artist_sanitized"]
 
 
 def artist_exists(c: Config, artist_sanitized: str) -> bool:
@@ -2360,6 +2302,13 @@ def artist_exists(c: Config, artist_sanitized: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
+def list_genres(c: Config) -> Iterator[tuple[str, str]]:
+    with connect(c) as conn:
+        cursor = conn.execute("SELECT DISTINCT genre, genre_sanitized FROM releases_genres")
+        for row in cursor:
+            yield row["genre"], row["genre_sanitized"]
+
+
 def genre_exists(c: Config, genre_sanitized: str) -> bool:
     with connect(c) as conn:
         cursor = conn.execute(
@@ -2369,29 +2318,18 @@ def genre_exists(c: Config, genre_sanitized: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
+def list_labels(c: Config) -> Iterator[tuple[str, str]]:
+    with connect(c) as conn:
+        cursor = conn.execute("SELECT DISTINCT label, label_sanitized FROM releases_labels")
+        for row in cursor:
+            yield row["label"], row["label_sanitized"]
+
+
 def label_exists(c: Config, label_sanitized: str) -> bool:
     with connect(c) as conn:
         cursor = conn.execute(
             "SELECT EXISTS(SELECT * FROM releases_labels WHERE label_sanitized = ?)",
             (label_sanitized,),
-        )
-        return bool(cursor.fetchone()[0])
-
-
-def collage_exists(c: Config, name: str) -> bool:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT EXISTS(SELECT * FROM collages WHERE name = ?)",
-            (name,),
-        )
-        return bool(cursor.fetchone()[0])
-
-
-def playlist_exists(c: Config, name: str) -> bool:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT EXISTS(SELECT * FROM playlists WHERE name = ?)",
-            (name,),
         )
         return bool(cursor.fetchone()[0])
 
