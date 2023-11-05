@@ -799,13 +799,10 @@ def test_update_releases_updates_collages_description_meta(
         assert (
             fp.read()
             == """\
-[[releases]]
-uuid = "ilovecarly"
-description_meta = "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop]"
-
-[[releases]]
-uuid = "ilovenewjeans"
-description_meta = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
+releases = [
+    { uuid = "ilovecarly", description_meta = "Carly Rae Jepsen - 1990. I Love Carly" },
+    { uuid = "ilovenewjeans", description_meta = "NewJeans - 1990. I Love NewJeans" },
+]
 """
         )
 
@@ -822,8 +819,6 @@ uuid = "ilovenewjeans"
 description_meta = "hahaha"
 """
         )
-    with connect(config) as conn:
-        conn.execute("UPDATE releases SET virtual_dirname = id || 'lalala'")
 
     # Second cache update: releases exist, collages exist, release is "updated." This should also
     # trigger a metadata update.
@@ -832,13 +827,10 @@ description_meta = "hahaha"
         assert (
             fp.read()
             == """\
-[[releases]]
-uuid = "ilovecarly"
-description_meta = "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop]"
-
-[[releases]]
-uuid = "ilovenewjeans"
-description_meta = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
+releases = [
+    { uuid = "ilovecarly", description_meta = "Carly Rae Jepsen - 1990. I Love Carly" },
+    { uuid = "ilovenewjeans", description_meta = "NewJeans - 1990. I Love NewJeans" },
+]
 """
         )
 
@@ -878,8 +870,6 @@ uuid = "ilovetwice"
 description_meta = "hahaha"
 """
         )
-    with connect(config) as conn:
-        conn.execute("UPDATE tracks SET virtual_filename = id || 'lalala'")
 
     # Second cache update: tracks exist, playlists exist, track is "updated." This should also
     # trigger a metadata update.

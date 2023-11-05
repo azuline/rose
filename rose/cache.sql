@@ -77,8 +77,7 @@ CREATE TABLE tracks (
     duration_seconds INTEGER NOT NULL,
     -- This is its own state because ordering matters--we preserve the ordering in the tags.
     -- However, the one-to-many table does not have ordering.
-    formatted_artists TEXT NOT NULL,
-    UNIQUE (release_id)
+    formatted_artists TEXT NOT NULL
 );
 CREATE INDEX tracks_source_path ON tracks(source_path);
 CREATE INDEX tracks_release_id ON tracks(release_id);
