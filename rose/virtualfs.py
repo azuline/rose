@@ -3,28 +3,31 @@ The virtualfs module renders a virtual filesystem from the read cache. It is wri
 Object-Oriented style, against my typical sensibilities, because that's how the FUSE libraries tend
 to be implemented. But it's OK :)
 
-Since this is a pretty hefty module, we'll cover the organization. This module contains 6 classes:
+Since this is a pretty hefty module, we'll cover the organization. This module contains 7 classes:
 
 1. VirtualPath: A semantic representation of a path in the virtual filesystem along with a parser.
    All virtual filesystem paths are parsed by this class into a far more ergonomic dataclass.
 
-2. "CanShow"er: An abstraction that encapsulates the logic of whether an artist, genre, or label
+2. VirtualNameGenerator: A class that generates virtual directory and filenames given UUIDs, and
+   maintains inverse mappings for resolving release IDs from virtual paths.
+
+3. "CanShow"er: An abstraction that encapsulates the logic of whether an artist, genre, or label
    should be shown in their respective virtual views, based on the whitelist/blacklist configuration
    parameters.
 
-3. FileHandleGenerator: A class that keeps generates new file handles. It is a counter that wraps
+4. FileHandleGenerator: A class that keeps generates new file handles. It is a counter that wraps
    back to 4 when the file handles exceed ~10k, as to avoid any overflows.
 
-4. RoseLogicalFS: A logical representation of Rose's filesystem logic, freed from the annoying
+5. RoseLogicalCore: A logical representation of Rose's filesystem logic, freed from the annoying
    implementation details that a low-level library like `llfuse` comes with.
 
-5. INodeManager: A class that tracks the INode <-> Path mappings. It is used to convert inodes to
+6. INodeMapper: A class that tracks the INode <-> Path mappings. It is used to convert inodes to
    paths in VirtualFS.
 
-6. VirtualFS: The main Virtual Filesystem class, which manages the annoying implementation details
-   of a low-level virtual filesystem, and delegates logic to the above classes. It uses INodeManager
+7. VirtualFS: The main Virtual Filesystem class, which manages the annoying implementation details
+   of a low-level virtual filesystem, and delegates logic to the above classes. It uses INodeMapper
    and VirtualPath to translate inodes into semantically useful dataclasses, and then passes them
-   into RoseLogicalFS.
+   into RoseLogicalCore.
 """
 
 from __future__ import annotations
@@ -273,6 +276,23 @@ class VirtualPath:
             raise llfuse.FUSEError(errno.ENOENT)
 
         raise llfuse.FUSEError(errno.ENOENT)
+
+
+class VirtualNameGenerator:
+    """
+    Generates virtual dirnames and filenames for releases and tracks given their UUIDs. Maintains an
+    inverse mapping for looking up release/track UUIDs from their virtual paths.
+
+    The VirtualNameGenerator also remembers all previous path mappings for 15 minutes since last use.
+    This allows Rose to continue to serving accesses to old paths, even after the file metadata
+    changed. This is useful, for example, if a directory or file is renamed (due to a metadata
+    change) while its tracks are in a mpv playlist. mpv's requests to the old paths will still
+    resolve, but the old paths will not show up in a readdir call. If old paths collide with new
+    paths, new paths will take precedence.
+    """
+
+    def __init__(self, config: Config):
+        self._config = config
 
 
 class CanShower:
@@ -947,9 +967,9 @@ class RoseLogicalCore:
         os.close(fh)
 
 
-class INodeManager:
+class INodeMapper:
     """
-    INodeManager manages the mapping of inodes to paths in our filesystem. We have this because the
+    INodeMapper manages the mapping of inodes to paths in our filesystem. We have this because the
     llfuse library makes us manage the inodes...
     """
 
@@ -1020,7 +1040,7 @@ class INodeManager:
 class VirtualFS(llfuse.Operations):  # type: ignore
     """
     This is the virtual filesystem class, which implements commands by delegating the Rose-specific
-    logic to RoseLogicalFS and the inode/fd<->path tracking to INodeManager. This architecture
+    logic to RoseLogicalCore and the inode/fd<->path tracking to INodeMapper. This architecture
     allows us to have a fairly clean logical implementation for Rose despite a fairly low-level
     llfuse library.
     """
@@ -1028,7 +1048,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
     def __init__(self, config: Config):
         self.fhandler = FileHandleManager()
         self.rose = RoseLogicalCore(config, self.fhandler)
-        self.inodes = INodeManager(config)
+        self.inodes = INodeMapper(config)
         self.default_attrs = {
             # Well, this should be ok for now. I really don't want to track this... we indeed change
             # inodes across FS restarts.
