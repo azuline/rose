@@ -19,17 +19,14 @@ from rose.cache import (
     CachedTrack,
     _unpack,
     artist_exists,
-    collage_exists,
     connect,
-    cover_exists,
     genre_exists,
     get_collage,
     get_playlist,
     get_release,
-    get_release_id_from_virtual_dirname,
-    get_release_source_path_from_id,
-    get_release_source_paths_from_ids,
-    get_release_virtual_dirname_from_id,
+    get_release_logtext,
+    get_release_source_path,
+    get_release_source_paths,
     get_track,
     label_exists,
     list_artists,
@@ -40,9 +37,6 @@ from rose.cache import (
     list_releases,
     lock,
     maybe_invalidate_cache_database,
-    playlist_exists,
-    release_exists,
-    track_exists,
     update_cache,
     update_cache_evict_nonexistent_releases,
     update_cache_for_releases,
@@ -132,8 +126,8 @@ def test_update_cache_all(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases (id, source_path, virtual_dirname, added_at, datafile_mtime, title, releasetype, multidisc, formatted_artists)
-            VALUES ('aaaaaa', '/nonexistent', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
+            INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, multidisc, formatted_artists)
+            VALUES ('aaaaaa', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
             """
         )
 
@@ -238,24 +232,6 @@ def test_update_cache_releases(config: Config) -> None:
             assert artists == {
                 ("BLACKPINK", "main"),
             }
-
-
-def test_update_cache_releases_duplicate_collision(config: Config) -> None:
-    """Test that equivalent releases are appropriately handled."""
-    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "d1")
-    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "d2")
-    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "d3")
-    update_cache_for_releases(config)
-
-    with connect(config) as conn:
-        cursor = conn.execute("SELECT id, virtual_dirname FROM releases")
-        rows = cursor.fetchall()
-        assert len({r["id"] for r in rows}) == 3
-        assert {r["virtual_dirname"] for r in rows} == {
-            "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop]",
-            "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop] [2]",
-            "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop] [3]",
-        }
 
 
 def test_update_cache_releases_uncached_with_existing_id(config: Config) -> None:
@@ -427,8 +403,8 @@ def test_update_cache_releases_delete_nonexistent(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases (id, source_path, virtual_dirname, added_at, datafile_mtime, title, releasetype, multidisc, formatted_artists)
-            VALUES ('aaaaaa', '/nonexistent', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
+            INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, multidisc, formatted_artists)
+            VALUES ('aaaaaa', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
             """
         )
     update_cache_evict_nonexistent_releases(config)
@@ -823,13 +799,10 @@ def test_update_releases_updates_collages_description_meta(
         assert (
             fp.read()
             == """\
-[[releases]]
-uuid = "ilovecarly"
-description_meta = "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop]"
-
-[[releases]]
-uuid = "ilovenewjeans"
-description_meta = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
+releases = [
+    { uuid = "ilovecarly", description_meta = "Carly Rae Jepsen - 1990. I Love Carly" },
+    { uuid = "ilovenewjeans", description_meta = "NewJeans - 1990. I Love NewJeans" },
+]
 """
         )
 
@@ -846,8 +819,6 @@ uuid = "ilovenewjeans"
 description_meta = "hahaha"
 """
         )
-    with connect(config) as conn:
-        conn.execute("UPDATE releases SET virtual_dirname = id || 'lalala'")
 
     # Second cache update: releases exist, collages exist, release is "updated." This should also
     # trigger a metadata update.
@@ -856,13 +827,10 @@ description_meta = "hahaha"
         assert (
             fp.read()
             == """\
-[[releases]]
-uuid = "ilovecarly"
-description_meta = "Carly Rae Jepsen - 1990. I Love Carly [Dream Pop;Pop]"
-
-[[releases]]
-uuid = "ilovenewjeans"
-description_meta = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
+releases = [
+    { uuid = "ilovecarly", description_meta = "Carly Rae Jepsen - 1990. I Love Carly" },
+    { uuid = "ilovenewjeans", description_meta = "NewJeans - 1990. I Love NewJeans" },
+]
 """
         )
 
@@ -902,8 +870,6 @@ uuid = "ilovetwice"
 description_meta = "hahaha"
 """
         )
-    with connect(config) as conn:
-        conn.execute("UPDATE tracks SET virtual_filename = id || 'lalala'")
 
     # Second cache update: tracks exist, playlists exist, track is "updated." This should also
     # trigger a metadata update.
@@ -958,7 +924,6 @@ def test_list_releases(config: Config) -> None:
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             added_at="0000-01-01T00:00:00+00:00",
-            virtual_dirname="r1",
             title="Release 1",
             releasetype="album",
             year=2023,
@@ -978,7 +943,6 @@ def test_list_releases(config: Config) -> None:
             source_path=Path(config.music_source_dir / "r2"),
             cover_image_path=Path(config.music_source_dir / "r2" / "cover.jpg"),
             added_at="0000-01-01T00:00:00+00:00",
-            virtual_dirname="r2",
             title="Release 2",
             releasetype="album",
             year=2021,
@@ -998,7 +962,6 @@ def test_list_releases(config: Config) -> None:
             source_path=Path(config.music_source_dir / "r3"),
             cover_image_path=None,
             added_at="0000-01-01T00:00:00+00:00",
-            virtual_dirname="{NEW} r3",
             title="Release 3",
             releasetype="album",
             year=2021,
@@ -1019,7 +982,6 @@ def test_list_releases(config: Config) -> None:
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             added_at="0000-01-01T00:00:00+00:00",
-            virtual_dirname="r1",
             title="Release 1",
             releasetype="album",
             year=2023,
@@ -1051,7 +1013,6 @@ def test_list_releases(config: Config) -> None:
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             added_at="0000-01-01T00:00:00+00:00",
-            virtual_dirname="r1",
             title="Release 1",
             releasetype="album",
             year=2023,
@@ -1076,7 +1037,6 @@ def test_list_releases(config: Config) -> None:
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             added_at="0000-01-01T00:00:00+00:00",
-            virtual_dirname="r1",
             title="Release 1",
             releasetype="album",
             year=2023,
@@ -1100,7 +1060,6 @@ def test_list_releases(config: Config) -> None:
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             added_at="0000-01-01T00:00:00+00:00",
-            virtual_dirname="r1",
             title="Release 1",
             releasetype="album",
             year=2023,
@@ -1126,7 +1085,6 @@ def test_get_release(config: Config) -> None:
             source_path=Path(config.music_source_dir / "r1"),
             cover_image_path=None,
             added_at="0000-01-01T00:00:00+00:00",
-            virtual_dirname="r1",
             title="Release 1",
             releasetype="album",
             year=2023,
@@ -1145,35 +1103,33 @@ def test_get_release(config: Config) -> None:
                 id="t1",
                 source_path=config.music_source_dir / "r1" / "01.m4a",
                 source_mtime="999",
-                virtual_filename="01.m4a",
                 title="Track 1",
                 release_id="r1",
                 tracknumber="01",
                 discnumber="01",
-                formatted_release_position="01",
                 duration_seconds=120,
                 artists=[
                     CachedArtist(name="Bass Man", role="main", alias=False),
                     CachedArtist(name="Techno Man", role="main", alias=False),
                 ],
                 formatted_artists="Techno Man;Bass Man",
+                release_multidisc=False,
             ),
             CachedTrack(
                 id="t2",
                 source_path=config.music_source_dir / "r1" / "02.m4a",
                 source_mtime="999",
-                virtual_filename="02.m4a",
                 title="Track 2",
                 release_id="r1",
                 tracknumber="02",
                 discnumber="01",
-                formatted_release_position="02",
                 duration_seconds=240,
                 artists=[
                     CachedArtist(name="Bass Man", role="main", alias=False),
                     CachedArtist(name="Techno Man", role="main", alias=False),
                 ],
                 formatted_artists="Techno Man;Bass Man",
+                release_multidisc=False,
             ),
         ],
     )
@@ -1206,23 +1162,18 @@ def test_get_release_applies_artist_aliases(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_release_id_from_virtual_dirname(config: Config) -> None:
-    assert get_release_id_from_virtual_dirname(config, "r1") == "r1"
+def test_get_release_logging_identifier(config: Config) -> None:
+    assert get_release_logtext(config, "r1") == "Techno Man;Bass Man - 2023. Release 1"
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_release_virtual_dirname_from_id(config: Config) -> None:
-    assert get_release_virtual_dirname_from_id(config, "r1") == "r1"
+def test_get_release_source_path(config: Config) -> None:
+    assert get_release_source_path(config, "r1") == config.music_source_dir / "r1"
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_release_source_path_dirname_from_id(config: Config) -> None:
-    assert str(get_release_source_path_from_id(config, "r1")).endswith("/source/r1")
-
-
-@pytest.mark.usefixtures("seeded_cache")
-def test_get_release_source_paths_dirname_from_ids(config: Config) -> None:
-    assert get_release_source_paths_from_ids(config, ["r1", "r2"]) == [
+def test_get_release_source_paths(config: Config) -> None:
+    assert get_release_source_paths(config, ["r1", "r2"]) == [
         config.music_source_dir / "r1",
         config.music_source_dir / "r2",
     ]
@@ -1234,18 +1185,17 @@ def test_get_track(config: Config) -> None:
         id="t1",
         source_path=config.music_source_dir / "r1" / "01.m4a",
         source_mtime="999",
-        virtual_filename="01.m4a",
         title="Track 1",
         release_id="r1",
         tracknumber="01",
         discnumber="01",
-        formatted_release_position="01",
         duration_seconds=120,
         artists=[
             CachedArtist(name="Bass Man", role="main", alias=False),
             CachedArtist(name="Techno Man", role="main", alias=False),
         ],
         formatted_artists="Techno Man;Bass Man",
+        release_multidisc=False,
     )
 
 
@@ -1299,7 +1249,6 @@ def test_get_collage(config: Config) -> None:
             cover_image_path=None,
             added_at="0000-01-01T00:00:00+00:00",
             datafile_mtime="999",
-            virtual_dirname="r1",
             title="Release 1",
             releasetype="album",
             year=2023,
@@ -1319,7 +1268,6 @@ def test_get_collage(config: Config) -> None:
             cover_image_path=config.music_source_dir / "r2" / "cover.jpg",
             added_at="0000-01-01T00:00:00+00:00",
             datafile_mtime="999",
-            virtual_dirname="r2",
             title="Release 2",
             releasetype="album",
             year=2021,
@@ -1360,35 +1308,33 @@ def test_get_collage(config: Config) -> None:
             id="t1",
             source_path=config.music_source_dir / "r1" / "01.m4a",
             source_mtime="999",
-            virtual_filename="01.m4a",
             title="Track 1",
             release_id="r1",
             tracknumber="01",
             discnumber="01",
-            formatted_release_position="01",
             duration_seconds=120,
             artists=[
                 CachedArtist(name="Bass Man", role="main", alias=False),
                 CachedArtist(name="Techno Man", role="main", alias=False),
             ],
             formatted_artists="Techno Man;Bass Man",
+            release_multidisc=False,
         ),
         CachedTrack(
             id="t3",
             source_path=config.music_source_dir / "r2" / "01.m4a",
             source_mtime="999",
-            virtual_filename="01.m4a",
             title="Track 1",
             release_id="r2",
             tracknumber="01",
             discnumber="01",
-            formatted_release_position="01",
             duration_seconds=120,
             artists=[
                 CachedArtist(name="Conductor Woman", role="guest", alias=False),
                 CachedArtist(name="Violin Woman", role="main", alias=False),
             ],
             formatted_artists="Violin Woman feat. Conductor Woman",
+            release_multidisc=False,
         ),
     ]
 
@@ -1415,57 +1361,35 @@ def test_get_playlist(config: Config) -> None:
             id="t1",
             source_path=config.music_source_dir / "r1" / "01.m4a",
             source_mtime="999",
-            virtual_filename="01.m4a",
             title="Track 1",
             release_id="r1",
             tracknumber="01",
             discnumber="01",
-            formatted_release_position="01",
             duration_seconds=120,
             artists=[
                 CachedArtist(name="Bass Man", role="main", alias=False),
                 CachedArtist(name="Techno Man", role="main", alias=False),
             ],
             formatted_artists="Techno Man;Bass Man",
+            release_multidisc=False,
         ),
         CachedTrack(
             id="t3",
             source_path=config.music_source_dir / "r2" / "01.m4a",
             source_mtime="999",
-            virtual_filename="01.m4a",
             title="Track 1",
             release_id="r2",
             tracknumber="01",
             discnumber="01",
-            formatted_release_position="01",
             duration_seconds=120,
             artists=[
                 CachedArtist(name="Conductor Woman", role="guest", alias=False),
                 CachedArtist(name="Violin Woman", role="main", alias=False),
             ],
             formatted_artists="Violin Woman feat. Conductor Woman",
+            release_multidisc=False,
         ),
     ]
-
-
-@pytest.mark.usefixtures("seeded_cache")
-def test_release_exists(config: Config) -> None:
-    assert release_exists(config, "r1")
-    assert not release_exists(config, "lalala")
-
-
-@pytest.mark.usefixtures("seeded_cache")
-def test_track_exists(config: Config) -> None:
-    assert track_exists(config, "r1", "01.m4a")
-    assert not track_exists(config, "lalala", "lalala")
-    assert not track_exists(config, "r1", "lalala")
-
-
-@pytest.mark.usefixtures("seeded_cache")
-def test_cover_exists(config: Config) -> None:
-    assert cover_exists(config, "r2", "cover.jpg")
-    assert not cover_exists(config, "r2", "cover.png")
-    assert not cover_exists(config, "r1", "cover.jpg")
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -1496,18 +1420,6 @@ def test_genre_exists(config: Config) -> None:
 def test_label_exists(config: Config) -> None:
     assert label_exists(config, "Silk Music")
     assert not label_exists(config, "Cotton Music")
-
-
-@pytest.mark.usefixtures("seeded_cache")
-def test_collage_exists(config: Config) -> None:
-    assert collage_exists(config, "Rose Gold")
-    assert not collage_exists(config, "lalala")
-
-
-@pytest.mark.usefixtures("seeded_cache")
-def test_playlist_exists(config: Config) -> None:
-    assert playlist_exists(config, "Lala Lisa")
-    assert not playlist_exists(config, "lalala")
 
 
 def test_unpack() -> None:

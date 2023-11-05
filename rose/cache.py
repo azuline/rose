@@ -214,7 +214,6 @@ class CachedRelease:
     cover_image_path: Path | None
     added_at: str  # ISO8601 timestamp
     datafile_mtime: str
-    virtual_dirname: str
     title: str
     releasetype: str
     year: int | None
@@ -249,16 +248,17 @@ class CachedTrack:
     id: str
     source_path: Path
     source_mtime: str
-    virtual_filename: str
     title: str
     release_id: str
     tracknumber: str
     discnumber: str
-    formatted_release_position: str
     duration_seconds: int
 
     artists: list[CachedArtist]
     formatted_artists: str
+
+    # Stored on here for virtual path generation; not inserted into the database.
+    release_multidisc: bool
 
     def dump(self) -> dict[str, Any]:
         return {
@@ -399,8 +399,7 @@ def update_cache_for_releases(
         logger.debug(
             f"Running cache update executor in same process because {len(release_dirs)=} < 50"
         )
-        known_virtual_dirnames_hi: dict[str, bool] = {}
-        _update_cache_for_releases_executor(c, release_dirs, force, known_virtual_dirnames_hi)
+        _update_cache_for_releases_executor(c, release_dirs, force)
         return
 
     # Batch size defaults to equal split across all processes. However, if the number of directories
@@ -410,10 +409,7 @@ def update_cache_for_releases(
         num_proc = max(1, math.ceil(len(release_dirs) // 50))
     batch_size = len(release_dirs) // num_proc + 1
 
-    # Track the known virtual dirnames for collision calculation. This needs to be shared across
-    # all processes, because we want to compare against the global set of known virtual dirnames.
     manager = multiprocessing.Manager()
-    known_virtual_dirnames = manager.dict()
     # Have each process propagate the collages and playlists it wants to update back upwards. We
     # will dispatch the force updater only once in the main process, instead of many times in each
     # process.
@@ -435,7 +431,6 @@ def update_cache_for_releases(
                     c,
                     release_dirs[i : i + batch_size],
                     force,
-                    known_virtual_dirnames,
                     collages_to_force_update,
                     playlists_to_force_update,
                     error_queue,
@@ -458,7 +453,6 @@ def _update_cache_for_releases_process(
     c: Config,
     release_dirs: list[Path],
     force: bool,
-    known_virtual_dirnames: dict[str, bool],
     collages_to_force_update: list[str],
     playlists_to_force_update: list[str],
     error_queue: "multiprocessing.Queue[Any]",
@@ -469,7 +463,6 @@ def _update_cache_for_releases_process(
             c,
             release_dirs,
             force,
-            known_virtual_dirnames,
             collages_to_force_update_receiver=collages_to_force_update,
             playlists_to_force_update_receiver=playlists_to_force_update,
         )
@@ -483,7 +476,6 @@ def _update_cache_for_releases_executor(
     c: Config,
     release_dirs: list[Path],
     force: bool,
-    known_virtual_dirnames: dict[str, bool],
     *,
     # If these are not None, we will store the collages and playlists to update in here instead of
     # invoking the update functions directly. If these are None, we will not put anything in them
@@ -550,7 +542,6 @@ def _update_cache_for_releases_executor(
               , r.cover_image_path
               , r.added_at
               , r.datafile_mtime
-              , r.virtual_dirname
               , r.title
               , r.releasetype
               , r.year
@@ -582,7 +573,6 @@ def _update_cache_for_releases_executor(
                     else None,
                     added_at=row["added_at"],
                     datafile_mtime=row["datafile_mtime"],
-                    virtual_dirname=row["virtual_dirname"],
                     title=row["title"],
                     releasetype=row["releasetype"],
                     year=row["year"],
@@ -595,7 +585,6 @@ def _update_cache_for_releases_executor(
                 ),
                 {},
             )
-            known_virtual_dirnames[row["virtual_dirname"]] = True
 
         logger.debug(f"Found {len(cached_releases)}/{len(release_dirs)} releases in cache")
 
@@ -613,12 +602,10 @@ def _update_cache_for_releases_executor(
                 t.id
               , t.source_path
               , t.source_mtime
-              , t.virtual_filename
               , t.title
               , t.release_id
               , t.tracknumber
               , t.discnumber
-              , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
               , COALESCE(a.names, '') AS art_names
@@ -639,15 +626,14 @@ def _update_cache_for_releases_executor(
                 id=row["id"],
                 source_path=Path(row["source_path"]),
                 source_mtime=row["source_mtime"],
-                virtual_filename=row["virtual_filename"],
                 title=row["title"],
                 release_id=row["release_id"],
                 tracknumber=row["tracknumber"],
                 discnumber=row["discnumber"],
-                formatted_release_position=row["formatted_release_position"],
                 duration_seconds=row["duration_seconds"],
                 artists=track_artists,
                 formatted_artists=row["formatted_artists"],
+                release_multidisc=cached_releases[row["release_id"]][0].multidisc,
             )
             num_tracks_found += 1
         logger.debug(f"Found {num_tracks_found} tracks in cache")
@@ -668,10 +654,6 @@ def _update_cache_for_releases_executor(
     upd_track_args: list[list[Any]] = []
     upd_track_ids: list[str] = []
     upd_track_artist_args: list[list[Any]] = []
-    # The following two variables store updates for a collage's and playlist's description_meta
-    # fields. Map of entity id -> dir/filename.
-    upd_collage_release_dirnames: dict[str, str] = {}
-    upd_playlist_track_filenames: dict[str, str] = {}
     for source_path, preexisting_release_id, files in dir_tree:
         logger.debug(f"Scanning release {source_path.name}")
         # Check to see if we should even process the directory. If the directory does not have
@@ -708,7 +690,6 @@ def _update_cache_for_releases_executor(
                 datafile_mtime="",
                 cover_image_path=None,
                 added_at="",
-                virtual_dirname="",
                 title="",
                 releasetype="",
                 year=None,
@@ -821,11 +802,6 @@ def _update_cache_for_releases_executor(
         # leverage mtimes and such to avoid unnecessary recomputations. If a release has changed
         # and should be updated in the database, we add its ID to track_ids_to_insert, which
         # will be used in the database execution step.
-        #
-        # Note that we do NOT calculate the virtual_filename in this loop, because we need to
-        # know whether the release is multidisc to do that. But we only know whether a release
-        # is multidisc after having all the track metadata. So we do virtual_dirname calculation
-        # in a follow-up loop.
         tracks: list[CachedTrack] = []
         track_ids_to_insert: set[str] = set()
         # This value is set to true if we read an AudioTags and used it to confirm the release
@@ -900,49 +876,6 @@ def _update_cache_for_releases_executor(
                     release.formatted_artists = release_formatted_artists
                     release_dirty = True
 
-                # Calculate the release's virtual dirname.
-                release_virtual_dirname = release.formatted_artists + " - "
-                if release.year:
-                    release_virtual_dirname += str(release.year) + ". "
-                release_virtual_dirname += release.title
-                if release.releasetype not in ["album", "other", "unknown"] and not (
-                    release.releasetype == "remix" and "remix" in release.title.lower()
-                ):
-                    release_virtual_dirname += " - " + RELEASE_TYPE_FORMATTER.get(
-                        release.releasetype, release.releasetype.title()
-                    )
-                if release.genres:
-                    release_virtual_dirname += " [" + ";".join(sorted(release.genres)) + "]"
-                if release.new:
-                    release_virtual_dirname = "{NEW} " + release_virtual_dirname
-                release_virtual_dirname = sanitize_filename(release_virtual_dirname)
-                # And in case of a name collision, add an extra number at the end. Iterate to
-                # find the first unused number.
-                original_virtual_dirname = release_virtual_dirname
-                collision_no = 2
-                while True:
-                    if (
-                        release.virtual_dirname == release_virtual_dirname
-                        or not known_virtual_dirnames.get(release_virtual_dirname, False)
-                    ):
-                        break
-                    logger.debug(
-                        f"Virtual dirname collision: {release_virtual_dirname=} {known_virtual_dirnames=}"
-                    )
-                    release_virtual_dirname = f"{original_virtual_dirname} [{collision_no}]"
-                    collision_no += 1
-
-                if release_virtual_dirname != release.virtual_dirname:
-                    logger.debug(
-                        f"Release virtual dirname change detected for {source_path}, updating"
-                    )
-                    if release.virtual_dirname in known_virtual_dirnames:
-                        known_virtual_dirnames[release.virtual_dirname] = False
-                    known_virtual_dirnames[release_virtual_dirname] = True
-                    release.virtual_dirname = release_virtual_dirname
-                    release_dirty = True
-                    upd_collage_release_dirnames[release.id] = release.virtual_dirname
-
             # Here we compute the track ID. We store the track ID on the audio file in order to
             # enable persistence. This does mutate the file!
             #
@@ -971,7 +904,6 @@ def _update_cache_for_releases_executor(
                 id=track_id,
                 source_path=Path(f),
                 source_mtime=track_mtime,
-                virtual_filename="",
                 title=tags.title or "Unknown Title",
                 release_id=release.id,
                 # Remove `.` here because we use `.` to parse out discno/trackno in the virtual
@@ -979,10 +911,11 @@ def _update_cache_for_releases_executor(
                 tracknumber=(tags.tracknumber or "1").replace(".", ""),
                 discnumber=(tags.discnumber or "1").replace(".", ""),
                 # This is calculated with the virtual filename.
-                formatted_release_position="",
                 duration_seconds=tags.duration_sec,
                 artists=[],
                 formatted_artists=format_artist_string(tags.trackartists),
+                # Dummy value: We never use it in this sequence.
+                release_multidisc=False,
             )
             tracks.append(track)
             for role, names in asdict(tags.trackartists).items():
@@ -990,54 +923,14 @@ def _update_cache_for_releases_executor(
                     track.artists.append(CachedArtist(name=name, role=role))
             track_ids_to_insert.add(track.id)
 
-        # Now calculate whether this release is multidisc, and then assign virtual_filenames and
-        # formatted_release_positions for each track that lacks one.
-        # Only recompute this if any tracks have changed. Otherwise, save CPU cycles.
+        # Now calculate whether this release is multidisc. Only recompute this if any tracks have
+        # changed. Otherwise, save CPU cycles.
         if track_ids_to_insert or unknown_cached_tracks:
             multidisc = len({t.discnumber for t in tracks}) > 1
             if release.multidisc != multidisc:
                 logger.debug(f"Release multidisc change detected for {source_path}, updating")
                 release_dirty = True
                 release.multidisc = multidisc
-            # Use this set to avoid name collisions.
-            seen_track_names: set[str] = set()
-            for i, t in enumerate(tracks):
-                formatted_release_position = ""
-                if release.multidisc and t.discnumber:
-                    formatted_release_position += f"{t.discnumber:0>2}-"
-                if t.tracknumber:
-                    formatted_release_position += f"{t.tracknumber:0>2}"
-                if formatted_release_position != t.formatted_release_position:
-                    logger.debug(
-                        f"Track formatted release position change detected for {t.source_path}, updating"
-                    )
-                    tracks[i].formatted_release_position = formatted_release_position
-                    track_ids_to_insert.add(t.id)
-
-                virtual_filename = ""
-                virtual_filename += f"{t.formatted_artists} - "
-                virtual_filename += t.title or "Unknown Title"
-                virtual_filename += t.source_path.suffix
-                virtual_filename = sanitize_filename(virtual_filename)
-                # And in case of a name collision, add an extra number at the end. Iterate to find
-                # the first unused number.
-                original_virtual_filename = virtual_filename
-                collision_no = 2
-                while True:
-                    if virtual_filename not in seen_track_names:
-                        break
-                    # Write the collision number before the file extension.
-                    povf = Path(original_virtual_filename)
-                    virtual_filename = f"{povf.stem} [{collision_no}]{povf.suffix}"
-                    collision_no += 1
-                seen_track_names.add(virtual_filename)
-                if virtual_filename != t.virtual_filename:
-                    logger.debug(
-                        f"Track virtual filename change detected for {t.source_path}, updating"
-                    )
-                    tracks[i].virtual_filename = virtual_filename
-                    track_ids_to_insert.add(t.id)
-                    upd_playlist_track_filenames[t.id] = virtual_filename
 
         # Schedule database executions.
         if unknown_cached_tracks or release_dirty or track_ids_to_insert:
@@ -1056,7 +949,6 @@ def _update_cache_for_releases_executor(
                     str(release.cover_image_path) if release.cover_image_path else None,
                     release.added_at,
                     release.datafile_mtime,
-                    release.virtual_dirname,
                     release.title,
                     release.releasetype,
                     release.year,
@@ -1085,12 +977,10 @@ def _update_cache_for_releases_executor(
                         track.id,
                         str(track.source_path),
                         track.source_mtime,
-                        track.virtual_filename,
                         track.title,
                         track.release_id,
                         track.tracknumber,
                         track.discnumber,
-                        track.formatted_release_position,
                         track.duration_seconds,
                         track.formatted_artists,
                     ]
@@ -1129,20 +1019,18 @@ def _update_cache_for_releases_executor(
                   , cover_image_path
                   , added_at
                   , datafile_mtime
-                  , virtual_dirname
                   , title
                   , releasetype
                   , year
                   , multidisc
                   , new
                   , formatted_artists
-                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
+                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
                 ON CONFLICT (id) DO UPDATE SET
                     source_path      = excluded.source_path
                   , cover_image_path = excluded.cover_image_path
                   , added_at         = excluded.added_at
                   , datafile_mtime   = excluded.datafile_mtime
-                  , virtual_dirname  = excluded.virtual_dirname
                   , title            = excluded.title
                   , releasetype      = excluded.releasetype
                   , year             = excluded.year
@@ -1204,25 +1092,21 @@ def _update_cache_for_releases_executor(
                     id
                   , source_path
                   , source_mtime
-                  , virtual_filename
                   , title
                   , release_id
                   , tracknumber
                   , discnumber
-                  , formatted_release_position
                   , duration_seconds
                   , formatted_artists
                 )
-                VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
+                VALUES {",".join(["(?,?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
                 ON CONFLICT (id) DO UPDATE SET
                     source_path                = excluded.source_path
                   , source_mtime               = excluded.source_mtime
-                  , virtual_filename           = excluded.virtual_filename
                   , title                      = excluded.title
                   , release_id                 = excluded.release_id
                   , tracknumber               = excluded.tracknumber
                   , discnumber                = excluded.discnumber
-                  , formatted_release_position = excluded.formatted_release_position
                   , duration_seconds           = excluded.duration_seconds
                   , formatted_artists          = excluded.formatted_artists
                 """,
@@ -1304,29 +1188,32 @@ def _update_cache_for_releases_executor(
                 [*upd_track_ids, *upd_release_ids],
             )
 
-        # Schedule collage/playlist updates in order to update description_meta.
-        if upd_collage_release_dirnames:
+        # Schedule collage/playlist updates in order to update description_meta. We simply update
+        # collages and playlists if any of their members have changed--we do not try to be precise
+        # here, as the update is very cheap. The point here is to avoid running the collage/playlist
+        # update in the No Op case, not to optimize the invalidation case.
+        if upd_release_ids:
             cursor = conn.execute(
                 f"""
                 SELECT DISTINCT cr.collage_name
                 FROM collages_releases cr
                 JOIN releases r ON r.id = cr.release_id
-                WHERE cr.release_id IN ({','.join(['?'] * len(upd_collage_release_dirnames))})
+                WHERE cr.release_id IN ({','.join(['?'] * len(upd_release_ids))})
                 ORDER BY cr.collage_name
                 """,
-                list(upd_collage_release_dirnames.keys()),
+                upd_release_ids,
             )
             update_collages = [row["collage_name"] for row in cursor]
-        if upd_playlist_track_filenames:
+        if upd_track_ids:
             cursor = conn.execute(
                 f"""
                 SELECT DISTINCT pt.playlist_name
                 FROM playlists_tracks pt
                 JOIN tracks t ON t.id = pt.track_id
-                WHERE pt.track_id IN ({','.join(['?'] * len(upd_playlist_track_filenames))})
+                WHERE pt.track_id IN ({','.join(['?'] * len(upd_track_ids))})
                 ORDER BY pt.playlist_name
                 """,
-                list(upd_playlist_track_filenames.keys()),
+                list(upd_track_ids),
             )
             update_playlists = [row["playlist_name"] for row in cursor]
 
@@ -1455,14 +1342,21 @@ def update_cache_for_collages(
                 )
 
                 # Update the description_metas.
+                desc_map: dict[str, str] = {}
                 cursor = conn.execute(
                     f"""
-                    SELECT id, virtual_dirname
-                    FROM releases WHERE id IN ({','.join(['?'] * len(releases))})
+                    SELECT id, title, year, releasetype, formatted_artists FROM releases
+                    WHERE id IN ({','.join(['?']*len(releases))})
                     """,
                     cached_collage.release_ids,
                 )
-                desc_map = {r["id"]: r["virtual_dirname"] for r in cursor}
+                for row in cursor:
+                    desc_map[row["id"]] = calculate_release_logtext(
+                        title=row["title"],
+                        year=row["year"],
+                        releasetype=row["releasetype"],
+                        formatted_artists=row["formatted_artists"],
+                    )
                 for i, rls in enumerate(releases):
                     with contextlib.suppress(KeyError):
                         releases[i]["description_meta"] = desc_map[rls["uuid"]]
@@ -1662,14 +1556,20 @@ def update_cache_for_playlists(
                 )
 
                 # Update the description_metas.
+                desc_map: dict[str, str] = {}
                 cursor = conn.execute(
                     f"""
-                    SELECT id, virtual_filename
-                    FROM tracks WHERE id IN ({','.join(['?'] * len(tracks))})
+                    SELECT id, title, formatted_artists, source_path FROM tracks
+                    WHERE id IN ({','.join(['?']*len(tracks))})
                     """,
                     cached_playlist.track_ids,
                 )
-                desc_map = {r["id"]: r["virtual_filename"] for r in cursor}
+                for row in cursor:
+                    desc_map[row["id"]] = calculate_track_logtext(
+                        title=row["title"],
+                        formatted_artists=row["formatted_artists"],
+                        suffix=Path(row["source_path"]).suffix,
+                    )
                 for i, trk in enumerate(tracks):
                     with contextlib.suppress(KeyError):
                         tracks[i]["description_meta"] = desc_map[trk["uuid"]]
@@ -1775,7 +1675,6 @@ def list_releases(
               , r.cover_image_path
               , r.added_at
               , r.datafile_mtime
-              , r.virtual_dirname
               , r.title
               , r.releasetype
               , r.year
@@ -1837,7 +1736,6 @@ def list_releases(
                 cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
                 added_at=row["added_at"],
                 datafile_mtime=row["datafile_mtime"],
-                virtual_dirname=row["virtual_dirname"],
                 title=row["title"],
                 releasetype=row["releasetype"],
                 year=row["year"],
@@ -1850,10 +1748,7 @@ def list_releases(
             )
 
 
-def get_release(
-    c: Config,
-    release_id_or_virtual_dirname: str,
-) -> tuple[CachedRelease, list[CachedTrack]] | None:
+def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedTrack]] | None:
     with connect(c) as conn:
         cursor = conn.execute(
             r"""
@@ -1883,7 +1778,6 @@ def get_release(
               , r.cover_image_path
               , r.added_at
               , r.datafile_mtime
-              , r.virtual_dirname
               , r.title
               , r.releasetype
               , r.year
@@ -1898,9 +1792,9 @@ def get_release(
             LEFT JOIN genres g ON g.release_id = r.id
             LEFT JOIN labels l ON l.release_id = r.id
             LEFT JOIN artists a ON a.release_id = r.id
-            WHERE r.id = ? or r.virtual_dirname = ?
+            WHERE r.id = ?
             """,
-            (release_id_or_virtual_dirname, release_id_or_virtual_dirname),
+            (release_id,),
         )
         row = cursor.fetchone()
         if not row:
@@ -1915,7 +1809,6 @@ def get_release(
             cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
             added_at=row["added_at"],
             datafile_mtime=row["datafile_mtime"],
-            virtual_dirname=row["virtual_dirname"],
             title=row["title"],
             releasetype=row["releasetype"],
             year=row["year"],
@@ -1942,12 +1835,10 @@ def get_release(
                 t.id
               , t.source_path
               , t.source_mtime
-              , t.virtual_filename
               , t.title
               , t.release_id
               , t.tracknumber
               , t.discnumber
-              , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
               , COALESCE(a.names, '') AS art_names
@@ -1955,10 +1846,10 @@ def get_release(
             FROM tracks t
             JOIN releases r ON r.id = t.release_id
             LEFT JOIN artists a ON a.track_id = t.id
-            WHERE r.id = ? OR r.virtual_dirname = ?
-            ORDER BY t.formatted_release_position
+            WHERE r.id = ?
+            ORDER BY FORMAT('%4d.%4d', t.discnumber, t.tracknumber)
             """,
-            (release_id_or_virtual_dirname, release_id_or_virtual_dirname),
+            (release_id,),
         )
         for row in cursor:
             tartists = [
@@ -1970,46 +1861,59 @@ def get_release(
                     id=row["id"],
                     source_path=Path(row["source_path"]),
                     source_mtime=row["source_mtime"],
-                    virtual_filename=row["virtual_filename"],
                     title=row["title"],
                     release_id=row["release_id"],
                     tracknumber=row["tracknumber"],
                     discnumber=row["discnumber"],
-                    formatted_release_position=row["formatted_release_position"],
                     duration_seconds=row["duration_seconds"],
                     formatted_artists=row["formatted_artists"],
                     artists=tartists,
+                    release_multidisc=release.multidisc,
                 )
             )
 
     return (release, tracks)
 
 
-def get_release_id_from_virtual_dirname(c: Config, release_virtual_dirname: str) -> str | None:
+def get_release_logtext(c: Config, release_id: str) -> str | None:
+    """Get a human-readable identifier for a release suitable for logging."""
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT id FROM releases WHERE virtual_dirname = ?",
-            (release_virtual_dirname,),
+            "SELECT r.title, r.year, r.releasetype, r.formatted_artists FROM releases r WHERE r.id = ?",
+            (release_id,),
         )
-        if row := cursor.fetchone():
-            assert isinstance(row["id"], str)
-            return row["id"]
-    return None
-
-
-def get_release_virtual_dirname_from_id(c: Config, uuid: str) -> str | None:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT virtual_dirname FROM releases WHERE id = ?",
-            (uuid,),
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return calculate_release_logtext(
+            title=row["title"],
+            year=row["year"],
+            releasetype=row["releasetype"],
+            formatted_artists=row["formatted_artists"],
         )
-        if row := cursor.fetchone():
-            assert isinstance(row["virtual_dirname"], str)
-            return row["virtual_dirname"]
-    return None
 
 
-def get_release_source_path_from_id(c: Config, uuid: str) -> Path | None:
+def calculate_release_logtext(
+    title: str,
+    year: int | None,
+    releasetype: str,
+    formatted_artists: str,
+) -> str:
+    logtext = ""
+    logtext += f"{formatted_artists} - "
+    if year:
+        logtext += f"{year}. "
+    logtext += title
+    if (
+        releasetype not in ["album", "other", "unknown"]
+        and releasetype != "remix"
+        and "remix" in title.lower()
+    ):
+        logtext += " - " + RELEASE_TYPE_FORMATTER.get(releasetype, releasetype.title())
+    return logtext
+
+
+def get_release_source_path(c: Config, uuid: str) -> Path | None:
     with connect(c) as conn:
         cursor = conn.execute(
             "SELECT source_path FROM releases WHERE id = ?",
@@ -2017,10 +1921,10 @@ def get_release_source_path_from_id(c: Config, uuid: str) -> Path | None:
         )
         if row := cursor.fetchone():
             return Path(row["source_path"])
-    return None
+        return None
 
 
-def get_release_source_paths_from_ids(c: Config, uuids: list[str]) -> list[Path]:
+def get_release_source_paths(c: Config, uuids: list[str]) -> list[Path]:
     with connect(c) as conn:
         cursor = conn.execute(
             f"SELECT source_path FROM releases WHERE id IN ({','.join(['?']*len(uuids))})",
@@ -2045,20 +1949,19 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
                 t.id
               , t.source_path
               , t.source_mtime
-              , t.virtual_filename
               , t.title
               , t.release_id
               , t.tracknumber
               , t.discnumber
-              , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
+              , r.multidisc
               , COALESCE(a.names, '') AS art_names
               , COALESCE(a.roles, '') AS art_roles
             FROM tracks t
+            JOIN releases r ON r.id = t.release_id
             LEFT JOIN artists a ON a.track_id = t.id
             WHERE t.id = ?
-            ORDER BY t.formatted_release_position
             """,
             (uuid,),
         )
@@ -2073,37 +1976,36 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
             id=row["id"],
             source_path=Path(row["source_path"]),
             source_mtime=row["source_mtime"],
-            virtual_filename=row["virtual_filename"],
             title=row["title"],
             release_id=row["release_id"],
             tracknumber=row["tracknumber"],
             discnumber=row["discnumber"],
-            formatted_release_position=row["formatted_release_position"],
             duration_seconds=row["duration_seconds"],
             formatted_artists=row["formatted_artists"],
             artists=tartists,
+            release_multidisc=row["multidisc"],
         )
 
 
-def list_artists(c: Config) -> Iterator[tuple[str, str]]:
+def get_track_logtext(c: Config, track_id: str) -> str | None:
+    """Get a human-readable identifier for a track suitable for logging."""
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT artist, artist_sanitized FROM releases_artists")
-        for row in cursor:
-            yield row["artist"], row["artist_sanitized"]
+        cursor = conn.execute(
+            "SELECT title, formatted_artists, source_path FROM tracks WHERE id = ?",
+            (track_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return calculate_track_logtext(
+            title=row["title"],
+            formatted_artists=row["formatted_artists"],
+            suffix=Path(row["source_path"]).suffix,
+        )
 
 
-def list_genres(c: Config) -> Iterator[tuple[str, str]]:
-    with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT genre, genre_sanitized FROM releases_genres")
-        for row in cursor:
-            yield row["genre"], row["genre_sanitized"]
-
-
-def list_labels(c: Config) -> Iterator[tuple[str, str]]:
-    with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT label, label_sanitized FROM releases_labels")
-        for row in cursor:
-            yield row["label"], row["label_sanitized"]
+def calculate_track_logtext(title: str, formatted_artists: str, suffix: str) -> str:
+    return f"{formatted_artists} - {title or 'Unknown Title'}{suffix}"
 
 
 def list_playlists(c: Config) -> Iterator[str]:
@@ -2151,17 +2053,17 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
                 t.id
               , t.source_path
               , t.source_mtime
-              , t.virtual_filename
               , t.title
               , t.release_id
               , t.tracknumber
               , t.discnumber
-              , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
+              , r.multidisc
               , COALESCE(a.names, '') AS art_names
               , COALESCE(a.roles, '') AS art_roles
             FROM tracks t
+            JOIN releases r ON r.id = t.release_id
             JOIN playlists_tracks pt ON pt.track_id = t.id
             LEFT JOIN artists a ON a.track_id = t.id
             WHERE pt.playlist_name = ? AND NOT pt.missing
@@ -2181,15 +2083,14 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
                     id=row["id"],
                     source_path=Path(row["source_path"]),
                     source_mtime=row["source_mtime"],
-                    virtual_filename=row["virtual_filename"],
                     title=row["title"],
                     release_id=row["release_id"],
                     tracknumber=row["tracknumber"],
                     discnumber=row["discnumber"],
-                    formatted_release_position=row["formatted_release_position"],
                     duration_seconds=row["duration_seconds"],
                     formatted_artists=row["formatted_artists"],
                     artists=tartists,
+                    release_multidisc=row["multidisc"],
                 )
             )
 
@@ -2204,7 +2105,6 @@ def list_collages(c: Config) -> Iterator[str]:
 
 
 def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[CachedRelease]] | None:
-    """Returns tuples of (position, release_virtual_dirname, release_source_path)."""
     with connect(c) as conn:
         cursor = conn.execute(
             "SELECT name, source_mtime FROM collages WHERE name = ?",
@@ -2247,7 +2147,6 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
               , r.cover_image_path
               , r.added_at
               , r.datafile_mtime
-              , r.virtual_dirname
               , r.title
               , r.releasetype
               , r.year
@@ -2284,7 +2183,6 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
                     else None,
                     added_at=row["added_at"],
                     datafile_mtime=row["datafile_mtime"],
-                    virtual_dirname=row["virtual_dirname"],
                     title=row["title"],
                     releasetype=row["releasetype"],
                     year=row["year"],
@@ -2300,51 +2198,11 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
     return (collage, releases)
 
 
-def release_exists(c: Config, virtual_dirname: str) -> Path | None:
+def list_artists(c: Config) -> Iterator[tuple[str, str]]:
     with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT source_path FROM releases WHERE virtual_dirname = ?",
-            (virtual_dirname,),
-        )
-        if row := cursor.fetchone():
-            return Path(row["source_path"])
-        return None
-
-
-def track_exists(
-    c: Config,
-    release_virtual_dirname: str,
-    track_virtual_filename: str,
-) -> Path | None:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            """
-            SELECT t.source_path
-            FROM tracks t
-            JOIN releases r ON t.release_id = r.id
-            WHERE r.virtual_dirname = ? AND t.virtual_filename = ?
-            """,
-            (
-                release_virtual_dirname,
-                track_virtual_filename,
-            ),
-        )
-        if row := cursor.fetchone():
-            return Path(row["source_path"])
-        return None
-
-
-def cover_exists(c: Config, release_virtual_dirname: str, cover_name: str) -> Path | None:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT cover_image_path FROM releases r WHERE r.virtual_dirname = ?",
-            (release_virtual_dirname,),
-        )
-        if (row := cursor.fetchone()) and row["cover_image_path"]:
-            p = Path(row["cover_image_path"])
-            if p.name == cover_name:
-                return p
-        return None
+        cursor = conn.execute("SELECT DISTINCT artist, artist_sanitized FROM releases_artists")
+        for row in cursor:
+            yield row["artist"], row["artist_sanitized"]
 
 
 def artist_exists(c: Config, artist_sanitized: str) -> bool:
@@ -2364,6 +2222,13 @@ def artist_exists(c: Config, artist_sanitized: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
+def list_genres(c: Config) -> Iterator[tuple[str, str]]:
+    with connect(c) as conn:
+        cursor = conn.execute("SELECT DISTINCT genre, genre_sanitized FROM releases_genres")
+        for row in cursor:
+            yield row["genre"], row["genre_sanitized"]
+
+
 def genre_exists(c: Config, genre_sanitized: str) -> bool:
     with connect(c) as conn:
         cursor = conn.execute(
@@ -2373,29 +2238,18 @@ def genre_exists(c: Config, genre_sanitized: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
+def list_labels(c: Config) -> Iterator[tuple[str, str]]:
+    with connect(c) as conn:
+        cursor = conn.execute("SELECT DISTINCT label, label_sanitized FROM releases_labels")
+        for row in cursor:
+            yield row["label"], row["label_sanitized"]
+
+
 def label_exists(c: Config, label_sanitized: str) -> bool:
     with connect(c) as conn:
         cursor = conn.execute(
             "SELECT EXISTS(SELECT * FROM releases_labels WHERE label_sanitized = ?)",
             (label_sanitized,),
-        )
-        return bool(cursor.fetchone()[0])
-
-
-def collage_exists(c: Config, name: str) -> bool:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT EXISTS(SELECT * FROM collages WHERE name = ?)",
-            (name,),
-        )
-        return bool(cursor.fetchone()[0])
-
-
-def playlist_exists(c: Config, name: str) -> bool:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT EXISTS(SELECT * FROM playlists WHERE name = ?)",
-            (name,),
         )
         return bool(cursor.fetchone()[0])
 

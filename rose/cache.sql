@@ -27,7 +27,6 @@ CREATE TABLE releases (
     -- ISO8601 timestamp.
     added_at TEXT NOT NULL,
     datafile_mtime TEXT NOT NULL,
-    virtual_dirname TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
     releasetype TEXT NOT NULL REFERENCES releasetype_enum(value),
     year INTEGER,
@@ -66,20 +65,14 @@ CREATE TABLE tracks (
     id TEXT PRIMARY KEY,
     source_path TEXT NOT NULL UNIQUE,
     source_mtime TEXT NOT NULL,
-    virtual_filename TEXT NOT NULL,
     title TEXT NOT NULL,
     release_id TEXT NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
     tracknumber TEXT NOT NULL,
     discnumber TEXT NOT NULL,
-    -- Formatted discnumber/tracknumber combination that prefixes the virtual_filename in the
-    -- release view. This can be derived on-the-fly, but doesn't hurt to compute it once and pull it
-    -- from the cache after.
-    formatted_release_position TEXT NOT NULL,
     duration_seconds INTEGER NOT NULL,
     -- This is its own state because ordering matters--we preserve the ordering in the tags.
     -- However, the one-to-many table does not have ordering.
-    formatted_artists TEXT NOT NULL,
-    UNIQUE (release_id, virtual_filename)
+    formatted_artists TEXT NOT NULL
 );
 CREATE INDEX tracks_source_path ON tracks(source_path);
 CREATE INDEX tracks_release_id ON tracks(release_id);

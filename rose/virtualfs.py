@@ -3,32 +3,36 @@ The virtualfs module renders a virtual filesystem from the read cache. It is wri
 Object-Oriented style, against my typical sensibilities, because that's how the FUSE libraries tend
 to be implemented. But it's OK :)
 
-Since this is a pretty hefty module, we'll cover the organization. This module contains 6 classes:
+Since this is a pretty hefty module, we'll cover the organization. This module contains 7 classes:
 
 1. VirtualPath: A semantic representation of a path in the virtual filesystem along with a parser.
    All virtual filesystem paths are parsed by this class into a far more ergonomic dataclass.
 
-2. "CanShow"er: An abstraction that encapsulates the logic of whether an artist, genre, or label
+2. VirtualNameGenerator: A class that generates virtual directory and filenames given releases and
+   tracks, and maintains inverse mappings for resolving release IDs from virtual paths.
+
+3. "CanShow"er: An abstraction that encapsulates the logic of whether an artist, genre, or label
    should be shown in their respective virtual views, based on the whitelist/blacklist configuration
    parameters.
 
-3. FileHandleGenerator: A class that keeps generates new file handles. It is a counter that wraps
+4. FileHandleGenerator: A class that keeps generates new file handles. It is a counter that wraps
    back to 4 when the file handles exceed ~10k, as to avoid any overflows.
 
-4. RoseLogicalFS: A logical representation of Rose's filesystem logic, freed from the annoying
+5. RoseLogicalCore: A logical representation of Rose's filesystem logic, freed from the annoying
    implementation details that a low-level library like `llfuse` comes with.
 
-5. INodeManager: A class that tracks the INode <-> Path mappings. It is used to convert inodes to
+6. INodeMapper: A class that tracks the INode <-> Path mappings. It is used to convert inodes to
    paths in VirtualFS.
 
-6. VirtualFS: The main Virtual Filesystem class, which manages the annoying implementation details
-   of a low-level virtual filesystem, and delegates logic to the above classes. It uses INodeManager
+7. VirtualFS: The main Virtual Filesystem class, which manages the annoying implementation details
+   of a low-level virtual filesystem, and delegates logic to the above classes. It uses INodeMapper
    and VirtualPath to translate inodes into semantically useful dataclasses, and then passes them
-   into RoseLogicalFS.
+   into RoseLogicalCore.
 """
 
 from __future__ import annotations
 
+import collections
 import contextlib
 import errno
 import logging
@@ -48,15 +52,19 @@ import llfuse
 
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
 from rose.cache import (
+    RELEASE_TYPE_FORMATTER,
     STORED_DATA_FILE_REGEX,
     CachedRelease,
+    CachedTrack,
     artist_exists,
-    cover_exists,
+    calculate_release_logtext,
+    calculate_track_logtext,
     genre_exists,
     get_collage,
     get_playlist,
     get_release,
-    get_release_source_path_from_id,
+    get_release_source_path,
+    get_track,
     label_exists,
     list_artists,
     list_collages,
@@ -64,7 +72,6 @@ from rose.cache import (
     list_labels,
     list_playlists,
     list_releases,
-    track_exists,
     update_cache_for_releases,
 )
 from rose.collages import (
@@ -74,7 +81,7 @@ from rose.collages import (
     remove_release_from_collage,
     rename_collage,
 )
-from rose.common import RoseError
+from rose.common import RoseError, sanitize_filename
 from rose.config import Config
 from rose.playlists import (
     add_track_to_playlist,
@@ -125,16 +132,53 @@ class VirtualPath:
     collage: str | None = None
     playlist: str | None = None
     release: str | None = None
-    release_position: str | None = None
     file: str | None = None
-    file_position: str | None = None
+
+    def __hash__(self) -> int:
+        return hash(
+            f"{self.view}+{self.artist}+{self.genre}+{self.label}+{self.collage}+{self.playlist}+{self.release}+{self.file}"
+        )
+
+    @property
+    def release_parent(self) -> VirtualPath:
+        """Parent path of a release: Used as an input to the VirtualNameGenerator."""
+        return VirtualPath(
+            view=self.view,
+            artist=self.artist,
+            genre=self.genre,
+            label=self.label,
+            collage=self.collage,
+        )
+
+    @property
+    def track_parent(self) -> VirtualPath:
+        """Parent path of a track: Used as an input to the VirtualNameGenerator."""
+        return VirtualPath(
+            view=self.view,
+            artist=self.artist,
+            genre=self.genre,
+            label=self.label,
+            collage=self.collage,
+            playlist=self.playlist,
+            release=self.release,
+        )
 
     @classmethod
-    def parse(cls, path: Path, *, parse_release_position: bool = True) -> VirtualPath:
+    def parse(cls, path: Path) -> VirtualPath:
         parts = str(path.resolve()).split("/")[1:]  # First part is always empty string.
 
         if len(parts) == 1 and parts[0] == "":
             return cls(view="Root")
+
+        # Let's abort early if we recognize a path that we _know_ is not valid. This is because
+        # invalid file accesses trigger a recalculation of virtual file paths, which we decided to
+        # do under the assumption that invalid file accesses would be _rare_. That's not true if we
+        # keep getting requests for these stupid paths from shell plugins.
+        if parts[-1] in [".git", ".DS_Store", ".Trash", ".Trash-1000", "HEAD", ".envrc"]:
+            logger.debug(
+                f"Raising ENOENT early in the VirtualPath parser because last path part {parts[-1]} in blacklist."
+            )
+            raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "1. Releases":
             if len(parts) == 1:
@@ -142,12 +186,7 @@ class VirtualPath:
             if len(parts) == 2:
                 return cls(view="Releases", release=parts[1])
             if len(parts) == 3:
-                return cls(
-                    view="Releases",
-                    release=parts[1],
-                    file=POSITION_REGEX.sub("", parts[2]),
-                    file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
-                )
+                return cls(view="Releases", release=parts[1], file=parts[2])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "2. Releases - New":
@@ -156,26 +195,16 @@ class VirtualPath:
             if len(parts) == 2:
                 return cls(view="New", release=parts[1])
             if len(parts) == 3:
-                return cls(
-                    view="New",
-                    release=parts[1],
-                    file=POSITION_REGEX.sub("", parts[2]),
-                    file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
-                )
+                return cls(view="New", release=parts[1], file=parts[2])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "3. Releases - Recently Added":
             if len(parts) == 1:
                 return cls(view="Recently Added")
-            if len(parts) == 2 and ADDED_AT_REGEX.match(parts[1]):
-                return cls(view="Recently Added", release=ADDED_AT_REGEX.sub("", parts[1]))
-            if len(parts) == 3 and ADDED_AT_REGEX.match(parts[1]):
-                return cls(
-                    view="Recently Added",
-                    release=ADDED_AT_REGEX.sub("", parts[1]),
-                    file=POSITION_REGEX.sub("", parts[2]),
-                    file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
-                )
+            if len(parts) == 2:
+                return cls(view="Recently Added", release=parts[1])
+            if len(parts) == 3:
+                return cls(view="Recently Added", release=parts[1], file=parts[2])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "4. Artists":
@@ -186,13 +215,7 @@ class VirtualPath:
             if len(parts) == 3:
                 return cls(view="Artists", artist=parts[1], release=parts[2])
             if len(parts) == 4:
-                return cls(
-                    view="Artists",
-                    artist=parts[1],
-                    release=parts[2],
-                    file=POSITION_REGEX.sub("", parts[3]),
-                    file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
-                )
+                return cls(view="Artists", artist=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "5. Genres":
@@ -203,13 +226,7 @@ class VirtualPath:
             if len(parts) == 3:
                 return cls(view="Genres", genre=parts[1], release=parts[2])
             if len(parts) == 4:
-                return cls(
-                    view="Genres",
-                    genre=parts[1],
-                    release=parts[2],
-                    file=POSITION_REGEX.sub("", parts[3]),
-                    file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
-                )
+                return cls(view="Genres", genre=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "6. Labels":
@@ -220,13 +237,7 @@ class VirtualPath:
             if len(parts) == 3:
                 return cls(view="Labels", label=parts[1], release=parts[2])
             if len(parts) == 4:
-                return cls(
-                    view="Labels",
-                    label=parts[1],
-                    release=parts[2],
-                    file=POSITION_REGEX.sub("", parts[3]),
-                    file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
-                )
+                return cls(view="Labels", label=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "7. Collages":
@@ -235,29 +246,9 @@ class VirtualPath:
             if len(parts) == 2:
                 return cls(view="Collages", collage=parts[1])
             if len(parts) == 3:
-                return cls(
-                    view="Collages",
-                    collage=parts[1],
-                    release=POSITION_REGEX.sub("", parts[2])
-                    if parse_release_position
-                    else parts[2],
-                    release_position=m[1]
-                    if parse_release_position and (m := POSITION_REGEX.match(parts[2]))
-                    else None,
-                )
+                return cls(view="Collages", collage=parts[1], release=parts[2])
             if len(parts) == 4:
-                return cls(
-                    view="Collages",
-                    collage=parts[1],
-                    release=POSITION_REGEX.sub("", parts[2])
-                    if parse_release_position
-                    else parts[2],
-                    release_position=m[1]
-                    if parse_release_position and (m := POSITION_REGEX.match(parts[2]))
-                    else None,
-                    file=POSITION_REGEX.sub("", parts[3]),
-                    file_position=m[1] if (m := POSITION_REGEX.match(parts[3])) else None,
-                )
+                return cls(view="Collages", collage=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "8. Playlists":
@@ -269,12 +260,223 @@ class VirtualPath:
                 return cls(
                     view="Playlists",
                     playlist=parts[1],
-                    file=POSITION_REGEX.sub("", parts[2]),
-                    file_position=m[1] if (m := POSITION_REGEX.match(parts[2])) else None,
+                    file=parts[2],
                 )
             raise llfuse.FUSEError(errno.ENOENT)
 
         raise llfuse.FUSEError(errno.ENOENT)
+
+
+class VirtualNameGenerator:
+    """
+    Generates virtual dirnames and filenames for releases and tracks, and maintains an inverse
+    mapping for looking up release/track UUIDs from their virtual paths.
+
+    This object's data has the following lifecycle:
+
+    1. RoseLogicalCore calls `list_virtual_x_paths` to generate all paths in a directory.
+    2. Once generated, path->ID can be looked up.
+
+    This means that RoseLogicalCore is responsible for invoking `list_virtual_x_paths` upon cache
+    misses / missing file accesses. We end up invoking `list_virtual_x_path` whenever a non-existent
+    path is getattr'ed, which is somewhat excessive, however, we can decouple the virtual templates
+    from the cache this way, and the lookup _miss_ case should be rather rare in normal operations
+
+    The VirtualNameGenerator also remembers all previous path mappings for 15 minutes since last use.
+    This allows Rose to continue to serving accesses to old paths, even after the file metadata
+    changed. This is useful, for example, if a directory or file is renamed (due to a metadata
+    change) while its tracks are in a mpv playlist. mpv's requests to the old paths will still
+    resolve, but the old paths will not show up in a readdir call. If old paths collide with new
+    paths, new paths will take precedence.
+    """
+
+    def __init__(self, config: Config):
+        self._config = config
+        # These are the stateful maps that we use to remember path mappings. They are maps from the
+        # (parent_path, virtual path) -> entity ID.
+        #
+        # Entries expire after 15 minutes, which implements the "serve accesses to previous paths"
+        # behavior as specified in the class docstring.
+        #
+        # fmt: off
+        self._release_store: cachetools.TTLCache[tuple[VirtualPath, str], str] = cachetools.TTLCache(maxsize=999999, ttl=60 * 15)
+        self._track_store: cachetools.TTLCache[tuple[VirtualPath, str], str] = cachetools.TTLCache(maxsize=9999999, ttl=60 * 15)
+        # fmt: on
+
+    def list_release_paths(
+        self,
+        release_parent: VirtualPath,
+        releases: list[CachedRelease],
+    ) -> Iterator[tuple[CachedRelease, str]]:
+        """
+        Given a parent directory and a list of releases, calculates the virtual directory names
+        for those releases, and returns a zipped iterator of the releases and their virtual
+        directory names.
+        """
+        # For collision number generation.
+        seen: set[str] = set()
+        prefix_pad_size = len(str(len(releases)))
+        for idx, release in enumerate(releases):
+            vname = ""
+
+            # Generate the prefix.
+            if release_parent.collage:
+                vname += f"{str(idx+1).zfill(prefix_pad_size)}. "
+            elif release_parent.view == "Recently Added":
+                vname += f"[{release.added_at[:10]}] "
+
+            # Generate the main release dirname.
+            if release.formatted_artists:
+                vname += release.formatted_artists + " - "
+            else:
+                vname += "Unknown Artists - "
+            if release.year:
+                vname += str(release.year) + ". "
+            vname += release.title
+            if release.releasetype == "single":
+                vname += " - " + RELEASE_TYPE_FORMATTER[release.releasetype]
+            if release.new:
+                vname = "{NEW} " + vname
+            vname = sanitize_filename(vname)
+
+            # Handle name collisions by appending a unique discriminator to the end.
+            original_vname = vname
+            collision_no = 2
+            while True:
+                if vname not in seen:
+                    break
+                logger.debug(f"Virtual dirname collision: {vname=} {seen=}")
+                vname = f"{original_vname} [{collision_no}]"
+                collision_no += 1
+
+            logtext = calculate_release_logtext(
+                title=release.title,
+                year=release.year,
+                releasetype=release.releasetype,
+                formatted_artists=release.formatted_artists,
+            )
+            logger.debug(f"VNAMES: Generated virtual dirname {vname} for release {logtext}")
+
+            # Store the generated release name in the cache.
+            self._release_store[(release_parent, vname)] = release.id
+            seen.add(vname)
+
+            yield release, vname
+
+    def list_track_paths(
+        self,
+        track_parent: VirtualPath,
+        tracks: list[CachedTrack],
+    ) -> Iterator[tuple[CachedTrack, str]]:
+        """
+        Given a parent directory and a list of tracks, calculates the virtual filenames for those
+        tracks, and returns a zipped iterator of the tracks and their virtual filenames.
+        """
+        # For collision number generation.
+        seen: set[str] = set()
+        prefix_pad_size = len(str(len(tracks)))
+        for idx, track in enumerate(tracks):
+            vname = ""
+
+            # Generate the prefix.
+            if track_parent.release:
+                if track.release_multidisc and track.discnumber:
+                    vname += f"{track.discnumber:0>2}-"
+                vname += f"{track.tracknumber:0>2}. "
+            elif track_parent.playlist:
+                vname += f"{str(idx+1).zfill(prefix_pad_size)}. "
+
+            # Generate the main track filename.
+            if track_parent.playlist:
+                if track.formatted_artists:
+                    vname += track.formatted_artists + " - "
+                else:
+                    vname += "Unknown Artists - "
+            vname += track.title or "Unknown Title"
+            vname += track.source_path.suffix
+            vname = sanitize_filename(vname)
+
+            # And in case of a name collision, add an extra number at the end. Iterate to find
+            # the first unused number.
+            original_vname = vname
+            collision_no = 2
+            while True:
+                if vname not in seen:
+                    break
+                # Write the collision number before the file extension.
+                pov = Path(original_vname)
+                vname = f"{pov.stem} [{collision_no}]{pov.suffix}"
+                collision_no += 1
+            seen.add(vname)
+
+            logtext = calculate_track_logtext(
+                title=track.title,
+                formatted_artists=track.formatted_artists,
+                suffix=track.source_path.suffix,
+            )
+            logger.debug(f"VNAMES: Generated virtual filename {vname} for track {logtext}")
+
+            # Store the generated track name in the cache.
+            self._track_store[(track_parent, vname)] = track.id
+            seen.add(vname)
+
+            yield track, vname
+
+    def lookup_release(self, p: VirtualPath) -> str | None:
+        """Given a release path, return the associated release ID."""
+        assert p.release is not None
+        try:
+            r = self._release_store[(p.release_parent, p.release)]
+            logger.debug(f"VNAMES: Successfully resolved release virtual name {p} to {r}")
+            return r  # type: ignore
+        except KeyError:
+            logger.debug(f"VNAMES: Failed to resolve release virtual name {p}")
+            return None
+
+    def lookup_track(self, p: VirtualPath) -> str | None:
+        """Given a track path, return the associated track ID."""
+        assert p.file is not None
+        try:
+            r = self._track_store[(p.track_parent, p.file)]
+            logger.debug(f"VNAMES: Successfully resolved track virtual name {p} to {r}")
+            return r  # type: ignore
+        except KeyError:
+            logger.debug(f"VNAMES: Failed to resolve track virtual name {p}")
+            return None
+
+    def bump_release_expiry(self, release_parent: VirtualPath, virtual_name: str) -> None:
+        """
+        Support "bumping" the expiration date of a path in the cache. This should be called on file
+        accesses.
+        """
+        with contextlib.suppress(KeyError):
+            self._release_store[(release_parent, virtual_name)] = self._release_store[
+                (release_parent, virtual_name)
+            ]
+
+    def bump_track_expiry(self, track_parent: VirtualPath, virtual_name: str) -> None:
+        """
+        Support "bumping" the expiration date of a path in the cache. This should be called on file
+        accesses.
+        """
+        with contextlib.suppress(KeyError):
+            self._track_store[(track_parent, virtual_name)] = self._track_store[
+                (track_parent, virtual_name)
+            ]
+
+    def expire_release(self, p: VirtualPath) -> None:
+        """Support premature expiration of a virtual path. This should be called on rmdir."""
+        assert p.release is not None
+        with contextlib.suppress(KeyError):
+            del self._release_store[(p.release_parent, p.release)]
+            logger.debug(f"VNAMES: Expired release {p} from the release mapping")
+
+    def expire_track(self, p: VirtualPath) -> None:
+        """Support premature expiration of a virtual path. This should be called on unlink."""
+        assert p.file is not None
+        with contextlib.suppress(KeyError):
+            del self._track_store[(p.track_parent, p.file)]
+            logger.debug(f"VNAMES: Expired track {p} from the track mapping")
 
 
 class CanShower:
@@ -373,6 +575,7 @@ class RoseLogicalCore:
     def __init__(self, config: Config, fhandler: FileHandleManager):
         self.config = config
         self.fhandler = fhandler
+        self.vnames = VirtualNameGenerator(config)
         self.can_show = CanShower(config)
         # This map stores the state for "file creation" operations. We currently have two file
         # creation operations:
@@ -431,21 +634,64 @@ class RoseLogicalCore:
     def getattr(self, p: VirtualPath) -> dict[str, Any]:
         logger.debug(f"LOGICAL: Received getattr for {p=}")
 
+        # Common logic that gets called for each track.
+        def getattr_track(tracks: list[CachedTrack]) -> dict[str, Any]:
+            track_id = self.vnames.lookup_track(p)
+            if not track_id:
+                logger.debug(
+                    f"LOGICAL: Invoking readdir before retrying file virtual name resolution on {p}"
+                )
+                # Performant way to consume an iterator completely.
+                collections.deque(self.readdir(p.track_parent), maxlen=0)
+                logger.debug(
+                    f"LOGICAL: Finished readdir call: retrying file virtual name resolution on {p}"
+                )
+                track_id = self.vnames.lookup_track(p)
+                if not track_id:
+                    raise llfuse.FUSEError(errno.ENOENT)
+
+            for t in tracks:
+                if t.id == track_id:
+                    return self.stat("file", t.source_path)
+            logger.debug(
+                f"LOGICAL: Resolved track_id not found in the given tracklist: expiring {p}"
+            )
+            self.vnames.expire_track(p)
+            raise llfuse.FUSEError(errno.ENOENT)
+
         # Common logic that gets called for each release.
-        def getattr_release(release: CachedRelease) -> dict[str, Any]:
-            assert p.release is not None
+        def getattr_release() -> dict[str, Any]:
+            release_id = self.vnames.lookup_release(p)
+            if not release_id:
+                logger.debug(
+                    f"LOGICAL: Invoking readdir before retrying release virtual name resolution on {p}"
+                )
+                # Performant way to consume an iterator completely.
+                collections.deque(self.readdir(p.release_parent), maxlen=0)
+                logger.debug(
+                    f"LOGICAL: Finished readdir call: retrying release virtual name resolution on {p}"
+                )
+                release_id = self.vnames.lookup_release(p)
+                if not release_id:
+                    raise llfuse.FUSEError(errno.ENOENT)
+
+            rdata = get_release(self.config, release_id)
+            # Handle a potential release deletion here.
+            if rdata is None:
+                logger.debug(f"LOGICAL: Resolved release_id does not exist in cache: expiring {p}")
+                self.vnames.expire_release(p)
+                raise llfuse.FUSEError(errno.ENOENT)
+            release, tracks = rdata
+
             # If no file, return stat for the release dir.
             if not p.file:
                 return self.stat("dir", release.source_path)
-            # If there is a file, getattr the file.
-            if tp := track_exists(self.config, p.release, p.file):
-                return self.stat("file", tp)
-            if cp := cover_exists(self.config, p.release, p.file):
-                return self.stat("file", cp)
+            # Look for files:
+            if release.cover_image_path and p.file == f"cover{release.cover_image_path.suffix}":
+                return self.stat("file", release.cover_image_path)
             if p.file == f".rose.{release.id}.toml":
                 return self.stat("file")
-            # If no file matches, return errno.ENOENT.
-            raise llfuse.FUSEError(errno.ENOENT)
+            return getattr_track(tracks)
 
         # 8. Playlists
         if p.playlist:
@@ -454,29 +700,17 @@ class RoseLogicalCore:
             except TypeError as e:
                 raise llfuse.FUSEError(errno.ENOENT) from e
             if p.file:
-                if p.file_position:
-                    for idx, track in enumerate(tracks):
-                        if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
-                            return self.stat("file", track.source_path)
                 if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
                     return self.stat("file", playlist.cover_path)
-                raise llfuse.FUSEError(errno.ENOENT)
+                return getattr_track(tracks)
             return self.stat("dir")
 
         # 7. Collages
         if p.collage:
-            try:
-                _, releases = get_collage(self.config, p.collage)  # type: ignore
-            except TypeError as e:
-                raise llfuse.FUSEError(errno.ENOENT) from e
-            if p.release:
-                if p.release_position:
-                    for idx, release in enumerate(releases):
-                        if release.virtual_dirname == p.release and idx + 1 == int(
-                            p.release_position
-                        ):
-                            return getattr_release(release)
+            if not get_collage(self.config, p.collage):
                 raise llfuse.FUSEError(errno.ENOENT)
+            if p.release:
+                return getattr_release()
             return self.stat("dir")
 
         # 6. Labels
@@ -484,10 +718,7 @@ class RoseLogicalCore:
             if not label_exists(self.config, p.label) or not self.can_show.label(p.label):
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
-                for r in list_releases(self.config, sanitized_label_filter=p.label):
-                    if r.virtual_dirname == p.release:
-                        return getattr_release(r)
-                raise llfuse.FUSEError(errno.ENOENT)
+                return getattr_release()
             return self.stat("dir")
 
         # 5. Genres
@@ -495,10 +726,7 @@ class RoseLogicalCore:
             if not genre_exists(self.config, p.genre) or not self.can_show.genre(p.genre):
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
-                for r in list_releases(self.config, sanitized_genre_filter=p.genre):
-                    if r.virtual_dirname == p.release:
-                        return getattr_release(r)
-                raise llfuse.FUSEError(errno.ENOENT)
+                return getattr_release()
             return self.stat("dir")
 
         # 4. Artists
@@ -506,19 +734,12 @@ class RoseLogicalCore:
             if not artist_exists(self.config, p.artist) or not self.can_show.artist(p.artist):
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
-                for r in list_releases(self.config, sanitized_artist_filter=p.artist):
-                    if r.virtual_dirname == p.release:
-                        return getattr_release(r)
-                raise llfuse.FUSEError(errno.ENOENT)
+                return getattr_release()
             return self.stat("dir")
 
         # {1,2,3}. Releases
         if p.release:
-            if p.view == "New" and not p.release.startswith("{NEW} "):
-                raise llfuse.FUSEError(errno.ENOENT)
-            if rdata := get_release(self.config, p.release):
-                return getattr_release(rdata[0])
-            raise llfuse.FUSEError(errno.ENOENT)
+            return getattr_release()
 
         # 0. Root
         elif p.view:
@@ -555,35 +776,34 @@ class RoseLogicalCore:
             return
 
         if p.release:
-            if cachedata := get_release(self.config, p.release):
+            if (release_id := self.vnames.lookup_release(p)) and (
+                cachedata := get_release(self.config, release_id)
+            ):
                 release, tracks = cachedata
-                for track in tracks:
-                    filename = f"{track.formatted_release_position}. {track.virtual_filename}"
-                    yield filename, self.stat("file", track.source_path)
+                for trk, vname in self.vnames.list_track_paths(p, tracks):
+                    yield vname, self.stat("file", trk.source_path)
                 if release.cover_image_path:
                     yield release.cover_image_path.name, self.stat("file", release.cover_image_path)
                 yield f".rose.{release.id}.toml", self.stat("file")
                 return
+            logger.debug("HI?")
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if p.artist or p.genre or p.label or p.view == "Releases" or p.view == "New":
-            for release in list_releases(
-                self.config,
-                sanitized_artist_filter=p.artist,
-                sanitized_genre_filter=p.genre,
-                sanitized_label_filter=p.label,
-                new=True if p.view == "New" else None,
-            ):
-                yield release.virtual_dirname, self.stat("dir", release.source_path)
+        if p.artist or p.genre or p.label or p.view in ["Releases", "New", "Recently Added"]:
+            releases = list(
+                list_releases(
+                    self.config,
+                    sanitized_artist_filter=p.artist,
+                    sanitized_genre_filter=p.genre,
+                    sanitized_label_filter=p.label,
+                    new=True if p.view == "New" else None,
+                )
+            )
+            for rls, vname in self.vnames.list_release_paths(p, releases):
+                yield vname, self.stat("dir", rls.source_path)
             return
 
-        if p.view == "Recently Added":
-            for release in list_releases(self.config):
-                dirname = f"[{release.added_at[:10]}] {release.virtual_dirname}"
-                yield dirname, self.stat("dir", release.source_path)
-            return
-
-        elif p.view == "Artists":
+        if p.view == "Artists":
             for artist, sanitized_artist in list_artists(self.config):
                 if not self.can_show.artist(artist):
                     continue
@@ -607,10 +827,8 @@ class RoseLogicalCore:
         if p.view == "Collages" and p.collage:
             _, releases = get_collage(self.config, p.collage)  # type: ignore
             # Two zeros because `max(single_arg)` assumes that the single_arg is enumerable.
-            pad_size = max(0, 0, *[len(str(i + 1)) for i, _ in enumerate(releases)])
-            for idx, release in enumerate(releases):
-                v = f"{str(idx+1).zfill(pad_size)}. {release.virtual_dirname}"
-                yield v, self.stat("dir", release.source_path)
+            for rls, vname in self.vnames.list_release_paths(p, releases):
+                yield vname, self.stat("dir", rls.source_path)
             return
 
         if p.view == "Collages":
@@ -624,10 +842,8 @@ class RoseLogicalCore:
             if pdata is None:
                 raise llfuse.FUSEError(errno.ENOENT)
             playlist, tracks = pdata
-            pad_size = max(0, 0, *[len(str(i + 1)) for i, _ in enumerate(tracks)])
-            for idx, track in enumerate(tracks):
-                v = f"{str(idx+1).zfill(pad_size)}. {track.virtual_filename}"
-                yield v, self.stat("file", track.source_path)
+            for trk, vname in self.vnames.list_track_paths(p, tracks):
+                yield vname, self.stat("file", trk.source_path)
             if playlist.cover_path:
                 v = f"cover{playlist.cover_path.suffix}"
                 yield v, self.stat("file", playlist.cover_path)
@@ -645,25 +861,9 @@ class RoseLogicalCore:
         logger.debug(f"LOGICAL: Received unlink for {p=}")
 
         # Possible actions:
-        # 1. Delete a playlist.
-        # 2. Delete a track from a playlist.
-        # 3. Delete cover art from a playlist.
-        # 4. Delete cover art from a release.
-        if p.view == "Playlists" and p.playlist and p.file is None:
-            delete_playlist(self.config, p.playlist)
-            return
-        if (
-            p.view == "Playlists"
-            and p.playlist
-            and p.file
-            and p.file_position
-            and (pdata := get_playlist(self.config, p.playlist))
-        ):
-            for idx, track in enumerate(pdata[1]):
-                if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
-                    remove_track_from_playlist(self.config, p.playlist, track.id)
-                    return
-            raise llfuse.FUSEError(errno.ENOENT)
+        # 1. Delete a track from a playlist.
+        # 2. Delete cover art from a playlist.
+        # 3. Delete cover art from a release.
         if (
             p.view == "Playlists"
             and p.playlist
@@ -672,13 +872,26 @@ class RoseLogicalCore:
             and (pdata := get_playlist(self.config, p.playlist))
         ):
             delete_playlist_cover_art(self.config, pdata[0].name)
+            return
+        if (
+            p.view == "Playlists"
+            and p.playlist
+            and p.file
+            and (pdata := get_playlist(self.config, p.playlist))
+            and (track_id := self.vnames.lookup_track(p))
+        ):
+            remove_track_from_playlist(self.config, p.playlist, track_id)
+            self.vnames.expire_track(p)
+            return
         if (
             p.release
             and p.file
             and p.file.lower() in self.config.valid_cover_arts
-            and (rdata := get_release(self.config, p.release))
+            and (release_id := self.vnames.lookup_release(p))
+            and (rdata := get_release(self.config, release_id))
         ):
             delete_release_cover_art(self.config, rdata[0].id)
+            return
 
         # Otherwise, noop. If we return an error, that prevents rmdir from being called when we rm.
 
@@ -708,14 +921,21 @@ class RoseLogicalCore:
         if p.view == "Collages" and p.collage and p.release is None:
             delete_collage(self.config, p.collage)
             return
-        if p.view == "Collages" and p.collage and p.release:
-            remove_release_from_collage(self.config, p.collage, p.release)
+        if (
+            p.view == "Collages"
+            and p.collage
+            and p.release
+            and (release_id := self.vnames.lookup_release(p))
+        ):
+            remove_release_from_collage(self.config, p.collage, release_id)
+            self.vnames.expire_release(p)
             return
         if p.view == "Playlists" and p.playlist and p.file is None:
             delete_playlist(self.config, p.playlist)
             return
-        if p.view != "Collages" and p.release is not None:
-            delete_release(self.config, p.release)
+        if p.view != "Collages" and p.release and (release_id := self.vnames.lookup_release(p)):
+            delete_release(self.config, release_id)
+            self.vnames.expire_release(p)
             return
 
         raise llfuse.FUSEError(errno.EACCES)
@@ -730,11 +950,13 @@ class RoseLogicalCore:
         # TODO: Consider allowing renaming artist/genre/label here?
         if (
             (old.release and new.release)
+            and (release_id := self.vnames.lookup_release(old))
             and old.release.removeprefix("{NEW} ") == new.release.removeprefix("{NEW} ")
             and (not old.file and not new.file)
             and old.release.startswith("{NEW} ") != new.release.startswith("{NEW} ")
         ):
-            toggle_release_new(self.config, old.release)
+            toggle_release_new(self.config, release_id)
+            self.vnames.expire_release(old)
             return
         if (
             old.view == "Collages"
@@ -783,16 +1005,20 @@ class RoseLogicalCore:
             )
             add_release_to_collage(self.config, p.collage, release_id)
             return self.fhandler.dev_null
-        if p.release and p.file and (rdata := get_release(self.config, p.release)):
+        if (
+            p.release
+            and p.file
+            and (release_id := self.vnames.lookup_release(p))
+            and (rdata := get_release(self.config, release_id))
+        ):
             release, tracks = rdata
             # If the file is a music file, handle it as a music file.
-            pf = Path(p.file)
-            if pf.suffix.lower() in SUPPORTED_AUDIO_EXTENSIONS:
-                for track in tracks:
-                    if track.virtual_filename == p.file:
-                        fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
+            if track_id := self.vnames.lookup_track(p):
+                for t in tracks:
+                    if t.id == track_id:
+                        fh = self.fhandler.wrap_host(os.open(str(t.source_path), flags))
                         if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
-                            self.update_release_on_fh_close[fh] = track.release_id
+                            self.update_release_on_fh_close[fh] = release.id
                         return fh
             # If the file is the datafile, pass it through.
             if p.file == f".rose.{release.id}.toml":
@@ -804,14 +1030,20 @@ class RoseLogicalCore:
             # sequence.
             if p.file.lower() in self.config.valid_cover_arts and flags & os.O_CREAT == os.O_CREAT:
                 fh = self.fhandler.next()
+                logtext = calculate_release_logtext(
+                    title=release.title,
+                    year=release.year,
+                    releasetype=release.releasetype,
+                    formatted_artists=release.formatted_artists,
+                )
                 logger.debug(
                     f"LOGICAL: Begin new cover art sequence for release "
-                    f"{release.virtual_dirname=}, {p.file=}, and {fh=}"
+                    f"{logtext=}, {p.file=}, and {fh=}"
                 )
                 self.file_creation_special_ops[fh] = (
                     "new-cover-art",
                     ("release", release.id),
-                    pf.suffix,
+                    Path(p.file).suffix,
                     bytearray(),
                 )
                 return fh
@@ -853,13 +1085,13 @@ class RoseLogicalCore:
                 )
                 return fh
             # Otherwise, continue on...
-            if p.file_position:
-                for idx, track in enumerate(tracks):
-                    if track.virtual_filename == p.file and idx + 1 == int(p.file_position):
-                        fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
-                        if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
-                            self.update_release_on_fh_close[fh] = track.release_id
-                        return fh
+            if (track_id := self.vnames.lookup_track(p)) and (
+                track := get_track(self.config, track_id)
+            ):
+                fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
+                if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
+                    self.update_release_on_fh_close[fh] = track.release_id
+                return fh
             if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
                 return self.fhandler.wrap_host(os.open(playlist.cover_path, flags))
             raise llfuse.FUSEError(err)
@@ -943,15 +1175,15 @@ class RoseLogicalCore:
             logger.debug(
                 f"LOGICAL: Triggering cache update for release {release_id} after release syscall"
             )
-            if source_path := get_release_source_path_from_id(self.config, release_id):
+            if source_path := get_release_source_path(self.config, release_id):
                 update_cache_for_releases(self.config, [source_path])
         fh = self.fhandler.unwrap_host(fh)
         os.close(fh)
 
 
-class INodeManager:
+class INodeMapper:
     """
-    INodeManager manages the mapping of inodes to paths in our filesystem. We have this because the
+    INodeMapper manages the mapping of inodes to paths in our filesystem. We have this because the
     llfuse library makes us manage the inodes...
     """
 
@@ -1022,7 +1254,7 @@ class INodeManager:
 class VirtualFS(llfuse.Operations):  # type: ignore
     """
     This is the virtual filesystem class, which implements commands by delegating the Rose-specific
-    logic to RoseLogicalFS and the inode/fd<->path tracking to INodeManager. This architecture
+    logic to RoseLogicalCore and the inode/fd<->path tracking to INodeMapper. This architecture
     allows us to have a fairly clean logical implementation for Rose despite a fairly low-level
     llfuse library.
     """
@@ -1030,7 +1262,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
     def __init__(self, config: Config):
         self.fhandler = FileHandleManager()
         self.rose = RoseLogicalCore(config, self.fhandler)
-        self.inodes = INodeManager(config)
+        self.inodes = INodeMapper(config)
         self.default_attrs = {
             # Well, this should be ok for now. I really don't want to track this... we indeed change
             # inodes across FS restarts.
@@ -1323,7 +1555,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Received mkdir for {parent_inode=}/{name=}")
         spath = self.inodes.get_path(parent_inode, name)
         logger.debug(f"FUSE: Resolved mkdir {parent_inode=}/{name=} to {spath=}")
-        vpath = VirtualPath.parse(spath, parse_release_position=False)
+        vpath = VirtualPath.parse(spath)
         logger.debug(f"FUSE: Parsed mkdir {spath=} to {vpath=}")
 
         if vpath.collage and vpath.release:

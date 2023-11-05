@@ -5,10 +5,10 @@ The read cache is a SQLite database that replicates the metadata in
 be read from far more performantly than the `music_source_dir` can.
 
 The read cache does not have any state of its own. _All_ of the data in the read
-cache is replicated from the `music_source_dir`. Hence, we never write to the
-read cache. Instead, all updates write to the source files, which then triggers
-the cache update function. The cache update function updates the cache to match
-the source directory's state.
+cache is replicated from the `music_source_dir`. Hence, we never write directly
+to the read cache. Instead, we always write directly to the source files and
+then trigger the cache update sequence. The cache update sequence updates the
+cache to match the source directory's state.
 
 > [!NOTE]
 > To better understand how the read cache fits into Rosé, we recommend reading

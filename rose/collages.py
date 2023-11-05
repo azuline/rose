@@ -15,6 +15,7 @@ from send2trash import send2trash
 from rose.cache import (
     collage_lock_name,
     get_collage,
+    get_release_logtext,
     list_collages,
     lock,
     update_cache_evict_nonexistent_collages,
@@ -22,7 +23,6 @@ from rose.cache import (
 )
 from rose.common import RoseExpectedError
 from rose.config import Config
-from rose.releases import resolve_release_ids
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,10 @@ class CollageDoesNotExistError(RoseExpectedError):
 
 
 class CollageAlreadyExistsError(RoseExpectedError):
+    pass
+
+
+class ReleaseDoesNotExistError(RoseExpectedError):
     pass
 
 
@@ -87,12 +91,11 @@ def rename_collage(c: Config, old_name: str, new_name: str) -> None:
     update_cache_evict_nonexistent_collages(c)
 
 
-def remove_release_from_collage(
-    c: Config,
-    collage_name: str,
-    release_id_or_virtual_dirname: str,
-) -> None:
-    release_id, release_dirname = resolve_release_ids(c, release_id_or_virtual_dirname)
+def remove_release_from_collage(c: Config, collage_name: str, release_id: str) -> None:
+    release_logtext = get_release_logtext(c, release_id)
+    if not release_logtext:
+        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
+
     path = collage_path(c, collage_name)
     if not path.exists():
         raise CollageDoesNotExistError(f"Collage {collage_name} does not exist")
@@ -102,24 +105,28 @@ def remove_release_from_collage(
         old_releases = data.get("releases", [])
         new_releases = [r for r in old_releases if r["uuid"] != release_id]
         if old_releases == new_releases:
-            logger.info(f"No-Op: Release {release_dirname} not in collage {collage_name}")
+            logger.info(f"No-Op: Release {release_logtext} not in collage {collage_name}")
             return
         data["releases"] = new_releases
         with path.open("wb") as fp:
             tomli_w.dump(data, fp)
-    logger.info(f"Removed release {release_dirname} from collage {collage_name}")
+    logger.info(f"Removed release {release_logtext} from collage {collage_name}")
     update_cache_for_collages(c, [collage_name], force=True)
 
 
 def add_release_to_collage(
     c: Config,
     collage_name: str,
-    release_id_or_virtual_dirname: str,
+    release_id: str,
 ) -> None:
-    release_id, release_dirname = resolve_release_ids(c, release_id_or_virtual_dirname)
+    release_logtext = get_release_logtext(c, release_id)
+    if not release_logtext:
+        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
+
     path = collage_path(c, collage_name)
     if not path.exists():
         raise CollageDoesNotExistError(f"Collage {collage_name} does not exist")
+
     with lock(c, collage_lock_name(collage_name)):
         with path.open("rb") as fp:
             data = tomllib.load(fp)
@@ -128,12 +135,12 @@ def add_release_to_collage(
         # duplicate collage entries.
         for r in data["releases"]:
             if r["uuid"] == release_id:
-                logger.info(f"No-Op: Release {release_dirname} already in collage {collage_name}")
+                logger.info(f"No-Op: Release {release_logtext} already in collage {collage_name}")
                 return
-        data["releases"].append({"uuid": release_id, "description_meta": release_dirname})
+        data["releases"].append({"uuid": release_id, "description_meta": release_logtext})
         with path.open("wb") as fp:
             tomli_w.dump(data, fp)
-    logger.info(f"Added release {release_dirname} to collage {collage_name}")
+    logger.info(f"Added release {release_logtext} to collage {collage_name}")
     update_cache_for_collages(c, [collage_name], force=True)
 
 

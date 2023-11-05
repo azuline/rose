@@ -14,6 +14,10 @@ from rose.audiotags import AudioTags
 from rose.config import Config
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
+R1_VNAME = "Techno Man;Bass Man - 2023. Release 1"
+R2_VNAME = "Violin Woman feat. Conductor Woman - 2021. Release 2"
+R3_VNAME = "{NEW} Unknown Artists - 2021. Release 3"
+
 
 @contextmanager
 def start_virtual_fs(c: Config) -> Iterator[None]:
@@ -37,81 +41,83 @@ def test_virtual_filesystem_reads(config: Config) -> None:
 
     root = config.fuse_mount_dir
     with start_virtual_fs(config):
+        # fmt: off
         assert not (root / "lalala").exists()
 
         assert (root / "1. Releases").is_dir()
-        assert (root / "1. Releases" / "r1").is_dir()
+        assert (root / "1. Releases" / R1_VNAME).is_dir()
         assert not (root / "1. Releases" / "lalala").exists()
-        assert (root / "1. Releases" / "r1" / "01. 01.m4a").is_file()
-        assert not (root / "1. Releases" / "r1" / "lala.m4a").exists()
-        assert can_read(root / "1. Releases" / "r1" / "01. 01.m4a")
+        assert (root / "1. Releases" / R1_VNAME / "01. Track 1.m4a").is_file()
+        assert not (root / "1. Releases" / R1_VNAME / "lala.m4a").exists()
+        assert can_read(root / "1. Releases" / R1_VNAME / "01. Track 1.m4a")
 
-        assert (root / "1. Releases" / "r2" / "cover.jpg").is_file()
-        assert can_read(root / "1. Releases" / "r2" / "cover.jpg")
-        assert not (root / "1. Releases" / "r1" / "cover.jpg").exists()
-        assert not (root / "1. Releases" / "r2" / "cover.png").exists()
+        assert (root / "1. Releases" / R2_VNAME / "cover.jpg").is_file()
+        assert can_read(root / "1. Releases" / R2_VNAME / "cover.jpg")
+        assert not (root / "1. Releases" / R1_VNAME / "cover.jpg").exists()
+        assert not (root / "1. Releases" / R2_VNAME / "cover.png").exists()
 
-        assert (root / "1. Releases" / "r2" / ".rose.r2.toml").is_file()
-        assert can_read(root / "1. Releases" / "r2" / ".rose.r2.toml")
+        assert (root / "1. Releases" / R2_VNAME / ".rose.r2.toml").is_file()
+        assert can_read(root / "1. Releases" / R2_VNAME / ".rose.r2.toml")
 
         assert (root / "2. Releases - New").is_dir()
-        assert (root / "2. Releases - New" / "{NEW} r3").is_dir()
-        assert not (root / "2. Releases - New" / "r2").exists()
-        assert (root / "2. Releases - New" / "{NEW} r3" / "01. 01.m4a").is_file()
-        assert not (root / "2. Releases - New" / "{NEW} r3" / "lalala").exists()
+        assert (root / "2. Releases - New" / R3_VNAME).is_dir()
+        assert not (root / "2. Releases - New" / R2_VNAME).exists()
+        assert (root / "2. Releases - New" / R3_VNAME / "01. Track 1.m4a").is_file()
+        assert not (root / "2. Releases - New" / R3_VNAME / "lalala").exists()
 
         assert (root / "3. Releases - Recently Added").is_dir()
-        assert (root / "3. Releases - Recently Added" / "[0000-01-01] r2").exists()
-        assert not (root / "3. Releases - Recently Added" / "r2").exists()
-        assert (root / "3. Releases - Recently Added" / "[0000-01-01] r2" / "01. 01.m4a").is_file()
-        assert not (root / "3. Releases - Recently Added" / "r2" / "lalala").exists()
+        assert (root / "3. Releases - Recently Added" / f"[0000-01-01] {R2_VNAME}").exists()
+        assert not (root / "3. Releases - Recently Added" / R2_VNAME).exists()
+        assert (root / "3. Releases - Recently Added" / f"[0000-01-01] {R2_VNAME}" / "01. Track 1.m4a").is_file()
+        assert not (root / "3. Releases - Recently Added" / R2_VNAME / "lalala").exists()
 
         assert (root / "4. Artists").is_dir()
         assert (root / "4. Artists" / "Bass Man").is_dir()
         assert not (root / "4. Artists" / "lalala").exists()
-        assert (root / "4. Artists" / "Bass Man" / "r1").is_dir()
+        assert (root / "4. Artists" / "Bass Man" / R1_VNAME).is_dir()
         assert not (root / "4. Artists" / "Bass Man" / "lalala").exists()
-        assert (root / "4. Artists" / "Bass Man" / "r1" / "01. 01.m4a").is_file()
-        assert not (root / "4. Artists" / "Bass Man" / "r1" / "lalala.m4a").exists()
-        assert can_read(root / "4. Artists" / "Bass Man" / "r1" / "01. 01.m4a")
+        assert (root / "4. Artists" / "Bass Man" / R1_VNAME / "01. Track 1.m4a").is_file()
+        assert not (root / "4. Artists" / "Bass Man" / R1_VNAME / "lalala.m4a").exists()
+        assert can_read(root / "4. Artists" / "Bass Man" / R1_VNAME / "01. Track 1.m4a")
 
         assert (root / "5. Genres").is_dir()
         assert (root / "5. Genres" / "Techno").is_dir()
         assert not (root / "5. Genres" / "lalala").exists()
-        assert (root / "5. Genres" / "Techno" / "r1").is_dir()
+        assert (root / "5. Genres" / "Techno" / R1_VNAME).is_dir()
         assert not (root / "5. Genres" / "Techno" / "lalala").exists()
-        assert (root / "5. Genres" / "Techno" / "r1" / "01. 01.m4a").is_file()
-        assert not (root / "5. Genres" / "Techno" / "r1" / "lalala.m4a").exists()
-        assert can_read(root / "5. Genres" / "Techno" / "r1" / "01. 01.m4a")
+        assert (root / "5. Genres" / "Techno" / R1_VNAME / "01. Track 1.m4a").is_file()
+        assert not (root / "5. Genres" / "Techno" / R1_VNAME / "lalala.m4a").exists()
+        assert can_read(root / "5. Genres" / "Techno" / R1_VNAME / "01. Track 1.m4a")
 
         assert (root / "6. Labels").is_dir()
         assert (root / "6. Labels" / "Silk Music").is_dir()
         assert not (root / "6. Labels" / "lalala").exists()
-        assert (root / "6. Labels" / "Silk Music" / "r1").is_dir()
+        assert (root / "6. Labels" / "Silk Music" / R1_VNAME).is_dir()
         assert not (root / "6. Labels" / "Silk Music" / "lalala").exists()
-        assert (root / "6. Labels" / "Silk Music" / "r1" / "01. 01.m4a").is_file()
-        assert not (root / "6. Labels" / "Silk Music" / "r1" / "lalala").exists()
-        assert can_read(root / "6. Labels" / "Silk Music" / "r1" / "01. 01.m4a")
+        assert (root / "6. Labels" / "Silk Music" / R1_VNAME / "01. Track 1.m4a").is_file()
+        assert not (root / "6. Labels" / "Silk Music" / R1_VNAME / "lalala").exists()
+        assert can_read(root / "6. Labels" / "Silk Music" / R1_VNAME / "01. Track 1.m4a")
 
         assert (root / "7. Collages").is_dir()
         assert (root / "7. Collages" / "Rose Gold").is_dir()
         assert (root / "7. Collages" / "Ruby Red").is_dir()
         assert not (root / "7. Collages" / "lalala").exists()
-        assert (root / "7. Collages" / "Rose Gold" / "1. r1").is_dir()
+        assert (root / "7. Collages" / "Rose Gold" / f"1. {R1_VNAME}").is_dir()
         assert not (root / "7. Collages" / "Rose Gold" / "lalala").exists()
-        assert (root / "7. Collages" / "Rose Gold" / "1. r1" / "01. 01.m4a").is_file()
-        assert not (root / "7. Collages" / "Rose Gold" / "1. r1" / "lalala").exists()
-        assert can_read(root / "7. Collages" / "Rose Gold" / "1. r1" / "01. 01.m4a")
+        assert (root / "7. Collages" / "Rose Gold" / f"1. {R1_VNAME}" / "01. Track 1.m4a").is_file()
+        assert not (root / "7. Collages" / "Rose Gold" / f"1. {R1_VNAME}" / "lalala").exists()
+        assert can_read(root / "7. Collages" / "Rose Gold" / f"1. {R1_VNAME}" / "01. Track 1.m4a")
 
         assert (root / "8. Playlists").is_dir()
         assert (root / "8. Playlists" / "Lala Lisa").is_dir()
         assert (root / "8. Playlists" / "Turtle Rabbit").is_dir()
         assert not (root / "8. Playlists" / "lalala").exists()
-        assert (root / "8. Playlists" / "Lala Lisa" / "1. 01.m4a").is_file()
+        assert (root / "8. Playlists" / "Lala Lisa" / "1. Techno Man;Bass Man - Track 1.m4a").is_file()
         assert (root / "8. Playlists" / "Lala Lisa" / "cover.jpg").is_file()
         assert not (root / "8. Playlists" / "Lala Lisa" / "lalala").exists()
-        assert can_read(root / "8. Playlists" / "Lala Lisa" / "1. 01.m4a")
+        assert can_read(root / "8. Playlists" / "Lala Lisa" / "1. Techno Man;Bass Man - Track 1.m4a")
         assert can_read(root / "8. Playlists" / "Lala Lisa" / "cover.jpg")
+        # fmt: on
 
 
 def test_virtual_filesystem_write_files(
@@ -120,21 +126,18 @@ def test_virtual_filesystem_write_files(
 ) -> None:
     """Assert that 1. we can write files and 2. cache updates in response."""
     root = config.fuse_mount_dir
-    path = (
-        root
-        / "1. Releases"
-        / "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop]"
-        / "01. BLACKPINK - Track 1.m4a"
-    )
+    path = root / "1. Releases" / "{NEW} BLACKPINK - 1990. I Love Blackpink" / "01. Track 1.m4a"
     with start_virtual_fs(config):
         # Write!
         af = AudioTags.from_file(path)
         assert af.title == "Track 1"
         af.title = "Hahahaha!!"
         af.flush()
-        # Read! File should have been renamed post-cache update.
-        assert not path.exists()
-        path = path.with_name("01. BLACKPINK - Hahahaha!!.m4a")
+        # Read! File should have been renamed post-cache update. exists() for the old file will
+        # resolve because of the "legacy file resolution" grace period, but the old file should no
+        # longer appear in readdir.
+        assert path not in set(path.parent.iterdir())
+        path = path.with_name("01. Hahahaha!!.m4a")
         assert path.is_file()
         af = AudioTags.from_file(path)
         assert af.title == "Hahahaha!!"
@@ -158,18 +161,18 @@ def test_virtual_filesystem_collage_actions(config: Config) -> None:
             [
                 "cp",
                 "-rp",
-                str(root / "1. Releases" / "r1"),
-                str(root / "7. Collages" / "New Jeans" / "1. r1"),
+                str(root / "1. Releases" / R1_VNAME),
+                str(root / "7. Collages" / "New Jeans" / f"1. {R1_VNAME}"),
             ],
             check=True,
         )
-        assert (root / "7. Collages" / "New Jeans" / "1. r1").is_dir()
-        assert (root / "7. Collages" / "New Jeans" / "1. r1" / "01. 01.m4a").is_file()
+        assert (root / "7. Collages" / "New Jeans" / f"1. {R1_VNAME}").is_dir()
+        assert (root / "7. Collages" / "New Jeans" / f"1. {R1_VNAME}" / "01. Track 1.m4a").is_file()
         with (src / "!collages" / "New Jeans.toml").open("r") as fp:
             assert "r1" in fp.read()
         # Delete release from collage.
-        (root / "7. Collages" / "New Jeans" / "1. r1").rmdir()
-        assert not (root / "7. Collages" / "New Jeans" / "1. r1").exists()
+        (root / "7. Collages" / "New Jeans" / f"1. {R1_VNAME}").rmdir()
+        assert not (root / "7. Collages" / "New Jeans" / f"1. {R1_VNAME}").exists()
         with (src / "!collages" / "New Jeans.toml").open("r") as fp:
             assert "r1" not in fp.read()
         # Delete collage.
@@ -184,11 +187,13 @@ def test_virtual_filesystem_add_collage_release_with_any_dirname(config: Config)
 
     with start_virtual_fs(config):
         shutil.copytree(
-            root / "1. Releases" / "r1",
+            root / "1. Releases" / R1_VNAME,
             root / "7. Collages" / "Ruby Red" / "LALA HAHA",
         )
-        assert (root / "7. Collages" / "Ruby Red" / "1. r1").is_dir()
-        assert (root / "7. Collages" / "Ruby Red" / "1. r1" / ".rose.r1.toml").is_file()
+        # fmt: off
+        assert (root / "7. Collages" / "Ruby Red" / f"1. {R1_VNAME}").is_dir()
+        assert (root / "7. Collages" / "Ruby Red" / f"1. {R1_VNAME}" / ".rose.r1.toml").is_file()
+        # fmt: on
 
 
 def test_virtual_filesystem_playlist_actions(
@@ -198,8 +203,8 @@ def test_virtual_filesystem_playlist_actions(
     root = config.fuse_mount_dir
     src = config.music_source_dir
 
-    release_dir = root / "1. Releases" / "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop]"
-    filename = "01. BLACKPINK - Track 1.m4a"
+    release_dir = root / "1. Releases" / "{NEW} BLACKPINK - 1990. I Love Blackpink"
+    filename = "01. Track 1.m4a"
 
     with start_virtual_fs(config):
         # Create playlist.
@@ -243,7 +248,7 @@ def test_virtual_filesystem_release_cover_art_actions(
     source_dir: Path,  # noqa: ARG001
 ) -> None:
     root = config.fuse_mount_dir
-    release_dir = root / "1. Releases" / "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop]"
+    release_dir = root / "1. Releases" / "{NEW} BLACKPINK - 1990. I Love Blackpink"
     with start_virtual_fs(config):
         assert not (release_dir / "cover.jpg").is_file()
         # First write.
@@ -335,7 +340,7 @@ def test_virtual_filesystem_playlist_cover_art_actions(
 
 
 def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> None:
-    dirname = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
+    dirname = "NewJeans - 1990. I Love NewJeans"
     root = config.fuse_mount_dir
     with start_virtual_fs(config):
         # Fix: If we return EACCES from unlink, then `rm -r` fails despite `rmdir` succeeding. Thus
@@ -357,8 +362,8 @@ def test_virtual_filesystem_read_from_deleted_file(config: Config, source_dir: P
     fuse_path = (
         config.fuse_mount_dir
         / "1. Releases"
-        / "{NEW} BLACKPINK - 1990. I Love Blackpink [K-Pop;Pop]"
-        / "01. BLACKPINK - Track 1.m4a"
+        / "{NEW} BLACKPINK - 1990. I Love Blackpink"
+        / "01. Track 1.m4a"
     )
 
     source_path.unlink()
@@ -371,7 +376,7 @@ def test_virtual_filesystem_read_from_deleted_file(config: Config, source_dir: P
 
 
 def test_virtual_filesystem_toggle_new(config: Config, source_dir: Path) -> None:  # noqa: ARG001
-    dirname = "NewJeans - 1990. I Love NewJeans [K-Pop;R&B]"
+    dirname = "NewJeans - 1990. I Love NewJeans"
     root = config.fuse_mount_dir
     with start_virtual_fs(config):
         (root / "1. Releases" / dirname).rename(root / "1. Releases" / f"{{NEW}} {dirname}")

@@ -385,7 +385,7 @@ tags, and `pattern` is a string. For example:
 
 Actions are specified as `tags:pattern::kind:{kind_args}`. `tags` and `pattern`
 are optional, as they default to the matcher's `tags` and `pattern`. `kind` is
-one of the five supported action kinds. And `kind_args` are comma-delimited
+one of the five supported action kinds. And `kind_args` are colon-delimited
 arguments for the specific kind of action. For example:
 
 - `replace:Hi`

@@ -12,14 +12,12 @@ from rose.audiotags import AudioTags
 from rose.cache import CachedArtist, CachedRelease, CachedTrack, connect, get_release, update_cache
 from rose.config import Config
 from rose.releases import (
-    ReleaseDoesNotExistError,
     ReleaseEditFailedError,
     create_single_release,
     delete_release,
     delete_release_cover_art,
     dump_releases,
     edit_release,
-    resolve_release_ids,
     run_actions_on_release,
     set_release_cover_art,
     toggle_release_new,
@@ -31,7 +29,7 @@ def test_delete_release(config: Config) -> None:
     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
     update_cache(config)
     with connect(config) as conn:
-        cursor = conn.execute("SELECT id, virtual_dirname FROM releases")
+        cursor = conn.execute("SELECT id FROM releases")
         release_id = cursor.fetchone()["id"]
     delete_release(config, release_id)
     assert not (config.music_source_dir / TEST_RELEASE_1.name).exists()
@@ -54,8 +52,8 @@ def test_toggle_release_new(config: Config) -> None:
         data = tomllib.load(fp)
         assert data["new"] is False
     with connect(config) as conn:
-        cursor = conn.execute("SELECT virtual_dirname FROM releases")
-        assert not cursor.fetchone()["virtual_dirname"].startswith("{NEW} ")
+        cursor = conn.execute("SELECT new FROM releases")
+        assert not cursor.fetchone()["new"]
 
     # Set new.
     toggle_release_new(config, release_id)
@@ -63,8 +61,8 @@ def test_toggle_release_new(config: Config) -> None:
         data = tomllib.load(fp)
         assert data["new"] is True
     with connect(config) as conn:
-        cursor = conn.execute("SELECT virtual_dirname FROM releases")
-        assert cursor.fetchone()["virtual_dirname"].startswith("{NEW} ")
+        cursor = conn.execute("SELECT new FROM releases")
+        assert cursor.fetchone()["new"]
 
 
 def test_set_release_cover_art(isolated_dir: Path, config: Config) -> None:
@@ -169,7 +167,6 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         cover_image_path=None,
         added_at=release.added_at,
         datafile_mtime=release.datafile_mtime,
-        virtual_dirname="{NEW} BLACKPINK;JISOO - 2222. I Really Love Blackpink - Single [J-Pop;Pop-Rap]",
         title="I Really Love Blackpink",
         releasetype="single",
         year=2222,
@@ -188,33 +185,31 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             id=track_ids[0],
             source_path=release_path / "01.m4a",
             source_mtime=tracks[0].source_mtime,
-            virtual_filename="BLACKPINK - I Do Like That.m4a",
             title="I Do Like That",
             release_id=release_id,
             tracknumber="1",
             discnumber="1",
-            formatted_release_position="01",
             duration_seconds=2,
             artists=[
                 CachedArtist(name="BLACKPINK", role="main", alias=False),
             ],
             formatted_artists="BLACKPINK",
+            release_multidisc=False,
         ),
         CachedTrack(
             id=track_ids[1],
             source_path=release_path / "02.m4a",
             source_mtime=tracks[1].source_mtime,
-            virtual_filename="JISOO - All Eyes On Me.m4a",
             title="All Eyes On Me",
             release_id=release_id,
             tracknumber="2",
             discnumber="1",
-            formatted_release_position="02",
             duration_seconds=2,
             artists=[
                 CachedArtist(name="JISOO", role="main", alias=False),
             ],
             formatted_artists="JISOO",
+            release_multidisc=False,
         ),
     ]
 
@@ -326,7 +321,6 @@ def test_edit_release_failure_and_resume(
         cover_image_path=None,
         added_at=release.added_at,
         datafile_mtime=release.datafile_mtime,
-        virtual_dirname="{NEW} BLACKPINK;JISOO - 2222. I Really Love Blackpink - Single [J-Pop;Pop-Rap]",
         title="I Really Love Blackpink",
         releasetype="single",
         year=2222,
@@ -345,33 +339,31 @@ def test_edit_release_failure_and_resume(
             id=track_ids[0],
             source_path=release_path / "01.m4a",
             source_mtime=tracks[0].source_mtime,
-            virtual_filename="BLACKPINK - I Do Like That.m4a",
             title="I Do Like That",
             release_id=release_id,
             tracknumber="1",
             discnumber="1",
-            formatted_release_position="01",
             duration_seconds=2,
             artists=[
                 CachedArtist(name="BLACKPINK", role="main", alias=False),
             ],
             formatted_artists="BLACKPINK",
+            release_multidisc=False,
         ),
         CachedTrack(
             id=track_ids[1],
             source_path=release_path / "02.m4a",
             source_mtime=tracks[1].source_mtime,
-            virtual_filename="JISOO - All Eyes On Me.m4a",
             title="All Eyes On Me",
             release_id=release_id,
             tracknumber="2",
             discnumber="1",
-            formatted_release_position="02",
             duration_seconds=2,
             artists=[
                 CachedArtist(name="JISOO", role="main", alias=False),
             ],
             formatted_artists="JISOO",
+            release_multidisc=False,
         ),
     ]
 
@@ -457,19 +449,3 @@ def test_run_action_on_release(config: Config, source_dir: Path) -> None:
     run_actions_on_release(config, "ilovecarly", [action])
     af = AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a")
     assert af.title == "Bop"
-
-
-def test_resolve_release_ids(config: Config) -> None:
-    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
-    update_cache(config)
-
-    with connect(config) as conn:
-        cursor = conn.execute("SELECT id, virtual_dirname FROM releases")
-        row = cursor.fetchone()
-        release_id = row["id"]
-        virtual_dirname = row["virtual_dirname"]
-
-    assert resolve_release_ids(config, release_id) == (release_id, virtual_dirname)
-    assert resolve_release_ids(config, virtual_dirname) == (release_id, virtual_dirname)
-    with pytest.raises(ReleaseDoesNotExistError):
-        resolve_release_ids(config, "lalala")
