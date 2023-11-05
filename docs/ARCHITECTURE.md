@@ -145,7 +145,7 @@ tracks returned from the FTS query.
 
 In the very brief testing period, the FTS implementation was around a hundred
 times faster than the naive `LIKE` query. Queries that took multiple seconds
-now completed in tens of milliseconds.
+with `LIKE` completed in tens of milliseconds with FTS.
 
 # Read Cache
 
@@ -155,26 +155,31 @@ functions from the cache module. (Though we cheap out on tests, which do test
 against the database directly.)
 
 The read cache's update procedure is optimized to minimize the number of disk
-accesses, as it's a hot path and quite expensive if implemented poorly.
-
-The update procedure first pulls all relevant cached data from SQLite. Stored
-on each track is the mtime during the previous cache update. The cache update
+accesses, as it's a hot path and quite expensive if implemented poorly. The
+update procedure first pulls all relevant cached data from SQLite. Stored on
+each track is the mtime during the previous cache update. The cache update
 checks whether any files have changed via `readdir` and `stat` calls, and only
 reads the file if the `mtime` has changed. Throughout the update, we take note
 of the changes to apply. At the end of the update, we make a few fat SQL
 queries to batch the writes.
 
 The update procedure is also parallelizable, so we shard workloads across
-multiple processes.
+multiple processes when the number of releases to update is greater than 50.
 
 # Logging
 
 Logs are written to stderr. Logs are also written to disk: to
 `${XDG_STATE_HOME:-$HOME/.local/state}/rose/rose.log` on Linux and
-`~/Library/Logs/rose/rose.log` on MacOS.
+`~/Library/Logs/rose/rose.log` on MacOS. Logs are configured to rotate once the
+log file reaches 20MB. The previous 10 rotations are kept; all older rotations
+are deleted.
 
 Debug logging can be turned on with the `--verbose/-v` option. Rosé is heavily
-instrumented with debug logging.
+instrumented with debug logging. If you stumble upon a bug that you can
+reproduce, reproduce it with debug logging enabled.
 
-Logs are configured to rotate once the log file reaches 20MB. The previous 10
-rotations are kept; all older rotations are deleted.
+In tests, due to our use of multiple processes for testing the virtual
+filesystem, some logs may not be displayed by default by pytest. By default, we
+do not register a logging handler in tests, since pytest registers its own.
+However, if you run tests with `LOG_TEST=1`, Rosé will attach its own logging
+handler, which will print debug logs from other processes on failure.
