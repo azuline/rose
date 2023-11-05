@@ -189,7 +189,6 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             release_id=release_id,
             tracknumber="1",
             discnumber="1",
-            formatted_release_position="01",
             duration_seconds=2,
             artists=[
                 CachedArtist(name="BLACKPINK", role="main", alias=False),
@@ -204,7 +203,6 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             release_id=release_id,
             tracknumber="2",
             discnumber="1",
-            formatted_release_position="02",
             duration_seconds=2,
             artists=[
                 CachedArtist(name="JISOO", role="main", alias=False),
@@ -343,7 +341,6 @@ def test_edit_release_failure_and_resume(
             release_id=release_id,
             tracknumber="1",
             discnumber="1",
-            formatted_release_position="01",
             duration_seconds=2,
             artists=[
                 CachedArtist(name="BLACKPINK", role="main", alias=False),
@@ -358,7 +355,6 @@ def test_edit_release_failure_and_resume(
             release_id=release_id,
             tracknumber="2",
             discnumber="1",
-            formatted_release_position="02",
             duration_seconds=2,
             artists=[
                 CachedArtist(name="JISOO", role="main", alias=False),

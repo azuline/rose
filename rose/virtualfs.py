@@ -51,7 +51,6 @@ from rose.cache import (
     STORED_DATA_FILE_REGEX,
     CachedRelease,
     artist_exists,
-    cover_exists,
     genre_exists,
     get_collage,
     get_playlist,
@@ -64,7 +63,6 @@ from rose.cache import (
     list_labels,
     list_playlists,
     list_releases,
-    track_exists,
     update_cache_for_releases,
 )
 from rose.collages import (

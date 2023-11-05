@@ -1107,7 +1107,6 @@ def test_get_release(config: Config) -> None:
                 release_id="r1",
                 tracknumber="01",
                 discnumber="01",
-                formatted_release_position="01",
                 duration_seconds=120,
                 artists=[
                     CachedArtist(name="Bass Man", role="main", alias=False),
@@ -1123,7 +1122,6 @@ def test_get_release(config: Config) -> None:
                 release_id="r1",
                 tracknumber="02",
                 discnumber="01",
-                formatted_release_position="02",
                 duration_seconds=240,
                 artists=[
                     CachedArtist(name="Bass Man", role="main", alias=False),
@@ -1189,7 +1187,6 @@ def test_get_track(config: Config) -> None:
         release_id="r1",
         tracknumber="01",
         discnumber="01",
-        formatted_release_position="01",
         duration_seconds=120,
         artists=[
             CachedArtist(name="Bass Man", role="main", alias=False),
@@ -1312,7 +1309,6 @@ def test_get_collage(config: Config) -> None:
             release_id="r1",
             tracknumber="01",
             discnumber="01",
-            formatted_release_position="01",
             duration_seconds=120,
             artists=[
                 CachedArtist(name="Bass Man", role="main", alias=False),
@@ -1328,7 +1324,6 @@ def test_get_collage(config: Config) -> None:
             release_id="r2",
             tracknumber="01",
             discnumber="01",
-            formatted_release_position="01",
             duration_seconds=120,
             artists=[
                 CachedArtist(name="Conductor Woman", role="guest", alias=False),
@@ -1365,7 +1360,6 @@ def test_get_playlist(config: Config) -> None:
             release_id="r1",
             tracknumber="01",
             discnumber="01",
-            formatted_release_position="01",
             duration_seconds=120,
             artists=[
                 CachedArtist(name="Bass Man", role="main", alias=False),
@@ -1381,7 +1375,6 @@ def test_get_playlist(config: Config) -> None:
             release_id="r2",
             tracknumber="01",
             discnumber="01",
-            formatted_release_position="01",
             duration_seconds=120,
             artists=[
                 CachedArtist(name="Conductor Woman", role="guest", alias=False),

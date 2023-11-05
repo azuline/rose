@@ -252,7 +252,6 @@ class CachedTrack:
     release_id: str
     tracknumber: str
     discnumber: str
-    formatted_release_position: str
     duration_seconds: int
 
     artists: list[CachedArtist]
@@ -604,7 +603,6 @@ def _update_cache_for_releases_executor(
               , t.release_id
               , t.tracknumber
               , t.discnumber
-              , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
               , COALESCE(a.names, '') AS art_names
@@ -629,7 +627,6 @@ def _update_cache_for_releases_executor(
                 release_id=row["release_id"],
                 tracknumber=row["tracknumber"],
                 discnumber=row["discnumber"],
-                formatted_release_position=row["formatted_release_position"],
                 duration_seconds=row["duration_seconds"],
                 artists=track_artists,
                 formatted_artists=row["formatted_artists"],
@@ -910,7 +907,6 @@ def _update_cache_for_releases_executor(
                 tracknumber=(tags.tracknumber or "1").replace(".", ""),
                 discnumber=(tags.discnumber or "1").replace(".", ""),
                 # This is calculated with the virtual filename.
-                formatted_release_position="",
                 duration_seconds=tags.duration_sec,
                 artists=[],
                 formatted_artists=format_artist_string(tags.trackartists),
@@ -979,7 +975,6 @@ def _update_cache_for_releases_executor(
                         track.release_id,
                         track.tracknumber,
                         track.discnumber,
-                        track.formatted_release_position,
                         track.duration_seconds,
                         track.formatted_artists,
                     ]
@@ -1095,11 +1090,10 @@ def _update_cache_for_releases_executor(
                   , release_id
                   , tracknumber
                   , discnumber
-                  , formatted_release_position
                   , duration_seconds
                   , formatted_artists
                 )
-                VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
+                VALUES {",".join(["(?,?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
                 ON CONFLICT (id) DO UPDATE SET
                     source_path                = excluded.source_path
                   , source_mtime               = excluded.source_mtime
@@ -1107,7 +1101,6 @@ def _update_cache_for_releases_executor(
                   , release_id                 = excluded.release_id
                   , tracknumber               = excluded.tracknumber
                   , discnumber                = excluded.discnumber
-                  , formatted_release_position = excluded.formatted_release_position
                   , duration_seconds           = excluded.duration_seconds
                   , formatted_artists          = excluded.formatted_artists
                 """,
@@ -1840,7 +1833,6 @@ def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedT
               , t.release_id
               , t.tracknumber
               , t.discnumber
-              , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
               , COALESCE(a.names, '') AS art_names
@@ -1849,7 +1841,7 @@ def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedT
             JOIN releases r ON r.id = t.release_id
             LEFT JOIN artists a ON a.track_id = t.id
             WHERE r.id = ?
-            ORDER BY t.formatted_release_position
+            ORDER BY FORMAT('%4d.%4d', t.discnumber, t.tracknumber)
             """,
             (release_id,),
         )
@@ -1867,7 +1859,6 @@ def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedT
                     release_id=row["release_id"],
                     tracknumber=row["tracknumber"],
                     discnumber=row["discnumber"],
-                    formatted_release_position=row["formatted_release_position"],
                     duration_seconds=row["duration_seconds"],
                     formatted_artists=row["formatted_artists"],
                     artists=tartists,
@@ -1955,7 +1946,6 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
               , t.release_id
               , t.tracknumber
               , t.discnumber
-              , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
               , COALESCE(a.names, '') AS art_names
@@ -1963,7 +1953,6 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
             FROM tracks t
             LEFT JOIN artists a ON a.track_id = t.id
             WHERE t.id = ?
-            ORDER BY t.formatted_release_position
             """,
             (uuid,),
         )
@@ -1982,7 +1971,6 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
             release_id=row["release_id"],
             tracknumber=row["tracknumber"],
             discnumber=row["discnumber"],
-            formatted_release_position=row["formatted_release_position"],
             duration_seconds=row["duration_seconds"],
             formatted_artists=row["formatted_artists"],
             artists=tartists,
@@ -1993,7 +1981,7 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
     """Get a human-readable identifier for a track suitable for logging."""
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT title, formatted_artists, source_path FROM track sWHERE id = ?",
+            "SELECT title, formatted_artists, source_path FROM tracks WHERE id = ?",
             (track_id,),
         )
         row = cursor.fetchone()
@@ -2059,7 +2047,6 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
               , t.release_id
               , t.tracknumber
               , t.discnumber
-              , t.formatted_release_position
               , t.duration_seconds
               , t.formatted_artists
               , COALESCE(a.names, '') AS art_names
@@ -2088,7 +2075,6 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
                     release_id=row["release_id"],
                     tracknumber=row["tracknumber"],
                     discnumber=row["discnumber"],
-                    formatted_release_position=row["formatted_release_position"],
                     duration_seconds=row["duration_seconds"],
                     formatted_artists=row["formatted_artists"],
                     artists=tartists,
