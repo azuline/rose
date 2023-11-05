@@ -8,8 +8,8 @@ Since this is a pretty hefty module, we'll cover the organization. This module c
 1. VirtualPath: A semantic representation of a path in the virtual filesystem along with a parser.
    All virtual filesystem paths are parsed by this class into a far more ergonomic dataclass.
 
-2. VirtualNameGenerator: A class that generates virtual directory and filenames given UUIDs, and
-   maintains inverse mappings for resolving release IDs from virtual paths.
+2. VirtualNameGenerator: A class that generates virtual directory and filenames given releases and
+   tracks, and maintains inverse mappings for resolving release IDs from virtual paths.
 
 3. "CanShow"er: An abstraction that encapsulates the logic of whether an artist, genre, or label
    should be shown in their respective virtual views, based on the whitelist/blacklist configuration
@@ -51,8 +51,10 @@ import llfuse
 
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
 from rose.cache import (
+    RELEASE_TYPE_FORMATTER,
     STORED_DATA_FILE_REGEX,
     CachedRelease,
+    CachedTrack,
     artist_exists,
     genre_exists,
     get_collage,
@@ -75,7 +77,7 @@ from rose.collages import (
     remove_release_from_collage,
     rename_collage,
 )
-from rose.common import RoseError
+from rose.common import RoseError, sanitize_filename
 from rose.config import Config
 from rose.playlists import (
     add_track_to_playlist,
@@ -130,12 +132,48 @@ class VirtualPath:
     file: str | None = None
     file_position: str | None = None
 
+    def __hash__(self) -> int:
+        return hash(
+            f"{self.view}+{self.artist}+{self.genre}+{self.label}+{self.collage}+{self.playlist}+{self.release}+{self.release_position}+{self.file}+{self.file_position}"
+        )
+
+    @property
+    def release_parent(self) -> VirtualPath:
+        """Parent path of a release: Used as an input to the VirtualNameGenerator."""
+        return VirtualPath(
+            view=self.view,
+            artist=self.artist,
+            genre=self.genre,
+            label=self.label,
+            collage=self.collage,
+        )
+
+    @property
+    def track_parent(self) -> VirtualPath:
+        """Parent path of a track: Used as an input to the VirtualNameGenerator."""
+        return VirtualPath(
+            view=self.view,
+            artist=self.artist,
+            genre=self.genre,
+            label=self.label,
+            collage=self.collage,
+            playlist=self.playlist,
+            release=self.release,
+            release_position=self.release_position,
+        )
+
     @classmethod
     def parse(cls, path: Path, *, parse_release_position: bool = True) -> VirtualPath:
         parts = str(path.resolve()).split("/")[1:]  # First part is always empty string.
 
         if len(parts) == 1 and parts[0] == "":
             return cls(view="Root")
+
+        if parts[-1] in [".git", ".DS_Store", ".Trash-1000", "HEAD", ".envrc"]:
+            logger.debug(
+                f"Raising ENOENT early in the VirtualPath parser because last path part {parts[-1]} in blacklist."
+            )
+            raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "1. Releases":
             if len(parts) == 1:
@@ -280,8 +318,18 @@ class VirtualPath:
 
 class VirtualNameGenerator:
     """
-    Generates virtual dirnames and filenames for releases and tracks given their UUIDs. Maintains an
-    inverse mapping for looking up release/track UUIDs from their virtual paths.
+    Generates virtual dirnames and filenames for releases and tracks, and maintains an inverse
+    mapping for looking up release/track UUIDs from their virtual paths.
+
+    This object's data has the following lifecycle:
+
+    1. RoseLogicalCore calls `list_virtual_x_paths` to generate all paths in a directory.
+    2. Once generated, path->ID can be looked up.
+
+    This means that RoseLogicalCore is responsible for invoking `list_virtual_x_paths` upon cache
+    misses / missing file accesses. We end up invoking `list_virtual_x_path` whenever a non-existent
+    path is getattr'ed, which is somewhat excessive, however, we can decouple the virtual templates
+    from the cache this way, and the lookup _miss_ case should be rather rare in normal operations
 
     The VirtualNameGenerator also remembers all previous path mappings for 15 minutes since last use.
     This allows Rose to continue to serving accesses to old paths, even after the file metadata
@@ -293,6 +341,172 @@ class VirtualNameGenerator:
 
     def __init__(self, config: Config):
         self._config = config
+        # These are the stateful maps that we use to remember path mappings. They are maps from the
+        # (parent_path, virtual path) -> entity ID.
+        #
+        # Entries expire after 15 minutes, which implements the "serve accesses to previous paths"
+        # behavior as specified in the class docstring.
+        #
+        # fmt: off
+        self._release_store: cachetools.TTLCache[tuple[VirtualPath, str], str] = cachetools.TTLCache(maxsize=999999, ttl=60 * 15)
+        self._track_store: cachetools.TTLCache[tuple[VirtualPath, str], str] = cachetools.TTLCache(maxsize=9999999, ttl=60 * 15)
+        # fmt: on
+
+    def list_virtual_release_paths(
+        self,
+        release_parent: VirtualPath,
+        releases: list[CachedRelease],
+    ) -> list[str]:
+        """
+        Given a parent directory and a list of releases, calculates the virtual directory names
+        for those releases, and returns a list of the virtual directory names (in the same indexes
+        as the provided releases).
+        """
+        rval: list[str] = []
+        # For collision number generation.
+        seen: set[str] = set()
+        prefix_pad_size = len(str(len(releases)))
+        for idx, release in enumerate(releases):
+            vname = ""
+
+            # Generate the prefix.
+            if release_parent.collage:
+                vname += f"{str(idx+1).zfill(prefix_pad_size)}. "
+            elif release_parent.view == "Recently Added":
+                vname += f"[{release.added_at[:10]}] "
+
+            # Generate the main release dirname.
+            vname += release.formatted_artists + " - "
+            if release.year:
+                vname += str(release.year) + ". "
+            vname += release.title
+            if release.releasetype not in ["album", "other", "unknown"] and not (
+                release.releasetype == "remix" and "remix" in release.title.lower()
+            ):
+                vname += " - " + RELEASE_TYPE_FORMATTER.get(
+                    release.releasetype, release.releasetype.title()
+                )
+            if release.genres:
+                vname += " [" + ";".join(sorted(release.genres)) + "]"
+            if release.new:
+                vname = "{NEW} " + vname
+            vname = sanitize_filename(vname)
+
+            # Handle name collisions by appending a unique discriminator to the end.
+            original_vname = vname
+            collision_no = 2
+            while True:
+                if vname in seen:
+                    break
+                logger.debug(f"Virtual dirname collision: {vname=} {seen=}")
+                vname = f"{original_vname} [{collision_no}]"
+                collision_no += 1
+
+            # Store the generated release name in the cache.
+            self._release_store[(release_parent, vname)] = release.id
+            rval.append(vname)
+            seen.add(vname)
+        return rval
+
+    def list_virtual_track_paths(
+        self,
+        track_parent: VirtualPath,
+        tracks: list[CachedTrack],
+    ) -> list[str]:
+        """
+        Given a parent directory and a list of tracks, calculates the virtual directory names
+        for those tracks, and returns a list of the virtual directory names (in the same indexes
+        as the provided tracks).
+        """
+        rval: list[str] = []
+        # For collision number generation.
+        seen: set[str] = set()
+        prefix_pad_size = len(str(len(tracks)))
+        for idx, track in enumerate(tracks):
+            vname = ""
+
+            # Generate the prefix.
+            if track_parent.release:
+                if track.release_multidisc and track.discnumber:
+                    vname += f"{track.discnumber:0>2}-"
+                vname += f"{track.tracknumber:0>2}. "
+            elif track_parent.playlist:
+                vname += f"{str(idx+1).zfill(prefix_pad_size)}. "
+
+            # Generate the main track filename.
+            vname += f"{track.formatted_artists} - "
+            vname += track.title or "Unknown Title"
+            vname += track.source_path.suffix
+            vname = sanitize_filename(vname)
+
+            # And in case of a name collision, add an extra number at the end. Iterate to find
+            # the first unused number.
+            original_vname = vname
+            collision_no = 2
+            while True:
+                if vname not in seen:
+                    break
+                # Write the collision number before the file extension.
+                pov = Path(original_vname)
+                vname = f"{pov.stem} [{collision_no}]{pov.suffix}"
+                collision_no += 1
+            seen.add(vname)
+
+            # Store the generated track name in the cache.
+            self._track_store[(track_parent, vname)] = track.id
+            rval.append(vname)
+            seen.add(vname)
+        return rval
+
+    def lookup_virtual_release(self, release_parent: VirtualPath, virtual_name: str) -> str:
+        """
+        Given a parent directory and a virtual directory name within that parent directory, return
+        the associated release ID.
+        """
+        try:
+            return self._release_store[(release_parent, virtual_name)]  # type: ignore
+        except KeyError as e:
+            raise llfuse.FUSEError(errno.ENOENT) from e
+
+    def lookup_virtual_track(self, track_parent: VirtualPath, virtual_name: str) -> str:
+        """
+        Given a parent directory and a virtual filename within that parent directory, return the
+        associated track ID.
+        """
+        try:
+            return self._track_store[(track_parent, virtual_name)]  # type: ignore
+        except KeyError as e:
+            raise llfuse.FUSEError(errno.ENOENT) from e
+
+    def bump_release_path_expiry(self, release_parent: VirtualPath, virtual_name: str) -> None:
+        """
+        Support "bumping" the expiration date of a path in the cache. This should be called on file
+        accesses.
+        """
+        with contextlib.suppress(KeyError):
+            self._release_store[(release_parent, virtual_name)] = self._release_store[
+                (release_parent, virtual_name)
+            ]
+
+    def bump_track_path_expiry(self, track_parent: VirtualPath, virtual_name: str) -> None:
+        """
+        Support "bumping" the expiration date of a path in the cache. This should be called on file
+        accesses.
+        """
+        with contextlib.suppress(KeyError):
+            self._track_store[(track_parent, virtual_name)] = self._track_store[
+                (track_parent, virtual_name)
+            ]
+
+    def expire_release_path(self, release_parent: VirtualPath, virtual_name: str) -> None:
+        """Support premature expiration of a virtual path. This should be called on rmdir."""
+        with contextlib.suppress(KeyError):
+            del self._release_store[(release_parent, virtual_name)]
+
+    def expire_track_path(self, track_parent: VirtualPath, virtual_name: str) -> None:
+        """Support premature expiration of a virtual path. This should be called on unlink."""
+        with contextlib.suppress(KeyError):
+            del self._track_store[(track_parent, virtual_name)]
 
 
 class CanShower:

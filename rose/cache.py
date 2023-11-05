@@ -257,6 +257,9 @@ class CachedTrack:
     artists: list[CachedArtist]
     formatted_artists: str
 
+    # Stored on here for virtual path generation; not inserted into the database.
+    release_multidisc: bool
+
     def dump(self) -> dict[str, Any]:
         return {
             "id": self.id,
@@ -630,6 +633,7 @@ def _update_cache_for_releases_executor(
                 duration_seconds=row["duration_seconds"],
                 artists=track_artists,
                 formatted_artists=row["formatted_artists"],
+                release_multidisc=cached_releases[row["release_id"]][0].multidisc,
             )
             num_tracks_found += 1
         logger.debug(f"Found {num_tracks_found} tracks in cache")
@@ -910,6 +914,8 @@ def _update_cache_for_releases_executor(
                 duration_seconds=tags.duration_sec,
                 artists=[],
                 formatted_artists=format_artist_string(tags.trackartists),
+                # Dummy value: We never use it in this sequence.
+                release_multidisc=False,
             )
             tracks.append(track)
             for role, names in asdict(tags.trackartists).items():
@@ -1862,6 +1868,7 @@ def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedT
                     duration_seconds=row["duration_seconds"],
                     formatted_artists=row["formatted_artists"],
                     artists=tartists,
+                    release_multidisc=release.multidisc,
                 )
             )
 
@@ -1948,9 +1955,11 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
               , t.discnumber
               , t.duration_seconds
               , t.formatted_artists
+              , r.multidisc,
               , COALESCE(a.names, '') AS art_names
               , COALESCE(a.roles, '') AS art_roles
             FROM tracks t
+            JOIN releases r ON r.id = t.release_id
             LEFT JOIN artists a ON a.track_id = t.id
             WHERE t.id = ?
             """,
@@ -1974,6 +1983,7 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
             duration_seconds=row["duration_seconds"],
             formatted_artists=row["formatted_artists"],
             artists=tartists,
+            release_multidisc=row["multidisc"],
         )
 
 
@@ -2049,9 +2059,11 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
               , t.discnumber
               , t.duration_seconds
               , t.formatted_artists
+              , r.multidisc
               , COALESCE(a.names, '') AS art_names
               , COALESCE(a.roles, '') AS art_roles
             FROM tracks t
+            JOIN releases r ON r.id = t.release_id
             JOIN playlists_tracks pt ON pt.track_id = t.id
             LEFT JOIN artists a ON a.track_id = t.id
             WHERE pt.playlist_name = ? AND NOT pt.missing
@@ -2078,6 +2090,7 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
                     duration_seconds=row["duration_seconds"],
                     formatted_artists=row["formatted_artists"],
                     artists=tartists,
+                    release_multidisc=row["multidisc"],
                 )
             )
 
