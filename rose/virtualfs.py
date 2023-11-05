@@ -921,15 +921,20 @@ class RoseLogicalCore:
         if p.view == "Collages" and p.collage and p.release is None:
             delete_collage(self.config, p.collage)
             return
-        if p.view == "Collages" and p.collage and p.release:
-            remove_release_from_collage(self.config, p.collage, p.release)
+        if (
+            p.view == "Collages"
+            and p.collage
+            and p.release
+            and (release_id := self.vnames.lookup_release(p))
+        ):
+            remove_release_from_collage(self.config, p.collage, release_id)
             self.vnames.expire_release(p)
             return
         if p.view == "Playlists" and p.playlist and p.file is None:
             delete_playlist(self.config, p.playlist)
             return
-        if p.view != "Collages" and p.release is not None:
-            delete_release(self.config, p.release)
+        if p.view != "Collages" and p.release and (release_id := self.vnames.lookup_release(p)):
+            delete_release(self.config, release_id)
             self.vnames.expire_release(p)
             return
 
@@ -945,11 +950,12 @@ class RoseLogicalCore:
         # TODO: Consider allowing renaming artist/genre/label here?
         if (
             (old.release and new.release)
+            and (release_id := self.vnames.lookup_release(old))
             and old.release.removeprefix("{NEW} ") == new.release.removeprefix("{NEW} ")
             and (not old.file and not new.file)
             and old.release.startswith("{NEW} ") != new.release.startswith("{NEW} ")
         ):
-            toggle_release_new(self.config, old.release)
+            toggle_release_new(self.config, release_id)
             self.vnames.expire_release(old)
             return
         if (
