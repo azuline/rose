@@ -24,9 +24,8 @@ from rose.cache import (
     CachedRelease,
     CachedTrack,
     get_release,
-    get_release_id_from_virtual_dirname,
-    get_release_source_path_from_id,
-    get_release_virtual_dirname_from_id,
+    get_release_logging_identifier,
+    get_release_source_path,
     list_releases,
     lock,
     release_lock_name,
@@ -34,7 +33,7 @@ from rose.cache import (
     update_cache_for_collages,
     update_cache_for_releases,
 )
-from rose.common import RoseError, RoseExpectedError, valid_uuid
+from rose.common import RoseError, RoseExpectedError
 from rose.config import Config
 from rose.rule_parser import MetadataAction
 from rose.rules import execute_metadata_actions
@@ -66,38 +65,37 @@ def dump_releases(c: Config) -> str:
     return json.dumps([r.dump() for r in list_releases(c)])
 
 
-def delete_release(c: Config, release_id_or_virtual_dirname: str) -> None:
-    release_id, release_dirname = resolve_release_ids(c, release_id_or_virtual_dirname)
-    source_path = get_release_source_path_from_id(c, release_id)
-    if source_path is None:
-        logger.debug(f"Failed to lookup source path for release {release_id} ({release_dirname})")
-        return None
+def delete_release(c: Config, release_id: str) -> None:
+    release_logtext = get_release_logging_identifier(c, release_id)
+    if not release_logtext:
+        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
     with lock(c, release_lock_name(release_id)):
+        source_path = get_release_source_path(c, release_id)
+        assert source_path is not None
         send2trash(source_path)
-    logger.info(f"Trashed release {source_path}")
+    logger.info(f"Trashed release {release_logtext}")
     update_cache_evict_nonexistent_releases(c)
     # Update all collages so that the release is removed from whichever collages it was in.
     update_cache_for_collages(c, None, force=True)
 
 
-def toggle_release_new(c: Config, release_id_or_virtual_dirname: str) -> None:
-    release_id, release_dirname = resolve_release_ids(c, release_id_or_virtual_dirname)
-    source_path = get_release_source_path_from_id(c, release_id)
-    if source_path is None:
-        logger.debug(f"Failed to lookup source path for release {release_id} ({release_dirname})")
-        return None
+def toggle_release_new(c: Config, release_id: str) -> None:
+    release_logtext = get_release_logging_identifier(c, release_id)
+    if not release_logtext:
+        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
+    source_path = get_release_source_path(c, release_id)
+    assert source_path is not None
     for f in source_path.iterdir():
         if not STORED_DATA_FILE_REGEX.match(f.name):
             continue
-
         with lock(c, release_lock_name(release_id)):
             with f.open("rb") as fp:
                 data = tomllib.load(fp)
             data["new"] = not data["new"]
             with f.open("wb") as fp:
                 tomli_w.dump(data, fp)
-        logger.info(f'Toggled "new"-ness of release {source_path} to {data["new"]}')
+        logger.info(f'Toggled "new"-ness of release {release_logtext} to {data["new"]}')
         update_cache_for_releases(c, [source_path], force=True)
         return
 
@@ -106,7 +104,7 @@ def toggle_release_new(c: Config, release_id_or_virtual_dirname: str) -> None:
 
 def set_release_cover_art(
     c: Config,
-    release_id_or_virtual_dirname: str,
+    release_id: str,
     new_cover_art_path: Path,
 ) -> None:
     """
@@ -120,37 +118,40 @@ def set_release_cover_art(
             "To change this, please read the configuration documentation"
         )
 
-    release_id, release_dirname = resolve_release_ids(c, release_id_or_virtual_dirname)
-    source_path = get_release_source_path_from_id(c, release_id)
-    if source_path is None:
-        logger.debug(f"Failed to lookup source path for release {release_id} ({release_dirname})")
-        return None
+    release_logtext = get_release_logging_identifier(c, release_id)
+    if not release_logtext:
+        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
+
+    source_path = get_release_source_path(c, release_id)
+    assert source_path is not None
     for f in source_path.iterdir():
         if f.name.lower() in c.valid_cover_arts:
-            logger.debug(f"Deleting existing cover art {f.name} in {release_dirname}")
+            logger.debug(f"Deleting existing cover art {f.name} in {release_logtext}")
             send2trash(f)
     shutil.copyfile(new_cover_art_path, source_path / f"cover{new_cover_art_path.suffix}")
-    logger.info(f"Set the cover of release {source_path} to {new_cover_art_path.name}")
+    logger.info(f"Set the cover of release {release_logtext} to {new_cover_art_path.name}")
     update_cache_for_releases(c, [source_path])
 
 
-def delete_release_cover_art(c: Config, release_id_or_virtual_dirname: str) -> None:
+def delete_release_cover_art(c: Config, release_id: str) -> None:
     """This function deletes all potential cover arts in the release source directory."""
-    release_id, release_dirname = resolve_release_ids(c, release_id_or_virtual_dirname)
-    source_path = get_release_source_path_from_id(c, release_id)
-    if source_path is None:
-        logger.debug(f"Failed to lookup source path for release {release_id} ({release_dirname})")
-        return None
+    release_logtext = get_release_logging_identifier(c, release_id)
+    if not release_logtext:
+        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
+
+    source_path = get_release_source_path(c, release_id)
+    assert source_path is not None
+
     found = False
     for f in source_path.iterdir():
         if f.name.lower() in c.valid_cover_arts:
-            logger.debug(f"Deleting existing cover art {f.name} in {release_dirname}")
+            logger.debug(f"Deleting existing cover art {f.name} in {release_logtext}")
             send2trash(f)
             found = True
     if found:
-        logger.info(f"Deleted cover arts of release {source_path}")
+        logger.info(f"Deleted cover arts of release {release_logtext}")
     else:
-        logger.info(f"No-Op: No cover arts found for release {source_path}")
+        logger.info(f"No-Op: No cover arts found for release {release_logtext}")
     update_cache_for_releases(c, [source_path])
 
 
@@ -248,25 +249,22 @@ FAILED_RELEASE_EDIT_FILENAME_REGEX = re.compile(r"failed-release-edit\.([^.]+)\.
 
 def edit_release(
     c: Config,
-    release_id_or_virtual_dirname: str,
+    release_id: str,
     *,
     # Will use this file as the starting TOML instead of reading the cache.
     resume_file: Path | None = None,
 ) -> None:
-    release_id, _ = resolve_release_ids(c, release_id_or_virtual_dirname)
+    release_logtext = get_release_logging_identifier(c, release_id)
+    if not release_logtext:
+        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
     # Trigger a quick cache update to ensure we are reading the liveliest data.
-    source_path = get_release_source_path_from_id(c, release_id)
+    source_path = get_release_source_path(c, release_id)
     assert source_path is not None
     update_cache_for_releases(c, [source_path])
 
     with lock(c, release_lock_name(release_id)):
-        cachedata = get_release(c, release_id_or_virtual_dirname)
-        if not cachedata:
-            raise ReleaseDoesNotExistError(
-                f"Release {release_id_or_virtual_dirname} does not exist"
-            )
-        release, tracks = cachedata
+        release, tracks = get_release(c, release_id)  # type: ignore
 
         if resume_file is not None:
             m = FAILED_RELEASE_EDIT_FILENAME_REGEX.match(resume_file.name)
@@ -347,7 +345,9 @@ def edit_release(
                     logger.debug(f"Modified tag detected for {t.source_path}: album_artists")
 
                 if dirty:
-                    logger.info(f"Flushing changed tags to {t.source_path}")
+                    logger.info(
+                        f"Flushing changed tags to {str(t.source_path).removeprefix(str(c.music_source_dir) + '/')}"
+                    )
                     tags.flush()
         except RoseError as e:
             new_resume_path = c.cache_dir / f"failed-release-edit.{release_id}.toml"
@@ -363,7 +363,7 @@ The submitted metadata TOML file has been written to {new_resume_path.resolve()}
 
 You can reattempt the release edit and fix the metadata file with the command:
 
-    $ rose releases edit --resume {shlex.quote(str(new_resume_path.resolve()))} {shlex.quote(release_id_or_virtual_dirname)}
+    $ rose releases edit --resume {shlex.quote(str(new_resume_path.resolve()))} {shlex.quote(release_id)}
         """
             ) from e
 
@@ -375,16 +375,16 @@ You can reattempt the release edit and fix the metadata file with the command:
 
 def run_actions_on_release(
     c: Config,
-    release_id_or_virtual_dirname: str,
+    release_id: str,
     actions: list[MetadataAction],
     *,
     dry_run: bool = False,
     confirm_yes: bool = False,
 ) -> None:
     """Run rule engine actions on a release."""
-    rdata = get_release(c, release_id_or_virtual_dirname)
+    rdata = get_release(c, release_id)
     if rdata is None:
-        raise ReleaseDoesNotExistError(f"Release {release_id_or_virtual_dirname} does not exist")
+        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
     audiotags = [AudioTags.from_file(t.source_path) for t in rdata[1]]
     execute_metadata_actions(c, actions, audiotags, dry_run=dry_run, confirm_yes=confirm_yes)
 
@@ -442,17 +442,3 @@ def create_single_release(c: Config, track_path: Path) -> None:
             f"Impossible: Failed to parse release ID from newly created single directory {source_path}"
         )
     toggle_release_new(c, release_id)
-
-
-def resolve_release_ids(c: Config, release_id_or_virtual_dirname: str) -> tuple[str, str]:
-    if valid_uuid(release_id_or_virtual_dirname):
-        uuid = release_id_or_virtual_dirname
-        virtual_dirname = get_release_virtual_dirname_from_id(c, uuid)
-    else:
-        virtual_dirname = release_id_or_virtual_dirname
-        uuid = get_release_id_from_virtual_dirname(c, virtual_dirname)  # type: ignore
-    if uuid is None or virtual_dirname is None:
-        raise ReleaseDoesNotExistError(
-            f"Release {uuid or ''}{virtual_dirname or ''} does not exist"
-        )
-    return uuid, virtual_dirname

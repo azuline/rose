@@ -26,10 +26,9 @@ from rose.cache import (
     get_collage,
     get_playlist,
     get_release,
-    get_release_id_from_virtual_dirname,
-    get_release_source_path_from_id,
-    get_release_source_paths_from_ids,
-    get_release_virtual_dirname_from_id,
+    get_release_logging_identifier,
+    get_release_source_path,
+    get_release_source_paths,
     get_track,
     label_exists,
     list_artists,
@@ -1206,23 +1205,18 @@ def test_get_release_applies_artist_aliases(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_release_id_from_virtual_dirname(config: Config) -> None:
-    assert get_release_id_from_virtual_dirname(config, "r1") == "r1"
+def test_get_release_logging_identifier(config: Config) -> None:
+    assert get_release_logging_identifier(config, "r1") == "Techno Man;Bass Man - 2023. Release 1"
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_release_virtual_dirname_from_id(config: Config) -> None:
-    assert get_release_virtual_dirname_from_id(config, "r1") == "r1"
+def test_get_release_source_path(config: Config) -> None:
+    assert get_release_source_path(config, "r1") == config.music_source_dir / "r1"
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_release_source_path_dirname_from_id(config: Config) -> None:
-    assert str(get_release_source_path_from_id(config, "r1")).endswith("/source/r1")
-
-
-@pytest.mark.usefixtures("seeded_cache")
-def test_get_release_source_paths_dirname_from_ids(config: Config) -> None:
-    assert get_release_source_paths_from_ids(config, ["r1", "r2"]) == [
+def test_get_release_source_paths(config: Config) -> None:
+    assert get_release_source_paths(config, ["r1", "r2"]) == [
         config.music_source_dir / "r1",
         config.music_source_dir / "r2",
     ]

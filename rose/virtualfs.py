@@ -56,7 +56,7 @@ from rose.cache import (
     get_collage,
     get_playlist,
     get_release,
-    get_release_source_path_from_id,
+    get_release_source_path,
     label_exists,
     list_artists,
     list_collages,
@@ -943,7 +943,7 @@ class RoseLogicalCore:
             logger.debug(
                 f"LOGICAL: Triggering cache update for release {release_id} after release syscall"
             )
-            if source_path := get_release_source_path_from_id(self.config, release_id):
+            if source_path := get_release_source_path(self.config, release_id):
                 update_cache_for_releases(self.config, [source_path])
         fh = self.fhandler.unwrap_host(fh)
         os.close(fh)

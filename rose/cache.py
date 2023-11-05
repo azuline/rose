@@ -1850,10 +1850,7 @@ def list_releases(
             )
 
 
-def get_release(
-    c: Config,
-    release_id_or_virtual_dirname: str,
-) -> tuple[CachedRelease, list[CachedTrack]] | None:
+def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedTrack]] | None:
     with connect(c) as conn:
         cursor = conn.execute(
             r"""
@@ -1898,9 +1895,9 @@ def get_release(
             LEFT JOIN genres g ON g.release_id = r.id
             LEFT JOIN labels l ON l.release_id = r.id
             LEFT JOIN artists a ON a.release_id = r.id
-            WHERE r.id = ? or r.virtual_dirname = ?
+            WHERE r.id = ?
             """,
-            (release_id_or_virtual_dirname, release_id_or_virtual_dirname),
+            (release_id,),
         )
         row = cursor.fetchone()
         if not row:
@@ -1955,10 +1952,10 @@ def get_release(
             FROM tracks t
             JOIN releases r ON r.id = t.release_id
             LEFT JOIN artists a ON a.track_id = t.id
-            WHERE r.id = ? OR r.virtual_dirname = ?
+            WHERE r.id = ?
             ORDER BY t.formatted_release_position
             """,
-            (release_id_or_virtual_dirname, release_id_or_virtual_dirname),
+            (release_id,),
         )
         for row in cursor:
             tartists = [
@@ -1985,31 +1982,30 @@ def get_release(
     return (release, tracks)
 
 
-def get_release_id_from_virtual_dirname(c: Config, release_virtual_dirname: str) -> str | None:
+def get_release_logging_identifier(c: Config, release_id: str) -> str | None:
+    """Get a human-readable identifier for a release suitable for logging."""
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT id FROM releases WHERE virtual_dirname = ?",
-            (release_virtual_dirname,),
+            "SELECT r.title, r.year, r.releasetype, r.formatted_artists FROM releases r WHERE r.id = ?",
+            (release_id,),
         )
-        if row := cursor.fetchone():
-            assert isinstance(row["id"], str)
-            return row["id"]
-    return None
+        row = cursor.fetchone()
+        if not row:
+            return None
+        rval: str = row["formatted_artists"] + " - "
+        if row["year"]:
+            rval += str(row["year"]) + ". "
+        rval += row["title"]
+        if row["releasetype"] not in ["album", "other", "unknown"] and not (
+            row["releasetype"] == "remix" and "remix" in row["title"].lower()
+        ):
+            rval += " - " + RELEASE_TYPE_FORMATTER.get(
+                row["releasetype"], row["releasetype"].title()
+            )
+        return rval
 
 
-def get_release_virtual_dirname_from_id(c: Config, uuid: str) -> str | None:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT virtual_dirname FROM releases WHERE id = ?",
-            (uuid,),
-        )
-        if row := cursor.fetchone():
-            assert isinstance(row["virtual_dirname"], str)
-            return row["virtual_dirname"]
-    return None
-
-
-def get_release_source_path_from_id(c: Config, uuid: str) -> Path | None:
+def get_release_source_path(c: Config, uuid: str) -> Path | None:
     with connect(c) as conn:
         cursor = conn.execute(
             "SELECT source_path FROM releases WHERE id = ?",
@@ -2017,10 +2013,10 @@ def get_release_source_path_from_id(c: Config, uuid: str) -> Path | None:
         )
         if row := cursor.fetchone():
             return Path(row["source_path"])
-    return None
+        return None
 
 
-def get_release_source_paths_from_ids(c: Config, uuids: list[str]) -> list[Path]:
+def get_release_source_paths(c: Config, uuids: list[str]) -> list[Path]:
     with connect(c) as conn:
         cursor = conn.execute(
             f"SELECT source_path FROM releases WHERE id IN ({','.join(['?']*len(uuids))})",

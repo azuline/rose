@@ -15,7 +15,7 @@ import click
 from rose.audiotags import AudioTags
 from rose.cache import (
     connect,
-    get_release_source_paths_from_ids,
+    get_release_source_paths,
     update_cache_for_releases,
 )
 from rose.common import RoseError, RoseExpectedError, uniq
@@ -352,7 +352,7 @@ def execute_metadata_actions(
     # == Step 6: Trigger cache update ===
 
     click.echo()
-    source_paths = get_release_source_paths_from_ids(c, list(changed_release_ids))
+    source_paths = get_release_source_paths(c, list(changed_release_ids))
     update_cache_for_releases(c, source_paths)
 
 

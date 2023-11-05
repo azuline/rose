@@ -12,14 +12,12 @@ from rose.audiotags import AudioTags
 from rose.cache import CachedArtist, CachedRelease, CachedTrack, connect, get_release, update_cache
 from rose.config import Config
 from rose.releases import (
-    ReleaseDoesNotExistError,
     ReleaseEditFailedError,
     create_single_release,
     delete_release,
     delete_release_cover_art,
     dump_releases,
     edit_release,
-    resolve_release_ids,
     run_actions_on_release,
     set_release_cover_art,
     toggle_release_new,
@@ -457,19 +455,3 @@ def test_run_action_on_release(config: Config, source_dir: Path) -> None:
     run_actions_on_release(config, "ilovecarly", [action])
     af = AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a")
     assert af.title == "Bop"
-
-
-def test_resolve_release_ids(config: Config) -> None:
-    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
-    update_cache(config)
-
-    with connect(config) as conn:
-        cursor = conn.execute("SELECT id, virtual_dirname FROM releases")
-        row = cursor.fetchone()
-        release_id = row["id"]
-        virtual_dirname = row["virtual_dirname"]
-
-    assert resolve_release_ids(config, release_id) == (release_id, virtual_dirname)
-    assert resolve_release_ids(config, virtual_dirname) == (release_id, virtual_dirname)
-    with pytest.raises(ReleaseDoesNotExistError):
-        resolve_release_ids(config, "lalala")
