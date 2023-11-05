@@ -1955,7 +1955,7 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
               , t.discnumber
               , t.duration_seconds
               , t.formatted_artists
-              , r.multidisc,
+              , r.multidisc
               , COALESCE(a.names, '') AS art_names
               , COALESCE(a.roles, '') AS art_roles
             FROM tracks t

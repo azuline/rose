@@ -1113,6 +1113,7 @@ def test_get_release(config: Config) -> None:
                     CachedArtist(name="Techno Man", role="main", alias=False),
                 ],
                 formatted_artists="Techno Man;Bass Man",
+                release_multidisc=False,
             ),
             CachedTrack(
                 id="t2",
@@ -1128,6 +1129,7 @@ def test_get_release(config: Config) -> None:
                     CachedArtist(name="Techno Man", role="main", alias=False),
                 ],
                 formatted_artists="Techno Man;Bass Man",
+                release_multidisc=False,
             ),
         ],
     )
@@ -1193,6 +1195,7 @@ def test_get_track(config: Config) -> None:
             CachedArtist(name="Techno Man", role="main", alias=False),
         ],
         formatted_artists="Techno Man;Bass Man",
+        release_multidisc=False,
     )
 
 
@@ -1315,6 +1318,7 @@ def test_get_collage(config: Config) -> None:
                 CachedArtist(name="Techno Man", role="main", alias=False),
             ],
             formatted_artists="Techno Man;Bass Man",
+            release_multidisc=False,
         ),
         CachedTrack(
             id="t3",
@@ -1330,6 +1334,7 @@ def test_get_collage(config: Config) -> None:
                 CachedArtist(name="Violin Woman", role="main", alias=False),
             ],
             formatted_artists="Violin Woman feat. Conductor Woman",
+            release_multidisc=False,
         ),
     ]
 
@@ -1366,6 +1371,7 @@ def test_get_playlist(config: Config) -> None:
                 CachedArtist(name="Techno Man", role="main", alias=False),
             ],
             formatted_artists="Techno Man;Bass Man",
+            release_multidisc=False,
         ),
         CachedTrack(
             id="t3",
@@ -1381,6 +1387,7 @@ def test_get_playlist(config: Config) -> None:
                 CachedArtist(name="Violin Woman", role="main", alias=False),
             ],
             formatted_artists="Violin Woman feat. Conductor Woman",
+            release_multidisc=False,
         ),
     ]
 
