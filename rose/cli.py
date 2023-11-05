@@ -1,10 +1,6 @@
 """
-The cli module defines Rose's CLI interface. It does not have any business logic of its own. It is
-dedicated to parsing and delegating.
-
-Note that we set multiprocessing's start method to "spawn" for the Virtual Filesystem and Watcher,
-but not for other operations. In other operations, we want to have the performance of fork; however,
-the Virtual Filesystem and Watcher run subthreads, which cannot fork off.
+The cli module defines Rose's CLI interface. It does not have any domain logic of its own. It is
+dedicated to parsing, resolving arguments, and delegating to the appropriate module.
 """
 
 import contextlib
@@ -508,7 +504,7 @@ def parse_release_argument(r: str) -> str:
         f"""\
 {r} is not a valid release argument.
 
-Release arguments must be:
+Release arguments must be one of:
 
   1. The release UUID
   2. The path of the source directory of a release
@@ -534,7 +530,7 @@ def parse_track_argument(t: str) -> str:
         f"""\
 {t} is not a valid track argument.
 
-Track arguments must be:
+Track arguments must be one of:
 
   1. The track UUID
   2. The path of the track in the source directory

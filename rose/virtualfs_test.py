@@ -178,20 +178,17 @@ def test_virtual_filesystem_collage_actions(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_virtual_filesystem_add_collage_release_prefix_stripping(config: Config) -> None:
-    """Test that we can add a release from the esoteric views to a collage, regardless of prefix."""
+def test_virtual_filesystem_add_collage_release_with_any_dirname(config: Config) -> None:
+    """Test that we can add a release from the esoteric views to a collage, regardless of directory name."""
     root = config.fuse_mount_dir
 
-    dirs = [
-        root / "1. Releases" / "r1",
-        root / "3. Releases - Recently Added" / "[0000-00-01] r1",
-        root / "7. Collages" / "Rose Gold" / "1. r1",
-    ]
-
     with start_virtual_fs(config):
-        for d in dirs:
-            shutil.copytree(d, root / "7. Collages" / "Ruby Red" / "1. r1")
-            (root / "7. Collages" / "Ruby Red" / "1. r1").rmdir()
+        shutil.copytree(
+            root / "1. Releases" / "r1",
+            root / "7. Collages" / "Ruby Red" / "LALA HAHA",
+        )
+        assert (root / "7. Collages" / "Ruby Red" / "1. r1").is_dir()
+        assert (root / "7. Collages" / "Ruby Red" / "1. r1" / ".rose.r1.toml").is_file()
 
 
 def test_virtual_filesystem_playlist_actions(

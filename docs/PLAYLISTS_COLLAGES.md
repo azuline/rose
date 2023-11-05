@@ -148,7 +148,6 @@ Virtual filesystem:
 $ cd $fuse_mount_dir
 
 $ cp -r "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP" "7. Collages/Morning/"
-cp: cannot create directory '7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP': No such file or directory
 
 $ tree "7. Collages/Morning/"
 7. Collages/Morning/

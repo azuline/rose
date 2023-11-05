@@ -48,6 +48,7 @@ import llfuse
 
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
 from rose.cache import (
+    STORED_DATA_FILE_REGEX,
     CachedRelease,
     artist_exists,
     cover_exists,
@@ -85,7 +86,6 @@ from rose.playlists import (
     set_playlist_cover_art,
 )
 from rose.releases import (
-    ReleaseDoesNotExistError,
     delete_release,
     delete_release_cover_art,
     set_release_cover_art,
@@ -365,19 +365,6 @@ class FileHandleManager:
         except KeyError as e:
             raise llfuse.FUSEError(errno.EBADF) from e
 
-
-# These are tight regexes for the prefixes that may be applied to releases in the virtual
-# filesystem. When we want to use a release name that originated from another view (e.g. because of
-# a `cp -p`) command, we need these regexes in order to support names that originated from views
-# like Recently Added or Collages.
-#
-# And if these happen to match an artist name... they're probably not worth listening to anyways
-# lol. Probably some vaporwave bullshit.
-RELEASE_PREFIX_STRIPPERS = [
-    re.compile(r"^"),
-    re.compile(r"^\[\d{4}-\d{2}-\d{2}\] "),
-    re.compile(r"^\d+\. "),
-]
 
 FileCreationSpecialOp = Literal["add-track-to-playlist", "new-cover-art"]
 
@@ -699,33 +686,11 @@ class RoseLogicalCore:
         logger.debug(f"LOGICAL: Received mkdir for {p=}")
 
         # Possible actions:
-        # 1. Add a release to an existing collage.
-        # 2. Create a new collage.
-        # 3. Create a new playlist.
+        # 1. Create a new collage.
+        # 2. Create a new playlist.
         if p.collage and p.release is None:
             create_collage(self.config, p.collage)
             return
-        if p.collage and p.release:
-            err = None
-            # Because some releases have prefixes, attempt multiple times with each different prefix
-            # stripper.
-            seen: set[str] = set()
-            for prefix_stripper in RELEASE_PREFIX_STRIPPERS:
-                rls = prefix_stripper.sub("", p.release)
-                # But don't waste effort if nothing changed.
-                if rls in seen:
-                    continue
-                seen.add(rls)
-                try:
-                    add_release_to_collage(self.config, p.collage, rls)
-                    return
-                except ReleaseDoesNotExistError as e:
-                    err = e
-            logger.debug(
-                f"LOGICAL: Failed adding release {p.release} to collage {p.collage}: "
-                "release not found"
-            )
-            raise llfuse.FUSEError(errno.ENOENT) from err
         if p.playlist and p.file is None:
             create_playlist(self.config, p.playlist)
             return
@@ -799,6 +764,25 @@ class RoseLogicalCore:
         if flags & os.O_CREAT == os.O_CREAT:
             err = errno.EACCES
 
+        # Possible actions:
+        # 1. Add a release to a collage (by writing the .rose.{uuid}.toml file) (O_CREAT).
+        # 2. Read/write existing music files, cover arts, and .rose.{uuid}.toml files.
+        # 3. Replace the cover art of a release (O_CREAT).
+        # 4. Add a track to a playlist (O_CREAT).
+        # 5. Replace the cover art of a playlist (O_CREAT).
+        if (
+            p.collage
+            and p.release
+            and p.file
+            and flags & os.O_CREAT == os.O_CREAT
+            and (m := STORED_DATA_FILE_REGEX.match(p.file))
+        ):
+            release_id = m[1]
+            logger.debug(
+                f"LOGICAL: Add release {release_id} to collage {p.collage}, reached goal of collage addition sequence"
+            )
+            add_release_to_collage(self.config, p.collage, release_id)
+            return self.fhandler.dev_null
         if p.release and p.file and (rdata := get_release(self.config, p.release)):
             release, tracks = rdata
             # If the file is a music file, handle it as a music file.
@@ -1084,22 +1068,19 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         # In order to pretend to tools that we are a Real Filesystem and not some shitty hack of a
         # filesystem, we have these ghost files that exist for a period of time following an
         # operation.
-        #
-        # There are 2 types of ghost files right now:
-        #
-        # 1. Ghost Existing File: We pretend these files exist.
-        # 2. Ghost Writable Empty Directory: We pretend these directories are empty and can have
-        #    arbitrary files created in them.
-        #
-        # Ghost Existing Files take precedence over Ghost Writeable Empty Directory, for we also
-        # flag files as Ghost Existing Files _after_ they've been written to in a Ghost Writable
-        # Empty Directory.
-        #
-        # These maps are Rob Pike style set of paths...
+        # All values in this maps are `true`; we just don't have TTLSet :)
         self.ghost_existing_files: cachetools.TTLCache[str, bool] = cachetools.TTLCache(
-            maxsize=9999, ttl=2
+            maxsize=9999, ttl=5
         )
-        self.ghost_writable_empty_directory: cachetools.TTLCache[str, bool] = cachetools.TTLCache(
+        # We support adding releases to collages by "copying" a release directory into the collage
+        # directory. What we actually do is:
+        #
+        # 1. Record the `mkdir`-ed release directory, and pretend that it exists for 5 seconds.
+        # 2. Allow arbitrary file opens in that directory. They're all ghost files and therefore
+        #    routed to /dev/null.
+        # 3. If we receive an O_CREAT open for a `.rose.{uuid}.toml` file, forward that to
+        #    RoseLogicalCore so it can handle the release addition to collage.
+        self.in_progress_collage_additions: cachetools.TTLCache[str, bool] = cachetools.TTLCache(
             maxsize=9999, ttl=5
         )
 
@@ -1133,6 +1114,12 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             attrs = self.rose.stat("file")
             attrs["st_ino"] = inode
             return self.make_entry_attributes(attrs)
+        # If this directory is a ghost directory path; pretend here!
+        if self.in_progress_collage_additions.get(str(spath), False):
+            logger.debug(f"FUSE: Resolved lookup for {spath=} as in progress collage addition")
+            attrs = self.rose.stat("dir")
+            attrs["st_ino"] = inode
+            return self.make_entry_attributes(attrs)
 
         vpath = VirtualPath.parse(spath)
         logger.debug(f"FUSE: Parsed getattr {spath=} to {vpath=}")
@@ -1162,8 +1149,8 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             attrs["st_ino"] = inode
             return self.make_entry_attributes(attrs)
         # If this directory is a ghost directory path; pretend here!
-        if self.ghost_writable_empty_directory.get(str(spath.parent), False):
-            logger.debug(f"FUSE: Resolved lookup for {spath=} as ghost writeable directory")
+        if self.in_progress_collage_additions.get(str(spath.parent), False):
+            logger.debug(f"FUSE: Resolved lookup for {spath=} as in progress collage addition")
             raise llfuse.FUSEError(errno.ENOENT)
 
         vpath = VirtualPath.parse(spath)
@@ -1180,8 +1167,8 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         spath = self.inodes.get_path(inode)
         logger.debug(f"FUSE: Resolved opendir {inode=} to {spath=}")
         # If this directory is a ghost directory path; pretend here!
-        if self.ghost_writable_empty_directory.get(str(spath), False):
-            logger.debug(f"FUSE: Resolved lookup for {spath=} as ghost writeable directory")
+        if self.in_progress_collage_additions.get(str(spath), False):
+            logger.debug(f"FUSE: Resolved lookup for {spath=} as in progress collage addition")
             entries: list[tuple[int, bytes, llfuse.EntryAttributes]] = []
             for node in [".", ".."]:
                 attrs = self.rose.stat("dir")
@@ -1232,12 +1219,20 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Received open for {inode=} {flags=}")
         spath = self.inodes.get_path(inode)
         logger.debug(f"FUSE: Resolved open {inode=} to {spath=}")
-        if self.ghost_writable_empty_directory.get(str(spath.parent), False):
-            logger.debug(f"FUSE: Resolved open for {spath=} as ghost writeable directory")
-            self.ghost_existing_files[str(spath)] = True
-            return self.fhandler.dev_null
         vpath = VirtualPath.parse(spath)
         logger.debug(f"FUSE: Parsed open {spath=} to {vpath=}")
+
+        # We black hole all files written to an in-progress collage addition, EXCEPT for the Rose
+        # datafile, which we pass through to RoseLogicalCore.
+        if self.in_progress_collage_additions.get(str(spath.parent), False) and not (
+            vpath.file
+            and STORED_DATA_FILE_REGEX.match(vpath.file)
+            and flags & os.O_CREAT == os.O_CREAT
+        ):
+            logger.debug(f"FUSE: Resolved open for {spath=} as in progress collage addition")
+            self.ghost_existing_files[str(spath)] = True
+            return self.fhandler.dev_null
+
         try:
             fh = self.rose.open(vpath, flags)
         except OSError as e:
@@ -1321,6 +1316,8 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             raise llfuse.FUSEError(e.errno) from e
         self.reset_getattr_caches()
         self.inodes.remove_path(spath)
+        with contextlib.suppress(KeyError):
+            del self.ghost_existing_files[str(spath)]
 
     def mkdir(self, parent_inode: int, name: bytes, _mode: int, _: Any) -> llfuse.EntryAttributes:
         logger.debug(f"FUSE: Received mkdir for {parent_inode=}/{name=}")
@@ -1328,17 +1325,26 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Resolved mkdir {parent_inode=}/{name=} to {spath=}")
         vpath = VirtualPath.parse(spath, parse_release_position=False)
         logger.debug(f"FUSE: Parsed mkdir {spath=} to {vpath=}")
+
+        if vpath.collage and vpath.release:
+            # If we're creating a release in a collage, then this is the collage addition sequence.
+            # Flag the directory and exit with the standard response. See the comment in __init__ to
+            # learn more.
+            logger.debug(
+                f"FUSE: Setting {spath=} as in progress collage addition for next 5 seconds"
+            )
+            self.in_progress_collage_additions[str(spath)] = True
+            inode = self.inodes.calc_inode(spath)
+            attrs = self.rose.stat("dir")
+            attrs["st_ino"] = inode
+            return self.make_entry_attributes(attrs)
+
         try:
             self.rose.mkdir(vpath)
         except OSError as e:
             raise llfuse.FUSEError(e.errno) from e
         self.reset_getattr_caches()
         inode = self.inodes.calc_inode(spath)
-        # If this was an add to collage operation, then flag the directory as a ghost writeable
-        # directory for the following short duration.
-        if vpath.collage:
-            logger.debug(f"FUSE: Setting {spath=} as ghost writeable directory for next 3 seconds")
-            self.ghost_writable_empty_directory[str(spath)] = True
         attrs = self.rose.stat("dir")
         attrs["st_ino"] = inode
         return self.make_entry_attributes(attrs)
@@ -1355,6 +1361,8 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             raise llfuse.FUSEError(e.errno) from e
         self.reset_getattr_caches()
         self.inodes.remove_path(spath)
+        with contextlib.suppress(KeyError):
+            del self.in_progress_collage_additions[str(spath)]
 
     def rename(
         self,
