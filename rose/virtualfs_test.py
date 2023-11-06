@@ -14,8 +14,8 @@ from rose.audiotags import AudioTags
 from rose.config import Config
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
-R1_VNAME = "Techno Man;Bass Man - 2023. Release 1"
-R2_VNAME = "Violin Woman feat. Conductor Woman - 2021. Release 2"
+R1_VNAME = "Bass Man & Techno Man - 2023. Release 1"
+R2_VNAME = "Violin Woman (feat. Conductor Woman) - 2021. Release 2"
 R3_VNAME = "{NEW} Unknown Artists - 2021. Release 3"
 
 
@@ -68,17 +68,17 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert (root / "3. Releases - Recently Added").is_dir()
         assert (root / "3. Releases - Recently Added" / f"[0000-01-01] {R2_VNAME}").exists()
         assert not (root / "3. Releases - Recently Added" / R2_VNAME).exists()
-        assert (root / "3. Releases - Recently Added" / f"[0000-01-01] {R2_VNAME}" / "01. Track 1.m4a").is_file()
+        assert (root / "3. Releases - Recently Added" / f"[0000-01-01] {R2_VNAME}" / "01. Track 1 (feat. Conductor Woman).m4a").is_file()
         assert not (root / "3. Releases - Recently Added" / R2_VNAME / "lalala").exists()
 
         assert (root / "4. Artists").is_dir()
         assert (root / "4. Artists" / "Bass Man").is_dir()
         assert not (root / "4. Artists" / "lalala").exists()
-        assert (root / "4. Artists" / "Bass Man" / R1_VNAME).is_dir()
+        assert (root / "4. Artists" / "Bass Man" / "2023. Release 1").is_dir()
         assert not (root / "4. Artists" / "Bass Man" / "lalala").exists()
-        assert (root / "4. Artists" / "Bass Man" / R1_VNAME / "01. Track 1.m4a").is_file()
-        assert not (root / "4. Artists" / "Bass Man" / R1_VNAME / "lalala.m4a").exists()
-        assert can_read(root / "4. Artists" / "Bass Man" / R1_VNAME / "01. Track 1.m4a")
+        assert (root / "4. Artists" / "Bass Man" / "2023. Release 1" / "01. Track 1.m4a").is_file()
+        assert not (root / "4. Artists" / "Bass Man" / "2023. Release 1" / "lalala.m4a").exists()
+        assert can_read(root / "4. Artists" / "Bass Man" / "2023. Release 1" / "01. Track 1.m4a")
 
         assert (root / "5. Genres").is_dir()
         assert (root / "5. Genres" / "Techno").is_dir()
@@ -112,10 +112,10 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert (root / "8. Playlists" / "Lala Lisa").is_dir()
         assert (root / "8. Playlists" / "Turtle Rabbit").is_dir()
         assert not (root / "8. Playlists" / "lalala").exists()
-        assert (root / "8. Playlists" / "Lala Lisa" / "1. Techno Man;Bass Man - Track 1.m4a").is_file()
+        assert (root / "8. Playlists" / "Lala Lisa" / "1. Bass Man & Techno Man - Track 1.m4a").is_file()
         assert (root / "8. Playlists" / "Lala Lisa" / "cover.jpg").is_file()
         assert not (root / "8. Playlists" / "Lala Lisa" / "lalala").exists()
-        assert can_read(root / "8. Playlists" / "Lala Lisa" / "1. Techno Man;Bass Man - Track 1.m4a")
+        assert can_read(root / "8. Playlists" / "Lala Lisa" / "1. Bass Man & Techno Man - Track 1.m4a")
         assert can_read(root / "8. Playlists" / "Lala Lisa" / "cover.jpg")
         # fmt: on
 

@@ -16,6 +16,7 @@ import tomllib
 
 from rose.common import RoseExpectedError, sanitize_filename
 from rose.rule_parser import MetadataRule, RuleSyntaxError
+from rose.templates import PathTemplateConfig
 
 XDG_CONFIG_ROSE = Path(appdirs.user_config_dir("rose"))
 XDG_CONFIG_ROSE.mkdir(parents=True, exist_ok=True)
@@ -48,6 +49,7 @@ class Config:
     cache_dir: Path
     # Maximum parallel processes for cache updates. Defaults to nproc/2.
     max_proc: int
+    ignore_release_directories: list[str]
 
     # A map from parent artist -> subartists.
     artist_aliases_map: dict[str, list[str]]
@@ -64,7 +66,7 @@ class Config:
     cover_art_stems: list[str]
     valid_art_exts: list[str]
 
-    ignore_release_directories: list[str]
+    path_templates: PathTemplateConfig
 
     stored_metadata_rules: list[MetadataRule]
 
@@ -380,6 +382,8 @@ class Config:
             fuse_labels_blacklist=fuse_labels_blacklist,
             cover_art_stems=cover_art_stems,
             valid_art_exts=valid_art_exts,
+            # TODO: Configuration.
+            path_templates=PathTemplateConfig(),
             ignore_release_directories=ignore_release_directories,
             stored_metadata_rules=stored_metadata_rules,
         )

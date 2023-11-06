@@ -30,6 +30,7 @@
         appdirs
         cachetools
         click
+        jinja2
         llfuse
         mutagen
         send2trash

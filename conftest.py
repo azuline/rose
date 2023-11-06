@@ -12,6 +12,7 @@ from click.testing import CliRunner
 from rose.cache import CACHE_SCHEMA_PATH, update_cache
 from rose.common import VERSION
 from rose.config import Config
+from rose.templates import PathTemplateConfig
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,7 @@ def config(isolated_dir: Path) -> Config:
         fuse_labels_blacklist=None,
         cover_art_stems=["cover", "folder", "art", "front"],
         valid_art_exts=["jpg", "jpeg", "png"],
+        path_templates=PathTemplateConfig(),
         ignore_release_directories=[],
         stored_metadata_rules=[],
     )

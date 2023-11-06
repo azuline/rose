@@ -4,9 +4,15 @@ about which role an artist has on a release, we have a meaningful scheme for rea
 artist tags. See `docs/METADATA_TOOLS.md` for more information.
 """
 
+from __future__ import annotations
+
 import logging
 import re
+import typing
 from dataclasses import dataclass, field
+
+if typing.TYPE_CHECKING:
+    from rose.cache import CachedArtist
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +32,15 @@ class ArtistMapping:
     @property
     def all(self) -> list[str]:
         return self.main + self.guest + self.remixer + self.producer + self.composer + self.djmixer
+
+    @classmethod
+    def from_cache(cls, xs: list[CachedArtist]) -> ArtistMapping:
+        mapping = ArtistMapping()
+        for x in xs:
+            if x.alias:
+                continue
+            getattr(mapping, x.role).append(x.name)
+        return mapping
 
 
 def parse_artist_string(

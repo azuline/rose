@@ -52,7 +52,6 @@ import llfuse
 
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
 from rose.cache import (
-    RELEASE_TYPE_FORMATTER,
     STORED_DATA_FILE_REGEX,
     CachedRelease,
     CachedTrack,
@@ -98,6 +97,7 @@ from rose.releases import (
     set_release_cover_art,
     toggle_release_new,
 )
+from rose.templates import eval_release_template, eval_track_template
 
 logger = logging.getLogger(__name__)
 
@@ -317,27 +317,36 @@ class VirtualNameGenerator:
         seen: set[str] = set()
         prefix_pad_size = len(str(len(releases)))
         for idx, release in enumerate(releases):
-            vname = ""
-
-            # Generate the prefix.
-            if release_parent.collage:
-                vname += f"{str(idx+1).zfill(prefix_pad_size)}. "
+            # Determine the proper template.
+            template = None
+            if release_parent.view == "Releases":
+                template = self._config.path_templates.all_releases.release
+            elif release_parent.view == "New":
+                template = self._config.path_templates.new_releases.release
             elif release_parent.view == "Recently Added":
-                vname += f"[{release.added_at[:10]}] "
-
-            # Generate the main release dirname.
-            if release.formatted_artists:
-                vname += release.formatted_artists + " - "
+                template = self._config.path_templates.recently_added_releases.release
+            elif release_parent.view == "Artists":
+                template = self._config.path_templates.artists.release
+            elif release_parent.view == "Genres":
+                template = self._config.path_templates.genres.release
+            elif release_parent.view == "Labels":
+                template = self._config.path_templates.labels.release
+            elif release_parent.view == "Collages":
+                template = self._config.path_templates.collages.release
             else:
-                vname += "Unknown Artists - "
-            if release.year:
-                vname += str(release.year) + ". "
-            vname += release.title
-            if release.releasetype == "single":
-                vname += " - " + RELEASE_TYPE_FORMATTER[release.releasetype]
+                raise RoseError(f"VNAMES: No release template found for {release_parent=}.")
+
+            # Generate a position if we're in a collage.
+            position = None
+            if release_parent.collage:
+                position = f"{str(idx+1).zfill(prefix_pad_size)}"
+
+            # Generate the directory name.
+            vname = eval_release_template(template, release, position)
+            vname = sanitize_filename(vname)
+            # Temporarily... TODO: Allow NEW to be part of the path templates.
             if release.new:
                 vname = "{NEW} " + vname
-            vname = sanitize_filename(vname)
 
             # Handle name collisions by appending a unique discriminator to the end.
             original_vname = vname
@@ -376,24 +385,34 @@ class VirtualNameGenerator:
         seen: set[str] = set()
         prefix_pad_size = len(str(len(tracks)))
         for idx, track in enumerate(tracks):
-            vname = ""
+            # Determine the proper template.
+            template = None
+            if track_parent.view == "Releases":
+                template = self._config.path_templates.all_releases.track
+            elif track_parent.view == "New":
+                template = self._config.path_templates.new_releases.track
+            elif track_parent.view == "Recently Added":
+                template = self._config.path_templates.recently_added_releases.track
+            elif track_parent.view == "Artists":
+                template = self._config.path_templates.artists.track
+            elif track_parent.view == "Genres":
+                template = self._config.path_templates.genres.track
+            elif track_parent.view == "Labels":
+                template = self._config.path_templates.labels.track
+            elif track_parent.view == "Collages":
+                template = self._config.path_templates.collages.track
+            elif track_parent.view == "Playlists":
+                template = self._config.path_templates.playlists
+            else:
+                raise RoseError(f"VNAMES: No track template found for {track_parent=}.")
 
-            # Generate the prefix.
-            if track_parent.release:
-                if track.release_multidisc and track.discnumber:
-                    vname += f"{track.discnumber:0>2}-"
-                vname += f"{track.tracknumber:0>2}. "
-            elif track_parent.playlist:
-                vname += f"{str(idx+1).zfill(prefix_pad_size)}. "
+            # Generate a position if we're in a playlist.
+            position = None
+            if track_parent.playlist:
+                position = f"{str(idx+1).zfill(prefix_pad_size)}"
 
             # Generate the main track filename.
-            if track_parent.playlist:
-                if track.formatted_artists:
-                    vname += track.formatted_artists + " - "
-                else:
-                    vname += "Unknown Artists - "
-            vname += track.title or "Unknown Title"
-            vname += track.source_path.suffix
+            vname = eval_track_template(template, track, position)
             vname = sanitize_filename(vname)
 
             # And in case of a name collision, add an extra number at the end. Iterate to find

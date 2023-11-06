@@ -6,6 +6,7 @@ import pytest
 
 from rose.config import Config, ConfigNotFoundError, InvalidConfigValueError, MissingConfigKeyError
 from rose.rule_parser import MetadataAction, MetadataMatcher, MetadataRule, ReplaceAction
+from rose.templates import PathTemplateConfig
 
 
 def test_config_minimal() -> None:
@@ -84,6 +85,7 @@ def test_config_full() -> None:
             fuse_labels_blacklist=["zzz"],
             cover_art_stems=["aa", "bb"],
             valid_art_exts=["tiff"],
+            path_templates=PathTemplateConfig(),
             ignore_release_directories=["dummy boy"],
             stored_metadata_rules=[
                 MetadataRule(
