@@ -83,7 +83,7 @@ def config(isolated_dir: Path) -> Config:
         fuse_labels_blacklist=None,
         cover_art_stems=["cover", "folder", "art", "front"],
         valid_art_exts=["jpg", "jpeg", "png"],
-        path_templates=PathTemplateConfig(),
+        path_templates=PathTemplateConfig.with_defaults(),
         ignore_release_directories=[],
         stored_metadata_rules=[],
     )

@@ -6,7 +6,7 @@ import pytest
 
 from rose.config import Config, ConfigNotFoundError, InvalidConfigValueError, MissingConfigKeyError
 from rose.rule_parser import MetadataAction, MetadataMatcher, MetadataRule, ReplaceAction
-from rose.templates import PathTemplateConfig
+from rose.templates import PathTemplate, PathTemplateConfig, PathTemplatePair
 
 
 def test_config_minimal() -> None:
@@ -50,6 +50,25 @@ def test_config_full() -> None:
                 [[stored_metadata_rules]]
                 matcher = "tracktitle:lala"
                 actions = ["replace:hihi"]
+
+                [path_templates]
+                default.release = "{{{{ title }}}}"
+                default.track = "{{{{ title }}}}"
+                source.release = "{{{{ title }}}}"
+                source.track = "{{{{ title }}}}"
+                all_releases.release = "{{{{ title }}}}"
+                all_releases.track = "{{{{ title }}}}"
+                new_releases.release = "{{{{ title }}}}"
+                new_releases.track = "{{{{ title }}}}"
+                recently_added_releases.release = "{{{{ title }}}}"
+                recently_added_releases.track = "{{{{ title }}}}"
+                artists.release = "{{{{ title }}}}"
+                artists.track = "{{{{ title }}}}"
+                labels.release = "{{{{ title }}}}"
+                labels.track = "{{{{ title }}}}"
+                collages.release = "{{{{ title }}}}"
+                collages.track = "{{{{ title }}}}"
+                playlists = "{{{{ title }}}}"
                 """
             )
 
@@ -85,7 +104,33 @@ def test_config_full() -> None:
             fuse_labels_blacklist=["zzz"],
             cover_art_stems=["aa", "bb"],
             valid_art_exts=["tiff"],
-            path_templates=PathTemplateConfig(),
+            path_templates=PathTemplateConfig(
+                source=PathTemplatePair(
+                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                ),
+                all_releases=PathTemplatePair(
+                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                ),
+                new_releases=PathTemplatePair(
+                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                ),
+                recently_added_releases=PathTemplatePair(
+                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                ),
+                artists=PathTemplatePair(
+                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                ),
+                genres=PathTemplatePair(
+                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                ),
+                labels=PathTemplatePair(
+                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                ),
+                collages=PathTemplatePair(
+                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                ),
+                playlists=PathTemplate("{{ title }}"),
+            ),
             ignore_release_directories=["dummy boy"],
             stored_metadata_rules=[
                 MetadataRule(
@@ -433,4 +478,13 @@ Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'ma
            ^
            Found another section after the action kind, but the delete action has no parameters. Please remove this section.
 """
+        )
+
+        # path_templates
+        write(config + '\npath_templates.source.release = "{% if hi %}{{"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid path template in configuration file ({path}) for template source.release: Failed to compile template: unexpected 'end of template'"
         )

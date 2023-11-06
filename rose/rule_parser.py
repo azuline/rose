@@ -462,7 +462,7 @@ class MetadataRule:
     @classmethod
     def parse(cls, matcher: str, actions: list[str]) -> MetadataRule:
         parsed_matcher = MetadataMatcher.parse(matcher)
-        return cls(
+        return MetadataRule(
             matcher=parsed_matcher,
             actions=[MetadataAction.parse(a, i + 1, parsed_matcher) for i, a in enumerate(actions)],
         )

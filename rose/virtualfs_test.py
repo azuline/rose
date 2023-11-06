@@ -24,7 +24,7 @@ def start_virtual_fs(c: Config) -> Iterator[None]:
     p = Process(target=mount_virtualfs, args=[c, True])
     try:
         p.start()
-        time.sleep(0.1)
+        time.sleep(0.15)
         yield
         unmount_virtualfs(c)
         p.join(timeout=1)
@@ -74,11 +74,11 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert (root / "4. Artists").is_dir()
         assert (root / "4. Artists" / "Bass Man").is_dir()
         assert not (root / "4. Artists" / "lalala").exists()
-        assert (root / "4. Artists" / "Bass Man" / "2023. Release 1").is_dir()
+        assert (root / "4. Artists" / "Bass Man" / R1_VNAME).is_dir()
         assert not (root / "4. Artists" / "Bass Man" / "lalala").exists()
-        assert (root / "4. Artists" / "Bass Man" / "2023. Release 1" / "01. Track 1.m4a").is_file()
-        assert not (root / "4. Artists" / "Bass Man" / "2023. Release 1" / "lalala.m4a").exists()
-        assert can_read(root / "4. Artists" / "Bass Man" / "2023. Release 1" / "01. Track 1.m4a")
+        assert (root / "4. Artists" / "Bass Man" / R1_VNAME / "01. Track 1.m4a").is_file()
+        assert not (root / "4. Artists" / "Bass Man" / R1_VNAME / "lalala.m4a").exists()
+        assert can_read(root / "4. Artists" / "Bass Man" / R1_VNAME / "01. Track 1.m4a")
 
         assert (root / "5. Genres").is_dir()
         assert (root / "5. Genres" / "Techno").is_dir()

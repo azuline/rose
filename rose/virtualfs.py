@@ -168,7 +168,7 @@ class VirtualPath:
         parts = str(path.resolve()).split("/")[1:]  # First part is always empty string.
 
         if len(parts) == 1 and parts[0] == "":
-            return cls(view="Root")
+            return VirtualPath(view="Root")
 
         # Let's abort early if we recognize a path that we _know_ is not valid. This is because
         # invalid file accesses trigger a recalculation of virtual file paths, which we decided to
@@ -182,82 +182,84 @@ class VirtualPath:
 
         if parts[0] == "1. Releases":
             if len(parts) == 1:
-                return cls(view="Releases")
+                return VirtualPath(view="Releases")
             if len(parts) == 2:
-                return cls(view="Releases", release=parts[1])
+                return VirtualPath(view="Releases", release=parts[1])
             if len(parts) == 3:
-                return cls(view="Releases", release=parts[1], file=parts[2])
+                return VirtualPath(view="Releases", release=parts[1], file=parts[2])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "2. Releases - New":
             if len(parts) == 1:
-                return cls(view="New")
+                return VirtualPath(view="New")
             if len(parts) == 2:
-                return cls(view="New", release=parts[1])
+                return VirtualPath(view="New", release=parts[1])
             if len(parts) == 3:
-                return cls(view="New", release=parts[1], file=parts[2])
+                return VirtualPath(view="New", release=parts[1], file=parts[2])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "3. Releases - Recently Added":
             if len(parts) == 1:
-                return cls(view="Recently Added")
+                return VirtualPath(view="Recently Added")
             if len(parts) == 2:
-                return cls(view="Recently Added", release=parts[1])
+                return VirtualPath(view="Recently Added", release=parts[1])
             if len(parts) == 3:
-                return cls(view="Recently Added", release=parts[1], file=parts[2])
+                return VirtualPath(view="Recently Added", release=parts[1], file=parts[2])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "4. Artists":
             if len(parts) == 1:
-                return cls(view="Artists")
+                return VirtualPath(view="Artists")
             if len(parts) == 2:
-                return cls(view="Artists", artist=parts[1])
+                return VirtualPath(view="Artists", artist=parts[1])
             if len(parts) == 3:
-                return cls(view="Artists", artist=parts[1], release=parts[2])
+                return VirtualPath(view="Artists", artist=parts[1], release=parts[2])
             if len(parts) == 4:
-                return cls(view="Artists", artist=parts[1], release=parts[2], file=parts[3])
+                return VirtualPath(view="Artists", artist=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "5. Genres":
             if len(parts) == 1:
-                return cls(view="Genres")
+                return VirtualPath(view="Genres")
             if len(parts) == 2:
-                return cls(view="Genres", genre=parts[1])
+                return VirtualPath(view="Genres", genre=parts[1])
             if len(parts) == 3:
-                return cls(view="Genres", genre=parts[1], release=parts[2])
+                return VirtualPath(view="Genres", genre=parts[1], release=parts[2])
             if len(parts) == 4:
-                return cls(view="Genres", genre=parts[1], release=parts[2], file=parts[3])
+                return VirtualPath(view="Genres", genre=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "6. Labels":
             if len(parts) == 1:
-                return cls(view="Labels")
+                return VirtualPath(view="Labels")
             if len(parts) == 2:
-                return cls(view="Labels", label=parts[1])
+                return VirtualPath(view="Labels", label=parts[1])
             if len(parts) == 3:
-                return cls(view="Labels", label=parts[1], release=parts[2])
+                return VirtualPath(view="Labels", label=parts[1], release=parts[2])
             if len(parts) == 4:
-                return cls(view="Labels", label=parts[1], release=parts[2], file=parts[3])
+                return VirtualPath(view="Labels", label=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "7. Collages":
             if len(parts) == 1:
-                return cls(view="Collages")
+                return VirtualPath(view="Collages")
             if len(parts) == 2:
-                return cls(view="Collages", collage=parts[1])
+                return VirtualPath(view="Collages", collage=parts[1])
             if len(parts) == 3:
-                return cls(view="Collages", collage=parts[1], release=parts[2])
+                return VirtualPath(view="Collages", collage=parts[1], release=parts[2])
             if len(parts) == 4:
-                return cls(view="Collages", collage=parts[1], release=parts[2], file=parts[3])
+                return VirtualPath(
+                    view="Collages", collage=parts[1], release=parts[2], file=parts[3]
+                )
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "8. Playlists":
             if len(parts) == 1:
-                return cls(view="Playlists")
+                return VirtualPath(view="Playlists")
             if len(parts) == 2:
-                return cls(view="Playlists", playlist=parts[1])
+                return VirtualPath(view="Playlists", playlist=parts[1])
             if len(parts) == 3:
-                return cls(
+                return VirtualPath(
                     view="Playlists",
                     playlist=parts[1],
                     file=parts[2],
@@ -361,7 +363,6 @@ class VirtualNameGenerator:
             logtext = calculate_release_logtext(
                 title=release.title,
                 year=release.year,
-                releasetype=release.releasetype,
                 artists=release.artists,
             )
             logger.debug(f"VNAMES: Generated virtual dirname {vname} for release {logtext}")
@@ -1014,7 +1015,6 @@ class RoseLogicalCore:
                 logtext = calculate_release_logtext(
                     title=release.title,
                     year=release.year,
-                    releasetype=release.releasetype,
                     artists=release.artists,
                 )
                 logger.debug(

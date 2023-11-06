@@ -36,7 +36,7 @@ EMPTY_CACHED_TRACK = CachedTrack(
 
 
 def test_default_templates() -> None:
-    templates = PathTemplateConfig()
+    templates = PathTemplateConfig.with_defaults()
 
     release = deepcopy(EMPTY_CACHED_RELEASE)
     release.title = "Title"
@@ -52,10 +52,6 @@ def test_default_templates() -> None:
         == "A1, A2 & A3 (feat. BB) (prod. PP) - 2023. Title - Single"
     )
     assert (
-        eval_release_template(templates.artists.release, release)
-        == "2023. Title (feat. BB) - Single"
-    )
-    assert (
         eval_release_template(templates.collages.release, release, "4")
         == "4. A1, A2 & A3 (feat. BB) (prod. PP) - 2023. Title - Single"
     )
@@ -63,7 +59,6 @@ def test_default_templates() -> None:
     release = deepcopy(EMPTY_CACHED_RELEASE)
     release.title = "Title"
     assert eval_release_template(templates.source.release, release) == "Unknown Artists - Title"
-    assert eval_release_template(templates.artists.release, release) == "0000. Title"
     assert (
         eval_release_template(templates.collages.release, release, "4")
         == "4. Unknown Artists - Title"

@@ -230,7 +230,7 @@ class MetadataRelease:
     @classmethod
     def from_toml(cls, toml: str) -> MetadataRelease:
         d = tomllib.loads(toml)
-        return cls(
+        return MetadataRelease(
             title=d["title"],
             releasetype=d["releasetype"],
             year=d["year"] if d["year"] != -9999 else None,

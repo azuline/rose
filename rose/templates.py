@@ -10,15 +10,36 @@ from __future__ import annotations
 import dataclasses
 import re
 import typing
+from copy import deepcopy
 from functools import cached_property
 from typing import Any
 
 import jinja2
 
-from rose.common import Artist, ArtistMapping
+from rose.common import Artist, ArtistMapping, RoseExpectedError
 
 if typing.TYPE_CHECKING:
     from rose.cache import CachedRelease, CachedTrack
+
+RELEASE_TYPE_FORMATTER = {
+    "album": "Album",
+    "single": "Single",
+    "ep": "EP",
+    "compilation": "Compilation",
+    "anthology": "Anthology",
+    "soundtrack": "Soundtrack",
+    "live": "Live",
+    "remix": "Remix",
+    "djmix": "DJ-Mix",
+    "mixtape": "Mixtape",
+    "other": "Other",
+    "demo": "Demo",
+    "unknown": "Unknown",
+}
+
+
+def releasetypefmt(x: str) -> str:
+    return RELEASE_TYPE_FORMATTER.get(x, x.title())
 
 
 def arrayfmt(xs: list[str]) -> str:
@@ -54,6 +75,13 @@ ENVIRONMENT = jinja2.Environment()
 ENVIRONMENT.filters["arrayfmt"] = arrayfmt
 ENVIRONMENT.filters["artistsarrayfmt"] = artistsarrayfmt
 ENVIRONMENT.filters["artistsfmt"] = artistsfmt
+ENVIRONMENT.filters["releasetypefmt"] = releasetypefmt
+
+
+class InvalidPathTemplateError(RoseExpectedError):
+    def __init__(self, message: str, key: str):
+        super().__init__(message)
+        self.key = key
 
 
 @dataclasses.dataclass
@@ -81,7 +109,7 @@ DEFAULT_RELEASE_TEMPLATE = PathTemplate(
 {{ artists | artistsfmt }} -
 {% if year %}{{ year }}.{% endif %}
 {{ title }}
-{% if releasetype == "single" %}- Single{% endif %}
+{% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 """
 )
 
@@ -101,58 +129,88 @@ DEFAULT_TEMPLATE_PAIR = PathTemplatePair(
 
 @dataclasses.dataclass
 class PathTemplateConfig:
-    # Source Directory
-    source: PathTemplatePair = dataclasses.field(default_factory=lambda: DEFAULT_TEMPLATE_PAIR)
-    # 1. Releases
-    all_releases: PathTemplatePair = dataclasses.field(
-        default_factory=lambda: DEFAULT_TEMPLATE_PAIR
-    )
-    # 2. Releases - New
-    new_releases: PathTemplatePair = dataclasses.field(
-        default_factory=lambda: DEFAULT_TEMPLATE_PAIR
-    )
-    # 3. Releases - Recently Added
-    recently_added_releases: PathTemplatePair = dataclasses.field(
-        default_factory=lambda: PathTemplatePair(
-            release=PathTemplate("[{{ added_at[:10] }}] " + DEFAULT_RELEASE_TEMPLATE.text),
-            track=DEFAULT_TRACK_TEMPLATE,
-        )
-    )
-    # 4. Artists
-    artists: PathTemplatePair = dataclasses.field(
-        default_factory=lambda: PathTemplatePair(
-            release=PathTemplate(
-                """
-{% if year %}{{ year }}.{% else %}0000.{% endif %}
-{{ title }}
-{% if artists.guest %}(feat. {{ artists.guest | artistsarrayfmt }}){% endif %}
-{% if releasetype == "single" %}- Single{% endif %}
-"""
+    source: PathTemplatePair
+    all_releases: PathTemplatePair
+    new_releases: PathTemplatePair
+    recently_added_releases: PathTemplatePair
+    artists: PathTemplatePair
+    genres: PathTemplatePair
+    labels: PathTemplatePair
+    collages: PathTemplatePair
+    playlists: PathTemplate
+
+    @classmethod
+    def with_defaults(
+        cls,
+        default_pair: PathTemplatePair = DEFAULT_TEMPLATE_PAIR,
+    ) -> PathTemplateConfig:
+        return PathTemplateConfig(
+            source=deepcopy(default_pair),
+            all_releases=deepcopy(default_pair),
+            new_releases=deepcopy(default_pair),
+            recently_added_releases=PathTemplatePair(
+                release=PathTemplate("[{{ added_at[:10] }}] " + default_pair.release.text),
+                track=deepcopy(default_pair.track),
             ),
-            track=DEFAULT_TRACK_TEMPLATE,
-        )
-    )
-    # 5. Genres
-    genres: PathTemplatePair = dataclasses.field(default_factory=lambda: DEFAULT_TEMPLATE_PAIR)
-    # 6. Labels
-    labels: PathTemplatePair = dataclasses.field(default_factory=lambda: DEFAULT_TEMPLATE_PAIR)
-    # 7. Collages
-    collages: PathTemplatePair = dataclasses.field(
-        default_factory=lambda: PathTemplatePair(
-            release=PathTemplate("{{ position }}. " + DEFAULT_RELEASE_TEMPLATE.text),
-            track=DEFAULT_TRACK_TEMPLATE,
-        )
-    )
-    # 8. Playlists: track template only.
-    playlists: PathTemplate = dataclasses.field(
-        default_factory=lambda: PathTemplate(
-            """
+            artists=deepcopy(default_pair),
+            genres=deepcopy(default_pair),
+            labels=deepcopy(default_pair),
+            collages=PathTemplatePair(
+                release=PathTemplate("{{ position }}. " + default_pair.release.text),
+                track=deepcopy(default_pair.track),
+            ),
+            playlists=PathTemplate(
+                """
 {{ position }}.
 {{ artists | artistsfmt }} -
 {{ title }}
 """
+            ),
         )
-    )
+
+    def parse(self) -> None:
+        """
+        Attempt to parse all the templates into Jinja templates (which will be cached on the
+        cached properties). This will raise an InvalidPathTemplateError if a template is invalid.
+        """
+        key = ""
+        try:
+            key = "source.release"
+            _ = self.source.release.compiled
+            key = "source.track"
+            _ = self.source.track.compiled
+            key = "all_releases.release"
+            _ = self.all_releases.release.compiled
+            key = "all_releases.track"
+            _ = self.all_releases.track.compiled
+            key = "new_releases.release"
+            _ = self.new_releases.release.compiled
+            key = "new_releases.track"
+            _ = self.new_releases.track.compiled
+            key = "recently_added_releases.release"
+            _ = self.recently_added_releases.release.compiled
+            key = "recently_added_releases.track"
+            _ = self.recently_added_releases.track.compiled
+            key = "artists.release"
+            _ = self.artists.release.compiled
+            key = "artists.track"
+            _ = self.artists.track.compiled
+            key = "genres.release"
+            _ = self.genres.release.compiled
+            key = "genres.track"
+            _ = self.genres.track.compiled
+            key = "labels.release"
+            _ = self.labels.release.compiled
+            key = "labels.track"
+            _ = self.labels.track.compiled
+            key = "collages.release"
+            _ = self.collages.release.compiled
+            key = "collages.track"
+            _ = self.collages.track.compiled
+            key = "playlists"
+            _ = self.playlists.compiled
+        except jinja2.exceptions.TemplateSyntaxError as e:
+            raise InvalidPathTemplateError(f"Failed to compile template: {e}", key=key) from e
 
 
 def eval_release_template(

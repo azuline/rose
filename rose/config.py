@@ -5,18 +5,27 @@ special care to provide early and comprehensible errors when the configuration i
 
 from __future__ import annotations
 
+import contextlib
 import functools
+import logging
 import multiprocessing
-from collections import defaultdict
+from collections import defaultdict, deque
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import appdirs
 import tomllib
 
 from rose.common import RoseExpectedError, sanitize_filename
 from rose.rule_parser import MetadataRule, RuleSyntaxError
-from rose.templates import PathTemplateConfig
+from rose.templates import (
+    DEFAULT_TEMPLATE_PAIR,
+    InvalidPathTemplateError,
+    PathTemplate,
+    PathTemplateConfig,
+)
 
 XDG_CONFIG_ROSE = Path(appdirs.user_config_dir("rose"))
 XDG_CONFIG_ROSE.mkdir(parents=True, exist_ok=True)
@@ -24,6 +33,8 @@ CONFIG_PATH = XDG_CONFIG_ROSE / "config.toml"
 
 XDG_CACHE_ROSE = Path(appdirs.user_cache_dir("rose"))
 XDG_CACHE_ROSE.mkdir(parents=True, exist_ok=True)
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigNotFoundError(RoseExpectedError):
@@ -72,6 +83,8 @@ class Config:
 
     @classmethod
     def parse(cls, config_path_override: Path | None = None) -> Config:
+        # As we parse, delete consumed values from the data dictionary. If any are left over at the
+        # end of the config, warn that unknown config keys were found.
         cfgpath = config_path_override or CONFIG_PATH
         cfgtext = ""
         try:
@@ -87,6 +100,7 @@ class Config:
 
         try:
             music_source_dir = Path(data["music_source_dir"]).expanduser()
+            del data["music_source_dir"]
         except KeyError as e:
             raise MissingConfigKeyError(
                 f"Missing key music_source_dir in configuration file ({cfgpath})"
@@ -99,6 +113,7 @@ class Config:
 
         try:
             fuse_mount_dir = Path(data["fuse_mount_dir"]).expanduser()
+            del data["fuse_mount_dir"]
         except KeyError as e:
             raise MissingConfigKeyError(
                 f"Missing key fuse_mount_dir in configuration file ({cfgpath})"
@@ -111,6 +126,7 @@ class Config:
 
         try:
             cache_dir = Path(data["cache_dir"]).expanduser()
+            del data["cache_dir"]
         except KeyError:
             cache_dir = XDG_CACHE_ROSE
         except (TypeError, ValueError) as e:
@@ -121,6 +137,7 @@ class Config:
 
         try:
             max_proc = int(data["max_proc"])
+            del data["max_proc"]
             if max_proc <= 0:
                 raise ValueError(f"max_proc must be a positive integer: got {max_proc}")
         except KeyError:
@@ -146,6 +163,8 @@ class Config:
                     if not isinstance(s, str):
                         raise ValueError(f"Each alias must be of type str: got {type(s)}")
                     artist_aliases_parents_map[s].append(entry["artist"])
+            with contextlib.suppress(KeyError):
+                del data["artist_aliases"]
         except (ValueError, TypeError, KeyError) as e:
             raise InvalidConfigValueError(
                 f"Invalid value for artist_aliases in configuration file ({cfgpath}): "
@@ -154,6 +173,7 @@ class Config:
 
         try:
             fuse_artists_whitelist = data["fuse_artists_whitelist"]
+            del data["fuse_artists_whitelist"]
             if not isinstance(fuse_artists_whitelist, list):
                 raise ValueError(
                     f"fuse_artists_whitelist must be a list[str]: "
@@ -172,6 +192,7 @@ class Config:
 
         try:
             fuse_genres_whitelist = data["fuse_genres_whitelist"]
+            del data["fuse_genres_whitelist"]
             if not isinstance(fuse_genres_whitelist, list):
                 raise ValueError(
                     f"fuse_genres_whitelist must be a list[str]: got {type(fuse_genres_whitelist)}"
@@ -189,6 +210,7 @@ class Config:
 
         try:
             fuse_labels_whitelist = data["fuse_labels_whitelist"]
+            del data["fuse_labels_whitelist"]
             if not isinstance(fuse_labels_whitelist, list):
                 raise ValueError(
                     f"fuse_labels_whitelist must be a list[str]: got {type(fuse_labels_whitelist)}"
@@ -206,6 +228,7 @@ class Config:
 
         try:
             fuse_artists_blacklist = data["fuse_artists_blacklist"]
+            del data["fuse_artists_blacklist"]
             if not isinstance(fuse_artists_blacklist, list):
                 raise ValueError(
                     f"fuse_artists_blacklist must be a list[str]: "
@@ -224,6 +247,7 @@ class Config:
 
         try:
             fuse_genres_blacklist = data["fuse_genres_blacklist"]
+            del data["fuse_genres_blacklist"]
             if not isinstance(fuse_genres_blacklist, list):
                 raise ValueError(
                     f"fuse_genres_blacklist must be a list[str]: got {type(fuse_genres_blacklist)}"
@@ -241,6 +265,7 @@ class Config:
 
         try:
             fuse_labels_blacklist = data["fuse_labels_blacklist"]
+            del data["fuse_labels_blacklist"]
             if not isinstance(fuse_labels_blacklist, list):
                 raise ValueError(
                     f"fuse_labels_blacklist must be a list[str]: got {type(fuse_labels_blacklist)}"
@@ -273,7 +298,8 @@ class Config:
             )
 
         try:
-            cover_art_stems = data.get("cover_art_stems", ["folder", "cover", "art", "front"])
+            cover_art_stems = data["cover_art_stems"]
+            del data["cover_art_stems"]
             if not isinstance(cover_art_stems, list):
                 raise ValueError(
                     f"cover_art_stems must be a list[str]: got {type(cover_art_stems)}"
@@ -281,6 +307,8 @@ class Config:
             for s in cover_art_stems:
                 if not isinstance(s, str):
                     raise ValueError(f"Each cover art stem must be of type str: got {type(s)}")
+        except KeyError:
+            cover_art_stems = ["folder", "cover", "art", "front"]
         except ValueError as e:
             raise InvalidConfigValueError(
                 f"Invalid value for cover_art_stems in configuration file ({cfgpath}): "
@@ -288,12 +316,15 @@ class Config:
             ) from e
 
         try:
-            valid_art_exts = data.get("valid_art_exts", ["jpg", "jpeg", "png"])
+            valid_art_exts = data["valid_art_exts"]
+            del data["valid_art_exts"]
             if not isinstance(valid_art_exts, list):
                 raise ValueError(f"valid_art_exts must be a list[str]: got {type(valid_art_exts)}")
             for s in valid_art_exts:
                 if not isinstance(s, str):
                     raise ValueError(f"Each art extension must be of type str: got {type(s)}")
+        except KeyError:
+            valid_art_exts = ["jpg", "jpeg", "png"]
         except ValueError as e:
             raise InvalidConfigValueError(
                 f"Invalid value for valid_art_exts in configuration file ({cfgpath}): "
@@ -304,7 +335,8 @@ class Config:
         valid_art_exts = [x.lower() for x in valid_art_exts]
 
         try:
-            ignore_release_directories = data.get("ignore_release_directories", [])
+            ignore_release_directories = data["ignore_release_directories"]
+            del data["ignore_release_directories"]
             if not isinstance(ignore_release_directories, list):
                 raise ValueError(
                     "ignore_release_directories must be a list[str]: "
@@ -313,6 +345,8 @@ class Config:
             for s in ignore_release_directories:
                 if not isinstance(s, str):
                     raise ValueError(f"Each release directory must be of type str: got {type(s)}")
+        except KeyError:
+            ignore_release_directories = []
         except ValueError as e:
             raise InvalidConfigValueError(
                 f"Invalid value for ignore_release_directories in configuration file ({cfgpath}): "
@@ -366,8 +400,75 @@ class Config:
                     f"Failed to parse stored_metadata_rules in configuration file ({cfgpath}): "
                     f"rule {d}: {e}"
                 ) from e
+        if "stored_metadata_rules" in data:
+            del data["stored_metadata_rules"]
 
-        return cls(
+        # Get the potential default template before evaluating the rest.
+        default_templates = deepcopy(DEFAULT_TEMPLATE_PAIR)
+        with contextlib.suppress(KeyError):
+            default_templates.release = PathTemplate(data["path_templates"]["default"]["release"])
+            del data["path_templates"]["default"]["release"]
+        with contextlib.suppress(KeyError):
+            default_templates.track = PathTemplate(data["path_templates"]["default"]["track"])
+            del data["path_templates"]["default"]["track"]
+        with contextlib.suppress(KeyError):
+            if not data["path_templates"]["default"]:
+                del data["path_templates"]["default"]
+
+        path_templates = PathTemplateConfig.with_defaults(default_templates)
+        if tmpl_config := data.get("path_templates", None):
+            for key in [
+                "source",
+                "all_releases",
+                "new_releases",
+                "recently_added_releases",
+                "artists",
+                "genres",
+                "labels",
+                "collages",
+            ]:
+                with contextlib.suppress(KeyError):
+                    getattr(path_templates, key).release = PathTemplate(tmpl_config[key]["release"])
+                    del tmpl_config[key]["release"]
+                with contextlib.suppress(KeyError):
+                    getattr(path_templates, key).track = PathTemplate(tmpl_config[key]["track"])
+                    del tmpl_config[key]["track"]
+                with contextlib.suppress(KeyError):
+                    if not tmpl_config[key]:
+                        del tmpl_config[key]
+
+            with contextlib.suppress(KeyError):
+                path_templates.playlists = PathTemplate(tmpl_config["playlists"])
+                del tmpl_config["playlists"]
+        with contextlib.suppress(KeyError):
+            if not data["path_templates"]:
+                del data["path_templates"]
+
+        try:
+            path_templates.parse()
+        except InvalidPathTemplateError as e:
+            raise InvalidConfigValueError(
+                f"Invalid path template in configuration file ({cfgpath}) for template {e.key}: {e}"
+            ) from e
+
+        if data:
+            unrecognized_accessors: list[str] = []
+            # Do a DFS over the data keys to assemble the map of unknown keys. State is a tuple of
+            # ("accessor", node).
+            dfs_state: deque[tuple[str, dict[str, Any]]] = deque([("", data)])
+            while dfs_state:
+                accessor, node = dfs_state.pop()
+                if isinstance(node, dict):
+                    for k, v in node.items():
+                        child_accessor = k if not accessor else f"{accessor}.{k}"
+                        dfs_state.append((child_accessor, v))
+                    continue
+                unrecognized_accessors.append(accessor)
+            logger.warning(
+                f"Unrecognized options found in configuration file: {', '.join(unrecognized_accessors)}"
+            )
+
+        return Config(
             music_source_dir=music_source_dir,
             fuse_mount_dir=fuse_mount_dir,
             cache_dir=cache_dir,
@@ -383,7 +484,7 @@ class Config:
             cover_art_stems=cover_art_stems,
             valid_art_exts=valid_art_exts,
             # TODO: Configuration.
-            path_templates=PathTemplateConfig(),
+            path_templates=path_templates,
             ignore_release_directories=ignore_release_directories,
             stored_metadata_rules=stored_metadata_rules,
         )

@@ -272,22 +272,6 @@ class StoredDataFile:
     added_at: str  # ISO8601 timestamp
 
 
-RELEASE_TYPE_FORMATTER = {
-    "album": "Album",
-    "single": "Single",
-    "ep": "EP",
-    "compilation": "Compilation",
-    "anthology": "Anthology",
-    "soundtrack": "Soundtrack",
-    "live": "Live",
-    "remix": "Remix",
-    "djmix": "DJ-Mix",
-    "mixtape": "Mixtape",
-    "other": "Other",
-    "demo": "Demo",
-    "unknown": "Unknown",
-}
-
 STORED_DATA_FILE_REGEX = re.compile(r"\.rose\.([^.]+)\.toml")
 
 
@@ -1261,7 +1245,7 @@ def update_cache_for_collages(
                 desc_map: dict[str, str] = {}
                 cursor = conn.execute(
                     f"""
-                    SELECT id, title, year, releasetype, artist_names, artist_roles FROM releases_view
+                    SELECT id, title, year, artist_names, artist_roles FROM releases_view
                     WHERE id IN ({','.join(['?']*len(releases))})
                     """,
                     cached_collage.release_ids,
@@ -1270,7 +1254,6 @@ def update_cache_for_collages(
                     desc_map[row["id"]] = calculate_release_logtext(
                         title=row["title"],
                         year=row["year"],
-                        releasetype=row["releasetype"],
                         artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
                     )
                 for i, rls in enumerate(releases):
@@ -1722,7 +1705,7 @@ def get_release_logtext(c: Config, release_id: str) -> str | None:
     """Get a human-readable identifier for a release suitable for logging."""
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT title, year, releasetype, artist_names, artist_roles FROM releases_view WHERE id = ?",
+            "SELECT title, year, artist_names, artist_roles FROM releases_view WHERE id = ?",
             (release_id,),
         )
         row = cursor.fetchone()
@@ -1731,7 +1714,6 @@ def get_release_logtext(c: Config, release_id: str) -> str | None:
         return calculate_release_logtext(
             title=row["title"],
             year=row["year"],
-            releasetype=row["releasetype"],
             artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
         )
 
@@ -1739,19 +1721,12 @@ def get_release_logtext(c: Config, release_id: str) -> str | None:
 def calculate_release_logtext(
     title: str,
     year: int | None,
-    releasetype: str,
     artists: ArtistMapping,
 ) -> str:
     logtext = f"{artistsfmt(artists)} - "
     if year:
         logtext += f"{year}. "
     logtext += title
-    if (
-        releasetype not in ["album", "other", "unknown"]
-        and releasetype != "remix"
-        and "remix" in title.lower()
-    ):
-        logtext += " - " + RELEASE_TYPE_FORMATTER.get(releasetype, releasetype.title())
     return logtext
 
 

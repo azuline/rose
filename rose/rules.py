@@ -182,6 +182,9 @@ def filter_false_positives_using_tags(
     return matcher_audiotags
 
 
+Changes = tuple[str, str | int | None | list[str], str | int | None | list[str]]
+
+
 def execute_metadata_actions(
     c: Config,
     actions: list[MetadataAction],
@@ -205,9 +208,6 @@ def execute_metadata_actions(
         # NOTE: Nothing should be an alias in this fn because we get data from tags.
         return [Artist(x) for x in xs]
 
-    Changes = tuple[
-        str, str | int | None | list[str], str | int | None | list[str]
-    ]  # (old, new)  # noqa: N806
     actionable_audiotags: list[tuple[AudioTags, list[Changes]]] = []
     for tags in audiotags:
         origtags = copy.deepcopy(tags)

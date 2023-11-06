@@ -90,7 +90,6 @@ def test_rule_parse_matcher() -> None:
         pattern="",
     )
 
-    @pytest.mark.helper()
     def test_err(rule: str, err: str) -> None:
         with pytest.raises(RuleSyntaxError) as exc:
             MetadataMatcher.parse(rule)
@@ -231,7 +230,6 @@ def test_rule_parse_action() -> None:
         pattern="haha",
     )
 
-    @pytest.mark.helper()
     def test_err(rule: str, err: str, matcher: MetadataMatcher | None = None) -> None:
         with pytest.raises(RuleSyntaxError) as exc:
             MetadataAction.parse(rule, 1, matcher)
