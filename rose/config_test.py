@@ -46,6 +46,7 @@ def test_config_full() -> None:
                 cover_art_stems = [ "aa", "bb" ]
                 valid_art_exts = [ "tiff" ]
                 ignore_release_directories = [ "dummy boy" ]
+                rename_source_files = true
 
                 [[stored_metadata_rules]]
                 matcher = "tracktitle:lala"
@@ -104,6 +105,7 @@ def test_config_full() -> None:
             fuse_labels_blacklist=["zzz"],
             cover_art_stems=["aa", "bb"],
             valid_art_exts=["tiff"],
+            rename_source_files=True,
             path_templates=PathTemplateConfig(
                 source=PathTemplatePair(
                     release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
@@ -239,7 +241,7 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for max_proc in configuration file ({path}): must be a positive integer"  # noqa
+            == f"Invalid value for max_proc in configuration file ({path}): must be a positive integer"
         )
         config += "\nmax_proc = 8"
 
@@ -249,35 +251,35 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
+            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"
         )
         write(config + '\nartist_aliases = ["lalala"]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
+            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"
         )
         write(config + '\nartist_aliases = [["lalala"]]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
+            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"
         )
         write(config + '\nartist_aliases = [{artist="lalala", aliases="lalala"}]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
+            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"
         )
         write(config + '\nartist_aliases = [{artist="lalala", aliases=[123]}]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"  # noqa
+            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"
         )
         config += '\nartist_aliases = [{artist="tripleS", aliases=["EVOLution"]}]'
 
@@ -287,14 +289,14 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_artists_whitelist in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_artists_whitelist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
         )
         write(config + "\nfuse_artists_whitelist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_artists_whitelist in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_artists_whitelist in configuration file ({path}): Each artist must be of type str: got <class 'int'>"
         )
 
         # fuse_genres_whitelist
@@ -303,14 +305,14 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_genres_whitelist in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_genres_whitelist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
         )
         write(config + "\nfuse_genres_whitelist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_genres_whitelist in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_genres_whitelist in configuration file ({path}): Each genre must be of type str: got <class 'int'>"
         )
 
         # fuse_labels_whitelist
@@ -319,14 +321,14 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_labels_whitelist in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_labels_whitelist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
         )
         write(config + "\nfuse_labels_whitelist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_labels_whitelist in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_labels_whitelist in configuration file ({path}): Each label must be of type str: got <class 'int'>"
         )
 
         # fuse_artists_blacklist
@@ -335,14 +337,14 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_artists_blacklist in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_artists_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
         )
         write(config + "\nfuse_artists_blacklist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_artists_blacklist in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_artists_blacklist in configuration file ({path}): Each artist must be of type str: got <class 'int'>"
         )
 
         # fuse_genres_blacklist
@@ -351,14 +353,14 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_genres_blacklist in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_genres_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
         )
         write(config + "\nfuse_genres_blacklist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_genres_blacklist in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_genres_blacklist in configuration file ({path}): Each genre must be of type str: got <class 'int'>"
         )
 
         # fuse_labels_blacklist
@@ -367,14 +369,14 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_labels_blacklist in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_labels_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
         )
         write(config + "\nfuse_labels_blacklist = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for fuse_labels_blacklist in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for fuse_labels_blacklist in configuration file ({path}): Each label must be of type str: got <class 'int'>"
         )
 
         # fuse_artists_whitelist + fuse_artists_blacklist
@@ -410,14 +412,14 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for cover_art_stems in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for cover_art_stems in configuration file ({path}): Must be a list[str]: got <class 'str'>"
         )
         write(config + "\ncover_art_stems = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for cover_art_stems in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for cover_art_stems in configuration file ({path}): Each cover art stem must be of type str: got <class 'int'>"
         )
         config += '\ncover_art_stems = [ "cover" ]'
 
@@ -427,14 +429,14 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for valid_art_exts in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for valid_art_exts in configuration file ({path}): Must be a list[str]: got <class 'str'>"
         )
         write(config + "\nvalid_art_exts = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for valid_art_exts in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for valid_art_exts in configuration file ({path}): Each art extension must be of type str: got <class 'int'>"
         )
         config += '\nvalid_art_exts = [ "jpg" ]'
 
@@ -444,14 +446,14 @@ def test_config_value_validation() -> None:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for ignore_release_directories in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for ignore_release_directories in configuration file ({path}): Must be a list[str]: got <class 'str'>"
         )
         write(config + "\nignore_release_directories = [123]")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for ignore_release_directories in configuration file ({path}): must be a list of strings"  # noqa
+            == f"Invalid value for ignore_release_directories in configuration file ({path}): Each release directory must be of type str: got <class 'int'>"
         )
         config += '\nignore_release_directories = [ ".stversions" ]'
 
@@ -487,4 +489,13 @@ Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'ma
         assert (
             str(excinfo.value)
             == f"Invalid path template in configuration file ({path}) for template source.release: Failed to compile template: unexpected 'end of template'"
+        )
+
+        # rename_source_files
+        write(config + '\nrename_source_files = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for rename_source_files in configuration file ({path}): Must be a bool: got <class 'str'>"
         )

@@ -84,6 +84,7 @@ def config(isolated_dir: Path) -> Config:
         cover_art_stems=["cover", "folder", "art", "front"],
         valid_art_exts=["jpg", "jpeg", "png"],
         path_templates=PathTemplateConfig.with_defaults(),
+        rename_source_files=False,
         ignore_release_directories=[],
         stored_metadata_rules=[],
     )

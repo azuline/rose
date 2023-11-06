@@ -77,6 +77,7 @@ class Config:
     cover_art_stems: list[str]
     valid_art_exts: list[str]
 
+    rename_source_files: bool
     path_templates: PathTemplateConfig
 
     stored_metadata_rules: list[MetadataRule]
@@ -107,8 +108,7 @@ class Config:
             ) from e
         except (ValueError, TypeError) as e:
             raise InvalidConfigValueError(
-                f"Invalid value for music_source_dir in configuration file ({cfgpath}): "
-                "must be a path"
+                f"Invalid value for music_source_dir in configuration file ({cfgpath}): must be a path"
             ) from e
 
         try:
@@ -120,8 +120,7 @@ class Config:
             ) from e
         except (ValueError, TypeError) as e:
             raise InvalidConfigValueError(
-                f"Invalid value for fuse_mount_dir in configuration file ({cfgpath}): "
-                "must be a path"
+                f"Invalid value for fuse_mount_dir in configuration file ({cfgpath}): must be a path"
             ) from e
 
         try:
@@ -139,13 +138,12 @@ class Config:
             max_proc = int(data["max_proc"])
             del data["max_proc"]
             if max_proc <= 0:
-                raise ValueError(f"max_proc must be a positive integer: got {max_proc}")
+                raise ValueError(f"must be a positive integer: got {max_proc}")
         except KeyError:
             max_proc = max(1, multiprocessing.cpu_count() // 2)
         except ValueError as e:
             raise InvalidConfigValueError(
-                f"Invalid value for max_proc in configuration file ({cfgpath}): "
-                "must be a positive integer"
+                f"Invalid value for max_proc in configuration file ({cfgpath}): must be a positive integer"
             ) from e
 
         artist_aliases_map: dict[str, list[str]] = defaultdict(list)
@@ -167,18 +165,14 @@ class Config:
                 del data["artist_aliases"]
         except (ValueError, TypeError, KeyError) as e:
             raise InvalidConfigValueError(
-                f"Invalid value for artist_aliases in configuration file ({cfgpath}): "
-                "must be a list of { artist = str, aliases = list[str] } records"
+                f"Invalid value for artist_aliases in configuration file ({cfgpath}): must be a list of {{ artist = str, aliases = list[str] }} records"
             ) from e
 
         try:
             fuse_artists_whitelist = data["fuse_artists_whitelist"]
             del data["fuse_artists_whitelist"]
             if not isinstance(fuse_artists_whitelist, list):
-                raise ValueError(
-                    f"fuse_artists_whitelist must be a list[str]: "
-                    f"got {type(fuse_artists_whitelist)}"
-                )
+                raise ValueError(f"Must be a list[str]: got {type(fuse_artists_whitelist)}")
             for s in fuse_artists_whitelist:
                 if not isinstance(s, str):
                     raise ValueError(f"Each artist must be of type str: got {type(s)}")
@@ -186,17 +180,14 @@ class Config:
             fuse_artists_whitelist = None
         except ValueError as e:
             raise InvalidConfigValueError(
-                f"Invalid value for fuse_artists_whitelist in configuration file ({cfgpath}): "
-                "must be a list of strings"
+                f"Invalid value for fuse_artists_whitelist in configuration file ({cfgpath}): {e}"
             ) from e
 
         try:
             fuse_genres_whitelist = data["fuse_genres_whitelist"]
             del data["fuse_genres_whitelist"]
             if not isinstance(fuse_genres_whitelist, list):
-                raise ValueError(
-                    f"fuse_genres_whitelist must be a list[str]: got {type(fuse_genres_whitelist)}"
-                )
+                raise ValueError(f"Must be a list[str]: got {type(fuse_genres_whitelist)}")
             for s in fuse_genres_whitelist:
                 if not isinstance(s, str):
                     raise ValueError(f"Each genre must be of type str: got {type(s)}")
@@ -204,17 +195,14 @@ class Config:
             fuse_genres_whitelist = None
         except ValueError as e:
             raise InvalidConfigValueError(
-                f"Invalid value for fuse_genres_whitelist in configuration file ({cfgpath}): "
-                "must be a list of strings"
+                f"Invalid value for fuse_genres_whitelist in configuration file ({cfgpath}): {e}"
             ) from e
 
         try:
             fuse_labels_whitelist = data["fuse_labels_whitelist"]
             del data["fuse_labels_whitelist"]
             if not isinstance(fuse_labels_whitelist, list):
-                raise ValueError(
-                    f"fuse_labels_whitelist must be a list[str]: got {type(fuse_labels_whitelist)}"
-                )
+                raise ValueError(f"Must be a list[str]: got {type(fuse_labels_whitelist)}")
             for s in fuse_labels_whitelist:
                 if not isinstance(s, str):
                     raise ValueError(f"Each label must be of type str: got {type(s)}")
@@ -222,18 +210,14 @@ class Config:
             fuse_labels_whitelist = None
         except ValueError as e:
             raise InvalidConfigValueError(
-                f"Invalid value for fuse_labels_whitelist in configuration file ({cfgpath}): "
-                "must be a list of strings"
+                f"Invalid value for fuse_labels_whitelist in configuration file ({cfgpath}): {e}"
             ) from e
 
         try:
             fuse_artists_blacklist = data["fuse_artists_blacklist"]
             del data["fuse_artists_blacklist"]
             if not isinstance(fuse_artists_blacklist, list):
-                raise ValueError(
-                    f"fuse_artists_blacklist must be a list[str]: "
-                    f"got {type(fuse_artists_blacklist)}"
-                )
+                raise ValueError(f"Must be a list[str]: got {type(fuse_artists_blacklist)}")
             for s in fuse_artists_blacklist:
                 if not isinstance(s, str):
                     raise ValueError(f"Each artist must be of type str: got {type(s)}")
@@ -241,17 +225,14 @@ class Config:
             fuse_artists_blacklist = None
         except ValueError as e:
             raise InvalidConfigValueError(
-                f"Invalid value for fuse_artists_blacklist in configuration file ({cfgpath}): "
-                "must be a list of strings"
+                f"Invalid value for fuse_artists_blacklist in configuration file ({cfgpath}): {e}"
             ) from e
 
         try:
             fuse_genres_blacklist = data["fuse_genres_blacklist"]
             del data["fuse_genres_blacklist"]
             if not isinstance(fuse_genres_blacklist, list):
-                raise ValueError(
-                    f"fuse_genres_blacklist must be a list[str]: got {type(fuse_genres_blacklist)}"
-                )
+                raise ValueError(f"Must be a list[str]: got {type(fuse_genres_blacklist)}")
             for s in fuse_genres_blacklist:
                 if not isinstance(s, str):
                     raise ValueError(f"Each genre must be of type str: got {type(s)}")
@@ -259,17 +240,14 @@ class Config:
             fuse_genres_blacklist = None
         except ValueError as e:
             raise InvalidConfigValueError(
-                f"Invalid value for fuse_genres_blacklist in configuration file ({cfgpath}): "
-                "must be a list of strings"
+                f"Invalid value for fuse_genres_blacklist in configuration file ({cfgpath}): {e}"
             ) from e
 
         try:
             fuse_labels_blacklist = data["fuse_labels_blacklist"]
             del data["fuse_labels_blacklist"]
             if not isinstance(fuse_labels_blacklist, list):
-                raise ValueError(
-                    f"fuse_labels_blacklist must be a list[str]: got {type(fuse_labels_blacklist)}"
-                )
+                raise ValueError(f"Must be a list[str]: got {type(fuse_labels_blacklist)}")
             for s in fuse_labels_blacklist:
                 if not isinstance(s, str):
                     raise ValueError(f"Each label must be of type str: got {type(s)}")
@@ -277,33 +255,27 @@ class Config:
             fuse_labels_blacklist = None
         except ValueError as e:
             raise InvalidConfigValueError(
-                f"Invalid value for fuse_labels_blacklist in configuration file ({cfgpath}): "
-                "must be a list of strings"
+                f"Invalid value for fuse_labels_blacklist in configuration file ({cfgpath}): {e}"
             ) from e
 
         if fuse_artists_whitelist and fuse_artists_blacklist:
             raise InvalidConfigValueError(
-                "Cannot specify both fuse_artists_whitelist and fuse_artists_blacklist in "
-                f"configuration file ({cfgpath}): must specify only one or the other"
+                f"Cannot specify both fuse_artists_whitelist and fuse_artists_blacklist in configuration file ({cfgpath}): must specify only one or the other"
             )
         if fuse_genres_whitelist and fuse_genres_blacklist:
             raise InvalidConfigValueError(
-                "Cannot specify both fuse_genres_whitelist and fuse_genres_blacklist in "
-                f"configuration file ({cfgpath}): must specify only one or the other"
+                f"Cannot specify both fuse_genres_whitelist and fuse_genres_blacklist in configuration file ({cfgpath}): must specify only one or the other"
             )
         if fuse_labels_whitelist and fuse_labels_blacklist:
             raise InvalidConfigValueError(
-                "Cannot specify both fuse_labels_whitelist and fuse_labels_blacklist in "
-                f"configuration file ({cfgpath}): must specify only one or the other"
+                f"Cannot specify both fuse_labels_whitelist and fuse_labels_blacklist in configuration file ({cfgpath}): must specify only one or the other"
             )
 
         try:
             cover_art_stems = data["cover_art_stems"]
             del data["cover_art_stems"]
             if not isinstance(cover_art_stems, list):
-                raise ValueError(
-                    f"cover_art_stems must be a list[str]: got {type(cover_art_stems)}"
-                )
+                raise ValueError(f"Must be a list[str]: got {type(cover_art_stems)}")
             for s in cover_art_stems:
                 if not isinstance(s, str):
                     raise ValueError(f"Each cover art stem must be of type str: got {type(s)}")
@@ -311,15 +283,14 @@ class Config:
             cover_art_stems = ["folder", "cover", "art", "front"]
         except ValueError as e:
             raise InvalidConfigValueError(
-                f"Invalid value for cover_art_stems in configuration file ({cfgpath}): "
-                "must be a list of strings"
+                f"Invalid value for cover_art_stems in configuration file ({cfgpath}): {e}"
             ) from e
 
         try:
             valid_art_exts = data["valid_art_exts"]
             del data["valid_art_exts"]
             if not isinstance(valid_art_exts, list):
-                raise ValueError(f"valid_art_exts must be a list[str]: got {type(valid_art_exts)}")
+                raise ValueError(f"Must be a list[str]: got {type(valid_art_exts)}")
             for s in valid_art_exts:
                 if not isinstance(s, str):
                     raise ValueError(f"Each art extension must be of type str: got {type(s)}")
@@ -327,21 +298,29 @@ class Config:
             valid_art_exts = ["jpg", "jpeg", "png"]
         except ValueError as e:
             raise InvalidConfigValueError(
-                f"Invalid value for valid_art_exts in configuration file ({cfgpath}): "
-                "must be a list of strings"
+                f"Invalid value for valid_art_exts in configuration file ({cfgpath}): {e}"
             ) from e
 
         cover_art_stems = [x.lower() for x in cover_art_stems]
         valid_art_exts = [x.lower() for x in valid_art_exts]
 
         try:
+            rename_source_files = data["rename_source_files"]
+            del data["rename_source_files"]
+            if not isinstance(rename_source_files, bool):
+                raise ValueError(f"Must be a bool: got {type(rename_source_files)}")
+        except KeyError:
+            rename_source_files = False
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for rename_source_files in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
             ignore_release_directories = data["ignore_release_directories"]
             del data["ignore_release_directories"]
             if not isinstance(ignore_release_directories, list):
-                raise ValueError(
-                    "ignore_release_directories must be a list[str]: "
-                    f"got {type(ignore_release_directories)}"
-                )
+                raise ValueError(f"Must be a list[str]: got {type(ignore_release_directories)}")
             for s in ignore_release_directories:
                 if not isinstance(s, str):
                     raise ValueError(f"Each release directory must be of type str: got {type(s)}")
@@ -349,56 +328,48 @@ class Config:
             ignore_release_directories = []
         except ValueError as e:
             raise InvalidConfigValueError(
-                f"Invalid value for ignore_release_directories in configuration file ({cfgpath}): "
-                "must be a list of strings"
+                f"Invalid value for ignore_release_directories in configuration file ({cfgpath}): {e}"
             ) from e
 
         stored_metadata_rules: list[MetadataRule] = []
         for d in data.get("stored_metadata_rules", []):
             if not isinstance(d, dict):
                 raise InvalidConfigValueError(
-                    f"Invalid value in stored_metadata_rules in configuration file "
-                    f"({cfgpath}): list values must be a dict: got {type(d)}"
+                    f"Invalid value in stored_metadata_rules in configuration file ({cfgpath}): list values must be a dict: got {type(d)}"
                 )
 
             try:
                 matcher = d["matcher"]
             except KeyError as e:
                 raise InvalidConfigValueError(
-                    f"Missing key `matcher` in stored_metadata_rules in configuration file "
-                    f"({cfgpath}): rule {d}"
+                    f"Missing key `matcher` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}"
                 ) from e
             if not isinstance(matcher, str):
                 raise InvalidConfigValueError(
-                    f"Invalid value for `matcher` in stored_metadata_rules in configuration file "
-                    f"({cfgpath}): rule {d}: must be a string"
+                    f"Invalid value for `matcher` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}: must be a string"
                 )
 
             try:
                 actions = d["actions"]
             except KeyError as e:
                 raise InvalidConfigValueError(
-                    f"Missing key `actions` in stored_metadata_rules in configuration file "
-                    f"({cfgpath}): rule {d}"
+                    f"Missing key `actions` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}"
                 ) from e
             if not isinstance(actions, list):
                 raise InvalidConfigValueError(
-                    f"Invalid value for `actions` in stored_metadata_rules in configuration file "
-                    f"({cfgpath}): rule {d}: must be a list of strings"
+                    f"Invalid value for `actions` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}: must be a list of strings"
                 )
             for action in actions:
                 if not isinstance(action, str):
                     raise InvalidConfigValueError(
-                        f"Invalid value for `actions` in stored_metadata_rules in configuration "
-                        f"file ({cfgpath}): rule {d}: must be a list of strings: got {type(action)}"
+                        f"Invalid value for `actions` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}: must be a list of strings: got {type(action)}"
                     )
 
             try:
                 stored_metadata_rules.append(MetadataRule.parse(matcher, actions))
             except RuleSyntaxError as e:
                 raise InvalidConfigValueError(
-                    f"Failed to parse stored_metadata_rules in configuration file ({cfgpath}): "
-                    f"rule {d}: {e}"
+                    f"Failed to parse stored_metadata_rules in configuration file ({cfgpath}): rule {d}: {e}"
                 ) from e
         if "stored_metadata_rules" in data:
             del data["stored_metadata_rules"]
@@ -483,8 +454,8 @@ class Config:
             fuse_labels_blacklist=fuse_labels_blacklist,
             cover_art_stems=cover_art_stems,
             valid_art_exts=valid_art_exts,
-            # TODO: Configuration.
             path_templates=path_templates,
+            rename_source_files=rename_source_files,
             ignore_release_directories=ignore_release_directories,
             stored_metadata_rules=stored_metadata_rules,
         )
