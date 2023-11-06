@@ -44,6 +44,7 @@ other unset templates (except playlist). Otherwise the templates default to:
 {% if year %}{{ year }}.{% endif %}
 {{ title }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
+{% if new %}[NEW]{% endif %}
 
 {# "Default Default" Track Template #}
 
@@ -51,7 +52,6 @@ other unset templates (except playlist). Otherwise the templates default to:
 {{ title }}
 {% if artists.guest %}(feat. {{ artists.guest | artistsarrayfmt }}){% endif %}
 ```
-
 
 # Template Language
 
@@ -69,6 +69,7 @@ default.release = """
   {{ artists | artistsfmt }} -
   {% if year %}{{ year }}.{% endif %}         {# Hi! This is a comment! #}
   {{ title }}
+  {% if new %}[NEW]{% endif %}
 """
 ```
 

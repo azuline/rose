@@ -34,8 +34,9 @@ with the `rename_source_files` configuration variable. See
 # "New" Releases
 
 Rosé supports flagging releases as "new." "New"-ness has no effects besides
-prefixing the release's virtual filesystem name with `{NEW}` and adding the
-release to the `2. Releases - New` top-level directory.
+suffixing the release's virtual filesystem name with `[NEW]` (with the default
+release template) and adding the release to the `2. Releases - New` top-level
+directory.
 
 On first import, releases are flagged as new by default. "New"-ness can be
 toggled manually afterwards. This feature is designed to allow you to
@@ -66,36 +67,44 @@ $ rose releases toggle-new "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Mat
 
 $ tree "2. Releases - New/"
 2. Releases - New/
-├── {NEW} LOOΠΔ - 2017. Kim Lip - Single/...
-└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/...
+├── LOOΠΔ - 2017. Kim Lip - Single [NEW]/...
+└── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [NEW]/...
 
-$ rose releases toggle-new "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+$ rose releases toggle-new "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [NEW]"
 [21:49:36] INFO: Updating cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [21:49:36] INFO: Updating release descriptions for Long Flight
 [21:49:36] INFO: Updating cache for collage Long Flight
 
 $ tree "2. Releases - New/"
 2. Releases - New/
-└── {NEW} LOOΠΔ - 2017. Kim Lip - Single/...
+└── LOOΠΔ - 2017. Kim Lip - Single [NEW]/...
 ```
 
 Virtual filesystem:
 
+_Note that if the release template produces the same path for new and non-new
+releases, this operation is not possible via the virtual filesystem._
+
 ```bash
 $ cd $fuse_mount_dir
 
-$ mv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP" "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+# The specific path to rename to depends on the release path template. Here we
+# are renaming the directory to what it would have been named if the release
+# were new. In the default template, that means appending [NEW]. If you have a
+# custom template, you will need to rename the directory in line with how
+# "new"-ness is rendered in your template.
+$ mv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [NEW]"
 
 $ tree "2. Releases - New/"
 2. Releases - New/
-├── {NEW} LOOΠΔ - 2017. Kim Lip - Single/...
-└── {NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/...
+├── LOOΠΔ - 2017. Kim Lip - Single [NEW]/...
+└── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [NEW]/...
 
-$ mv "1. Releases/{NEW} LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+$ mv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [NEW]" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 
 $ tree "2. Releases - New/"
 2. Releases - New/
-└── {NEW} LOOΠΔ - 2017. Kim Lip - Single/...
+└── LOOΠΔ - 2017. Kim Lip - Single [NEW]/...
 ```
 
 ## Set Release Cover Art
@@ -202,7 +211,7 @@ $ tree "1. Releases/"
 ├── BLACKPINK - 2016. SQUARE ONE - Single/...
 ├── BLACKPINK - 2016. SQUARE TWO - Single/...
 ├── NewJeans - 2022. Ditto - Single/...
-└── {NEW} LOOΠΔ - 2017. Kim Lip - Single/...
+└── LOOΠΔ - 2017. Kim Lip - Single [NEW]/...
 ```
 
 Virtual filesystem:
@@ -217,7 +226,7 @@ $ tree "1. Releases/"
 ├── BLACKPINK - 2016. SQUARE ONE - Single/...
 ├── BLACKPINK - 2016. SQUARE TWO - Single/...
 ├── NewJeans - 2022. Ditto - Single/...
-└── {NEW} LOOΠΔ - 2017. Kim Lip - Single/...
+└── LOOΠΔ - 2017. Kim Lip - Single [NEW]/...
 ```
 
 ## Edit Release Metadata
@@ -234,7 +243,7 @@ See [Improving Your Music Metadata](./METADATA_TOOLS.md) for documentation on
 the rules engine.
 
 ```bash
-$ rose releases run-rule '{NEW} The Strokes - 2001. Is This It' 'genre::add:Indie Rock'
+$ rose releases run-rule 'The Strokes - 2001. Is This It' 'genre::add:Indie Rock'
 The Strokes - 2001. Is This It/01. Is This It.opus
       genre: [] -> ['Indie Rock']
 The Strokes - 2001. Is This It/02. The Modern Age.opus

@@ -16,7 +16,7 @@ from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
 R1_VNAME = "Bass Man & Techno Man - 2023. Release 1"
 R2_VNAME = "Violin Woman (feat. Conductor Woman) - 2021. Release 2"
-R3_VNAME = "{NEW} Unknown Artists - 2021. Release 3"
+R3_VNAME = "Unknown Artists - 2021. Release 3 [NEW]"
 
 
 @contextmanager
@@ -126,7 +126,7 @@ def test_virtual_filesystem_write_files(
 ) -> None:
     """Assert that 1. we can write files and 2. cache updates in response."""
     root = config.fuse_mount_dir
-    path = root / "1. Releases" / "{NEW} BLACKPINK - 1990. I Love Blackpink" / "01. Track 1.m4a"
+    path = root / "1. Releases" / "BLACKPINK - 1990. I Love Blackpink [NEW]" / "01. Track 1.m4a"
     with start_virtual_fs(config):
         # Write!
         af = AudioTags.from_file(path)
@@ -204,7 +204,7 @@ def test_virtual_filesystem_playlist_actions(
     root = config.fuse_mount_dir
     src = config.music_source_dir
 
-    release_dir = root / "1. Releases" / "{NEW} BLACKPINK - 1990. I Love Blackpink"
+    release_dir = root / "1. Releases" / "BLACKPINK - 1990. I Love Blackpink [NEW]"
     filename = "01. Track 1.m4a"
 
     with start_virtual_fs(config):
@@ -249,7 +249,7 @@ def test_virtual_filesystem_release_cover_art_actions(
     source_dir: Path,  # noqa: ARG001
 ) -> None:
     root = config.fuse_mount_dir
-    release_dir = root / "1. Releases" / "{NEW} BLACKPINK - 1990. I Love Blackpink"
+    release_dir = root / "1. Releases" / "BLACKPINK - 1990. I Love Blackpink [NEW]"
     with start_virtual_fs(config):
         assert not (release_dir / "cover.jpg").is_file()
         # First write.
@@ -349,7 +349,7 @@ def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> 
         # production.
         subprocess.run(["rm", "-r", str(root / "1. Releases" / dirname)], check=True)
         assert not (root / "1. Releases" / dirname).exists()
-        assert not (root / "1. Releases" / f"{{NEW}} {dirname}").is_dir()
+        assert not (root / "1. Releases" / f"{dirname} [NEW]").is_dir()
         assert not (source_dir / "Test Release 3").exists()
 
 
@@ -363,7 +363,7 @@ def test_virtual_filesystem_read_from_deleted_file(config: Config, source_dir: P
     fuse_path = (
         config.fuse_mount_dir
         / "1. Releases"
-        / "{NEW} BLACKPINK - 1990. I Love Blackpink"
+        / "BLACKPINK - 1990. I Love Blackpink [NEW]"
         / "01. Track 1.m4a"
     )
 
@@ -380,12 +380,12 @@ def test_virtual_filesystem_toggle_new(config: Config, source_dir: Path) -> None
     dirname = "NewJeans - 1990. I Love NewJeans"
     root = config.fuse_mount_dir
     with start_virtual_fs(config):
-        (root / "1. Releases" / dirname).rename(root / "1. Releases" / f"{{NEW}} {dirname}")
-        assert (root / "1. Releases" / f"{{NEW}} {dirname}").is_dir()
+        (root / "1. Releases" / dirname).rename(root / "1. Releases" / f"{dirname} [NEW]")
+        assert (root / "1. Releases" / f"{dirname} [NEW]").is_dir()
         assert (root / "1. Releases" / dirname) not in set((root / "1. Releases").iterdir())
-        (root / "1. Releases" / f"{{NEW}} {dirname}").rename(root / "1. Releases" / dirname)
+        (root / "1. Releases" / f"{dirname} [NEW]").rename(root / "1. Releases" / dirname)
         assert (root / "1. Releases" / dirname).is_dir()
-        assert (root / "1. Releases" / f"{{NEW}} {dirname}") not in set(
+        assert (root / "1. Releases" / f"{dirname} [NEW]") not in set(
             (root / "1. Releases").iterdir()
         )
         with pytest.raises(OSError):  # noqa: PT011

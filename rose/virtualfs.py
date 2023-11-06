@@ -43,6 +43,7 @@ import stat
 import subprocess
 import tempfile
 from collections.abc import Iterator
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -294,15 +295,18 @@ class VirtualNameGenerator:
 
     def __init__(self, config: Config):
         self._config = config
+        # fmt: off
+        #
         # These are the stateful maps that we use to remember path mappings. They are maps from the
         # (parent_path, virtual path) -> entity ID.
         #
         # Entries expire after 15 minutes, which implements the "serve accesses to previous paths"
         # behavior as specified in the class docstring.
-        #
-        # fmt: off
         self._release_store: cachetools.TTLCache[tuple[VirtualPath, str], str] = cachetools.TTLCache(maxsize=999999, ttl=60 * 15)
         self._track_store: cachetools.TTLCache[tuple[VirtualPath, str], str] = cachetools.TTLCache(maxsize=9999999, ttl=60 * 15)
+        # We also track the what the "inverse" new-ness paths are for a release. This allows us to
+        # handle toggle-new operations by comparing the new directory name against the inverse.
+        self._inverse_new_store: cachetools.TTLCache[tuple[VirtualPath, str], str] = cachetools.TTLCache(maxsize=9999999, ttl=60 * 15)
         # fmt: on
 
     def list_release_paths(
@@ -346,18 +350,22 @@ class VirtualNameGenerator:
             # Generate the directory name.
             vname = eval_release_template(template, release, position)
             vname = sanitize_filename(vname)
-            # Temporarily... TODO: Allow NEW to be part of the path templates.
-            if release.new:
-                vname = "{NEW} " + vname
+            # And generate the inverse new virtual name for toggle new checking.
+            inverse_new_release = deepcopy(release)
+            inverse_new_release.new = not release.new
+            inverse_new_vname = eval_release_template(template, inverse_new_release, position)
+            inverse_new_vname = sanitize_filename(inverse_new_vname)
 
             # Handle name collisions by appending a unique discriminator to the end.
             original_vname = vname
+            original_inverse_new_vname = inverse_new_vname
             collision_no = 2
             while True:
                 if vname not in seen:
                     break
                 logger.debug(f"Virtual dirname collision: {vname=} {seen=}")
                 vname = f"{original_vname} [{collision_no}]"
+                inverse_new_vname = f"{original_inverse_new_vname} [{collision_no}]"
                 collision_no += 1
 
             logtext = calculate_release_logtext(
@@ -369,6 +377,7 @@ class VirtualNameGenerator:
 
             # Store the generated release name in the cache.
             self._release_store[(release_parent, vname)] = release.id
+            self._inverse_new_store[(release_parent, vname)] = inverse_new_vname
             seen.add(vname)
 
             yield release, vname
@@ -467,6 +476,23 @@ class VirtualNameGenerator:
         except KeyError:
             logger.debug(f"VNAMES: Failed to resolve track virtual name {p}")
             return None
+
+    def check_toggle_new(self, old: VirtualPath, new: VirtualPath) -> bool:
+        """
+        Check whether the two directory names indicate a "toggle new" operation. The toggle new
+        operation occurs when the "new" marker is removed or added to the directory name. However,
+        the position and formatting of the marker depends on the path template, so we generate the
+        new and not-new path templates for the release and assert that each of the inputs matches
+        them.
+        """
+        logger.debug(f"VNAMES: Checking toggle new validity for {old=} and {new=}")
+        if not old.release or not new.release or old.release == new.release:
+            return False
+        try:
+            inverse_path = self._inverse_new_store[(old.release_parent, old.release)]
+        except KeyError:
+            return False
+        return old.release_parent == new.release_parent and new.release == inverse_path
 
 
 class CanShower:
@@ -933,10 +959,9 @@ class RoseLogicalCore:
         # TODO: Consider allowing renaming artist/genre/label here?
         if (
             (old.release and new.release)
-            and (release_id := self.vnames.lookup_release(old))
-            and old.release.removeprefix("{NEW} ") == new.release.removeprefix("{NEW} ")
             and (not old.file and not new.file)
-            and old.release.startswith("{NEW} ") != new.release.startswith("{NEW} ")
+            and (release_id := self.vnames.lookup_release(old))
+            and self.vnames.check_toggle_new(old, new)
         ):
             toggle_release_new(self.config, release_id)
             return

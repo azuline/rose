@@ -120,6 +120,7 @@ DEFAULT_RELEASE_TEMPLATE = PathTemplate(
 {% if year %}{{ year }}.{% endif %}
 {{ title }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
+{% if new %}[NEW]{% endif %}
 """
 )
 
@@ -321,7 +322,7 @@ def _preview_release_template(c: Config, label: str, template: PathTemplate) -> 
         title="Kim Lip",
         releasetype="single",
         year=2017,
-        new=False,
+        new=True,
         multidisc=False,
         genres=["K-Pop", "Dance-Pop", "Contemporary R&B"],
         labels=["BlockBerryCreative"],
@@ -339,7 +340,7 @@ def _preview_release_template(c: Config, label: str, template: PathTemplate) -> 
         title="Young Forever (花樣年華)",
         releasetype="album",
         year=2016,
-        new=True,
+        new=False,
         multidisc=True,
         genres=["K-Pop"],
         labels=["BIGHIT"],
