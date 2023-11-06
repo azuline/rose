@@ -97,6 +97,14 @@ class PathTemplate:
     def compiled(self) -> jinja2.Template:
         return ENVIRONMENT.from_string(self.text)
 
+    def __getstate__(self) -> dict[str, Any]:
+        # We cannot pickle a compiled path template, so remove it from the state before we pickle
+        # it. We can cheaply recompute it in the subprocess anyways.
+        state = self.__dict__.copy()
+        if "compiled" in state:
+            del state["compiled"]
+        return state
+
 
 @dataclasses.dataclass
 class PathTemplatePair:

@@ -35,7 +35,6 @@ import os.path
 import re
 import sqlite3
 import time
-import traceback
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -376,8 +375,8 @@ def update_cache_for_releases(
     # process.
     collages_to_force_update = manager.list()
     playlists_to_force_update = manager.list()
-    # Create a queue to propagate exceptions back up to the parent.
-    error_queue = manager.Queue()
+
+    errors: list[BaseException] = []
 
     logger.debug("Creating multiprocessing pool to parallelize cache executors.")
     with multiprocessing.Pool(processes=c.max_proc) as pool:
@@ -387,22 +386,21 @@ def update_cache_for_releases(
                 f"Spawning release cache update process for releases [{i}, {i+batch_size})"
             )
             pool.apply_async(
-                _update_cache_for_releases_process,
+                _update_cache_for_releases_executor,
                 (
                     c,
                     release_dirs[i : i + batch_size],
                     force,
                     collages_to_force_update,
                     playlists_to_force_update,
-                    error_queue,
                 ),
+                error_callback=lambda e: errors.append(e),
             )
         pool.close()
         pool.join()
 
-    if not error_queue.empty():
-        etype, tb = error_queue.get()
-        raise etype(f"Error in cache update subprocess.\n{tb}")
+    if errors:
+        raise ExceptionGroup("Exception occurred in cache update subprocesses", errors)  # type: ignore
 
     if collages_to_force_update:
         update_cache_for_collages(c, uniq(list(collages_to_force_update)), force=True)
@@ -410,34 +408,10 @@ def update_cache_for_releases(
         update_cache_for_playlists(c, uniq(list(playlists_to_force_update)), force=True)
 
 
-def _update_cache_for_releases_process(
-    c: Config,
-    release_dirs: list[Path],
-    force: bool,
-    collages_to_force_update: list[str],
-    playlists_to_force_update: list[str],
-    error_queue: "multiprocessing.Queue[Any]",
-) -> None:  # pragma: no cover
-    """General error handling stuff for the cache update subprocess."""
-    try:
-        return _update_cache_for_releases_executor(
-            c,
-            release_dirs,
-            force,
-            collages_to_force_update_receiver=collages_to_force_update,
-            playlists_to_force_update_receiver=playlists_to_force_update,
-        )
-    except Exception as e:
-        # Use traceback.format_exc() to get the formatted traceback string
-        tb = traceback.format_exc()
-        error_queue.put((type(e), tb))
-
-
 def _update_cache_for_releases_executor(
     c: Config,
     release_dirs: list[Path],
     force: bool,
-    *,
     # If these are not None, we will store the collages and playlists to update in here instead of
     # invoking the update functions directly. If these are None, we will not put anything in them
     # and instead invoke update_cache_for_{collages,playlists} directly. This is a Bad Pattern, but
