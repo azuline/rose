@@ -55,18 +55,21 @@ Tag = Literal[
     "label",
 ]
 
-ALL_TAGS: list[Tag] = [
-    "tracktitle",
-    "trackartist",
-    "tracknumber",
-    "discnumber",
-    "albumtitle",
-    "albumartist",
-    "releasetype",
-    "year",
-    "genre",
-    "label",
-]
+# Map of a tag to its "resolved" tags. Most tags simply resolve to themselves; however, we let
+# certain tags be aliases for multiple other tags, purely for convenience.
+ALL_TAGS: dict[str, list[Tag]] = {
+    "tracktitle": ["tracktitle"],
+    "trackartist": ["trackartist"],
+    "tracknumber": ["tracknumber"],
+    "discnumber": ["discnumber"],
+    "albumtitle": ["albumtitle"],
+    "albumartist": ["albumartist"],
+    "releasetype": ["releasetype"],
+    "year": ["year"],
+    "genre": ["genre"],
+    "label": ["label"],
+    "artist": ["trackartist", "albumartist"],
+}
 
 
 SINGLE_VALUE_TAGS: list[Tag] = [
@@ -151,7 +154,7 @@ class MetadataMatcher:
         tags: list[Tag] = []
         found_colon = False
         while True:
-            for t in ALL_TAGS:
+            for t, resolved in ALL_TAGS.items():
                 if not raw[idx:].startswith(t):
                     continue
                 try:
@@ -163,7 +166,7 @@ class MetadataMatcher:
                         index=idx + len(t),
                         feedback="Expected to find ',' or ':', found end of string.",
                     ) from None
-                tags.append(t)
+                tags.extend(resolved)
                 idx += len(t) + 1
                 found_colon = raw[idx - 1] == ":"
                 break
@@ -278,12 +281,12 @@ class MetadataAction:
                 tags = []
                 found_colon = False
                 while True:
-                    for t in ALL_TAGS:
+                    for t, resolved in ALL_TAGS.items():
                         if not raw[idx:].startswith(t):
                             continue
                         if raw[idx:][len(t)] not in [":", ","]:
                             continue
-                        tags.append(t)
+                        tags.extend(resolved)
                         idx += len(t) + 1
                         found_colon = raw[idx - 1] == ":"
                         break

@@ -102,7 +102,7 @@ Failed to parse matcher, invalid syntax:
 
     tracknumber^Track$
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, tracknumber, discnumber, albumtitle, albumartist, releasetype, year, genre, label}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, tracknumber, discnumber, albumtitle, albumartist, releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -242,7 +242,7 @@ Failed to parse action 1, invalid syntax:
 
     haha::delete
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, tracknumber, discnumber, albumtitle, albumartist, releasetype, year, genre, label}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, tracknumber, discnumber, albumtitle, albumartist, releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -253,7 +253,7 @@ Failed to parse action 1, invalid syntax:
 
     tracktitler::delete
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, tracknumber, discnumber, albumtitle, albumartist, releasetype, year, genre, label}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, tracknumber, discnumber, albumtitle, albumartist, releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 

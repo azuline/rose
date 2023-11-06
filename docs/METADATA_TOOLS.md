@@ -136,7 +136,7 @@ two of Chuu's releases, but the first is tagged as `CHUU`, and the second as
 this change:
 
 ```bash
-$ rose rules run 'trackartist,albumartist:^CHUU$' 'replace:Chuu'
+$ rose rules run 'artist:^CHUU$' 'replace:Chuu'
 
 CHUU - 2023. Howl/01. Howl.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
@@ -192,7 +192,7 @@ LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
 
 Write changes to 7 tracks? [Y/n] y
 
-[01:14:57] INFO: Writing tag changes for rule matcher=trackartist,albumartist:Chuu action=genre::replace-all:K-Pop
+[01:14:57] INFO: Writing tag changes for rule matcher=artist:Chuu action=genre::replace-all:K-Pop
 [01:14:57] INFO: Wrote tag changes to CHUU - 2023. Howl/01. Howl.opus
 [01:14:57] INFO: Wrote tag changes to CHUU - 2023. Howl/02. Underwater.opus
 [01:14:57] INFO: Wrote tag changes to CHUU - 2023. Howl/03. My Palace.opus
@@ -253,7 +253,7 @@ add the following text to my configuration file:
 
 ```toml
 [[stored_metadata_rules]]
-matcher = "trackartist,albumartist:^CHUU$"
+matcher = "artist:^CHUU$"
 actions = ["replace:Chuu"]
 [[stored_metadata_rules]]
 matcher = "albumartist:^Chuu$"
@@ -295,6 +295,9 @@ The `trackartist`, `albumartist`, `genre`, and `label` tags are _multi-value_
 tags, which have a slightly different behavior from single-value tags for some
 of the actions. We'll explore this difference in the [Actions](#actions)
 section.
+
+For convenience, the rules parser also accepts the tag `artist`, which it
+expands to `trackartist,albumartist`.
 
 ### Matchers
 
