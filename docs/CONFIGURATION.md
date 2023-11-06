@@ -33,6 +33,13 @@ fuse_mount_dir = "~/music"
 # === Optional values ===
 # =======================
 
+# If true, the directory and files in the source directory will be renamed
+# based on their tags. The rename will occur during Rosé's cache update
+# sequence. The source files will be renamed per the
+# `path_templates.source.release` and `path_templates.source.track`
+# configuration options. This is false by default.
+rename_source_files = false
+
 # Artist aliases: Grouping multiple names for the same artist together.
 #
 # Artists will sometimes release under multiple names. This is fine, but
@@ -108,8 +115,24 @@ cache_dir = "~/.cache/rose"
 # request.
 max_proc = 4
 
-# Stored metadata rules to be repeatedly ran in the future. See the Managing
-# Your Music Metadata document for more details.
+# The templates used to format the release directory names and track filenames
+# in the source directory and the virtual filesystem. See TEMPLATES.md for more
+# details.
+[path_templates]
+default.release = """
+{{ artists | artistsfmt }} -
+{% if year %}{{ year }}.{% endif %}
+{{ title }}
+{% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
+"""
+default.track = """
+{% if multidisc %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
+{{ title }}
+{% if artists.guest %}(feat. {{ artists.guest | artistsarrayfmt }}){% endif %}
+"""
+
+# Stored metadata rules to be repeatedly ran in the future. See
+# METADATA_TOOLS.md for more details.
 [[stored_metadata_rules]]
 matcher = "genre:^Kpop$"
 actions = ["replace:K-Pop"]

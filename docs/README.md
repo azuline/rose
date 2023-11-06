@@ -9,6 +9,7 @@ For more detailed documentation, please visit the following files:
 - [Managing Releases](./RELEASES.md)
 - [Improving Your Music Metadata](./METADATA_TOOLS.md)
 - [Maintaining the Cache](./CACHE_MAINTENANCE.md)
+- [Directory & Filename Templates](./TEMPLATES.md)
 - [Shell Scripting](./SHELL_SCRIPTING.md)
 - [Tagging Conventions](./docs/TAGGING_CONVENTIONS.md)
 - [Architecture](./ARCHITECTURE.md)

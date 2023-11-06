@@ -37,41 +37,17 @@ to create an intentional ordering.
 # Directory and File Names
 
 Rosé constructs a "virtual" directory name for each release and "virtual" file
-name for each track. Rosé uses the source directory's metadata tags to do so.
-When the source directory changes, the virtual names auto-update in response.
+name for each track. These filenames are different from the release's filenames
+in the source directory. Rosé uses the source directory's metadata tags to
+generate the virtual names. Therefore, when the music tags change, the virtual
+names auto-update in response.
 
-The release directory name template is:
-
-```
-%NEWNESS% %ALBUM_ARTISTS% - %YEAR%. %ALBUM_TITLE% - %RELEASE_TYPE% [%GENRE%]
-```
-
-> [!NOTE]
-> The `- %RELEASE_TYPE%` field is omitted when the release is of type `album`,
-> `other`, or `unknown`.
-
-The track file name template is:
-
-```
-%TRACK_ARTISTS% - %TRACK_TITLE%.%EXTENSION%
-```
-
-Depending on the view, the virtual names may have a _prefix_. The prefix is of
-the format `%PREFIX%. `. For example, tracks in a release have a position
-prefix of `%DISC_NUMBER%-%TRACK_NUMBER%. `. Collages and playlists apply a
-position prefix to each release/track in them. The Recently Added Releases view
-adds a date prefix to each release.
-
-"New" releases are prefixed with `{NEW}` in the virtual filesystem and appear
-in the `2. Releases - New` top-level directory.
-
-> [!NOTE]
-> The command line commands accept a release's virtual directory name as a
-> valid method of identifying a release. The virtual directory name passed to
-> those commands should not contain any date or position prefixes.
+The directory and file names are configurable. See [Directory & Filename
+Templates](./TEMPLATES.md) for details.
 
 Rosé also exposes all cover art under the filename `cover.{ext}`, regardless of
-the filename in the source directory.
+the filename in the source directory. Rosé also exposes the `.rose.{uuid}.toml`
+datafile in the virtual filesystem.
 
 # Hiding Artists, Genres, and Labels
 

@@ -421,6 +421,10 @@ The formal syntax is defined by the following grammar:
 <delete-action>  ::= 'delete'
 ```
 
+## Examples
+
+_TODO_
+
 ## Dry Runs
 
 You can preview a rule's changes with the `--dry-run` flag. For example:

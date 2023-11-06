@@ -167,15 +167,16 @@ by the two interfaces is:
 
 - Filter your music by artist, genre, label, and "new"-ness
 - Create collages of releases and playlists of tracks
-- Group artist aliases together under a primary artist
-- Flag and unflag release "new"-ness
+- Configure directory and filename templates for releases and tracks
 - Edit release metadata as a text file
 - Run and store rules for (bulk) updating metadata
 - Import metadata and cover art from third-party sources
 - Extract embedded cover art to an external file
+- Flag and unflag release "new"-ness
+- Group artist aliases together under a primary artist
 - Create "phony" single releases from any individual track
-- Support for `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` files
 - Support for multiple artist, label, and genre tags.
+- Support for `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` files
 
 > [!NOTE]
 > Rosé modifies the managed audio files, even on first scan. If you do not want
@@ -382,6 +383,7 @@ For additional documentation, please refer to the following files:
 - [Managing Playlists & Collages](./docs/PLAYLISTS_COLLAGES.md)
 - [Improving Your Music Metadata](./docs/METADATA_TOOLS.md)
 - [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md)
+- [Directory & Filename Templates](./docs/TEMPLATES.md)
 - [Shell Scripting](./docs/SHELL_SCRIPTING.md)
 - [Tagging Conventions](./docs/TAGGING_CONVENTIONS.md)
 - [Architecture](./docs/ARCHITECTURE.md)

@@ -27,6 +27,10 @@ new = false
 added_at = 2018-10-01 00:00:00-04:00
 ```
 
+The release directories and track files in `$music_source_dir` can be renamed
+with the `rename_source_files` configuration variable. See
+[Configuration](./CONFIGURATION.md) for more details.
+
 # "New" Releases
 
 Rosé supports flagging releases as "new." "New"-ness has no effects besides

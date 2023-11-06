@@ -15,8 +15,8 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
     files and directories that have been modified.
   - `cache unwatch`: Kill the running cache watcher process.
 - config/ _(See [Configuration](./CONFIGURATION.md))_
-  - `generate-completion`: Print a shell completion script for Rosé to stdout.
-  - `preview-templates`: Preview your configured path templates with sample
+  - `config generate-completion`: Print a shell completion script for Rosé to stdout.
+  - `config preview-templates`: Preview your configured path templates with sample
     data.
 - releases/ _(see [Managing Releases](./RELEASES.md))_
   - `releases print`: Print a single release's metadata in JSON.
