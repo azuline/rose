@@ -47,10 +47,11 @@ import tomli_w
 import tomllib
 import uuid6
 
-from rose.artiststr import format_artist_string
+from rose.artiststr import ArtistMapping
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
 from rose.common import VERSION, sanitize_filename, uniq
 from rose.config import Config
+from rose.templates import artistsfmt
 
 logger = logging.getLogger(__name__)
 
@@ -222,7 +223,6 @@ class CachedRelease:
     genres: list[str]
     labels: list[str]
     artists: list[CachedArtist]
-    formatted_artists: str
 
     def dump(self) -> dict[str, Any]:
         return {
@@ -239,7 +239,6 @@ class CachedRelease:
             "genres": self.genres,
             "labels": self.labels,
             "artists": [a.dump() for a in self.artists if not a.alias],
-            "formatted_artists": self.formatted_artists,
         }
 
 
@@ -255,7 +254,6 @@ class CachedTrack:
     duration_seconds: int
 
     artists: list[CachedArtist]
-    formatted_artists: str
 
     # Stored on here for virtual path generation; not inserted into the database.
     release_multidisc: bool
@@ -270,7 +268,6 @@ class CachedTrack:
             "discnumber": self.discnumber,
             "duration_seconds": self.duration_seconds,
             "artists": [a.dump() for a in self.artists if not a.alias],
-            "formatted_artists": self.formatted_artists,
         }
 
 
@@ -516,54 +513,27 @@ def _update_cache_for_releases_executor(
     with connect(c) as conn:
         cursor = conn.execute(
             rf"""
-            WITH genres AS (
-                SELECT
-                    release_id
-                  , GROUP_CONCAT(genre, ' \\ ') AS genres
-                FROM releases_genres
-                GROUP BY release_id
-            ), labels AS (
-                SELECT
-                    release_id
-                  , GROUP_CONCAT(label, ' \\ ') AS labels
-                FROM releases_labels
-                GROUP BY release_id
-            ), artists AS (
-                SELECT
-                    release_id
-                  , GROUP_CONCAT(artist, ' \\ ') AS names
-                  , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM releases_artists
-                GROUP BY release_id
-            )
             SELECT
-                r.id
-              , r.source_path
-              , r.cover_image_path
-              , r.added_at
-              , r.datafile_mtime
-              , r.title
-              , r.releasetype
-              , r.year
-              , r.multidisc
-              , r.new
-              , r.formatted_artists
-              , COALESCE(g.genres, '') AS genres
-              , COALESCE(l.labels, '') AS labels
-              , COALESCE(a.names, '') AS art_names
-              , COALESCE(a.roles, '') AS art_roles
-            FROM releases r
-            LEFT JOIN genres g ON g.release_id = r.id
-            LEFT JOIN labels l ON l.release_id = r.id
-            LEFT JOIN artists a ON a.release_id = r.id
-            WHERE r.id IN ({','.join(['?']*len(release_uuids))})
+                id
+              , source_path
+              , cover_image_path
+              , added_at
+              , datafile_mtime
+              , title
+              , releasetype
+              , year
+              , multidisc
+              , new
+              , genres
+              , labels
+              , artist_names
+              , artist_roles
+            FROM releases_view
+            WHERE id IN ({','.join(['?']*len(release_uuids))})
             """,
             release_uuids,
         )
         for row in cursor:
-            release_artists = [
-                CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
-            ]
             cached_releases[row["id"]] = (
                 CachedRelease(
                     id=row["id"],
@@ -578,10 +548,11 @@ def _update_cache_for_releases_executor(
                     year=row["year"],
                     multidisc=bool(row["multidisc"]),
                     new=bool(row["new"]),
-                    genres=row["genres"].split(r" \\ ") if row["genres"] else [],
-                    labels=row["labels"].split(r" \\ ") if row["labels"] else [],
-                    artists=release_artists,
-                    formatted_artists=row["formatted_artists"],
+                    genres=_split(row["genres"]),
+                    labels=_split(row["labels"]),
+                    artists=_unpack_artists(
+                        c, row["artist_names"], row["artist_roles"], aliases=False
+                    ),
                 ),
                 {},
             )
@@ -590,14 +561,6 @@ def _update_cache_for_releases_executor(
 
         cursor = conn.execute(
             rf"""
-            WITH artists AS (
-                SELECT
-                    track_id
-                  , GROUP_CONCAT(artist, ' \\ ') AS names
-                  , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM tracks_artists
-                GROUP BY track_id
-            )
             SELECT
                 t.id
               , t.source_path
@@ -607,21 +570,16 @@ def _update_cache_for_releases_executor(
               , t.tracknumber
               , t.discnumber
               , t.duration_seconds
-              , t.formatted_artists
-              , COALESCE(a.names, '') AS art_names
-              , COALESCE(a.roles, '') AS art_roles
-            FROM tracks t
+              , t.artist_names
+              , t.artist_roles
+            FROM tracks_view t
             JOIN releases r ON r.id = t.release_id
-            LEFT JOIN artists a ON a.track_id = t.id
             WHERE r.id IN ({','.join(['?']*len(release_uuids))})
             """,
             release_uuids,
         )
         num_tracks_found = 0
         for row in cursor:
-            track_artists = [
-                CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
-            ]
             cached_releases[row["release_id"]][1][row["source_path"]] = CachedTrack(
                 id=row["id"],
                 source_path=Path(row["source_path"]),
@@ -631,8 +589,7 @@ def _update_cache_for_releases_executor(
                 tracknumber=row["tracknumber"],
                 discnumber=row["discnumber"],
                 duration_seconds=row["duration_seconds"],
-                artists=track_artists,
-                formatted_artists=row["formatted_artists"],
+                artists=_unpack_artists(c, row["artist_names"], row["artist_roles"], aliases=False),
                 release_multidisc=cached_releases[row["release_id"]][0].multidisc,
             )
             num_tracks_found += 1
@@ -698,7 +655,6 @@ def _update_cache_for_releases_executor(
                 genres=[],
                 labels=[],
                 artists=[],
-                formatted_artists="",
             )
             cached_tracks = {}
 
@@ -868,14 +824,6 @@ def _update_cache_for_releases_executor(
                     release.artists = release_artists
                     release_dirty = True
 
-                release_formatted_artists = format_artist_string(tags.albumartists)
-                if release_formatted_artists != release.formatted_artists:
-                    logger.debug(
-                        f"Release formatted artists change detected for {source_path}, updating"
-                    )
-                    release.formatted_artists = release_formatted_artists
-                    release_dirty = True
-
             # Here we compute the track ID. We store the track ID on the audio file in order to
             # enable persistence. This does mutate the file!
             #
@@ -913,7 +861,6 @@ def _update_cache_for_releases_executor(
                 # This is calculated with the virtual filename.
                 duration_seconds=tags.duration_sec,
                 artists=[],
-                formatted_artists=format_artist_string(tags.trackartists),
                 # Dummy value: We never use it in this sequence.
                 release_multidisc=False,
             )
@@ -954,7 +901,6 @@ def _update_cache_for_releases_executor(
                     release.year,
                     release.multidisc,
                     release.new,
-                    release.formatted_artists,
                 ]
             )
             upd_release_ids.append(release.id)
@@ -982,7 +928,6 @@ def _update_cache_for_releases_executor(
                         track.tracknumber,
                         track.discnumber,
                         track.duration_seconds,
-                        track.formatted_artists,
                     ]
                 )
                 upd_track_ids.append(track.id)
@@ -1024,8 +969,7 @@ def _update_cache_for_releases_executor(
                   , year
                   , multidisc
                   , new
-                  , formatted_artists
-                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
+                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
                 ON CONFLICT (id) DO UPDATE SET
                     source_path      = excluded.source_path
                   , cover_image_path = excluded.cover_image_path
@@ -1036,7 +980,6 @@ def _update_cache_for_releases_executor(
                   , year             = excluded.year
                   , multidisc        = excluded.multidisc
                   , new              = excluded.new
-                  , formatted_artists= excluded.formatted_artists
                 """,
                 _flatten(upd_release_args),
             )
@@ -1097,9 +1040,8 @@ def _update_cache_for_releases_executor(
                   , tracknumber
                   , discnumber
                   , duration_seconds
-                  , formatted_artists
                 )
-                VALUES {",".join(["(?,?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
+                VALUES {",".join(["(?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
                 ON CONFLICT (id) DO UPDATE SET
                     source_path                = excluded.source_path
                   , source_mtime               = excluded.source_mtime
@@ -1108,7 +1050,6 @@ def _update_cache_for_releases_executor(
                   , tracknumber               = excluded.tracknumber
                   , discnumber                = excluded.discnumber
                   , duration_seconds           = excluded.duration_seconds
-                  , formatted_artists          = excluded.formatted_artists
                 """,
                 _flatten(upd_track_args),
             )
@@ -1267,11 +1208,11 @@ def update_cache_for_collages(
     cached_collages: dict[str, CachedCollage] = {}
     with connect(c) as conn:
         cursor = conn.execute(
-            r"""
+            """
             SELECT
                 c.name
               , c.source_mtime
-              , COALESCE(GROUP_CONCAT(cr.release_id, ' \\ '), '') AS release_ids
+              , COALESCE(GROUP_CONCAT(cr.release_id, ' ¬ '), '') AS release_ids
             FROM collages c
             LEFT JOIN collages_releases cr ON cr.collage_name = c.name
             GROUP BY c.name
@@ -1281,7 +1222,7 @@ def update_cache_for_collages(
             cached_collages[row["name"]] = CachedCollage(
                 name=row["name"],
                 source_mtime=row["source_mtime"],
-                release_ids=row["release_ids"].split(r" \\ ") if row["release_ids"] else [],
+                release_ids=_split(row["release_ids"]) if row["release_ids"] else [],
             )
 
         # We want to validate that all release IDs exist before we write them. In order to do that,
@@ -1345,7 +1286,7 @@ def update_cache_for_collages(
                 desc_map: dict[str, str] = {}
                 cursor = conn.execute(
                     f"""
-                    SELECT id, title, year, releasetype, formatted_artists FROM releases
+                    SELECT id, title, year, releasetype, artist_names, artist_roles FROM releases_view
                     WHERE id IN ({','.join(['?']*len(releases))})
                     """,
                     cached_collage.release_ids,
@@ -1355,7 +1296,7 @@ def update_cache_for_collages(
                         title=row["title"],
                         year=row["year"],
                         releasetype=row["releasetype"],
-                        formatted_artists=row["formatted_artists"],
+                        artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
                     )
                 for i, rls in enumerate(releases):
                     with contextlib.suppress(KeyError):
@@ -1459,12 +1400,12 @@ def update_cache_for_playlists(
     cached_playlists: dict[str, CachedPlaylist] = {}
     with connect(c) as conn:
         cursor = conn.execute(
-            r"""
+            """
             SELECT
                 p.name
               , p.source_mtime
               , p.cover_path
-              , COALESCE(GROUP_CONCAT(pt.track_id, ' \\ '), '') AS track_ids
+              , COALESCE(GROUP_CONCAT(pt.track_id, ' ¬ '), '') AS track_ids
             FROM playlists p
             LEFT JOIN playlists_tracks pt ON pt.playlist_name = p.name
             GROUP BY p.name
@@ -1475,7 +1416,7 @@ def update_cache_for_playlists(
                 name=row["name"],
                 source_mtime=row["source_mtime"],
                 cover_path=Path(row["cover_path"]) if row["cover_path"] else None,
-                track_ids=row["track_ids"].split(r" \\ ") if row["track_ids"] else [],
+                track_ids=_split(row["track_ids"]) if row["track_ids"] else [],
             )
 
         # We want to validate that all track IDs exist before we write them. In order to do that,
@@ -1559,7 +1500,7 @@ def update_cache_for_playlists(
                 desc_map: dict[str, str] = {}
                 cursor = conn.execute(
                     f"""
-                    SELECT id, title, formatted_artists, source_path FROM tracks
+                    SELECT id, title, source_path, artist_names, artist_roles FROM tracks_view
                     WHERE id IN ({','.join(['?']*len(tracks))})
                     """,
                     cached_playlist.track_ids,
@@ -1567,7 +1508,7 @@ def update_cache_for_playlists(
                 for row in cursor:
                     desc_map[row["id"]] = calculate_track_logtext(
                         title=row["title"],
-                        formatted_artists=row["formatted_artists"],
+                        artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
                         suffix=Path(row["source_path"]).suffix,
                     )
                 for i, trk in enumerate(tracks):
@@ -1648,47 +1589,23 @@ def list_releases(
     new: bool | None = None,
 ) -> Iterator[CachedRelease]:
     with connect(c) as conn:
-        query = r"""
-            WITH genres AS (
-                SELECT
-                    release_id
-                  , GROUP_CONCAT(genre, ' \\ ') AS genres
-                FROM (SELECT * FROM releases_genres ORDER BY genre)
-                GROUP BY release_id
-            ), labels AS (
-                SELECT
-                    release_id
-                  , GROUP_CONCAT(label, ' \\ ') AS labels
-                FROM (SELECT * FROM releases_labels ORDER BY label)
-                GROUP BY release_id
-            ), artists AS (
-                SELECT
-                    release_id
-                  , GROUP_CONCAT(artist, ' \\ ') AS names
-                  , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM (SELECT * FROM releases_artists ORDER BY artist, role)
-                GROUP BY release_id
-            )
+        query = """
             SELECT
-                r.id
-              , r.source_path
-              , r.cover_image_path
-              , r.added_at
-              , r.datafile_mtime
-              , r.title
-              , r.releasetype
-              , r.year
-              , r.multidisc
-              , r.new
-              , r.formatted_artists
-              , COALESCE(g.genres, '') AS genres
-              , COALESCE(l.labels, '') AS labels
-              , COALESCE(a.names, '') AS art_names
-              , COALESCE(a.roles, '') AS art_roles
-            FROM releases r
-            LEFT JOIN genres g ON g.release_id = r.id
-            LEFT JOIN labels l ON l.release_id = r.id
-            LEFT JOIN artists a ON a.release_id = r.id
+                id
+              , source_path
+              , cover_image_path
+              , added_at
+              , datafile_mtime
+              , title
+              , releasetype
+              , year
+              , multidisc
+              , new
+              , genres
+              , labels
+              , artist_names
+              , artist_roles
+            FROM releases_view
             WHERE 1=1
         """
         args: list[str | bool] = []
@@ -1699,7 +1616,7 @@ def list_releases(
             query += f"""
                 AND EXISTS (
                     SELECT * FROM releases_artists
-                    WHERE release_id = r.id AND artist_sanitized IN ({','.join(['?']*len(sanitized_artists))})
+                    WHERE release_id = id AND artist_sanitized IN ({','.join(['?']*len(sanitized_artists))})
                 )
             """
             args.extend(sanitized_artists)
@@ -1707,7 +1624,7 @@ def list_releases(
             query += """
                 AND EXISTS (
                     SELECT * FROM releases_genres
-                    WHERE release_id = r.id AND genre_sanitized = ?
+                    WHERE release_id = id AND genre_sanitized = ?
                 )
             """
             args.append(sanitized_genre_filter)
@@ -1715,21 +1632,17 @@ def list_releases(
             query += """
                 AND EXISTS (
                     SELECT * FROM releases_labels
-                    WHERE release_id = r.id AND label_sanitized = ?
+                    WHERE release_id = id AND label_sanitized = ?
                 )
             """
             args.append(sanitized_label_filter)
         if new is not None:
-            query += "AND r.new = ?"
+            query += "AND new = ?"
             args.append(new)
-        query += " ORDER BY r.source_path"
+        query += " ORDER BY source_path"
 
         cursor = conn.execute(query, args)
         for row in cursor:
-            artists = [
-                CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
-            ]
-            artists = _add_artist_aliases(c, artists)
             yield CachedRelease(
                 id=row["id"],
                 source_path=Path(row["source_path"]),
@@ -1741,68 +1654,39 @@ def list_releases(
                 year=row["year"],
                 multidisc=bool(row["multidisc"]),
                 new=bool(row["new"]),
-                genres=row["genres"].split(r" \\ ") if row["genres"] else [],
-                labels=row["labels"].split(r" \\ ") if row["labels"] else [],
-                artists=artists,
-                formatted_artists=row["formatted_artists"],
+                genres=_split(row["genres"]),
+                labels=_split(row["labels"]),
+                artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
             )
 
 
 def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedTrack]] | None:
     with connect(c) as conn:
         cursor = conn.execute(
-            r"""
-            WITH genres AS (
-                SELECT
-                    release_id
-                  , GROUP_CONCAT(genre, ' \\ ') AS genres
-                FROM (SELECT * FROM releases_genres ORDER BY genre)
-                GROUP BY release_id
-            ), labels AS (
-                SELECT
-                    release_id
-                  , GROUP_CONCAT(label, ' \\ ') AS labels
-                FROM (SELECT * FROM releases_labels ORDER BY label)
-                GROUP BY release_id
-            ), artists AS (
-                SELECT
-                    release_id
-                  , GROUP_CONCAT(artist, ' \\ ') AS names
-                  , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM (SELECT * FROM releases_artists ORDER BY artist, role)
-                GROUP BY release_id
-            )
+            """
             SELECT
-                r.id
-              , r.source_path
-              , r.cover_image_path
-              , r.added_at
-              , r.datafile_mtime
-              , r.title
-              , r.releasetype
-              , r.year
-              , r.multidisc
-              , r.new
-              , r.formatted_artists
-              , COALESCE(g.genres, '') AS genres
-              , COALESCE(l.labels, '') AS labels
-              , COALESCE(a.names, '') AS art_names
-              , COALESCE(a.roles, '') AS art_roles
-            FROM releases r
-            LEFT JOIN genres g ON g.release_id = r.id
-            LEFT JOIN labels l ON l.release_id = r.id
-            LEFT JOIN artists a ON a.release_id = r.id
-            WHERE r.id = ?
+                id
+              , source_path
+              , cover_image_path
+              , added_at
+              , datafile_mtime
+              , title
+              , releasetype
+              , year
+              , multidisc
+              , new
+              , genres
+              , labels
+              , artist_names
+              , artist_roles
+            FROM releases_view
+            WHERE id = ?
             """,
             (release_id,),
         )
         row = cursor.fetchone()
         if not row:
             return None
-        rartists = [
-            CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
-        ]
-        rartists = _add_artist_aliases(c, rartists)
         release = CachedRelease(
             id=row["id"],
             source_path=Path(row["source_path"]),
@@ -1814,23 +1698,14 @@ def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedT
             year=row["year"],
             multidisc=bool(row["multidisc"]),
             new=bool(row["new"]),
-            genres=row["genres"].split(r" \\ ") if row["genres"] else [],
-            labels=row["labels"].split(r" \\ ") if row["labels"] else [],
-            artists=rartists,
-            formatted_artists=row["formatted_artists"],
+            genres=_split(row["genres"]) if row["genres"] else [],
+            labels=_split(row["labels"]) if row["labels"] else [],
+            artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
         )
 
         tracks: list[CachedTrack] = []
         cursor = conn.execute(
-            r"""
-            WITH artists AS (
-                SELECT
-                    track_id
-                  , GROUP_CONCAT(artist, ' \\ ') AS names
-                  , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM (SELECT * FROM tracks_artists ORDER BY artist, role)
-                GROUP BY track_id
-            )
+            """
             SELECT
                 t.id
               , t.source_path
@@ -1840,22 +1715,16 @@ def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedT
               , t.tracknumber
               , t.discnumber
               , t.duration_seconds
-              , t.formatted_artists
-              , COALESCE(a.names, '') AS art_names
-              , COALESCE(a.roles, '') AS art_roles
-            FROM tracks t
+              , t.artist_names
+              , t.artist_roles
+            FROM tracks_view t
             JOIN releases r ON r.id = t.release_id
-            LEFT JOIN artists a ON a.track_id = t.id
             WHERE r.id = ?
             ORDER BY FORMAT('%4d.%4d', t.discnumber, t.tracknumber)
             """,
             (release_id,),
         )
         for row in cursor:
-            tartists = [
-                CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
-            ]
-            tartists = _add_artist_aliases(c, tartists)
             tracks.append(
                 CachedTrack(
                     id=row["id"],
@@ -1866,8 +1735,7 @@ def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedT
                     tracknumber=row["tracknumber"],
                     discnumber=row["discnumber"],
                     duration_seconds=row["duration_seconds"],
-                    formatted_artists=row["formatted_artists"],
-                    artists=tartists,
+                    artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
                     release_multidisc=release.multidisc,
                 )
             )
@@ -1879,7 +1747,7 @@ def get_release_logtext(c: Config, release_id: str) -> str | None:
     """Get a human-readable identifier for a release suitable for logging."""
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT r.title, r.year, r.releasetype, r.formatted_artists FROM releases r WHERE r.id = ?",
+            "SELECT title, year, releasetype, artist_names, artist_roles FROM releases_view WHERE id = ?",
             (release_id,),
         )
         row = cursor.fetchone()
@@ -1889,7 +1757,7 @@ def get_release_logtext(c: Config, release_id: str) -> str | None:
             title=row["title"],
             year=row["year"],
             releasetype=row["releasetype"],
-            formatted_artists=row["formatted_artists"],
+            artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
         )
 
 
@@ -1897,10 +1765,9 @@ def calculate_release_logtext(
     title: str,
     year: int | None,
     releasetype: str,
-    formatted_artists: str,
+    artists: list[CachedArtist],
 ) -> str:
-    logtext = ""
-    logtext += f"{formatted_artists} - "
+    logtext = artistsfmt(ArtistMapping.from_cache(artists)) + " - "
     if year:
         logtext += f"{year}. "
     logtext += title
@@ -1936,42 +1803,27 @@ def get_release_source_paths(c: Config, uuids: list[str]) -> list[Path]:
 def get_track(c: Config, uuid: str) -> CachedTrack | None:
     with connect(c) as conn:
         cursor = conn.execute(
-            r"""
-            WITH artists AS (
-                SELECT
-                    track_id
-                  , GROUP_CONCAT(artist, ' \\ ') AS names
-                  , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM (SELECT * FROM tracks_artists ORDER BY artist, role)
-                GROUP BY track_id
-            )
+            """
             SELECT
-                t.id
-              , t.source_path
-              , t.source_mtime
-              , t.title
-              , t.release_id
-              , t.tracknumber
-              , t.discnumber
-              , t.duration_seconds
-              , t.formatted_artists
-              , r.multidisc
-              , COALESCE(a.names, '') AS art_names
-              , COALESCE(a.roles, '') AS art_roles
-            FROM tracks t
-            JOIN releases r ON r.id = t.release_id
-            LEFT JOIN artists a ON a.track_id = t.id
-            WHERE t.id = ?
+                id
+              , source_path
+              , source_mtime
+              , title
+              , release_id
+              , tracknumber
+              , discnumber
+              , duration_seconds
+              , multidisc
+              , artist_names
+              , artist_roles
+            FROM tracks_view
+            WHERE id = ?
             """,
             (uuid,),
         )
         row = cursor.fetchone()
         if not row:
             return None
-        tartists = [
-            CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
-        ]
-        tartists = _add_artist_aliases(c, tartists)
         return CachedTrack(
             id=row["id"],
             source_path=Path(row["source_path"]),
@@ -1981,8 +1833,7 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
             tracknumber=row["tracknumber"],
             discnumber=row["discnumber"],
             duration_seconds=row["duration_seconds"],
-            formatted_artists=row["formatted_artists"],
-            artists=tartists,
+            artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
             release_multidisc=row["multidisc"],
         )
 
@@ -1991,7 +1842,7 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
     """Get a human-readable identifier for a track suitable for logging."""
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT title, formatted_artists, source_path FROM tracks WHERE id = ?",
+            "SELECT title, source_path, artist_names, artist_roles FROM tracks_view WHERE id = ?",
             (track_id,),
         )
         row = cursor.fetchone()
@@ -1999,13 +1850,15 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
             return None
         return calculate_track_logtext(
             title=row["title"],
-            formatted_artists=row["formatted_artists"],
+            artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
             suffix=Path(row["source_path"]).suffix,
         )
 
 
-def calculate_track_logtext(title: str, formatted_artists: str, suffix: str) -> str:
-    return f"{formatted_artists} - {title or 'Unknown Title'}{suffix}"
+def calculate_track_logtext(title: str, artists: list[CachedArtist], suffix: str) -> str:
+    logtext = artistsfmt(ArtistMapping.from_cache(artists)) + " - "
+    logtext += f"{title or 'Unknown Title'}{suffix}"
+    return logtext
 
 
 def list_playlists(c: Config) -> Iterator[str]:
@@ -2040,15 +1893,7 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
         )
 
         cursor = conn.execute(
-            r"""
-            WITH artists AS (
-                SELECT
-                    track_id
-                  , GROUP_CONCAT(artist, ' \\ ') AS names
-                  , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM (SELECT * FROM tracks_artists ORDER BY artist, role)
-                GROUP BY track_id
-            )
+            """
             SELECT
                 t.id
               , t.source_path
@@ -2058,14 +1903,12 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
               , t.tracknumber
               , t.discnumber
               , t.duration_seconds
-              , t.formatted_artists
               , r.multidisc
-              , COALESCE(a.names, '') AS art_names
-              , COALESCE(a.roles, '') AS art_roles
-            FROM tracks t
+              , t.artist_names
+              , t.artist_roles
+            FROM tracks_view t
             JOIN releases r ON r.id = t.release_id
             JOIN playlists_tracks pt ON pt.track_id = t.id
-            LEFT JOIN artists a ON a.track_id = t.id
             WHERE pt.playlist_name = ? AND NOT pt.missing
             ORDER BY pt.position ASC
             """,
@@ -2074,7 +1917,8 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
         tracks: list[CachedTrack] = []
         for row in cursor:
             tartists = [
-                CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
+                CachedArtist(name=n, role=r)
+                for n, r in _unpack(row["artist_names"], row["artist_roles"])
             ]
             tartists = _add_artist_aliases(c, tartists)
             playlist.track_ids.append(row["id"])
@@ -2088,8 +1932,7 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
                     tracknumber=row["tracknumber"],
                     discnumber=row["discnumber"],
                     duration_seconds=row["duration_seconds"],
-                    formatted_artists=row["formatted_artists"],
-                    artists=tartists,
+                    artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
                     release_multidisc=row["multidisc"],
                 )
             )
@@ -2120,27 +1963,7 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
             release_ids=[],
         )
         cursor = conn.execute(
-            r"""
-            WITH genres AS (
-                SELECT
-                    release_id
-                  , GROUP_CONCAT(genre, ' \\ ') AS genres
-                FROM (SELECT * FROM releases_genres ORDER BY genre)
-                GROUP BY release_id
-            ), labels AS (
-                SELECT
-                    release_id
-                  , GROUP_CONCAT(label, ' \\ ') AS labels
-                FROM (SELECT * FROM releases_labels ORDER BY label)
-                GROUP BY release_id
-            ), artists AS (
-                SELECT
-                    release_id
-                  , GROUP_CONCAT(artist, ' \\ ') AS names
-                  , GROUP_CONCAT(role, ' \\ ') AS roles
-                FROM (SELECT * FROM releases_artists ORDER BY artist, role)
-                GROUP BY release_id
-            )
+            """
             SELECT
                 r.id
               , r.source_path
@@ -2152,15 +1975,11 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
               , r.year
               , r.multidisc
               , r.new
-              , r.formatted_artists
-              , COALESCE(g.genres, '') AS genres
-              , COALESCE(l.labels, '') AS labels
-              , COALESCE(a.names, '') AS art_names
-              , COALESCE(a.roles, '') AS art_roles
-            FROM releases r
-            LEFT JOIN genres g ON g.release_id = r.id
-            LEFT JOIN labels l ON l.release_id = r.id
-            LEFT JOIN artists a ON a.release_id = r.id
+              , r.genres
+              , r.labels
+              , r.artist_names
+              , r.artist_roles
+            FROM releases_view r
             JOIN collages_releases cr ON cr.release_id = r.id
             WHERE cr.collage_name = ?
             ORDER BY cr.position ASC
@@ -2169,10 +1988,6 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
         )
         releases: list[CachedRelease] = []
         for row in cursor:
-            rartists = [
-                CachedArtist(name=n, role=r) for n, r in _unpack(row["art_names"], row["art_roles"])
-            ]
-            rartists = _add_artist_aliases(c, rartists)
             collage.release_ids.append(row["id"])
             releases.append(
                 CachedRelease(
@@ -2188,10 +2003,9 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
                     year=row["year"],
                     multidisc=bool(row["multidisc"]),
                     new=bool(row["new"]),
-                    genres=row["genres"].split(r" \\ ") if row["genres"] else [],
-                    labels=row["labels"].split(r" \\ ") if row["labels"] else [],
-                    artists=rartists,
-                    formatted_artists=row["formatted_artists"],
+                    genres=_split(row["genres"]) if row["genres"] else [],
+                    labels=_split(row["labels"]) if row["labels"] else [],
+                    artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
                 )
             )
 
@@ -2254,6 +2068,22 @@ def label_exists(c: Config, label_sanitized: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
+def _split(xs: str) -> list[str]:
+    """Split the stringly-encoded arrays from the database by the sentinel character."""
+    if not xs:
+        return []
+    return xs.split(" ¬ ")
+
+
+def _unpack_artists(
+    c: Config, names: str, roles: str, *, aliases: bool = True
+) -> list[CachedArtist]:
+    artists = [CachedArtist(name=n, role=r) for n, r in _unpack(names, roles)]
+    if aliases:
+        artists = _add_artist_aliases(c, artists)
+    return artists
+
+
 def _add_artist_aliases(c: Config, unaliased: list[CachedArtist]) -> list[CachedArtist]:
     out: list[CachedArtist] = []
     for art in unaliased:
@@ -2270,22 +2100,22 @@ def _flatten(xxs: list[list[T]]) -> list[T]:
     return xs
 
 
-def _unpack(*xxs: str, delimiter: str = r" \\ ") -> Iterator[tuple[str, ...]]:
+def _unpack(*xxs: str) -> Iterator[tuple[str, ...]]:
     """
-    Unpack an arbitrary number of strings, each of which is a " \\ "-delimited list in actuality,
-    but encoded as a string. This " \\ "-delimited list-as-a-string is the convention we use to
+    Unpack an arbitrary number of strings, each of which is a " ¬ "-delimited list in actuality,
+    but encoded as a string. This " ¬ "-delimited list-as-a-string is the convention we use to
     return arrayed data from a SQL query without introducing additional disk accesses.
 
     As a concrete example:
 
-        >>> _unpack(r"Rose \\ Lisa \\ Jisoo \\ Jennie", r"vocal \\ dance \\ visual \\ vocal")
+        >>> _unpack("Rose ¬ Lisa ¬ Jisoo ¬ Jennie", "vocal ¬ dance ¬ visual ¬ vocal")
         [("Rose", "vocal"), ("Lisa", "dance"), ("Jisoo", "visual"), ("Jennie", "vocal")]
     """
     # If the strings are empty, then split will resolve to `[""]`. But we don't want to loop over an
     # empty string, so we specially exit if we hit that case.
     if all(not xs for xs in xxs):
         return
-    yield from zip(*[xs.split(delimiter) for xs in xxs])
+    yield from zip(*[_split(xs) for xs in xxs])
 
 
 def _process_string_for_fts(x: str) -> str:

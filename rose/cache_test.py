@@ -126,8 +126,8 @@ def test_update_cache_all(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, multidisc, formatted_artists)
-            VALUES ('aaaaaa', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
+            INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, multidisc)
+            VALUES ('aaaaaa', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false)
             """
         )
 
@@ -403,8 +403,8 @@ def test_update_cache_releases_delete_nonexistent(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, multidisc, formatted_artists)
-            VALUES ('aaaaaa', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, 'aa;aa')
+            INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, multidisc)
+            VALUES ('aaaaaa', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false)
             """
         )
     update_cache_evict_nonexistent_releases(config)
@@ -935,7 +935,6 @@ def test_list_releases(config: Config) -> None:
                 CachedArtist(name="Bass Man", role="main"),
                 CachedArtist(name="Techno Man", role="main"),
             ],
-            formatted_artists="Techno Man;Bass Man",
         ),
         CachedRelease(
             datafile_mtime="999",
@@ -954,7 +953,6 @@ def test_list_releases(config: Config) -> None:
                 CachedArtist(name="Conductor Woman", role="guest"),
                 CachedArtist(name="Violin Woman", role="main"),
             ],
-            formatted_artists="Violin Woman feat. Conductor Woman",
         ),
         CachedRelease(
             datafile_mtime="999",
@@ -970,7 +968,6 @@ def test_list_releases(config: Config) -> None:
             genres=[],
             labels=[],
             artists=[],
-            formatted_artists="",
         ),
     ]
 
@@ -993,7 +990,6 @@ def test_list_releases(config: Config) -> None:
                 CachedArtist(name="Bass Man", role="main"),
                 CachedArtist(name="Techno Man", role="main"),
             ],
-            formatted_artists="Techno Man;Bass Man",
         ),
     ]
 
@@ -1025,7 +1021,6 @@ def test_list_releases(config: Config) -> None:
                 CachedArtist(name="Hype Boy", role="main", alias=True),
                 CachedArtist(name="Techno Man", role="main"),
             ],
-            formatted_artists="Techno Man;Bass Man",
         ),
     ]
 
@@ -1048,7 +1043,6 @@ def test_list_releases(config: Config) -> None:
                 CachedArtist(name="Bass Man", role="main"),
                 CachedArtist(name="Techno Man", role="main"),
             ],
-            formatted_artists="Techno Man;Bass Man",
         ),
     ]
 
@@ -1071,7 +1065,6 @@ def test_list_releases(config: Config) -> None:
                 CachedArtist(name="Bass Man", role="main"),
                 CachedArtist(name="Techno Man", role="main"),
             ],
-            formatted_artists="Techno Man;Bass Man",
         ),
     ]
 
@@ -1096,7 +1089,6 @@ def test_get_release(config: Config) -> None:
                 CachedArtist(name="Bass Man", role="main"),
                 CachedArtist(name="Techno Man", role="main"),
             ],
-            formatted_artists="Techno Man;Bass Man",
         ),
         [
             CachedTrack(
@@ -1112,7 +1104,6 @@ def test_get_release(config: Config) -> None:
                     CachedArtist(name="Bass Man", role="main", alias=False),
                     CachedArtist(name="Techno Man", role="main", alias=False),
                 ],
-                formatted_artists="Techno Man;Bass Man",
                 release_multidisc=False,
             ),
             CachedTrack(
@@ -1128,7 +1119,6 @@ def test_get_release(config: Config) -> None:
                     CachedArtist(name="Bass Man", role="main", alias=False),
                     CachedArtist(name="Techno Man", role="main", alias=False),
                 ],
-                formatted_artists="Techno Man;Bass Man",
                 release_multidisc=False,
             ),
         ],
@@ -1163,7 +1153,7 @@ def test_get_release_applies_artist_aliases(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_get_release_logging_identifier(config: Config) -> None:
-    assert get_release_logtext(config, "r1") == "Techno Man;Bass Man - 2023. Release 1"
+    assert get_release_logtext(config, "r1") == "Bass Man & Techno Man - 2023. Release 1"
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -1194,7 +1184,6 @@ def test_get_track(config: Config) -> None:
             CachedArtist(name="Bass Man", role="main", alias=False),
             CachedArtist(name="Techno Man", role="main", alias=False),
         ],
-        formatted_artists="Techno Man;Bass Man",
         release_multidisc=False,
     )
 
@@ -1260,7 +1249,6 @@ def test_get_collage(config: Config) -> None:
                 CachedArtist(name="Bass Man", role="main", alias=False),
                 CachedArtist(name="Techno Man", role="main", alias=False),
             ],
-            formatted_artists="Techno Man;Bass Man",
         ),
         CachedRelease(
             id="r2",
@@ -1279,7 +1267,6 @@ def test_get_collage(config: Config) -> None:
                 CachedArtist(name="Conductor Woman", role="guest", alias=False),
                 CachedArtist(name="Violin Woman", role="main", alias=False),
             ],
-            formatted_artists="Violin Woman feat. Conductor Woman",
         ),
     ]
 
@@ -1317,7 +1304,6 @@ def test_get_collage(config: Config) -> None:
                 CachedArtist(name="Bass Man", role="main", alias=False),
                 CachedArtist(name="Techno Man", role="main", alias=False),
             ],
-            formatted_artists="Techno Man;Bass Man",
             release_multidisc=False,
         ),
         CachedTrack(
@@ -1333,7 +1319,6 @@ def test_get_collage(config: Config) -> None:
                 CachedArtist(name="Conductor Woman", role="guest", alias=False),
                 CachedArtist(name="Violin Woman", role="main", alias=False),
             ],
-            formatted_artists="Violin Woman feat. Conductor Woman",
             release_multidisc=False,
         ),
     ]
@@ -1370,7 +1355,6 @@ def test_get_playlist(config: Config) -> None:
                 CachedArtist(name="Bass Man", role="main", alias=False),
                 CachedArtist(name="Techno Man", role="main", alias=False),
             ],
-            formatted_artists="Techno Man;Bass Man",
             release_multidisc=False,
         ),
         CachedTrack(
@@ -1386,7 +1370,6 @@ def test_get_playlist(config: Config) -> None:
                 CachedArtist(name="Conductor Woman", role="guest", alias=False),
                 CachedArtist(name="Violin Woman", role="main", alias=False),
             ],
-            formatted_artists="Violin Woman feat. Conductor Woman",
             release_multidisc=False,
         ),
     ]
@@ -1423,7 +1406,7 @@ def test_label_exists(config: Config) -> None:
 
 
 def test_unpack() -> None:
-    i = _unpack(r"Rose \\ Lisa \\ Jisoo \\ Jennie", r"vocal \\ dance \\ visual \\ vocal")
+    i = _unpack("Rose ¬ Lisa ¬ Jisoo ¬ Jennie", r"vocal ¬ dance ¬ visual ¬ vocal")
     assert list(i) == [
         ("Rose", "vocal"),
         ("Lisa", "dance"),

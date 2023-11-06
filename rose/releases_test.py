@@ -178,7 +178,6 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             CachedArtist(name="BLACKPINK", role="main", alias=False),
             CachedArtist(name="JISOO", role="main", alias=False),
         ],
-        formatted_artists="BLACKPINK;JISOO",
     )
     assert tracks == [
         CachedTrack(
@@ -193,7 +192,6 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             artists=[
                 CachedArtist(name="BLACKPINK", role="main", alias=False),
             ],
-            formatted_artists="BLACKPINK",
             release_multidisc=False,
         ),
         CachedTrack(
@@ -208,7 +206,6 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             artists=[
                 CachedArtist(name="JISOO", role="main", alias=False),
             ],
-            formatted_artists="JISOO",
             release_multidisc=False,
         ),
     ]
@@ -332,7 +329,6 @@ def test_edit_release_failure_and_resume(
             CachedArtist(name="BLACKPINK", role="main", alias=False),
             CachedArtist(name="JISOO", role="main", alias=False),
         ],
-        formatted_artists="BLACKPINK;JISOO",
     )
     assert tracks == [
         CachedTrack(
@@ -347,7 +343,6 @@ def test_edit_release_failure_and_resume(
             artists=[
                 CachedArtist(name="BLACKPINK", role="main", alias=False),
             ],
-            formatted_artists="BLACKPINK",
             release_multidisc=False,
         ),
         CachedTrack(
@@ -362,7 +357,6 @@ def test_edit_release_failure_and_resume(
             artists=[
                 CachedArtist(name="JISOO", role="main", alias=False),
             ],
-            formatted_artists="JISOO",
             release_multidisc=False,
         ),
     ]
@@ -400,7 +394,6 @@ def test_dump_releases(config: Config) -> None:
                 {"name": "Techno Man", "role": "main"},
             ],
             "cover_image_path": None,
-            "formatted_artists": "Techno Man;Bass Man",
             "genres": ["Deep House", "Techno"],
             "id": "r1",
             "labels": ["Silk Music"],
@@ -417,7 +410,6 @@ def test_dump_releases(config: Config) -> None:
                 {"name": "Violin Woman", "role": "main"},
             ],
             "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
-            "formatted_artists": "Violin Woman feat. Conductor Woman",
             "genres": ["Classical"],
             "id": "r2",
             "labels": ["Native State"],
@@ -431,7 +423,6 @@ def test_dump_releases(config: Config) -> None:
             "added_at": "0000-01-01T00:00:00+00:00",
             "artists": [],
             "cover_image_path": None,
-            "formatted_artists": "",
             "genres": [],
             "id": "r3",
             "labels": [],

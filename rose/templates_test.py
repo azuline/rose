@@ -18,7 +18,6 @@ EMPTY_CACHED_RELEASE = CachedRelease(
     genres=[],
     labels=[],
     artists=[],
-    formatted_artists="",
 )
 
 EMPTY_CACHED_TRACK = CachedTrack(
@@ -31,7 +30,6 @@ EMPTY_CACHED_TRACK = CachedTrack(
     discnumber="",
     duration_seconds=0,
     artists=[],
-    formatted_artists="",
     release_multidisc=False,
 )
 

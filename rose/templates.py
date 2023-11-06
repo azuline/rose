@@ -60,14 +60,11 @@ class PathTemplate:
 
     @cached_property
     def compiled(self) -> jinja2.Template:
-        # The compiled template.
         return ENVIRONMENT.from_string(self.text)
 
 
 @dataclasses.dataclass
 class PathTemplatePair:
-    """A named 2-tuple for release/track pairings."""
-
     release: PathTemplate
     track: PathTemplate
 

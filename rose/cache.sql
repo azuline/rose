@@ -31,10 +31,7 @@ CREATE TABLE releases (
     releasetype TEXT NOT NULL REFERENCES releasetype_enum(value),
     year INTEGER,
     multidisc BOOLEAN NOT NULL,
-    new BOOLEAN NOT NULL DEFAULT true,
-    -- This is its own state because ordering matters--we preserve the ordering in the tags.
-    -- However, the one-to-many table does not have ordering.
-    formatted_artists TEXT NOT NULL
+    new BOOLEAN NOT NULL DEFAULT true
 );
 CREATE INDEX releases_source_path ON releases(source_path);
 CREATE INDEX releases_year ON releases(year);
@@ -69,10 +66,7 @@ CREATE TABLE tracks (
     release_id TEXT NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
     tracknumber TEXT NOT NULL,
     discnumber TEXT NOT NULL,
-    duration_seconds INTEGER NOT NULL,
-    -- This is its own state because ordering matters--we preserve the ordering in the tags.
-    -- However, the one-to-many table does not have ordering.
-    formatted_artists TEXT NOT NULL
+    duration_seconds INTEGER NOT NULL
 );
 CREATE INDEX tracks_source_path ON tracks(source_path);
 CREATE INDEX tracks_release_id ON tracks(release_id);
@@ -173,3 +167,72 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
   -- tokens.
   , tokenize="unicode61 remove_diacritics 0 categories 'L* M* N* P* S* Z* C*' separators '¬'"
 );
+
+-- These are views that we use when fetching entities. They aggregate associated relations into a
+-- single view. We use ` ¬ ` as a delimiter for joined values, hoping that there are no conflicts.
+
+CREATE VIEW releases_view AS
+    WITH genres AS (
+        SELECT
+            release_id
+          , GROUP_CONCAT(genre, ' ¬ ') AS genres
+        FROM (SELECT * FROM releases_genres ORDER BY genre)
+        GROUP BY release_id
+    ), labels AS (
+        SELECT
+            release_id
+          , GROUP_CONCAT(label, ' ¬ ') AS labels
+        FROM (SELECT * FROM releases_labels ORDER BY label)
+        GROUP BY release_id
+    ), artists AS (
+        SELECT
+            release_id
+          , GROUP_CONCAT(artist, ' ¬ ') AS names
+          , GROUP_CONCAT(role, ' ¬ ') AS roles
+        FROM (SELECT * FROM releases_artists ORDER BY artist, role)
+        GROUP BY release_id
+    )
+    SELECT
+        r.id
+      , r.source_path
+      , r.cover_image_path
+      , r.added_at
+      , r.datafile_mtime
+      , r.title
+      , r.releasetype
+      , r.year
+      , r.multidisc
+      , r.new
+      , COALESCE(g.genres, '') AS genres
+      , COALESCE(l.labels, '') AS labels
+      , COALESCE(a.names, '') AS artist_names
+      , COALESCE(a.roles, '') AS artist_roles
+    FROM releases r
+    LEFT JOIN genres g ON g.release_id = r.id
+    LEFT JOIN labels l ON l.release_id = r.id
+    LEFT JOIN artists a ON a.release_id = r.id;
+
+CREATE VIEW tracks_view AS
+    WITH artists AS (
+        SELECT
+            track_id
+          , GROUP_CONCAT(artist, ' ¬ ') AS names
+          , GROUP_CONCAT(role, ' ¬ ') AS roles
+        FROM (SELECT * FROM tracks_artists ORDER BY artist, role)
+        GROUP BY track_id
+    )
+    SELECT
+        t.id
+      , t.source_path
+      , t.source_mtime
+      , t.title
+      , t.release_id
+      , t.tracknumber
+      , t.discnumber
+      , t.duration_seconds
+      , r.multidisc
+      , COALESCE(a.names, '') AS artist_names
+      , COALESCE(a.roles, '') AS artist_roles
+    FROM tracks t
+    JOIN releases r ON r.id = t.release_id
+    LEFT JOIN artists a ON a.track_id = t.id;

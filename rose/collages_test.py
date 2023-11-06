@@ -140,7 +140,6 @@ def test_dump_collages(config: Config) -> None:
                         {"name": "Bass Man", "role": "main"},
                         {"name": "Techno Man", "role": "main"},
                     ],
-                    "formatted_artists": "Techno Man;Bass Man",
                 },
                 {
                     "position": 2,
@@ -158,7 +157,6 @@ def test_dump_collages(config: Config) -> None:
                         {"name": "Conductor Woman", "role": "guest"},
                         {"name": "Violin Woman", "role": "main"},
                     ],
-                    "formatted_artists": "Violin Woman feat. Conductor Woman",
                 },
             ],
         },

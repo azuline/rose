@@ -362,7 +362,7 @@ class VirtualNameGenerator:
                 title=release.title,
                 year=release.year,
                 releasetype=release.releasetype,
-                formatted_artists=release.formatted_artists,
+                artists=release.artists,
             )
             logger.debug(f"VNAMES: Generated virtual dirname {vname} for release {logtext}")
 
@@ -430,7 +430,7 @@ class VirtualNameGenerator:
 
             logtext = calculate_track_logtext(
                 title=track.title,
-                formatted_artists=track.formatted_artists,
+                artists=track.artists,
                 suffix=track.source_path.suffix,
             )
             logger.debug(f"VNAMES: Generated virtual filename {vname} for track {logtext}")
@@ -1015,7 +1015,7 @@ class RoseLogicalCore:
                     title=release.title,
                     year=release.year,
                     releasetype=release.releasetype,
-                    formatted_artists=release.formatted_artists,
+                    artists=release.artists,
                 )
                 logger.debug(
                     f"LOGICAL: Begin new cover art sequence for release "
