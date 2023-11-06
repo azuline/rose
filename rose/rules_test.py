@@ -7,6 +7,7 @@ import pytest
 
 from rose.audiotags import AudioTags
 from rose.cache import update_cache
+from rose.common import Artist
 from rose.config import Config
 from rose.rule_parser import MetadataRule
 from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
@@ -128,14 +129,14 @@ def test_rules_fields_match_albumartist(config: Config, source_dir: Path) -> Non
     rule = MetadataRule.parse("albumartist:BLACKPINK", ["replace:8"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.albumartists.main == ["8"]
+    assert af.albumartists.main == [Artist("8")]
 
 
 def test_rules_fields_match_trackartist(config: Config, source_dir: Path) -> None:
     rule = MetadataRule.parse("trackartist:BLACKPINK", ["replace:8"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.trackartists.main == ["8"]
+    assert af.trackartists.main == [Artist("8")]
 
 
 def test_match_backslash(config: Config, source_dir: Path) -> None:

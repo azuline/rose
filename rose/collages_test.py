@@ -136,10 +136,17 @@ def test_dump_collages(config: Config) -> None:
                     "new": False,
                     "genres": ["Deep House", "Techno"],
                     "labels": ["Silk Music"],
-                    "artists": [
-                        {"name": "Bass Man", "role": "main"},
-                        {"name": "Techno Man", "role": "main"},
-                    ],
+                    "artists": {
+                        "main": [
+                            {"name": "Bass Man", "alias": False},
+                            {"name": "Techno Man", "alias": False},
+                        ],
+                        "guest": [],
+                        "remixer": [],
+                        "producer": [],
+                        "composer": [],
+                        "djmixer": [],
+                    },
                 },
                 {
                     "position": 2,
@@ -153,10 +160,14 @@ def test_dump_collages(config: Config) -> None:
                     "new": False,
                     "genres": ["Classical"],
                     "labels": ["Native State"],
-                    "artists": [
-                        {"name": "Conductor Woman", "role": "guest"},
-                        {"name": "Violin Woman", "role": "main"},
-                    ],
+                    "artists": {
+                        "main": [{"name": "Violin Woman", "alias": False}],
+                        "guest": [{"name": "Conductor Woman", "alias": False}],
+                        "remixer": [],
+                        "producer": [],
+                        "composer": [],
+                        "djmixer": [],
+                    },
                 },
             ],
         },

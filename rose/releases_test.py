@@ -9,7 +9,8 @@ import tomllib
 
 from conftest import TEST_RELEASE_1
 from rose.audiotags import AudioTags
-from rose.cache import CachedArtist, CachedRelease, CachedTrack, connect, get_release, update_cache
+from rose.cache import CachedRelease, CachedTrack, connect, get_release, update_cache
+from rose.common import Artist, ArtistMapping
 from rose.config import Config
 from rose.releases import (
     ReleaseEditFailedError,
@@ -174,10 +175,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         multidisc=False,
         genres=["J-Pop", "Pop-Rap"],
         labels=["YG Entertainment"],
-        artists=[
-            CachedArtist(name="BLACKPINK", role="main", alias=False),
-            CachedArtist(name="JISOO", role="main", alias=False),
-        ],
+        artists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
     )
     assert tracks == [
         CachedTrack(
@@ -189,9 +187,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             tracknumber="1",
             discnumber="1",
             duration_seconds=2,
-            artists=[
-                CachedArtist(name="BLACKPINK", role="main", alias=False),
-            ],
+            artists=ArtistMapping(main=[Artist("BLACKPINK")]),
             release_multidisc=False,
         ),
         CachedTrack(
@@ -203,9 +199,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             tracknumber="2",
             discnumber="1",
             duration_seconds=2,
-            artists=[
-                CachedArtist(name="JISOO", role="main", alias=False),
-            ],
+            artists=ArtistMapping(main=[Artist("JISOO")]),
             release_multidisc=False,
         ),
     ]
@@ -325,10 +319,7 @@ def test_edit_release_failure_and_resume(
         multidisc=False,
         genres=["J-Pop", "Pop-Rap"],
         labels=["YG Entertainment"],
-        artists=[
-            CachedArtist(name="BLACKPINK", role="main", alias=False),
-            CachedArtist(name="JISOO", role="main", alias=False),
-        ],
+        artists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
     )
     assert tracks == [
         CachedTrack(
@@ -340,9 +331,7 @@ def test_edit_release_failure_and_resume(
             tracknumber="1",
             discnumber="1",
             duration_seconds=2,
-            artists=[
-                CachedArtist(name="BLACKPINK", role="main", alias=False),
-            ],
+            artists=ArtistMapping(main=[Artist("BLACKPINK")]),
             release_multidisc=False,
         ),
         CachedTrack(
@@ -354,9 +343,7 @@ def test_edit_release_failure_and_resume(
             tracknumber="2",
             discnumber="1",
             duration_seconds=2,
-            artists=[
-                CachedArtist(name="JISOO", role="main", alias=False),
-            ],
+            artists=ArtistMapping(main=[Artist("JISOO")]),
             release_multidisc=False,
         ),
     ]
@@ -388,49 +375,67 @@ def test_extract_single_release(config: Config) -> None:
 def test_dump_releases(config: Config) -> None:
     assert json.loads(dump_releases(config)) == [
         {
-            "added_at": "0000-01-01T00:00:00+00:00",
-            "artists": [
-                {"name": "Bass Man", "role": "main"},
-                {"name": "Techno Man", "role": "main"},
-            ],
-            "cover_image_path": None,
-            "genres": ["Deep House", "Techno"],
             "id": "r1",
-            "labels": ["Silk Music"],
-            "new": False,
-            "releasetype": "album",
             "source_path": f"{config.music_source_dir}/r1",
-            "title": "Release 1",
-            "year": 2023,
-        },
-        {
-            "added_at": "0000-01-01T00:00:00+00:00",
-            "artists": [
-                {"name": "Conductor Woman", "role": "guest"},
-                {"name": "Violin Woman", "role": "main"},
-            ],
-            "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
-            "genres": ["Classical"],
-            "id": "r2",
-            "labels": ["Native State"],
-            "new": False,
-            "releasetype": "album",
-            "source_path": f"{config.music_source_dir}/r2",
-            "title": "Release 2",
-            "year": 2021,
-        },
-        {
-            "added_at": "0000-01-01T00:00:00+00:00",
-            "artists": [],
             "cover_image_path": None,
-            "genres": [],
-            "id": "r3",
-            "labels": [],
-            "new": True,
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "title": "Release 1",
             "releasetype": "album",
-            "source_path": f"{config.music_source_dir}/r3",
-            "title": "Release 3",
+            "year": 2023,
+            "new": False,
+            "genres": ["Deep House", "Techno"],
+            "labels": ["Silk Music"],
+            "artists": {
+                "main": [
+                    {"name": "Bass Man", "alias": False},
+                    {"name": "Techno Man", "alias": False},
+                ],
+                "guest": [],
+                "remixer": [],
+                "producer": [],
+                "composer": [],
+                "djmixer": [],
+            },
+        },
+        {
+            "id": "r2",
+            "source_path": f"{config.music_source_dir}/r2",
+            "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "title": "Release 2",
+            "releasetype": "album",
             "year": 2021,
+            "new": False,
+            "genres": ["Classical"],
+            "labels": ["Native State"],
+            "artists": {
+                "main": [{"name": "Violin Woman", "alias": False}],
+                "guest": [{"name": "Conductor Woman", "alias": False}],
+                "remixer": [],
+                "producer": [],
+                "composer": [],
+                "djmixer": [],
+            },
+        },
+        {
+            "id": "r3",
+            "source_path": f"{config.music_source_dir}/r3",
+            "cover_image_path": None,
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "title": "Release 3",
+            "releasetype": "album",
+            "year": 2021,
+            "new": True,
+            "genres": [],
+            "labels": [],
+            "artists": {
+                "main": [],
+                "guest": [],
+                "remixer": [],
+                "producer": [],
+                "composer": [],
+                "djmixer": [],
+            },
         },
     ]
 

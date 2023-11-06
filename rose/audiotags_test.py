@@ -4,12 +4,14 @@ from pathlib import Path
 import pytest
 
 from conftest import TEST_TAGGER
-from rose.artiststr import ArtistMapping
 from rose.audiotags import (
     AudioTags,
     UnsupportedTagValueTypeError,
     _split_tag,
+    format_artist_string,
+    parse_artist_string,
 )
+from rose.common import Artist, ArtistMapping
 
 
 @pytest.mark.parametrize(
@@ -34,14 +36,14 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
     assert af.genre == ["Electronic", "House"]
     assert af.label == ["A Cool Label"]
 
-    assert af.albumartists.main == ["Artist A", "Artist B"]
+    assert af.albumartists.main == [Artist("Artist A"), Artist("Artist B")]
     assert af.trackartists == ArtistMapping(
-        main=["Artist GH", "Artist HI"],
-        guest=["Artist C", "Artist A"],
-        remixer=["Artist AB", "Artist BC"],
-        producer=["Artist CD", "Artist DE"],
-        composer=["Artist EF", "Artist FG"],
-        djmixer=["Artist IJ", "Artist JK"],
+        main=[Artist("Artist GH"), Artist("Artist HI")],
+        guest=[Artist("Artist C"), Artist("Artist A")],
+        remixer=[Artist("Artist AB"), Artist("Artist BC")],
+        producer=[Artist("Artist CD"), Artist("Artist DE")],
+        composer=[Artist("Artist EF"), Artist("Artist FG")],
+        djmixer=[Artist("Artist IJ"), Artist("Artist JK")],
     )
     assert af.duration_sec == duration
 
@@ -63,7 +65,7 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     af = AudioTags.from_file(fpath)
     # Inject one special case into here: modify the djmixer artist. This checks that we also clear
     # the original djmixer tag, so that the next read does not contain Artist EF and Artist FG.
-    af.trackartists.djmixer = ["New"]
+    af.trackartists.djmixer = [Artist("New")]
     af.flush()
     af = AudioTags.from_file(fpath)
 
@@ -77,14 +79,14 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     assert af.genre == ["Electronic", "House"]
     assert af.label == ["A Cool Label"]
 
-    assert af.albumartists.main == ["Artist A", "Artist B"]
+    assert af.albumartists.main == [Artist("Artist A"), Artist("Artist B")]
     assert af.trackartists == ArtistMapping(
-        main=["Artist GH", "Artist HI"],
-        guest=["Artist C", "Artist A"],
-        remixer=["Artist AB", "Artist BC"],
-        producer=["Artist CD", "Artist DE"],
-        composer=["Artist EF", "Artist FG"],
-        djmixer=["New"],
+        main=[Artist("Artist GH"), Artist("Artist HI")],
+        guest=[Artist("Artist C"), Artist("Artist A")],
+        remixer=[Artist("Artist AB"), Artist("Artist BC")],
+        producer=[Artist("Artist CD"), Artist("Artist DE")],
+        composer=[Artist("Artist EF"), Artist("Artist FG")],
+        djmixer=[Artist("New")],
     )
     assert af.duration_sec == duration
 
@@ -149,3 +151,58 @@ def test_split_tag() -> None:
     assert _split_tag("a; b") == ["a", "b"]
     assert _split_tag("a vs. b") == ["a", "b"]
     assert _split_tag("a / b") == ["a", "b"]
+
+
+def test_parse_artist_string() -> None:
+    assert parse_artist_string("A;B feat. C;D") == ArtistMapping(
+        main=[Artist("A"), Artist("B")],
+        guest=[Artist("C"), Artist("D")],
+    )
+    assert parse_artist_string("A pres. C;D") == ArtistMapping(
+        djmixer=[Artist("A")],
+        main=[Artist("C"), Artist("D")],
+    )
+    assert parse_artist_string("A performed by C;D") == ArtistMapping(
+        composer=[Artist("A")],
+        main=[Artist("C"), Artist("D")],
+    )
+    assert parse_artist_string("A pres. B;C feat. D;E") == ArtistMapping(
+        djmixer=[Artist("A")],
+        main=[Artist("B"), Artist("C")],
+        guest=[Artist("D"), Artist("E")],
+    )
+    # Test the deduplication handling.
+    assert parse_artist_string("A pres. B", dj="A") == ArtistMapping(
+        djmixer=[Artist("A")],
+        main=[Artist("B")],
+    )
+
+
+def test_format_artist_string() -> None:
+    assert (
+        format_artist_string(
+            ArtistMapping(
+                main=[Artist("A"), Artist("B")],
+                guest=[Artist("C"), Artist("D")],
+            )
+        )
+        == "A;B feat. C;D"
+    )
+    assert (
+        format_artist_string(ArtistMapping(djmixer=[Artist("A")], main=[Artist("C"), Artist("D")]))
+        == "A pres. C;D"
+    )
+    assert (
+        format_artist_string(ArtistMapping(composer=[Artist("A")], main=[Artist("C"), Artist("D")]))
+        == "A performed by C;D"
+    )
+    assert (
+        format_artist_string(
+            ArtistMapping(
+                djmixer=[Artist("A")],
+                main=[Artist("B"), Artist("C")],
+                guest=[Artist("D"), Artist("E")],
+            )
+        )
+        == "A pres. B;C feat. D;E"
+    )

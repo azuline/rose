@@ -17,7 +17,6 @@ import tomli_w
 import tomllib
 from send2trash import send2trash
 
-from rose.artiststr import ArtistMapping, format_artist_string
 from rose.audiotags import AudioTags
 from rose.cache import (
     STORED_DATA_FILE_REGEX,
@@ -33,10 +32,11 @@ from rose.cache import (
     update_cache_for_collages,
     update_cache_for_releases,
 )
-from rose.common import RoseError, RoseExpectedError
+from rose.common import Artist, ArtistMapping, RoseError, RoseExpectedError
 from rose.config import Config
 from rose.rule_parser import MetadataAction
 from rose.rules import execute_metadata_actions
+from rose.templates import artistsfmt
 
 logger = logging.getLogger(__name__)
 
@@ -161,11 +161,20 @@ class MetadataArtist:
     role: str
 
     @staticmethod
+    def from_mapping(mapping: ArtistMapping) -> list[MetadataArtist]:
+        return [
+            MetadataArtist(name=art.name, role=role)
+            for role, artists in mapping.items()
+            for art in artists
+            if not art.alias
+        ]
+
+    @staticmethod
     def to_mapping(artists: list[MetadataArtist]) -> ArtistMapping:
         m = ArtistMapping()
         for a in artists:
             try:
-                getattr(m, a.role.lower()).append(a.name)
+                getattr(m, a.role.lower()).append(Artist(name=a.name))
             except AttributeError as e:
                 raise UnknownArtistRoleError(
                     f"Failed to write tags: Unknown role for artist {a.name}: {a.role}"
@@ -199,17 +208,13 @@ class MetadataRelease:
             year=release.year,
             genres=release.genres,
             labels=release.labels,
-            artists=[
-                MetadataArtist(name=a.name, role=a.role) for a in release.artists if not a.alias
-            ],
+            artists=MetadataArtist.from_mapping(release.artists),
             tracks={
                 t.id: MetadataTrack(
                     discnumber=t.discnumber,
                     tracknumber=t.tracknumber,
                     title=t.title,
-                    artists=[
-                        MetadataArtist(name=a.name, role=a.role) for a in t.artists if not a.alias
-                    ],
+                    artists=MetadataArtist.from_mapping(t.artists),
                 )
                 for t in tracks
             },
@@ -396,7 +401,7 @@ def create_single_release(c: Config, track_path: Path) -> None:
 
     # Step 1. Compute the new directory name for the single.
     af = AudioTags.from_file(track_path)
-    dirname = f"{format_artist_string(af.trackartists)} - "
+    dirname = f"{artistsfmt(af.trackartists)} - "
     if af.year:
         dirname += f"{af.year}. "
     dirname += af.title or "Unknown Title"

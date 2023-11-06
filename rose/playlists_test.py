@@ -128,40 +128,51 @@ def test_dump_playlists(config: Config) -> None:
     out = dump_playlists(config)
     assert json.loads(out) == [
         {
-            "cover_image_path": f"{config.music_source_dir}/!playlists/Lala Lisa.jpg",
             "name": "Lala Lisa",
+            "cover_image_path": f"{config.music_source_dir}/!playlists/Lala Lisa.jpg",
             "tracks": [
                 {
-                    "artists": [
-                        {"name": "Bass Man", "role": "main"},
-                        {"name": "Techno Man", "role": "main"},
-                    ],
-                    "discnumber": "01",
-                    "duration_seconds": 120,
-                    "id": "t1",
                     "position": 1,
-                    "release_id": "r1",
+                    "id": "t1",
                     "source_path": f"{config.music_source_dir}/r1/01.m4a",
                     "title": "Track 1",
+                    "release_id": "r1",
                     "tracknumber": "01",
-                },
-                {
-                    "artists": [
-                        {"name": "Conductor Woman", "role": "guest"},
-                        {"name": "Violin Woman", "role": "main"},
-                    ],
                     "discnumber": "01",
                     "duration_seconds": 120,
-                    "id": "t3",
+                    "artists": {
+                        "main": [
+                            {"name": "Bass Man", "alias": False},
+                            {"name": "Techno Man", "alias": False},
+                        ],
+                        "guest": [],
+                        "remixer": [],
+                        "producer": [],
+                        "composer": [],
+                        "djmixer": [],
+                    },
+                },
+                {
                     "position": 2,
-                    "release_id": "r2",
+                    "id": "t3",
                     "source_path": f"{config.music_source_dir}/r2/01.m4a",
                     "title": "Track 1",
+                    "release_id": "r2",
                     "tracknumber": "01",
+                    "discnumber": "01",
+                    "duration_seconds": 120,
+                    "artists": {
+                        "main": [{"name": "Violin Woman", "alias": False}],
+                        "guest": [{"name": "Conductor Woman", "alias": False}],
+                        "remixer": [],
+                        "producer": [],
+                        "composer": [],
+                        "djmixer": [],
+                    },
                 },
             ],
         },
-        {"cover_image_path": None, "name": "Turtle Rabbit", "tracks": []},
+        {"name": "Turtle Rabbit", "cover_image_path": None, "tracks": []},
     ]
 
 

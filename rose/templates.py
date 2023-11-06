@@ -15,7 +15,7 @@ from typing import Any
 
 import jinja2
 
-from rose.artiststr import ArtistMapping
+from rose.common import Artist, ArtistMapping
 
 if typing.TYPE_CHECKING:
     from rose.cache import CachedRelease, CachedTrack
@@ -30,15 +30,21 @@ def arrayfmt(xs: list[str]) -> str:
     return ", ".join(xs[:-1]) + " & " + xs[-1]
 
 
+def artistsarrayfmt(xs: list[Artist]) -> str:
+    """Format an array of Artists."""
+    return arrayfmt([x.name for x in xs if not x.alias])
+
+
 def artistsfmt(a: ArtistMapping) -> str:
-    """Format artists well."""
-    r = arrayfmt(a.main)
+    """Format a mapping of artists."""
+
+    r = artistsarrayfmt(a.main)
     if a.djmixer:
-        r = arrayfmt(a.djmixer) + " pres. " + r
+        r = artistsarrayfmt(a.djmixer) + " pres. " + r
     if a.guest:
-        r += " (feat. " + arrayfmt(a.guest) + ")"
+        r += " (feat. " + artistsarrayfmt(a.guest) + ")"
     if a.producer:
-        r += " (prod. " + arrayfmt(a.producer) + ")"
+        r += " (prod. " + artistsarrayfmt(a.producer) + ")"
     if r == "":
         return "Unknown Artists"
     return r
@@ -46,6 +52,7 @@ def artistsfmt(a: ArtistMapping) -> str:
 
 ENVIRONMENT = jinja2.Environment()
 ENVIRONMENT.filters["arrayfmt"] = arrayfmt
+ENVIRONMENT.filters["artistsarrayfmt"] = artistsarrayfmt
 ENVIRONMENT.filters["artistsfmt"] = artistsfmt
 
 
@@ -82,7 +89,7 @@ DEFAULT_TRACK_TEMPLATE = PathTemplate(
     """
 {% if multidisc %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
 {{ title }}
-{% if artists.guest %}(feat. {{ artists.guest | arrayfmt }}){% endif %}
+{% if artists.guest %}(feat. {{ artists.guest | artistsarrayfmt }}){% endif %}
 """
 )
 
@@ -118,7 +125,7 @@ class PathTemplateConfig:
                 """
 {% if year %}{{ year }}.{% else %}0000.{% endif %}
 {{ title }}
-{% if artists.guest %}(feat. {{ artists.guest | arrayfmt }}){% endif %}
+{% if artists.guest %}(feat. {{ artists.guest | artistsarrayfmt }}){% endif %}
 {% if releasetype == "single" %}- Single{% endif %}
 """
             ),
@@ -168,7 +175,6 @@ def eval_track_template(
 
 
 def _calc_release_variables(release: CachedRelease, position: str | None) -> dict[str, Any]:
-    artists = ArtistMapping.from_cache(release.artists)
     return {
         "added_at": release.added_at,
         "title": release.title,
@@ -177,20 +183,19 @@ def _calc_release_variables(release: CachedRelease, position: str | None) -> dic
         "new": release.new,
         "genres": release.genres,
         "labels": release.labels,
-        "artists": artists,
+        "artists": release.artists,
         "position": position,
     }
 
 
 def _calc_track_variables(track: CachedTrack, position: str | None) -> dict[str, Any]:
-    artists = ArtistMapping.from_cache(track.artists)
     return {
         "title": track.title,
         "tracknumber": track.tracknumber,
         "discnumber": track.discnumber,
         "duration_seconds": track.duration_seconds,
         "multidisc": track.release_multidisc,
-        "artists": artists,
+        "artists": track.artists,
         "position": position,
     }
 

@@ -1,7 +1,8 @@
 from copy import deepcopy
 from pathlib import Path
 
-from rose.cache import CachedArtist, CachedRelease, CachedTrack
+from rose.cache import CachedRelease, CachedTrack
+from rose.common import Artist, ArtistMapping
 from rose.templates import PathTemplateConfig, eval_release_template, eval_track_template
 
 EMPTY_CACHED_RELEASE = CachedRelease(
@@ -17,7 +18,7 @@ EMPTY_CACHED_RELEASE = CachedRelease(
     multidisc=False,
     genres=[],
     labels=[],
-    artists=[],
+    artists=ArtistMapping(),
 )
 
 EMPTY_CACHED_TRACK = CachedTrack(
@@ -29,7 +30,7 @@ EMPTY_CACHED_TRACK = CachedTrack(
     tracknumber="",
     discnumber="",
     duration_seconds=0,
-    artists=[],
+    artists=ArtistMapping(),
     release_multidisc=False,
 )
 
@@ -40,13 +41,11 @@ def test_default_templates() -> None:
     release = deepcopy(EMPTY_CACHED_RELEASE)
     release.title = "Title"
     release.year = 2023
-    release.artists = [
-        CachedArtist(name="A1", role="main"),
-        CachedArtist(name="A2", role="main"),
-        CachedArtist(name="A3", role="main"),
-        CachedArtist(name="BB", role="guest"),
-        CachedArtist(name="PP", role="producer"),
-    ]
+    release.artists = ArtistMapping(
+        main=[Artist("A1"), Artist("A2"), Artist("A3")],
+        guest=[Artist("BB")],
+        producer=[Artist("PP")],
+    )
     release.releasetype = "single"
     assert (
         eval_release_template(templates.source.release, release)
@@ -81,12 +80,10 @@ def test_default_templates() -> None:
     track.discnumber = "4"
     track.tracknumber = "2"
     track.title = "Trick"
-    track.artists = [
-        CachedArtist(name="Main", role="main"),
-        CachedArtist(name="Hi", role="guest"),
-        CachedArtist(name="High", role="guest"),
-        CachedArtist(name="Hye", role="guest"),
-    ]
+    track.artists = ArtistMapping(
+        main=[Artist("Main")],
+        guest=[Artist("Hi"), Artist("High"), Artist("Hye")],
+    )
     assert (
         eval_track_template(templates.source.track, track)
         == "04-02. Trick (feat. Hi, High & Hye).m4a"

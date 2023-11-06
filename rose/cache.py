@@ -47,9 +47,8 @@ import tomli_w
 import tomllib
 import uuid6
 
-from rose.artiststr import ArtistMapping
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
-from rose.common import VERSION, sanitize_filename, uniq
+from rose.common import VERSION, Artist, ArtistMapping, sanitize_filename, uniq
 from rose.config import Config
 from rose.templates import artistsfmt
 
@@ -190,25 +189,6 @@ def playlist_lock_name(playlist_name: str) -> str:
 
 
 @dataclass
-class CachedArtist:
-    name: str
-    role: str
-    # Whether this artist is an aliased name of the artist that the release was actually released
-    # under. These artists are not stored in the cache database and are also not used to compute any
-    # file/directory names.
-    alias: bool = False
-
-    def __hash__(self) -> int:
-        return hash(f"{self.name}+{self.role}+{self.alias}")
-
-    def dump(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "role": self.role,
-        }
-
-
-@dataclass
 class CachedRelease:
     id: str
     source_path: Path
@@ -222,7 +202,7 @@ class CachedRelease:
     multidisc: bool
     genres: list[str]
     labels: list[str]
-    artists: list[CachedArtist]
+    artists: ArtistMapping
 
     def dump(self) -> dict[str, Any]:
         return {
@@ -238,7 +218,7 @@ class CachedRelease:
             "new": self.new,
             "genres": self.genres,
             "labels": self.labels,
-            "artists": [a.dump() for a in self.artists if not a.alias],
+            "artists": self.artists.dump(),
         }
 
 
@@ -253,7 +233,7 @@ class CachedTrack:
     discnumber: str
     duration_seconds: int
 
-    artists: list[CachedArtist]
+    artists: ArtistMapping
 
     # Stored on here for virtual path generation; not inserted into the database.
     release_multidisc: bool
@@ -267,7 +247,7 @@ class CachedTrack:
             "tracknumber": self.tracknumber,
             "discnumber": self.discnumber,
             "duration_seconds": self.duration_seconds,
-            "artists": [a.dump() for a in self.artists if not a.alias],
+            "artists": self.artists.dump(),
         }
 
 
@@ -654,7 +634,7 @@ def _update_cache_for_releases_executor(
                 multidisc=False,
                 genres=[],
                 labels=[],
-                artists=[],
+                artists=ArtistMapping(),
             )
             cached_tracks = {}
 
@@ -815,13 +795,9 @@ def _update_cache_for_releases_executor(
                     release.labels = uniq(tags.label)
                     release_dirty = True
 
-                release_artists = []
-                for role, names in asdict(tags.albumartists).items():
-                    for name in uniq(names):
-                        release_artists.append(CachedArtist(name=name, role=role))
-                if release_artists != release.artists:
+                if tags.albumartists != release.artists:
                     logger.debug(f"Release artists change detected for {source_path}, updating")
-                    release.artists = release_artists
+                    release.artists = tags.albumartists
                     release_dirty = True
 
             # Here we compute the track ID. We store the track ID on the audio file in order to
@@ -860,14 +836,11 @@ def _update_cache_for_releases_executor(
                 discnumber=(tags.discnumber or "1").replace(".", ""),
                 # This is calculated with the virtual filename.
                 duration_seconds=tags.duration_sec,
-                artists=[],
+                artists=tags.trackartists,
                 # Dummy value: We never use it in this sequence.
                 release_multidisc=False,
             )
             tracks.append(track)
-            for role, names in asdict(tags.trackartists).items():
-                for name in uniq(names):
-                    track.artists.append(CachedArtist(name=name, role=role))
             track_ids_to_insert.add(track.id)
 
         # Now calculate whether this release is multidisc. Only recompute this if any tracks have
@@ -908,10 +881,11 @@ def _update_cache_for_releases_executor(
                 upd_release_genre_args.append([release.id, genre, sanitize_filename(genre)])
             for label in release.labels:
                 upd_release_label_args.append([release.id, label, sanitize_filename(label)])
-            for art in release.artists:
-                upd_release_artist_args.append(
-                    [release.id, art.name, sanitize_filename(art.name), art.role]
-                )
+            for role, artists in release.artists.items():
+                for art in artists:
+                    upd_release_artist_args.append(
+                        [release.id, art.name, sanitize_filename(art.name), role]
+                    )
 
         if track_ids_to_insert:
             for track in tracks:
@@ -931,10 +905,11 @@ def _update_cache_for_releases_executor(
                     ]
                 )
                 upd_track_ids.append(track.id)
-                for art in track.artists:
-                    upd_track_artist_args.append(
-                        [track.id, art.name, sanitize_filename(art.name), art.role]
-                    )
+                for role, artists in track.artists.items():
+                    for art in artists:
+                        upd_track_artist_args.append(
+                            [track.id, art.name, sanitize_filename(art.name), role]
+                        )
     logger.debug(f"Release update scheduling loop time {time.time() - loop_start=}")
 
     exec_start = time.time()
@@ -1765,9 +1740,9 @@ def calculate_release_logtext(
     title: str,
     year: int | None,
     releasetype: str,
-    artists: list[CachedArtist],
+    artists: ArtistMapping,
 ) -> str:
-    logtext = artistsfmt(ArtistMapping.from_cache(artists)) + " - "
+    logtext = f"{artistsfmt(artists)} - "
     if year:
         logtext += f"{year}. "
     logtext += title
@@ -1855,10 +1830,8 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
         )
 
 
-def calculate_track_logtext(title: str, artists: list[CachedArtist], suffix: str) -> str:
-    logtext = artistsfmt(ArtistMapping.from_cache(artists)) + " - "
-    logtext += f"{title or 'Unknown Title'}{suffix}"
-    return logtext
+def calculate_track_logtext(title: str, artists: ArtistMapping, suffix: str) -> str:
+    return f"{artistsfmt(artists)} - {title or 'Unknown Title'}{suffix}"
 
 
 def list_playlists(c: Config) -> Iterator[str]:
@@ -1916,11 +1889,6 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
         )
         tracks: list[CachedTrack] = []
         for row in cursor:
-            tartists = [
-                CachedArtist(name=n, role=r)
-                for n, r in _unpack(row["artist_names"], row["artist_roles"])
-            ]
-            tartists = _add_artist_aliases(c, tartists)
             playlist.track_ids.append(row["id"])
             tracks.append(
                 CachedTrack(
@@ -2076,21 +2044,23 @@ def _split(xs: str) -> list[str]:
 
 
 def _unpack_artists(
-    c: Config, names: str, roles: str, *, aliases: bool = True
-) -> list[CachedArtist]:
-    artists = [CachedArtist(name=n, role=r) for n, r in _unpack(names, roles)]
-    if aliases:
-        artists = _add_artist_aliases(c, artists)
-    return artists
-
-
-def _add_artist_aliases(c: Config, unaliased: list[CachedArtist]) -> list[CachedArtist]:
-    out: list[CachedArtist] = []
-    for art in unaliased:
-        out.append(art)
-        for alias in c.artist_aliases_parents_map.get(art.name, []):
-            out.append(CachedArtist(name=alias, role=art.role, alias=True))
-    return uniq(out)
+    c: Config,
+    names: str,
+    roles: str,
+    *,
+    aliases: bool = True,
+) -> ArtistMapping:
+    mapping = ArtistMapping()
+    for name, role in _unpack(names, roles):
+        role_artists: list[Artist] = getattr(mapping, role)
+        role_artists.append(Artist(name=name, alias=False))
+        seen: set[str] = {name}
+        if aliases:
+            for alias in c.artist_aliases_parents_map.get(name, []):
+                if alias not in seen:
+                    role_artists.append(Artist(name=alias, alias=True))
+                    seen.add(alias)
+    return mapping
 
 
 def _flatten(xxs: list[list[T]]) -> list[T]:

@@ -12,7 +12,6 @@ from rose.audiotags import AudioTags
 from rose.cache import (
     CACHE_SCHEMA_PATH,
     STORED_DATA_FILE_REGEX,
-    CachedArtist,
     CachedCollage,
     CachedPlaylist,
     CachedRelease,
@@ -41,7 +40,7 @@ from rose.cache import (
     update_cache_evict_nonexistent_releases,
     update_cache_for_releases,
 )
-from rose.common import VERSION
+from rose.common import VERSION, Artist, ArtistMapping
 from rose.config import Config
 
 
@@ -931,10 +930,7 @@ def test_list_releases(config: Config) -> None:
             new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
-            artists=[
-                CachedArtist(name="Bass Man", role="main"),
-                CachedArtist(name="Techno Man", role="main"),
-            ],
+            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
         ),
         CachedRelease(
             datafile_mtime="999",
@@ -949,10 +945,7 @@ def test_list_releases(config: Config) -> None:
             new=False,
             genres=["Classical"],
             labels=["Native State"],
-            artists=[
-                CachedArtist(name="Conductor Woman", role="guest"),
-                CachedArtist(name="Violin Woman", role="main"),
-            ],
+            artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
         ),
         CachedRelease(
             datafile_mtime="999",
@@ -967,7 +960,7 @@ def test_list_releases(config: Config) -> None:
             new=True,
             genres=[],
             labels=[],
-            artists=[],
+            artists=ArtistMapping(),
         ),
     ]
 
@@ -986,10 +979,7 @@ def test_list_releases(config: Config) -> None:
             new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
-            artists=[
-                CachedArtist(name="Bass Man", role="main"),
-                CachedArtist(name="Techno Man", role="main"),
-            ],
+            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
         ),
     ]
 
@@ -1016,11 +1006,9 @@ def test_list_releases(config: Config) -> None:
             new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
-            artists=[
-                CachedArtist(name="Bass Man", role="main"),
-                CachedArtist(name="Hype Boy", role="main", alias=True),
-                CachedArtist(name="Techno Man", role="main"),
-            ],
+            artists=ArtistMapping(
+                main=[Artist("Bass Man"), Artist("Hype Boy", alias=True), Artist("Techno Man")],
+            ),
         ),
     ]
 
@@ -1039,10 +1027,7 @@ def test_list_releases(config: Config) -> None:
             new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
-            artists=[
-                CachedArtist(name="Bass Man", role="main"),
-                CachedArtist(name="Techno Man", role="main"),
-            ],
+            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
         ),
     ]
 
@@ -1061,10 +1046,7 @@ def test_list_releases(config: Config) -> None:
             new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
-            artists=[
-                CachedArtist(name="Bass Man", role="main"),
-                CachedArtist(name="Techno Man", role="main"),
-            ],
+            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
         ),
     ]
 
@@ -1085,10 +1067,7 @@ def test_get_release(config: Config) -> None:
             new=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
-            artists=[
-                CachedArtist(name="Bass Man", role="main"),
-                CachedArtist(name="Techno Man", role="main"),
-            ],
+            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
         ),
         [
             CachedTrack(
@@ -1100,10 +1079,7 @@ def test_get_release(config: Config) -> None:
                 tracknumber="01",
                 discnumber="01",
                 duration_seconds=120,
-                artists=[
-                    CachedArtist(name="Bass Man", role="main", alias=False),
-                    CachedArtist(name="Techno Man", role="main", alias=False),
-                ],
+                artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
                 release_multidisc=False,
             ),
             CachedTrack(
@@ -1115,10 +1091,7 @@ def test_get_release(config: Config) -> None:
                 tracknumber="02",
                 discnumber="01",
                 duration_seconds=240,
-                artists=[
-                    CachedArtist(name="Bass Man", role="main", alias=False),
-                    CachedArtist(name="Techno Man", role="main", alias=False),
-                ],
+                artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
                 release_multidisc=False,
             ),
         ],
@@ -1138,17 +1111,13 @@ def test_get_release_applies_artist_aliases(config: Config) -> None:
     assert rdata is not None
     release, tracks = rdata
 
-    assert release.artists == [
-        CachedArtist(name="Bass Man", role="main"),
-        CachedArtist(name="Hype Boy", role="main", alias=True),
-        CachedArtist(name="Techno Man", role="main"),
-    ]
+    assert release.artists == ArtistMapping(
+        main=[Artist("Bass Man"), Artist("Hype Boy", True), Artist("Techno Man")],
+    )
     for t in tracks:
-        assert t.artists == [
-            CachedArtist(name="Bass Man", role="main"),
-            CachedArtist(name="Hype Boy", role="main", alias=True),
-            CachedArtist(name="Techno Man", role="main"),
-        ]
+        assert t.artists == ArtistMapping(
+            main=[Artist("Bass Man"), Artist("Hype Boy", True), Artist("Techno Man")],
+        )
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -1180,10 +1149,7 @@ def test_get_track(config: Config) -> None:
         tracknumber="01",
         discnumber="01",
         duration_seconds=120,
-        artists=[
-            CachedArtist(name="Bass Man", role="main", alias=False),
-            CachedArtist(name="Techno Man", role="main", alias=False),
-        ],
+        artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
         release_multidisc=False,
     )
 
@@ -1245,10 +1211,7 @@ def test_get_collage(config: Config) -> None:
             multidisc=False,
             genres=["Deep House", "Techno"],
             labels=["Silk Music"],
-            artists=[
-                CachedArtist(name="Bass Man", role="main", alias=False),
-                CachedArtist(name="Techno Man", role="main", alias=False),
-            ],
+            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
         ),
         CachedRelease(
             id="r2",
@@ -1263,10 +1226,7 @@ def test_get_collage(config: Config) -> None:
             multidisc=False,
             genres=["Classical"],
             labels=["Native State"],
-            artists=[
-                CachedArtist(name="Conductor Woman", role="guest", alias=False),
-                CachedArtist(name="Violin Woman", role="main", alias=False),
-            ],
+            artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
         ),
     ]
 
@@ -1300,10 +1260,7 @@ def test_get_collage(config: Config) -> None:
             tracknumber="01",
             discnumber="01",
             duration_seconds=120,
-            artists=[
-                CachedArtist(name="Bass Man", role="main", alias=False),
-                CachedArtist(name="Techno Man", role="main", alias=False),
-            ],
+            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
             release_multidisc=False,
         ),
         CachedTrack(
@@ -1315,10 +1272,7 @@ def test_get_collage(config: Config) -> None:
             tracknumber="01",
             discnumber="01",
             duration_seconds=120,
-            artists=[
-                CachedArtist(name="Conductor Woman", role="guest", alias=False),
-                CachedArtist(name="Violin Woman", role="main", alias=False),
-            ],
+            artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
             release_multidisc=False,
         ),
     ]
@@ -1351,10 +1305,7 @@ def test_get_playlist(config: Config) -> None:
             tracknumber="01",
             discnumber="01",
             duration_seconds=120,
-            artists=[
-                CachedArtist(name="Bass Man", role="main", alias=False),
-                CachedArtist(name="Techno Man", role="main", alias=False),
-            ],
+            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
             release_multidisc=False,
         ),
         CachedTrack(
@@ -1366,10 +1317,7 @@ def test_get_playlist(config: Config) -> None:
             tracknumber="01",
             discnumber="01",
             duration_seconds=120,
-            artists=[
-                CachedArtist(name="Conductor Woman", role="guest", alias=False),
-                CachedArtist(name="Violin Woman", role="main", alias=False),
-            ],
+            artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
             release_multidisc=False,
         ),
     ]

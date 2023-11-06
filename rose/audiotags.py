@@ -3,14 +3,16 @@ The audiotags module abstracts over tag reading and writing for five different a
 exposing a single standard interface for all audio files.
 
 The audiotags module also handles Rose-specific tagging semantics, such as multi-valued tags,
-normalization, and enum validation.
+normalization, artist formatting, and enum validation.
 """
 
 from __future__ import annotations
 
 import contextlib
+import logging
 import re
 import sys
+import typing
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, no_type_check
@@ -23,8 +25,13 @@ import mutagen.mp4
 import mutagen.oggopus
 import mutagen.oggvorbis
 
-from rose.artiststr import ArtistMapping, format_artist_string, parse_artist_string
-from rose.common import RoseError, RoseExpectedError
+from rose.common import Artist, ArtistMapping, RoseError, RoseExpectedError, uniq
+
+if typing.TYPE_CHECKING:
+    pass
+
+logger = logging.getLogger(__name__)
+
 
 TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")
 YEAR_REGEX = re.compile(r"\d{4}$")
@@ -384,3 +391,78 @@ def _parse_year(value: str | None) -> int | None:
     if m := DATE_REGEX.match(value):
         return int(m[1])
     return None
+
+
+TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")
+
+
+def parse_artist_string(
+    main: str | None,
+    *,
+    remixer: str | None = None,
+    composer: str | None = None,
+    conductor: str | None = None,
+    producer: str | None = None,
+    dj: str | None = None,
+) -> ArtistMapping:
+    def _split_tag(t: str | None) -> list[str]:
+        return TAG_SPLITTER_REGEX.split(t) if t else []
+
+    li_main = _split_tag(conductor)
+    li_guests = []
+    li_remixer = _split_tag(remixer)
+    li_composer = _split_tag(composer)
+    li_producer = _split_tag(producer)
+    li_dj = _split_tag(dj)
+    if main and "produced by " in main:
+        main, producer = re.split(r" ?produced by ", main, maxsplit=1)
+        li_producer.extend(_split_tag(producer))
+    if main and "remixed by " in main:
+        main, remixer = re.split(r" ?remixed by ", main, maxsplit=1)
+        li_remixer.extend(_split_tag(remixer))
+    if main and "feat. " in main:
+        main, guests = re.split(r" ?feat. ", main, maxsplit=1)
+        li_guests.extend(_split_tag(guests))
+    if main and "pres. " in main:
+        dj, main = re.split(r" ?pres. ", main, maxsplit=1)
+        li_dj.extend(_split_tag(dj))
+    if main and "performed by " in main:
+        composer, main = re.split(r" ?performed by ", main, maxsplit=1)
+        li_composer.extend(_split_tag(composer))
+    if main:
+        li_main.extend(_split_tag(main))
+
+    def to_artist(xs: list[str]) -> list[Artist]:
+        return [Artist(name=x, alias=False) for x in xs]
+
+    rval = ArtistMapping(
+        main=to_artist(uniq(li_main)),
+        guest=to_artist(uniq(li_guests)),
+        remixer=to_artist(uniq(li_remixer)),
+        composer=to_artist(uniq(li_composer)),
+        producer=to_artist(uniq(li_producer)),
+        djmixer=to_artist(uniq(li_dj)),
+    )
+    # logger.debug(
+    #     f"Parsed args {main=} {remixer=} {composer=} {conductor=} {producer=} {dj=} as {rval=}"
+    # )
+    return rval
+
+
+def format_artist_string(mapping: ArtistMapping) -> str:
+    def format_role(xs: list[Artist]) -> str:
+        return ";".join([x.name for x in xs if not x.alias])
+
+    r = format_role(mapping.main)
+    if mapping.composer:
+        r = format_role(mapping.composer) + " performed by " + r
+    if mapping.djmixer:
+        r = format_role(mapping.djmixer) + " pres. " + r
+    if mapping.guest:
+        r += " feat. " + format_role(mapping.guest)
+    if mapping.remixer:
+        r += " remixed by " + format_role(mapping.remixer)
+    if mapping.producer:
+        r += " produced by " + format_role(mapping.producer)
+    # logger.debug(f"Formatted {mapping} as {r}")
+    return r

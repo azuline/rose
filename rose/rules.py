@@ -8,7 +8,6 @@ import logging
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import click
 
@@ -18,7 +17,7 @@ from rose.cache import (
     get_release_source_paths,
     update_cache_for_releases,
 )
-from rose.common import RoseError, RoseExpectedError, uniq
+from rose.common import Artist, RoseError, RoseExpectedError, uniq
 from rose.config import Config
 from rose.rule_parser import (
     AddAction,
@@ -174,8 +173,8 @@ def filter_false_positives_using_tags(
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, tags.releasetype))  
             match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in tags.genre))  
             match = match or (field == "label" and any(matches_pattern(matcher.pattern, x) for x in tags.label))  
-            match = match or (field == "trackartist" and any(matches_pattern(matcher.pattern, x) for x in tags.trackartists.all))  
-            match = match or (field == "albumartist" and any(matches_pattern(matcher.pattern, x) for x in tags.albumartists.all))  
+            match = match or (field == "trackartist" and any(matches_pattern(matcher.pattern, x.name) for x in tags.trackartists.all))  
+            match = match or (field == "albumartist" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.all))  
             # fmt: on
             if match:
                 matcher_audiotags.append(tags)
@@ -198,7 +197,17 @@ def execute_metadata_actions(
     """
     # === Step 3: Prepare updates on in-memory tags ===
 
-    Changes = tuple[str, Any, Any]  # (old, new)  # noqa: N806
+    def names(xs: list[Artist]) -> list[str]:
+        # NOTE: Nothing should be an alias in this fn because we get data from tags.
+        return [x.name for x in xs]
+
+    def artists(xs: list[str]) -> list[Artist]:
+        # NOTE: Nothing should be an alias in this fn because we get data from tags.
+        return [Artist(x) for x in xs]
+
+    Changes = tuple[
+        str, str | int | None | list[str], str | int | None | list[str]
+    ]  # (old, new)  # noqa: N806
     actionable_audiotags: list[tuple[AudioTags, list[Changes]]] = []
     for tags in audiotags:
         origtags = copy.deepcopy(tags)
@@ -238,31 +247,31 @@ def execute_metadata_actions(
                     tags.label = execute_multi_value_action(act, tags.label)
                     potential_changes.append(("label", origtags.label, tags.label))
                 elif field == "trackartist":
-                    tags.trackartists.main = execute_multi_value_action(act, tags.trackartists.main)
-                    potential_changes.append(("trackartist[main]", origtags.trackartists.main, tags.trackartists.main))  
-                    tags.trackartists.guest = execute_multi_value_action(act, tags.trackartists.guest)
-                    potential_changes.append(("trackartist[guest]", origtags.trackartists.guest, tags.trackartists.guest))  
-                    tags.trackartists.remixer = execute_multi_value_action(act, tags.trackartists.remixer)
-                    potential_changes.append(("trackartist[remixer]", origtags.trackartists.remixer, tags.trackartists.remixer))  
-                    tags.trackartists.producer = execute_multi_value_action(act, tags.trackartists.producer)
-                    potential_changes.append(("trackartist[producer]", origtags.trackartists.producer, tags.trackartists.producer))  
-                    tags.trackartists.composer = execute_multi_value_action(act, tags.trackartists.composer)
-                    potential_changes.append(("trackartist[composer]", origtags.trackartists.composer, tags.trackartists.composer))  
-                    tags.trackartists.djmixer = execute_multi_value_action(act, tags.trackartists.djmixer)
-                    potential_changes.append(("trackartist[djmixer]", origtags.trackartists.djmixer, tags.trackartists.djmixer))  
+                    tags.trackartists.main = artists(execute_multi_value_action(act, names(tags.trackartists.main)))
+                    potential_changes.append(("trackartist[main]", names(origtags.trackartists.main), names(tags.trackartists.main)))  
+                    tags.trackartists.guest = artists(execute_multi_value_action(act, names(tags.trackartists.guest)))
+                    potential_changes.append(("trackartist[guest]", names(origtags.trackartists.guest), names(tags.trackartists.guest)))  
+                    tags.trackartists.remixer = artists(execute_multi_value_action(act, names(tags.trackartists.remixer)))
+                    potential_changes.append(("trackartist[remixer]", names(origtags.trackartists.remixer), names(tags.trackartists.remixer)))  
+                    tags.trackartists.producer = artists(execute_multi_value_action(act, names(tags.trackartists.producer)))
+                    potential_changes.append(("trackartist[producer]", names(origtags.trackartists.producer), names(tags.trackartists.producer)))  
+                    tags.trackartists.composer = artists(execute_multi_value_action(act, names(tags.trackartists.composer)))
+                    potential_changes.append(("trackartist[composer]", names(origtags.trackartists.composer), names(tags.trackartists.composer)))  
+                    tags.trackartists.djmixer = artists(execute_multi_value_action(act, names(tags.trackartists.djmixer)))
+                    potential_changes.append(("trackartist[djmixer]", names(origtags.trackartists.djmixer), names(tags.trackartists.djmixer)))  
                 elif field == "albumartist":
-                    tags.albumartists.main = execute_multi_value_action(act, tags.albumartists.main)  
-                    potential_changes.append(("albumartist[main]", origtags.albumartists.main, tags.albumartists.main))  
-                    tags.albumartists.guest = execute_multi_value_action(act, tags.albumartists.guest)  
-                    potential_changes.append(("albumartist[guest]", origtags.albumartists.guest, tags.albumartists.guest))  
-                    tags.albumartists.remixer = execute_multi_value_action(act, tags.albumartists.remixer)  
-                    potential_changes.append(("albumartist[remixer]", origtags.albumartists.remixer, tags.albumartists.remixer))  
-                    tags.albumartists.producer = execute_multi_value_action(act, tags.albumartists.producer)  
-                    potential_changes.append(("albumartist[producer]", origtags.albumartists.producer, tags.albumartists.producer))  
-                    tags.albumartists.composer = execute_multi_value_action(act, tags.albumartists.composer)  
-                    potential_changes.append(("albumartist[composer]", origtags.albumartists.composer, tags.albumartists.composer))  
-                    tags.albumartists.djmixer = execute_multi_value_action(act, tags.albumartists.djmixer)  
-                    potential_changes.append(("albumartist[djmixer]", origtags.albumartists.djmixer, tags.albumartists.djmixer))  
+                    tags.albumartists.main = artists(execute_multi_value_action(act, names(tags.albumartists.main)))
+                    potential_changes.append(("albumartist[main]", names(origtags.albumartists.main), names(tags.albumartists.main)))  
+                    tags.albumartists.guest = artists(execute_multi_value_action(act, names(tags.albumartists.guest)))
+                    potential_changes.append(("albumartist[guest]", names(origtags.albumartists.guest), names(tags.albumartists.guest)))  
+                    tags.albumartists.remixer = artists(execute_multi_value_action(act, names(tags.albumartists.remixer)))
+                    potential_changes.append(("albumartist[remixer]", names(origtags.albumartists.remixer), names(tags.albumartists.remixer)))  
+                    tags.albumartists.producer = artists(execute_multi_value_action(act, names(tags.albumartists.producer)) )
+                    potential_changes.append(("albumartist[producer]", names(origtags.albumartists.producer), names(tags.albumartists.producer)))  
+                    tags.albumartists.composer = artists(execute_multi_value_action(act, names(tags.albumartists.composer)) )
+                    potential_changes.append(("albumartist[composer]", names(origtags.albumartists.composer), names(tags.albumartists.composer)))  
+                    tags.albumartists.djmixer = artists(execute_multi_value_action(act, names(tags.albumartists.djmixer)))
+                    potential_changes.append(("albumartist[djmixer]", names(origtags.albumartists.djmixer), names(tags.albumartists.djmixer)))  
                 # fmt: on
 
         # Compute real changes by diffing the tags, and then store.
