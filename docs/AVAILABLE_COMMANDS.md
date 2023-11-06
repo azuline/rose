@@ -14,6 +14,10 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
   - `cache watch`: Start a watcher that will trigger `cache update` for any
     files and directories that have been modified.
   - `cache unwatch`: Kill the running cache watcher process.
+- config/ _(See [Configuration](./CONFIGURATION.md))_
+  - `generate-completion`: Print a shell completion script for Rosé to stdout.
+  - `preview-templates`: Preview your configured path templates with sample
+    data.
 - releases/ _(see [Managing Releases](./RELEASES.md))_
   - `releases print`: Print a single release's metadata in JSON.
   - `releases print-all`: Print all releases' metadata in JSON, with an
@@ -74,4 +78,3 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
   - `rules run`: Run an ad hoc rule in the command line interface. You can also
     easily test rules with the `--dry-run` flag.
   - `rules run-stored`: Run the rules stored in the configuration file.
-- `gen-completion`: Print a shell completion script for Rosé to stdout.

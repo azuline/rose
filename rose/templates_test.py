@@ -1,9 +1,18 @@
 from copy import deepcopy
 from pathlib import Path
 
+import click
+from click.testing import CliRunner
+
 from rose.cache import CachedRelease, CachedTrack
 from rose.common import Artist, ArtistMapping
-from rose.templates import PathTemplateConfig, eval_release_template, eval_track_template
+from rose.config import Config
+from rose.templates import (
+    PathTemplateConfig,
+    eval_release_template,
+    eval_track_template,
+    preview_path_templates,
+)
 
 EMPTY_CACHED_RELEASE = CachedRelease(
     id="",
@@ -86,4 +95,77 @@ def test_default_templates() -> None:
     assert (
         eval_track_template(templates.playlists, track, "4")
         == "4. Main (feat. Hi, High & Hye) - Trick.m4a"
+    )
+
+
+def test_preview_templates(config: Config) -> None:
+    runner = CliRunner()
+    with runner.isolated_filesystem(), runner.isolation() as out_streams:
+        preview_path_templates(config)
+        out_streams[0].seek(0)
+        output = click.unstyle(out_streams[0].read().decode())
+
+    assert (
+        output
+        == """\
+Preview for template Source Directory - Release:
+  Sample 1: Kim Lip - 2017. Kim Lip - Single
+  Sample 2: BTS - 2016. Young Forever (花樣年華)
+Preview for template Source Directory - Track:
+  Sample 1: 01. Eclipse.opus
+  Sample 2: 02-05. House of Cards.opus
+
+Preview for template 1. All Releases - Release:
+  Sample 1: Kim Lip - 2017. Kim Lip - Single
+  Sample 2: BTS - 2016. Young Forever (花樣年華)
+Preview for template 1. All Releases - Track:
+  Sample 1: 01. Eclipse.opus
+  Sample 2: 02-05. House of Cards.opus
+
+Preview for template 2. New Releases - Release:
+  Sample 1: Kim Lip - 2017. Kim Lip - Single
+  Sample 2: BTS - 2016. Young Forever (花樣年華)
+Preview for template 2. New Releases - Track:
+  Sample 1: 01. Eclipse.opus
+  Sample 2: 02-05. House of Cards.opus
+
+Preview for template 3. Recently Added Releases - Release:
+  Sample 1: [2023-04-20] Kim Lip - 2017. Kim Lip - Single
+  Sample 2: [2023-06-09] BTS - 2016. Young Forever (花樣年華)
+Preview for template 3. Recently Added Releases - Track:
+  Sample 1: 01. Eclipse.opus
+  Sample 2: 02-05. House of Cards.opus
+
+Preview for template 4. Artists - Release:
+  Sample 1: Kim Lip - 2017. Kim Lip - Single
+  Sample 2: BTS - 2016. Young Forever (花樣年華)
+Preview for template 4. Artists - Track:
+  Sample 1: 01. Eclipse.opus
+  Sample 2: 02-05. House of Cards.opus
+
+Preview for template 5. Genres - Release:
+  Sample 1: Kim Lip - 2017. Kim Lip - Single
+  Sample 2: BTS - 2016. Young Forever (花樣年華)
+Preview for template 5. Genres - Track:
+  Sample 1: 01. Eclipse.opus
+  Sample 2: 02-05. House of Cards.opus
+
+Preview for template 6. Labels - Release:
+  Sample 1: Kim Lip - 2017. Kim Lip - Single
+  Sample 2: BTS - 2016. Young Forever (花樣年華)
+Preview for template 6. Labels - Track:
+  Sample 1: 01. Eclipse.opus
+  Sample 2: 02-05. House of Cards.opus
+
+Preview for template 7. Collages - Release:
+  Sample 1: 1. Kim Lip - 2017. Kim Lip - Single
+  Sample 2: 2. BTS - 2016. Young Forever (花樣年華)
+Preview for template 7. Collages - Track:
+  Sample 1: 01. Eclipse.opus
+  Sample 2: 02-05. House of Cards.opus
+
+Preview for template 8. Playlists - Track:
+  Sample 1: 1. Kim Lip - Eclipse.opus
+  Sample 2: 2. BTS - House of Cards.opus
+"""
     )

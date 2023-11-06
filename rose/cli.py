@@ -50,6 +50,7 @@ from rose.releases import (
 )
 from rose.rule_parser import MetadataAction, MetadataRule
 from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
+from rose.templates import preview_path_templates
 from rose.tracks import run_actions_on_track
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
@@ -90,12 +91,24 @@ def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
     maybe_invalidate_cache_database(cc.obj.config)
 
 
-@cli.command()
+@cli.group()
+def config() -> None:
+    """Utilites for configuring Rosé."""
+
+
+@config.command()
 @click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]), nargs=1)
-def gen_completion(shell: str) -> None:
+def generate_completion(shell: str) -> None:
     """Generate a shell completion script."""
     os.environ["_ROSE_COMPLETE"] = f"{shell}_source"
     subprocess.run(["rose"], env=os.environ)
+
+
+@config.command()
+@click.pass_obj
+def preview_templates(ctx: Context) -> None:
+    """Preview the configured path templates with sample data."""
+    preview_path_templates(ctx.config)
 
 
 @cli.group()

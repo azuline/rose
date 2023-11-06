@@ -14,12 +14,14 @@ from copy import deepcopy
 from functools import cached_property
 from typing import Any
 
+import click
 import jinja2
 
 from rose.common import Artist, ArtistMapping, RoseExpectedError
 
 if typing.TYPE_CHECKING:
     from rose.cache import CachedRelease, CachedTrack
+    from rose.config import Config
 
 RELEASE_TYPE_FORMATTER = {
     "album": "Album",
@@ -271,3 +273,115 @@ COLLAPSE_SPACING_REGEX = re.compile(r"\s+", flags=re.MULTILINE)
 
 def _collapse_spacing(x: str) -> str:
     return COLLAPSE_SPACING_REGEX.sub(" ", x).strip()
+
+
+def preview_path_templates(c: Config) -> None:
+    # fmt: off
+    _preview_release_template(c, "Source Directory - Release", c.path_templates.source.release)
+    _preview_track_template(c, "Source Directory - Track", c.path_templates.source.track)
+    click.echo()
+    _preview_release_template(c, "1. All Releases - Release", c.path_templates.all_releases.release)
+    _preview_track_template(c, "1. All Releases - Track", c.path_templates.all_releases.track)
+    click.echo()
+    _preview_release_template(c, "2. New Releases - Release", c.path_templates.new_releases.release)
+    _preview_track_template(c, "2. New Releases - Track", c.path_templates.new_releases.track)
+    click.echo()
+    _preview_release_template(c, "3. Recently Added Releases - Release", c.path_templates.recently_added_releases.release)
+    _preview_track_template(c, "3. Recently Added Releases - Track", c.path_templates.recently_added_releases.track)
+    click.echo()
+    _preview_release_template(c, "4. Artists - Release", c.path_templates.artists.release)
+    _preview_track_template(c, "4. Artists - Track", c.path_templates.artists.track)
+    click.echo()
+    _preview_release_template(c, "5. Genres - Release", c.path_templates.genres.release)
+    _preview_track_template(c, "5. Genres - Track", c.path_templates.genres.track)
+    click.echo()
+    _preview_release_template(c, "6. Labels - Release", c.path_templates.labels.release)
+    _preview_track_template(c, "6. Labels - Track", c.path_templates.labels.track)
+    click.echo()
+    _preview_release_template(c, "7. Collages - Release", c.path_templates.collages.release)
+    _preview_track_template(c, "7. Collages - Track", c.path_templates.collages.track)
+    click.echo()
+    _preview_track_template(c, "8. Playlists - Track", c.path_templates.playlists)
+    # fmt: on
+
+
+def _preview_release_template(c: Config, label: str, template: PathTemplate) -> None:
+    # Import cycle trick :)
+    from rose.cache import CachedRelease
+
+    click.secho(f"Preview for template {label}:", dim=True, underline=True)
+
+    click.secho("  Sample 1: ", dim=True, nl=False)
+    release = CachedRelease(
+        id="018b268e-ff1e-7a0c-9ac8-7bbb282761f2",
+        source_path=c.music_source_dir / "LOONA - 2017. Kim Lip",
+        cover_image_path=None,
+        added_at="2023-04-20:23:45Z",
+        datafile_mtime="999",
+        title="Kim Lip",
+        releasetype="single",
+        year=2017,
+        new=False,
+        multidisc=False,
+        genres=["K-Pop", "Dance-Pop", "Contemporary R&B"],
+        labels=["BlockBerryCreative"],
+        artists=ArtistMapping(main=[Artist("Kim Lip")]),
+    )
+    click.secho(eval_release_template(template, release, "1"))
+
+    click.secho("  Sample 2: ", dim=True, nl=False)
+    release = CachedRelease(
+        id="018b6021-f1e5-7d4b-b796-440fbbea3b13",
+        source_path=c.music_source_dir / "BTS - 2016. Young Forever (花樣年華)",
+        cover_image_path=None,
+        added_at="2023-06-09:23:45Z",
+        datafile_mtime="999",
+        title="Young Forever (花樣年華)",
+        releasetype="album",
+        year=2016,
+        new=True,
+        multidisc=True,
+        genres=["K-Pop"],
+        labels=["BIGHIT"],
+        artists=ArtistMapping(main=[Artist("BTS")]),
+    )
+    click.secho(eval_release_template(template, release, "2"))
+
+
+def _preview_track_template(c: Config, label: str, template: PathTemplate) -> None:
+    # Import cycle trick :)
+    from rose.cache import CachedTrack
+
+    click.secho(f"Preview for template {label}:", dim=True, underline=True)
+
+    click.secho("  Sample 1: ", dim=True, nl=False)
+    track = CachedTrack(
+        id="018b268e-ff1e-7a0c-9ac8-7bbb282761f1",
+        source_path=c.music_source_dir / "LOONA - 2017. Kim Lip" / "01. Eclipse.opus",
+        source_mtime="999",
+        title="Eclipse",
+        release_id="018b268e-ff1e-7a0c-9ac8-7bbb282761f2",
+        tracknumber="1",
+        discnumber="1",
+        duration_seconds=230,
+        artists=ArtistMapping(main=[Artist("Kim Lip")]),
+        release_multidisc=False,
+    )
+    click.secho(eval_track_template(template, track, "1"))
+
+    click.secho("  Sample 2: ", dim=True, nl=False)
+    track = CachedTrack(
+        id="018b6021-f1e5-7d4b-b796-440fbbea3b15",
+        source_path=c.music_source_dir
+        / "BTS - 2016. Young Forever (花樣年華)"
+        / "House of Cards.opus",
+        source_mtime="999",
+        title="House of Cards",
+        release_id="018b268e-ff1e-7a0c-9ac8-7bbb282761f2",
+        tracknumber="5",
+        discnumber="2",
+        duration_seconds=226,
+        artists=ArtistMapping(main=[Artist("BTS")]),
+        release_multidisc=True,
+    )
+    click.secho(eval_track_template(template, track, "2"))
