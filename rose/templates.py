@@ -373,7 +373,9 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
     click.secho("  Sample 2: ", dim=True, nl=False)
     track = CachedTrack(
         id="018b6021-f1e5-7d4b-b796-440fbbea3b15",
-        source_path=c.music_source_dir / "BTS - 2016. Young Forever (花樣年華)" / "House of Cards.opus",
+        source_path=c.music_source_dir
+        / "BTS - 2016. Young Forever (花樣年華)"
+        / "House of Cards.opus",
         source_mtime="999",
         title="House of Cards",
         release_id="018b268e-ff1e-7a0c-9ac8-7bbb282761f2",

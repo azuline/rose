@@ -25,6 +25,7 @@ from rose.cache import (
     calculate_release_logtext,
     get_release,
     get_tracks_associated_with_release,
+    get_tracks_associated_with_releases,
     list_releases,
     lock,
     release_lock_name,
@@ -34,8 +35,12 @@ from rose.cache import (
 )
 from rose.common import Artist, ArtistMapping, RoseError, RoseExpectedError
 from rose.config import Config
-from rose.rule_parser import MetadataAction
-from rose.rules import execute_metadata_actions
+from rose.rule_parser import MetadataAction, MetadataMatcher
+from rose.rules import (
+    execute_metadata_actions,
+    fast_search_for_matching_releases,
+    filter_release_false_positives_using_read_cache,
+)
 from rose.templates import artistsfmt
 
 logger = logging.getLogger(__name__)
@@ -69,8 +74,17 @@ def dump_release(c: Config, release_id: str) -> str:
     return json.dumps({**release.dump(), "tracks": [t.dump() for t in tracks]})
 
 
-def dump_releases(c: Config) -> str:
-    return json.dumps([r.dump() for r in list_releases(c)])
+def dump_releases(c: Config, matcher: MetadataMatcher | None = None) -> str:
+    release_ids = None
+    if matcher:
+        release_ids = [x.id for x in fast_search_for_matching_releases(c, matcher)]
+    releases = list_releases(c, release_ids)
+    if matcher:
+        releases = filter_release_false_positives_using_read_cache(matcher, releases)
+    rt_pairs = get_tracks_associated_with_releases(c, releases)
+    return json.dumps(
+        [{**release.dump(), "tracks": [t.dump() for t in tracks]} for release, tracks in rt_pairs]
+    )
 
 
 def delete_release(c: Config, release_id: str) -> None:

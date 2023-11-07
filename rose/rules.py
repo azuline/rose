@@ -520,6 +520,7 @@ def filter_track_false_positives_using_read_cache(
             # fmt: on
             if match:
                 rval.append((t, r))
+                break
     return rval
 
 

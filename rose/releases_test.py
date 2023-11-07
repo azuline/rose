@@ -31,7 +31,7 @@ from rose.releases import (
     set_release_cover_art,
     toggle_release_new,
 )
-from rose.rule_parser import MetadataAction
+from rose.rule_parser import MetadataAction, MetadataMatcher
 
 
 def test_delete_release(config: Config) -> None:
@@ -473,6 +473,48 @@ def test_dump_releases(config: Config) -> None:
                 "composer": [],
                 "djmixer": [],
             },
+            "tracks": [
+                {
+                    "artists": {
+                        "composer": [],
+                        "djmixer": [],
+                        "guest": [],
+                        "main": [
+                            {"alias": False, "name": "Techno Man"},
+                            {"alias": False, "name": "Bass Man"},
+                        ],
+                        "producer": [],
+                        "remixer": [],
+                    },
+                    "discnumber": "01",
+                    "duration_seconds": 120,
+                    "id": "t1",
+                    "release_id": "r1",
+                    "source_path": f"{config.music_source_dir}/r1/01.m4a",
+                    "title": "Track 1",
+                    "tracknumber": "01",
+                },
+                {
+                    "artists": {
+                        "composer": [],
+                        "djmixer": [],
+                        "guest": [],
+                        "main": [
+                            {"alias": False, "name": "Techno Man"},
+                            {"alias": False, "name": "Bass Man"},
+                        ],
+                        "producer": [],
+                        "remixer": [],
+                    },
+                    "discnumber": "01",
+                    "duration_seconds": 240,
+                    "id": "t2",
+                    "release_id": "r1",
+                    "source_path": f"{config.music_source_dir}/r1/02.m4a",
+                    "title": "Track 2",
+                    "tracknumber": "02",
+                },
+            ],
         },
         {
             "id": "r2",
@@ -493,6 +535,25 @@ def test_dump_releases(config: Config) -> None:
                 "composer": [],
                 "djmixer": [],
             },
+            "tracks": [
+                {
+                    "artists": {
+                        "composer": [],
+                        "djmixer": [],
+                        "guest": [{"alias": False, "name": "Conductor Woman"}],
+                        "main": [{"alias": False, "name": "Violin Woman"}],
+                        "producer": [],
+                        "remixer": [],
+                    },
+                    "discnumber": "01",
+                    "duration_seconds": 120,
+                    "id": "t3",
+                    "release_id": "r2",
+                    "source_path": f"{config.music_source_dir}/r2/01.m4a",
+                    "title": "Track 1",
+                    "tracknumber": "01",
+                }
+            ],
         },
         {
             "id": "r3",
@@ -513,6 +574,71 @@ def test_dump_releases(config: Config) -> None:
                 "composer": [],
                 "djmixer": [],
             },
+            "tracks": [
+                {
+                    "artists": {
+                        "composer": [],
+                        "djmixer": [],
+                        "guest": [],
+                        "main": [],
+                        "producer": [],
+                        "remixer": [],
+                    },
+                    "discnumber": "01",
+                    "duration_seconds": 120,
+                    "id": "t4",
+                    "release_id": "r3",
+                    "source_path": f"{config.music_source_dir}/r3/01.m4a",
+                    "title": "Track 1",
+                    "tracknumber": "01",
+                }
+            ],
+        },
+    ]
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_dump_releases_matcher(config: Config) -> None:
+    matcher = MetadataMatcher.parse("albumtitle:2$")
+    assert json.loads(dump_releases(config, matcher)) == [
+        {
+            "id": "r2",
+            "source_path": f"{config.music_source_dir}/r2",
+            "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "title": "Release 2",
+            "releasetype": "album",
+            "year": 2021,
+            "new": False,
+            "genres": ["Classical"],
+            "labels": ["Native State"],
+            "artists": {
+                "main": [{"name": "Violin Woman", "alias": False}],
+                "guest": [{"name": "Conductor Woman", "alias": False}],
+                "remixer": [],
+                "producer": [],
+                "composer": [],
+                "djmixer": [],
+            },
+            "tracks": [
+                {
+                    "artists": {
+                        "composer": [],
+                        "djmixer": [],
+                        "guest": [{"name": "Conductor Woman", "alias": False}],
+                        "main": [{"name": "Violin Woman", "alias": False}],
+                        "producer": [],
+                        "remixer": [],
+                    },
+                    "discnumber": "01",
+                    "duration_seconds": 120,
+                    "id": "t3",
+                    "release_id": "r2",
+                    "source_path": f"{config.music_source_dir}/r2/01.m4a",
+                    "title": "Track 1",
+                    "tracknumber": "01",
+                }
+            ],
         },
     ]
 

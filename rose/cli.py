@@ -51,7 +51,7 @@ from rose.releases import (
     set_release_cover_art,
     toggle_release_new,
 )
-from rose.rule_parser import MetadataAction, MetadataRule
+from rose.rule_parser import MetadataAction, MetadataMatcher, MetadataRule
 from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
 from rose.templates import preview_path_templates
 from rose.tracks import dump_track, dump_tracks, run_actions_on_track
@@ -208,10 +208,12 @@ def print1(ctx: Context, release: str) -> None:
 
 
 @releases.command(name="print-all")
+@click.argument("matcher", type=str, nargs=1, required=False)
 @click.pass_obj
-def print_all(ctx: Context) -> None:
-    """Print all releases (in JSON)."""
-    click.echo(dump_releases(ctx.config))
+def print_all(ctx: Context, matcher: str | None) -> None:
+    """Print all releases (in JSON). Accepts an optional rules matcher to filter the releases."""
+    parsed_matcher = MetadataMatcher.parse(matcher) if matcher else None
+    click.echo(dump_releases(ctx.config, parsed_matcher))
 
 
 @releases.command(name="edit")
@@ -313,10 +315,12 @@ def print4(ctx: Context, track: str) -> None:
 
 
 @tracks.command(name="print-all")
+@click.argument("matcher", type=str, nargs=1, required=False)
 @click.pass_obj
-def print_all3(ctx: Context) -> None:
-    """Print all tracks (in JSON)."""
-    click.echo(dump_tracks(ctx.config))
+def print_all3(ctx: Context, matcher: str | None = None) -> None:
+    """Print all tracks (in JSON). Accepts an optional rules matcher to filter the tracks."""
+    parsed_matcher = MetadataMatcher.parse(matcher) if matcher else None
+    click.echo(dump_tracks(ctx.config, parsed_matcher))
 
 
 @tracks.command(name="run-rule")
