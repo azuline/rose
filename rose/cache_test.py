@@ -1015,8 +1015,7 @@ def test_update_cache_playlists_on_release_rename(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_releases(config: Config) -> None:
-    releases = list_releases(config, ["r1", "r2", "r3"])
-    assert releases == [
+    expected = [
         CachedRelease(
             datafile_mtime="999",
             id="r1",
@@ -1063,6 +1062,9 @@ def test_list_releases(config: Config) -> None:
             artists=ArtistMapping(),
         ),
     ]
+
+    assert list_releases(config) == expected
+    assert list_releases(config, ["r1"]) == expected[:1]
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -1171,7 +1173,7 @@ def test_get_release_logtext(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_tracks(config: Config) -> None:
-    assert list_tracks(config, ["t1", "t2"]) == [
+    expected = [
         CachedTrack(
             id="t1",
             source_path=config.music_source_dir / "r1" / "01.m4a",
@@ -1196,7 +1198,34 @@ def test_list_tracks(config: Config) -> None:
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
             release_multidisc=False,
         ),
+        CachedTrack(
+            id="t3",
+            source_path=config.music_source_dir / "r2" / "01.m4a",
+            source_mtime="999",
+            title="Track 1",
+            release_id="r2",
+            tracknumber="01",
+            discnumber="01",
+            duration_seconds=120,
+            artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
+            release_multidisc=False,
+        ),
+        CachedTrack(
+            id="t4",
+            source_path=config.music_source_dir / "r3" / "01.m4a",
+            source_mtime="999",
+            title="Track 1",
+            release_id="r3",
+            tracknumber="01",
+            discnumber="01",
+            duration_seconds=120,
+            artists=ArtistMapping(),
+            release_multidisc=False,
+        ),
     ]
+
+    assert list_tracks(config) == expected
+    assert list_tracks(config, ["t1", "t2"]) == expected[:2]
 
 
 @pytest.mark.usefixtures("seeded_cache")

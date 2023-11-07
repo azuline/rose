@@ -1685,31 +1685,33 @@ def list_releases_delete_this(
         return releases
 
 
-def list_releases(c: Config, release_ids: list[str]) -> list[CachedRelease]:
+def list_releases(c: Config, release_ids: list[str] | None = None) -> list[CachedRelease]:
+    """Fetch data associated with given release IDs. Pass None to fetch all."""
+    query = """
+        SELECT
+            id
+          , source_path
+          , cover_image_path
+          , added_at
+          , datafile_mtime
+          , title
+          , releasetype
+          , year
+          , multidisc
+          , new
+          , genres
+          , labels
+          , artist_names
+          , artist_roles
+        FROM releases_view
+    """
+    args = []
+    if release_ids is not None:
+        query += f" WHERE id IN ({','.join(['?']*len(release_ids))})"
+        args = release_ids
+    query += " ORDER BY source_path"
     with connect(c) as conn:
-        cursor = conn.execute(
-            f"""
-            SELECT
-                id
-              , source_path
-              , cover_image_path
-              , added_at
-              , datafile_mtime
-              , title
-              , releasetype
-              , year
-              , multidisc
-              , new
-              , genres
-              , labels
-              , artist_names
-              , artist_roles
-            FROM releases_view
-            WHERE id IN ({','.join(['?']*len(release_ids))})
-            ORDER BY source_path
-        """,
-            release_ids,
-        )
+        cursor = conn.execute(query, args)
         releases: list[CachedRelease] = []
         for row in cursor:
             releases.append(
@@ -1870,30 +1872,32 @@ def calculate_release_logtext(
     return logtext
 
 
-def list_tracks(c: Config, track_ids: list[str]) -> list[CachedTrack]:
+def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[CachedTrack]:
+    """Fetch data associated with given track IDs. Pass None to fetch all."""
+    query = """
+        SELECT
+            t.id
+          , t.release_id
+          , t.source_path
+          , t.source_mtime
+          , t.title
+          , t.release_id
+          , t.tracknumber
+          , t.discnumber
+          , t.duration_seconds
+          , t.artist_names
+          , t.artist_roles
+          , r.multidisc
+        FROM tracks_view t
+        JOIN releases r ON r.id = t.release_id
+    """
+    args = []
+    if track_ids is not None:
+        query += f" WHERE t.id IN ({','.join(['?']*len(track_ids))})"
+        args = track_ids
+    query += " ORDER BY r.source_path, FORMAT('%4d.%4d', t.discnumber, t.tracknumber)"
     with connect(c) as conn:
-        cursor = conn.execute(
-            f"""
-            SELECT
-                t.id
-              , t.release_id
-              , t.source_path
-              , t.source_mtime
-              , t.title
-              , t.release_id
-              , t.tracknumber
-              , t.discnumber
-              , t.duration_seconds
-              , t.artist_names
-              , t.artist_roles
-              , r.multidisc
-            FROM tracks_view t
-            JOIN releases r ON r.id = t.release_id
-            WHERE t.id IN ({','.join(['?']*len(track_ids))})
-            ORDER BY r.source_path, FORMAT('%4d.%4d', t.discnumber, t.tracknumber)
-            """,
-            track_ids,
-        )
+        cursor = conn.execute(query, args)
         rval = []
         for row in cursor:
             rval.append(

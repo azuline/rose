@@ -25,7 +25,7 @@ from rose.cache import (
     calculate_release_logtext,
     get_release,
     get_tracks_associated_with_release,
-    list_releases_delete_this,
+    list_releases,
     lock,
     release_lock_name,
     update_cache_evict_nonexistent_releases,
@@ -70,7 +70,7 @@ def dump_release(c: Config, release_id: str) -> str:
 
 
 def dump_releases(c: Config) -> str:
-    return json.dumps([r.dump() for r in list_releases_delete_this(c)])
+    return json.dumps([r.dump() for r in list_releases(c)])
 
 
 def delete_release(c: Config, release_id: str) -> None:
