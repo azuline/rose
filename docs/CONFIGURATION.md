@@ -34,10 +34,13 @@ fuse_mount_dir = "~/music"
 # =======================
 
 # If true, the directory and files in the source directory will be renamed
-# based on their tags. The rename will occur during Rosé's cache update
-# sequence. The source files will be renamed per the
-# `path_templates.source.release` and `path_templates.source.track`
-# configuration options. This is false by default.
+# based on their tags. The rename will occur automatically during Rosé's cache
+# update (aka as soon as Rosé becomes aware of a potential rename).
+#
+# The source files will be renamed per the # `path_templates.source.release`
+# and `path_templates.source.track` configuration options.
+#
+# This option false by default.
 rename_source_files = false
 
 # Artist aliases: Grouping multiple names for the same artist together.

@@ -49,7 +49,7 @@ import uuid6
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
 from rose.common import VERSION, Artist, ArtistMapping, sanitize_filename, uniq
 from rose.config import Config
-from rose.templates import artistsfmt
+from rose.templates import artistsfmt, eval_release_template, eval_track_template
 
 logger = logging.getLogger(__name__)
 
@@ -602,75 +602,80 @@ def _update_cache_for_releases_executor(
             release.source_path = source_path
             release_dirty = True
 
-        # The directory does not have a release ID, so create the stored data file.
-        if not preexisting_release_id:
-            # However, skip this directory for a special case. Because directory copying/movement is
-            # not atomic, we may read a directory in a in-progres creation state. If:
-            #
-            # 1. The directory lacks a `.rose.{uuid}.toml` file, but the files have Rose IDs,
-            # 2. And the directory mtime is less than 3 seconds ago,
-            #
-            # We consider the directory to be in a in-progress creation state. And so we do not
-            # process the directory at this time.
-            release_id_from_first_file = None
-            with contextlib.suppress(Exception):
-                release_id_from_first_file = AudioTags.from_file(first_audio_file).release_id
-            if release_id_from_first_file and not force:
-                logger.warning(
-                    f"No-Op: Skipping release at {source_path}: files in release already have "
-                    f"release_id {release_id_from_first_file}, but .rose.{{uuid}}.toml is missing, "
-                    "is another tool in the middle of writing the directory? Run with --force to "
-                    "recreate .rose.{uuid}.toml"
-                )
-                continue
+        # The directory does not have a release ID, so create the stored data file. Also, in case
+        # the directory changes mid-scan, wrap this in an error handler.
+        try:
+            if not preexisting_release_id:
+                # However, skip this directory for a special case. Because directory copying/movement is
+                # not atomic, we may read a directory in a in-progres creation state. If:
+                #
+                # 1. The directory lacks a `.rose.{uuid}.toml` file, but the files have Rose IDs,
+                # 2. And the directory mtime is less than 3 seconds ago,
+                #
+                # We consider the directory to be in a in-progress creation state. And so we do not
+                # process the directory at this time.
+                release_id_from_first_file = None
+                with contextlib.suppress(Exception):
+                    release_id_from_first_file = AudioTags.from_file(first_audio_file).release_id
+                if release_id_from_first_file and not force:
+                    logger.warning(
+                        f"No-Op: Skipping release at {source_path}: files in release already have "
+                        f"release_id {release_id_from_first_file}, but .rose.{{uuid}}.toml is missing, "
+                        "is another tool in the middle of writing the directory? Run with --force to "
+                        "recreate .rose.{uuid}.toml"
+                    )
+                    continue
 
-            logger.debug(f"Creating new stored data file for release {source_path}")
-            stored_release_data = StoredDataFile(
-                new=True,
-                added_at=datetime.now().astimezone().replace(microsecond=0).isoformat(),
-            )
-            # Preserve the release ID already present the first file if we can.
-            new_release_id = release_id_from_first_file or str(uuid6.uuid7())
-            datafile_path = source_path / f".rose.{new_release_id}.toml"
-            # No need to lock here, as since the release ID is new, there is no way there is a
-            # concurrent writer.
-            with datafile_path.open("wb") as fp:
-                tomli_w.dump(asdict(stored_release_data), fp)
-            release.id = new_release_id
-            release.new = stored_release_data.new
-            release.added_at = stored_release_data.added_at
-            release.datafile_mtime = str(os.stat(datafile_path).st_mtime)
-            release_dirty = True
-        else:
-            # Otherwise, check to see if the mtime changed from what we know. If it has, read
-            # from the datafile.
-            datafile_path = source_path / f".rose.{preexisting_release_id}.toml"
-            datafile_mtime = str(os.stat(datafile_path).st_mtime)
-            if datafile_mtime != release.datafile_mtime or force:
-                logger.debug(f"Datafile changed for release {source_path}, updating")
-                release_dirty = True
-                release.datafile_mtime = datafile_mtime
-                # For performance reasons (!!), don't acquire a lock here. However, acquire a lock
-                # if we are to write to the file. We won't worry about lost writes here.
-                with datafile_path.open("rb") as fp:
-                    diskdata = tomllib.load(fp)
-                datafile = StoredDataFile(
-                    new=diskdata.get("new", True),
-                    added_at=diskdata.get(
-                        "added_at",
-                        datetime.now().astimezone().replace(microsecond=0).isoformat(),
-                    ),
+                logger.debug(f"Creating new stored data file for release {source_path}")
+                stored_release_data = StoredDataFile(
+                    new=True,
+                    added_at=datetime.now().astimezone().replace(microsecond=0).isoformat(),
                 )
-                release.new = datafile.new
-                release.added_at = datafile.added_at
-                new_resolved_data = asdict(datafile)
-                logger.debug(f"Updating values in stored data file for release {source_path}")
-                if new_resolved_data != diskdata:
-                    # And then write the data back to disk if it changed. This allows us to update
-                    # datafiles to contain newer default values.
-                    lockname = release_lock_name(preexisting_release_id)
-                    with lock(c, lockname), datafile_path.open("wb") as fp:
-                        tomli_w.dump(new_resolved_data, fp)
+                # Preserve the release ID already present the first file if we can.
+                new_release_id = release_id_from_first_file or str(uuid6.uuid7())
+                datafile_path = source_path / f".rose.{new_release_id}.toml"
+                # No need to lock here, as since the release ID is new, there is no way there is a
+                # concurrent writer.
+                with datafile_path.open("wb") as fp:
+                    tomli_w.dump(asdict(stored_release_data), fp)
+                release.id = new_release_id
+                release.new = stored_release_data.new
+                release.added_at = stored_release_data.added_at
+                release.datafile_mtime = str(os.stat(datafile_path).st_mtime)
+                release_dirty = True
+            else:
+                # Otherwise, check to see if the mtime changed from what we know. If it has, read
+                # from the datafile.
+                datafile_path = source_path / f".rose.{preexisting_release_id}.toml"
+                datafile_mtime = str(os.stat(datafile_path).st_mtime)
+                if datafile_mtime != release.datafile_mtime or force:
+                    logger.debug(f"Datafile changed for release {source_path}, updating")
+                    release_dirty = True
+                    release.datafile_mtime = datafile_mtime
+                    # For performance reasons (!!), don't acquire a lock here. However, acquire a lock
+                    # if we are to write to the file. We won't worry about lost writes here.
+                    with datafile_path.open("rb") as fp:
+                        diskdata = tomllib.load(fp)
+                    datafile = StoredDataFile(
+                        new=diskdata.get("new", True),
+                        added_at=diskdata.get(
+                            "added_at",
+                            datetime.now().astimezone().replace(microsecond=0).isoformat(),
+                        ),
+                    )
+                    release.new = datafile.new
+                    release.added_at = datafile.added_at
+                    new_resolved_data = asdict(datafile)
+                    logger.debug(f"Updating values in stored data file for release {source_path}")
+                    if new_resolved_data != diskdata:
+                        # And then write the data back to disk if it changed. This allows us to update
+                        # datafiles to contain newer default values.
+                        lockname = release_lock_name(preexisting_release_id)
+                        with lock(c, lockname), datafile_path.open("wb") as fp:
+                            tomli_w.dump(new_resolved_data, fp)
+        except FileNotFoundError:
+            logger.warning(f"Skipping update on {source_path}: directory no longer exists")
+            continue
 
         # Handle cover art change.
         cover = None
@@ -709,18 +714,24 @@ def _update_cache_for_releases_executor(
             with contextlib.suppress(KeyError):
                 unknown_cached_tracks.remove(str(f))
 
-            track_mtime = str(os.stat(f).st_mtime)
-            # Skip re-read if we can reuse a cached entry.
-            if cached_track and track_mtime == cached_track.source_mtime and not force:
-                logger.debug(
-                    f"Track cache hit (mtime) for {os.path.basename(f)}, reusing cached data"
-                )
-                tracks.append(cached_track)
-                continue
+            try:
+                track_mtime = str(os.stat(f).st_mtime)
+                # Skip re-read if we can reuse a cached entry.
+                if cached_track and track_mtime == cached_track.source_mtime and not force:
+                    logger.debug(
+                        f"Track cache hit (mtime) for {os.path.basename(f)}, reusing cached data"
+                    )
+                    tracks.append(cached_track)
+                    continue
 
-            # Otherwise, read tags from disk and construct a new cached_track.
-            logger.debug(f"Track cache miss for {os.path.basename(f)}, reading tags from disk")
-            tags = AudioTags.from_file(Path(f))
+                # Otherwise, read tags from disk and construct a new cached_track.
+                logger.debug(f"Track cache miss for {os.path.basename(f)}, reading tags from disk")
+                tags = AudioTags.from_file(Path(f))
+            except FileNotFoundError:
+                logger.warning(
+                    f"Skipping track update for {os.path.basename(f)}: file no longer exists"
+                )
+                continue
 
             # Now that we're here, pull the release tags. We also need them to compute the
             # formatted artist string.
@@ -776,10 +787,16 @@ def _update_cache_for_releases_executor(
                 # concurrent first-time cache updates, other places will have issues too.
                 tags.id = tags.id or str(uuid6.uuid7())
                 tags.release_id = release.id
-                tags.flush()
-                # And refresh the mtime because we've just written to the file.
-                track_id = tags.id
-                track_mtime = str(os.stat(f).st_mtime)
+                try:
+                    tags.flush()
+                    # And refresh the mtime because we've just written to the file.
+                    track_id = tags.id
+                    track_mtime = str(os.stat(f).st_mtime)
+                except FileNotFoundError:
+                    logger.warning(
+                        f"Skipping track update for {os.path.basename(f)}: file no longer exists"
+                    )
+                    continue
 
             # And now create the cached track.
             track = CachedTrack(
@@ -809,6 +826,59 @@ def _update_cache_for_releases_executor(
                 logger.debug(f"Release multidisc change detected for {source_path}, updating")
                 release_dirty = True
                 release.multidisc = multidisc
+
+        # And now perform directory/file renames if configured.
+        if c.rename_source_files:
+            if release_dirty:
+                wanted_dirname = eval_release_template(c.path_templates.source.release, release)
+                # Iterate until we've either:
+                # 1. Realized that the name of the source path matches the desired dirname (which we
+                #    may not realize immediately if there are name conflicts).
+                # 2. Or renamed the source directory to match our desired name.
+                original_wanted_dirname = wanted_dirname
+                collision_no = 2
+                while wanted_dirname != release.source_path.name:
+                    new_source_path = release.source_path.with_name(wanted_dirname)
+                    # If there is a collision, bump the collision counter and retry.
+                    if new_source_path.exists():
+                        wanted_dirname = f"{original_wanted_dirname} [{collision_no}]"
+                        collision_no += 1
+                        continue
+                    # If no collision, rename the directory.
+                    old_source_path = release.source_path
+                    old_source_path.rename(new_source_path)
+                    release.source_path = new_source_path
+                    # Update the track paths and schedule them for database insertions.
+                    for track in tracks:
+                        tracklocalpath = str(track.source_path).removeprefix(f"{old_source_path}/")
+                        track.source_path = release.source_path / tracklocalpath
+                        track_ids_to_insert.add(track.id)
+            for track in [t for t in tracks if t.id in track_ids_to_insert]:
+                wanted_filename = eval_track_template(c.path_templates.source.track, track)
+                # And repeat a similar process to the release rename handling. Except: we can have
+                # arbitrarily nested files here, so we need to compare more than the name.
+                original_wanted_stem = Path(wanted_filename).stem
+                original_wanted_suffix = Path(wanted_filename).suffix
+                collision_no = 2
+                while (
+                    relpath := str(track.source_path).removeprefix(f"{release.source_path}/")
+                ) and wanted_filename != relpath:
+                    new_source_path = release.source_path / wanted_filename
+                    if new_source_path.exists():
+                        wanted_filename = (
+                            f"{original_wanted_stem} [{collision_no}]{original_wanted_suffix}"
+                        )
+                        collision_no += 1
+                        continue
+                    old_source_path = track.source_path
+                    old_source_path.rename(new_source_path)
+                    track.source_path = new_source_path
+                    track.source_mtime = str(os.stat(track.source_path).st_mtime)
+                    # And clean out any empty directories post-rename.
+                    while relpath := os.path.dirname(relpath):
+                        relppp = release.source_path / relpath
+                        if relppp.is_dir() and not list(relppp.iterdir()):
+                            relppp.rmdir()
 
         # Schedule database executions.
         if unknown_cached_tracks or release_dirty or track_ids_to_insert:

@@ -1,4 +1,4 @@
-from dataclasses import asdict
+import dataclasses
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
@@ -292,11 +292,9 @@ def test_dry_run(config: Config, source_dir: Path) -> None:
 
 
 def test_run_stored_rules(config: Config, source_dir: Path) -> None:
-    config = Config(
-        **{
-            **asdict(config),
-            "stored_metadata_rules": [MetadataRule.parse("tracktitle:Track", ["replace:lalala"])],
-        },
+    config = dataclasses.replace(
+        config,
+        stored_metadata_rules=[MetadataRule.parse("tracktitle:Track", ["replace:lalala"])],
     )
 
     execute_stored_metadata_rules(config)

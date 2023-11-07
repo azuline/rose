@@ -1,9 +1,9 @@
+import dataclasses
 import shutil
 import subprocess
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import asdict
 from multiprocessing import Process
 from pathlib import Path
 
@@ -394,13 +394,11 @@ def test_virtual_filesystem_toggle_new(config: Config, source_dir: Path) -> None
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_virtual_filesystem_blacklist(config: Config) -> None:
-    new_config = Config(
-        **{
-            **asdict(config),
-            "fuse_artists_blacklist": ["Bass Man"],
-            "fuse_genres_blacklist": ["Techno"],
-            "fuse_labels_blacklist": ["Silk Music"],
-        },
+    new_config = dataclasses.replace(
+        config,
+        fuse_artists_blacklist=["Bass Man"],
+        fuse_genres_blacklist=["Techno"],
+        fuse_labels_blacklist=["Silk Music"],
     )
     root = config.fuse_mount_dir
     with start_virtual_fs(new_config):
@@ -414,13 +412,11 @@ def test_virtual_filesystem_blacklist(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_virtual_filesystem_whitelist(config: Config) -> None:
-    new_config = Config(
-        **{
-            **asdict(config),
-            "fuse_artists_whitelist": ["Bass Man"],
-            "fuse_genres_whitelist": ["Techno"],
-            "fuse_labels_whitelist": ["Silk Music"],
-        },
+    new_config = dataclasses.replace(
+        config,
+        fuse_artists_whitelist=["Bass Man"],
+        fuse_genres_whitelist=["Techno"],
+        fuse_labels_whitelist=["Silk Music"],
     )
     root = config.fuse_mount_dir
     with start_virtual_fs(new_config):

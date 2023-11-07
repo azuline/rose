@@ -1,7 +1,7 @@
+import dataclasses
 import hashlib
 import shutil
 import time
-from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -495,7 +495,7 @@ def test_update_cache_releases_evicts_relations(config: Config) -> None:
 
 def test_update_cache_releases_ignores_directories(config: Config) -> None:
     """Test that the ignore_release_directories configuration value works."""
-    config = Config(**{**asdict(config), "ignore_release_directories": ["lalala"]})
+    config = dataclasses.replace(config, ignore_release_directories=["lalala"])
     release_dir = config.music_source_dir / "lalala"
     shutil.copytree(TEST_RELEASE_1, release_dir)
 
@@ -567,6 +567,103 @@ def test_update_cache_releases_ignores_partially_written_directory(config: Confi
     with connect(config) as conn:
         cursor = conn.execute("SELECT COUNT(*) FROM releases")
         assert cursor.fetchone()[0] == 1
+
+
+def test_update_cache_rename_source_files(config: Config) -> None:
+    """Test that we properly rename the source directory on cache update."""
+    config = dataclasses.replace(config, rename_source_files=True)
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    update_cache(config)
+
+    expected_dir = config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]"
+    assert expected_dir in list(config.music_source_dir.iterdir())
+
+    files_in_dir = list(expected_dir.iterdir())
+    assert expected_dir / "01. Track 1.m4a" in files_in_dir
+    assert expected_dir / "02. Track 2.m4a" in files_in_dir
+
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT source_path FROM releases")
+        assert Path(cursor.fetchone()[0]) == expected_dir
+        cursor = conn.execute("SELECT source_path FROM tracks")
+        assert {Path(r[0]) for r in cursor} == {
+            expected_dir / "01. Track 1.m4a",
+            expected_dir / "02. Track 2.m4a",
+        }
+
+
+def test_update_cache_rename_source_files_nested_file_directories(config: Config) -> None:
+    """Test that we properly rename arbitrarily nested files and clean up the empty dirs."""
+    config = dataclasses.replace(config, rename_source_files=True)
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    (config.music_source_dir / TEST_RELEASE_1.name / "lala").mkdir()
+    (config.music_source_dir / TEST_RELEASE_1.name / "01.m4a").rename(
+        config.music_source_dir / TEST_RELEASE_1.name / "lala" / "1.m4a"
+    )
+    update_cache(config)
+
+    expected_dir = config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]"
+    assert expected_dir in list(config.music_source_dir.iterdir())
+
+    files_in_dir = list(expected_dir.iterdir())
+    assert expected_dir / "01. Track 1.m4a" in files_in_dir
+    assert expected_dir / "02. Track 2.m4a" in files_in_dir
+    assert expected_dir / "lala" not in files_in_dir
+
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT source_path FROM releases")
+        assert Path(cursor.fetchone()[0]) == expected_dir
+        cursor = conn.execute("SELECT source_path FROM tracks")
+        assert {Path(r[0]) for r in cursor} == {
+            expected_dir / "01. Track 1.m4a",
+            expected_dir / "02. Track 2.m4a",
+        }
+
+
+def test_update_cache_rename_source_files_collisions(config: Config) -> None:
+    """Test that we properly rename arbitrarily nested files and clean up the empty dirs."""
+    config = dataclasses.replace(config, rename_source_files=True)
+    # Three copies of the same directory, and two instances of Track 1.
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    shutil.copyfile(
+        config.music_source_dir / TEST_RELEASE_1.name / "01.m4a",
+        config.music_source_dir / TEST_RELEASE_1.name / "haha.m4a",
+    )
+    shutil.copytree(
+        config.music_source_dir / TEST_RELEASE_1.name, config.music_source_dir / "Number 2"
+    )
+    shutil.copytree(
+        config.music_source_dir / TEST_RELEASE_1.name, config.music_source_dir / "Number 3"
+    )
+    update_cache(config)
+
+    release_dirs = list(config.music_source_dir.iterdir())
+    for expected_dir in [
+        config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]",
+        config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW] [2]",
+        config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW] [3]",
+    ]:
+        assert expected_dir in release_dirs
+
+        files_in_dir = list(expected_dir.iterdir())
+        assert expected_dir / "01. Track 1.m4a" in files_in_dir
+        assert expected_dir / "01. Track 1 [2].m4a" in files_in_dir
+        assert expected_dir / "02. Track 2.m4a" in files_in_dir
+
+        with connect(config) as conn:
+            cursor = conn.execute(
+                "SELECT id FROM releases WHERE source_path = ?", (str(expected_dir),)
+            )
+            release_id = cursor.fetchone()[0]
+            assert release_id
+            cursor = conn.execute(
+                "SELECT source_path FROM tracks WHERE release_id = ?", (release_id,)
+            )
+            assert {Path(r[0]) for r in cursor} == {
+                expected_dir / "01. Track 1.m4a",
+                expected_dir / "01. Track 1 [2].m4a",
+                expected_dir / "02. Track 2.m4a",
+            }
 
 
 def test_update_cache_releases_updates_full_text_search(config: Config) -> None:
@@ -984,12 +1081,10 @@ def test_list_releases(config: Config) -> None:
     ]
 
     # Test with artist aliases.
-    config_with_aliases = Config(
-        **{
-            **asdict(config),
-            "artist_aliases_map": {"Hype Boy": ["Bass Man"]},
-            "artist_aliases_parents_map": {"Bass Man": ["Hype Boy"]},
-        },
+    config_with_aliases = dataclasses.replace(
+        config,
+        artist_aliases_map={"Hype Boy": ["Bass Man"]},
+        artist_aliases_parents_map={"Bass Man": ["Hype Boy"]},
     )
     releases = list(list_releases(config_with_aliases, sanitized_artist_filter="Hype Boy"))
     assert releases == [
@@ -1100,12 +1195,10 @@ def test_get_release(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_get_release_applies_artist_aliases(config: Config) -> None:
-    config = Config(
-        **{
-            **asdict(config),
-            "artist_aliases_map": {"Hype Boy": ["Bass Man"]},
-            "artist_aliases_parents_map": {"Bass Man": ["Hype Boy"]},
-        },
+    config = dataclasses.replace(
+        config,
+        artist_aliases_map={"Hype Boy": ["Bass Man"]},
+        artist_aliases_parents_map={"Bass Man": ["Hype Boy"]},
     )
     rdata = get_release(config, "r1")
     assert rdata is not None
@@ -1331,12 +1424,10 @@ def test_artist_exists(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_artist_exists_with_alias(config: Config) -> None:
-    config = Config(
-        **{
-            **asdict(config),
-            "artist_aliases_map": {"Hype Boy": ["Bass Man"]},
-            "artist_aliases_parents_map": {"Bass Man": ["Hype Boy"]},
-        },
+    config = dataclasses.replace(
+        config,
+        artist_aliases_map={"Hype Boy": ["Bass Man"]},
+        artist_aliases_parents_map={"Bass Man": ["Hype Boy"]},
     )
     assert artist_exists(config, "Hype Boy")
 
