@@ -9,7 +9,14 @@ import tomllib
 
 from conftest import TEST_RELEASE_1
 from rose.audiotags import AudioTags
-from rose.cache import CachedRelease, CachedTrack, connect, get_release, update_cache
+from rose.cache import (
+    CachedRelease,
+    CachedTrack,
+    connect,
+    get_release,
+    get_tracks_associated_with_release,
+    update_cache,
+)
 from rose.common import Artist, ArtistMapping
 from rose.config import Config
 from rose.releases import (
@@ -160,9 +167,8 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
     monkeypatch.setattr("rose.collages.click.edit", lambda *_, **__: new_toml)
 
     edit_release(config, release_id)
-    rdata = get_release(config, release_id)
-    assert rdata is not None
-    release, tracks = rdata
+    release = get_release(config, release_id)
+    assert release is not None
     assert release == CachedRelease(
         id=release_id,
         source_path=release_path,
@@ -178,6 +184,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         labels=["YG Entertainment"],
         artists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
     )
+    tracks = get_tracks_associated_with_release(config, release)
     assert tracks == [
         CachedTrack(
             id=track_ids[0],
@@ -304,9 +311,8 @@ def test_edit_release_failure_and_resume(
     # Assert the file got deleted.
     assert not resume_file.exists()
 
-    rdata = get_release(config, release_id)
-    assert rdata is not None
-    release, tracks = rdata
+    release = get_release(config, release_id)
+    assert release is not None
     assert release == CachedRelease(
         id=release_id,
         source_path=release_path,
@@ -322,6 +328,7 @@ def test_edit_release_failure_and_resume(
         labels=["YG Entertainment"],
         artists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
     )
+    tracks = get_tracks_associated_with_release(config, release)
     assert tracks == [
         CachedTrack(
             id=track_ids[0],

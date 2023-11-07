@@ -22,10 +22,10 @@ from rose.cache import (
     STORED_DATA_FILE_REGEX,
     CachedRelease,
     CachedTrack,
+    calculate_release_logtext,
     get_release,
-    get_release_logtext,
-    get_release_source_path,
-    list_releases,
+    get_tracks_associated_with_release,
+    list_releases_delete_this,
     lock,
     release_lock_name,
     update_cache_evict_nonexistent_releases,
@@ -62,25 +62,28 @@ class UnknownArtistRoleError(RoseExpectedError):
 
 
 def dump_release(c: Config, release_id: str) -> str:
-    try:
-        release, tracks = get_release(c, release_id)  # type: ignore
-    except TypeError as e:
-        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist") from e
+    release = get_release(c, release_id)
+    if not release:
+        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
+    tracks = get_tracks_associated_with_release(c, release)
     return json.dumps({**release.dump(), "tracks": [t.dump() for t in tracks]})
 
 
 def dump_releases(c: Config) -> str:
-    return json.dumps([r.dump() for r in list_releases(c)])
+    return json.dumps([r.dump() for r in list_releases_delete_this(c)])
 
 
 def delete_release(c: Config, release_id: str) -> None:
-    release_logtext = get_release_logtext(c, release_id)
-    if not release_logtext:
+    release = get_release(c, release_id)
+    if not release:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
     with lock(c, release_lock_name(release_id)):
-        source_path = get_release_source_path(c, release_id)
-        assert source_path is not None
-        send2trash(source_path)
+        send2trash(release.source_path)
+    release_logtext = calculate_release_logtext(
+        title=release.title,
+        year=release.year,
+        artists=release.artists,
+    )
     logger.info(f"Trashed release {release_logtext}")
     update_cache_evict_nonexistent_releases(c)
     # Update all collages so that the release is removed from whichever collages it was in.
@@ -88,13 +91,17 @@ def delete_release(c: Config, release_id: str) -> None:
 
 
 def toggle_release_new(c: Config, release_id: str) -> None:
-    release_logtext = get_release_logtext(c, release_id)
-    if not release_logtext:
+    release = get_release(c, release_id)
+    if not release:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
-    source_path = get_release_source_path(c, release_id)
-    assert source_path is not None
-    for f in source_path.iterdir():
+    release_logtext = calculate_release_logtext(
+        title=release.title,
+        year=release.year,
+        artists=release.artists,
+    )
+
+    for f in release.source_path.iterdir():
         if not STORED_DATA_FILE_REGEX.match(f.name):
             continue
         with lock(c, release_lock_name(release_id)):
@@ -104,10 +111,10 @@ def toggle_release_new(c: Config, release_id: str) -> None:
             with f.open("wb") as fp:
                 tomli_w.dump(data, fp)
         logger.info(f'Toggled "new"-ness of release {release_logtext} to {data["new"]}')
-        update_cache_for_releases(c, [source_path], force=True)
+        update_cache_for_releases(c, [release.source_path], force=True)
         return
 
-    logger.critical(f"Failed to find .rose.toml in {source_path}")
+    logger.critical(f"Failed to find .rose.toml in {release.source_path}")
 
 
 def set_release_cover_art(
@@ -126,32 +133,39 @@ def set_release_cover_art(
             "To change this, please read the configuration documentation"
         )
 
-    release_logtext = get_release_logtext(c, release_id)
-    if not release_logtext:
+    release = get_release(c, release_id)
+    if not release:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
-    source_path = get_release_source_path(c, release_id)
-    assert source_path is not None
-    for f in source_path.iterdir():
+    release_logtext = calculate_release_logtext(
+        title=release.title,
+        year=release.year,
+        artists=release.artists,
+    )
+
+    for f in release.source_path.iterdir():
         if f.name.lower() in c.valid_cover_arts:
             logger.debug(f"Deleting existing cover art {f.name} in {release_logtext}")
             send2trash(f)
-    shutil.copyfile(new_cover_art_path, source_path / f"cover{new_cover_art_path.suffix}")
+    shutil.copyfile(new_cover_art_path, release.source_path / f"cover{new_cover_art_path.suffix}")
     logger.info(f"Set the cover of release {release_logtext} to {new_cover_art_path.name}")
-    update_cache_for_releases(c, [source_path])
+    update_cache_for_releases(c, [release.source_path])
 
 
 def delete_release_cover_art(c: Config, release_id: str) -> None:
     """This function deletes all potential cover arts in the release source directory."""
-    release_logtext = get_release_logtext(c, release_id)
-    if not release_logtext:
+    release = get_release(c, release_id)
+    if not release:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
-    source_path = get_release_source_path(c, release_id)
-    assert source_path is not None
+    release_logtext = calculate_release_logtext(
+        title=release.title,
+        year=release.year,
+        artists=release.artists,
+    )
 
     found = False
-    for f in source_path.iterdir():
+    for f in release.source_path.iterdir():
         if f.name.lower() in c.valid_cover_arts:
             logger.debug(f"Deleting existing cover art {f.name} in {release_logtext}")
             send2trash(f)
@@ -160,7 +174,7 @@ def delete_release_cover_art(c: Config, release_id: str) -> None:
         logger.info(f"Deleted cover arts of release {release_logtext}")
     else:
         logger.info(f"No-Op: No cover arts found for release {release_logtext}")
-    update_cache_for_releases(c, [source_path])
+    update_cache_for_releases(c, [release.source_path])
 
 
 @dataclass
@@ -267,17 +281,17 @@ def edit_release(
     # Will use this file as the starting TOML instead of reading the cache.
     resume_file: Path | None = None,
 ) -> None:
-    release_logtext = get_release_logtext(c, release_id)
-    if not release_logtext:
+    release = get_release(c, release_id)
+    if not release:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
     # Trigger a quick cache update to ensure we are reading the liveliest data.
-    source_path = get_release_source_path(c, release_id)
-    assert source_path is not None
-    update_cache_for_releases(c, [source_path])
+    update_cache_for_releases(c, [release.source_path])
 
+    # TODO: Read from tags directly to ensure that we are not writing stale data.
     with lock(c, release_lock_name(release_id)):
-        release, tracks = get_release(c, release_id)  # type: ignore
+        assert release is not None
+        tracks = get_tracks_associated_with_release(c, release)
 
         if resume_file is not None:
             m = FAILED_RELEASE_EDIT_FILENAME_REGEX.match(resume_file.name)
@@ -395,10 +409,11 @@ def run_actions_on_release(
     confirm_yes: bool = False,
 ) -> None:
     """Run rule engine actions on a release."""
-    rdata = get_release(c, release_id)
-    if rdata is None:
+    release = get_release(c, release_id)
+    if release is None:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
-    audiotags = [AudioTags.from_file(t.source_path) for t in rdata[1]]
+    tracks = get_tracks_associated_with_release(c, release)
+    audiotags = [AudioTags.from_file(t.source_path) for t in tracks]
     execute_metadata_actions(c, actions, audiotags, dry_run=dry_run, confirm_yes=confirm_yes)
 
 

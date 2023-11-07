@@ -26,7 +26,7 @@ from rose.cache import (
     CachedRelease,
     CachedTrack,
     connect,
-    get_release_source_paths,
+    list_releases,
     update_cache_for_releases,
 )
 from rose.common import Artist, RoseError, RoseExpectedError, uniq
@@ -383,7 +383,7 @@ def execute_metadata_actions(
     # == Step 6: Trigger cache update ===
 
     click.echo()
-    source_paths = get_release_source_paths(c, list(changed_release_ids))
+    source_paths = [r.source_path for r in list_releases(c, list(changed_release_ids))]
     update_cache_for_releases(c, source_paths)
 
 

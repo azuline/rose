@@ -8,7 +8,7 @@ import pytest
 from rose.audiotags import AudioTags
 from rose.cache import (
     get_releases_associated_with_tracks,
-    list_releases_by_ids,
+    list_releases,
     list_tracks,
     update_cache,
 )
@@ -339,7 +339,7 @@ def test_filter_release_false_positives_with_read_cache(config: Config) -> None:
     matcher = MetadataMatcher.parse("albumartist:^Man")
     fsresults = fast_search_for_matching_releases(config, matcher)
     assert len(fsresults) == 2
-    cacheresults = list(list_releases_by_ids(config, [r.id for r in fsresults]))
+    cacheresults = list(list_releases(config, [r.id for r in fsresults]))
     assert len(cacheresults) == 2
     filteredresults = list(filter_release_false_positives_using_read_cache(matcher, cacheresults))
     assert not filteredresults
