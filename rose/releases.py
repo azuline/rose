@@ -61,6 +61,14 @@ class UnknownArtistRoleError(RoseExpectedError):
     pass
 
 
+def dump_release(c: Config, release_id: str) -> str:
+    try:
+        release, tracks = get_release(c, release_id)  # type: ignore
+    except TypeError as e:
+        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist") from e
+    return json.dumps({**release.dump(), "tracks": [t.dump() for t in tracks]})
+
+
 def dump_releases(c: Config) -> str:
     return json.dumps([r.dump() for r in list_releases(c)])
 

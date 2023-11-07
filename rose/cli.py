@@ -20,6 +20,7 @@ from rose.collages import (
     add_release_to_collage,
     create_collage,
     delete_collage,
+    dump_collage,
     dump_collages,
     edit_collage_in_editor,
     remove_release_from_collage,
@@ -32,6 +33,7 @@ from rose.playlists import (
     create_playlist,
     delete_playlist,
     delete_playlist_cover_art,
+    dump_playlist,
     dump_playlists,
     edit_playlist_in_editor,
     remove_track_from_playlist,
@@ -42,6 +44,7 @@ from rose.releases import (
     create_single_release,
     delete_release,
     delete_release_cover_art,
+    dump_release,
     dump_releases,
     edit_release,
     run_actions_on_release,
@@ -192,14 +195,22 @@ def unmount(ctx: Context) -> None:
 @cli.group()
 def releases() -> None:
     """Manage releases."""
-    # TODO: print / extract-covers / add-metadata-url / search-metadata-urls / import
+    # TODO: extract-covers / add-metadata-url / search-metadata-urls / import
+
+
+@releases.command(name="print")
+@click.argument("release", type=str, nargs=1)
+@click.pass_obj
+def print1(ctx: Context, release: str) -> None:
+    """Print a single release (in JSON). Accepts a release's UUID/path."""
+    click.echo(dump_release(ctx.config, release))
 
 
 @releases.command(name="print-all")
 @click.pass_obj
 def print_all(ctx: Context) -> None:
     """Print all releases (in JSON)."""
-    print(dump_releases(ctx.config))
+    click.echo(dump_releases(ctx.config))
 
 
 @releases.command(name="edit")
@@ -372,11 +383,19 @@ def edit(ctx: Context, collage: str) -> None:
     edit_collage_in_editor(ctx.config, collage)
 
 
+@collages.command(name="print")
+@click.argument("collage", type=str, nargs=1)
+@click.pass_obj
+def print2(ctx: Context, collage: str) -> None:
+    """Print a collage (in JSON). Accepts a collage's name."""
+    click.echo(dump_collage(ctx.config, collage))
+
+
 @collages.command(name="print-all")
 @click.pass_obj
 def print_all1(ctx: Context) -> None:
     """Print all collages (in JSON)."""
-    print(dump_collages(ctx.config))
+    click.echo(dump_collages(ctx.config))
 
 
 @cli.group()
@@ -441,11 +460,19 @@ def edit3(ctx: Context, playlist: str) -> None:
     edit_playlist_in_editor(ctx.config, playlist)
 
 
+@playlists.command(name="print")
+@click.argument("playlist", type=str, nargs=1)
+@click.pass_obj
+def print3(ctx: Context, playlist: str) -> None:
+    """Print a playlist (in JSON). Accepts a playlist's name."""
+    click.echo(dump_playlist(ctx.config, playlist))
+
+
 @playlists.command(name="print-all")
 @click.pass_obj
 def print_all2(ctx: Context) -> None:
-    """Print all playlists (in JSON.)"""
-    print(dump_playlists(ctx.config))
+    """Print all playlists (in JSON)."""
+    click.echo(dump_playlists(ctx.config))
 
 
 @playlists.command(name="set-cover")

@@ -144,6 +144,16 @@ def add_release_to_collage(
     update_cache_for_collages(c, [collage_name], force=True)
 
 
+def dump_collage(c: Config, collage_name: str) -> str:
+    cdata = get_collage(c, collage_name)
+    if cdata is None:
+        raise CollageDoesNotExistError(f"Collage {collage_name} does not exist")
+    releases: list[dict[str, Any]] = []
+    for idx, rls in enumerate(cdata[1]):
+        releases.append({"position": idx + 1, **rls.dump()})
+    return json.dumps({"name": collage_name, "releases": releases})
+
+
 def dump_collages(c: Config) -> str:
     out: list[dict[str, Any]] = []
     for name in list_collages(c):
