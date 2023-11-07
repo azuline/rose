@@ -4,6 +4,7 @@ The releases module encapsulates all mutations that can occur on release and tra
 
 from __future__ import annotations
 
+import json
 import logging
 
 from rose.audiotags import AudioTags
@@ -36,3 +37,10 @@ def run_actions_on_track(
         raise TrackDoesNotExistError(f"Track {track_id} does not exist")
     audiotag = AudioTags.from_file(track.source_path)
     execute_metadata_actions(c, actions, [audiotag], dry_run=dry_run, confirm_yes=confirm_yes)
+
+
+def dump_track(c: Config, track_id: str) -> str:
+    track = get_track(c, track_id)
+    if track is None:
+        raise TrackDoesNotExistError(f"Track {track_id} does not exist")
+    return json.dumps(track.dump())

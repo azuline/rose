@@ -17,6 +17,7 @@ from rose.releases import (
     create_single_release,
     delete_release,
     delete_release_cover_art,
+    dump_release,
     dump_releases,
     edit_release,
     run_actions_on_release,
@@ -369,6 +370,75 @@ def test_extract_single_release(config: Config) -> None:
     assert af.discnumber == "1"
     assert af.releasetype == "single"
     assert af.albumartists == af.trackartists
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_dump_release(config: Config) -> None:
+    assert json.loads(dump_release(config, "r1")) == {
+        "id": "r1",
+        "source_path": f"{config.music_source_dir}/r1",
+        "cover_image_path": None,
+        "added_at": "0000-01-01T00:00:00+00:00",
+        "title": "Release 1",
+        "releasetype": "album",
+        "year": 2023,
+        "new": False,
+        "genres": ["Techno", "Deep House"],
+        "labels": ["Silk Music"],
+        "artists": {
+            "main": [
+                {"name": "Techno Man", "alias": False},
+                {"name": "Bass Man", "alias": False},
+            ],
+            "guest": [],
+            "remixer": [],
+            "producer": [],
+            "composer": [],
+            "djmixer": [],
+        },
+        "tracks": [
+            {
+                "artists": {
+                    "composer": [],
+                    "djmixer": [],
+                    "guest": [],
+                    "main": [
+                        {"alias": False, "name": "Techno Man"},
+                        {"alias": False, "name": "Bass Man"},
+                    ],
+                    "producer": [],
+                    "remixer": [],
+                },
+                "discnumber": "01",
+                "duration_seconds": 120,
+                "id": "t1",
+                "release_id": "r1",
+                "source_path": f"{config.music_source_dir}/r1/01.m4a",
+                "title": "Track 1",
+                "tracknumber": "01",
+            },
+            {
+                "artists": {
+                    "composer": [],
+                    "djmixer": [],
+                    "guest": [],
+                    "main": [
+                        {"alias": False, "name": "Techno Man"},
+                        {"alias": False, "name": "Bass Man"},
+                    ],
+                    "producer": [],
+                    "remixer": [],
+                },
+                "discnumber": "01",
+                "duration_seconds": 240,
+                "id": "t2",
+                "release_id": "r1",
+                "source_path": f"{config.music_source_dir}/r1/02.m4a",
+                "title": "Track 2",
+                "tracknumber": "02",
+            },
+        ],
+    }
 
 
 @pytest.mark.usefixtures("seeded_cache")

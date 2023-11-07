@@ -10,6 +10,7 @@ from rose.collages import (
     add_release_to_collage,
     create_collage,
     delete_collage,
+    dump_collage,
     dump_collages,
     edit_collage_in_editor,
     remove_release_from_collage,
@@ -115,6 +116,61 @@ def test_rename_collage(config: Config, source_dir: Path) -> None:
         assert cursor.fetchone()[0]
         cursor = conn.execute("SELECT EXISTS(SELECT * FROM collages WHERE name = 'Rose Gold')")
         assert not cursor.fetchone()[0]
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_dump_collage(config: Config) -> None:
+    out = dump_collage(config, "Rose Gold")
+    assert json.loads(out) == {
+        "name": "Rose Gold",
+        "releases": [
+            {
+                "position": 1,
+                "id": "r1",
+                "source_path": f"{config.music_source_dir}/r1",
+                "cover_image_path": None,
+                "added_at": "0000-01-01T00:00:00+00:00",
+                "title": "Release 1",
+                "releasetype": "album",
+                "year": 2023,
+                "new": False,
+                "genres": ["Techno", "Deep House"],
+                "labels": ["Silk Music"],
+                "artists": {
+                    "main": [
+                        {"name": "Techno Man", "alias": False},
+                        {"name": "Bass Man", "alias": False},
+                    ],
+                    "guest": [],
+                    "remixer": [],
+                    "producer": [],
+                    "composer": [],
+                    "djmixer": [],
+                },
+            },
+            {
+                "position": 2,
+                "id": "r2",
+                "source_path": f"{config.music_source_dir}/r2",
+                "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
+                "added_at": "0000-01-01T00:00:00+00:00",
+                "title": "Release 2",
+                "releasetype": "album",
+                "year": 2021,
+                "new": False,
+                "genres": ["Classical"],
+                "labels": ["Native State"],
+                "artists": {
+                    "main": [{"name": "Violin Woman", "alias": False}],
+                    "guest": [{"name": "Conductor Woman", "alias": False}],
+                    "remixer": [],
+                    "producer": [],
+                    "composer": [],
+                    "djmixer": [],
+                },
+            },
+        ],
+    }
 
 
 @pytest.mark.usefixtures("seeded_cache")

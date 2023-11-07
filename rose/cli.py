@@ -54,7 +54,7 @@ from rose.releases import (
 from rose.rule_parser import MetadataAction, MetadataRule
 from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
 from rose.templates import preview_path_templates
-from rose.tracks import run_actions_on_track
+from rose.tracks import dump_track, run_actions_on_track
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
@@ -301,6 +301,14 @@ def create_single(ctx: Context, track_path: Path) -> None:
 def tracks() -> None:
     """Manage tracks."""
     # TODO: print / print-all / run-rule
+
+
+@tracks.command(name="print")
+@click.argument("track", type=str, nargs=1)
+@click.pass_obj
+def print4(ctx: Context, track: str) -> None:
+    """Print a single track (in JSON). Accepts a tracks's UUID/path."""
+    click.echo(dump_track(ctx.config, track))
 
 
 @tracks.command(name="run-rule")

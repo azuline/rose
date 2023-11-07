@@ -14,6 +14,7 @@ from rose.playlists import (
     create_playlist,
     delete_playlist,
     delete_playlist_cover_art,
+    dump_playlist,
     dump_playlists,
     edit_playlist_in_editor,
     remove_track_from_playlist,
@@ -121,6 +122,56 @@ def test_rename_playlist(config: Config, source_dir: Path) -> None:
         assert Path(cursor.fetchone()[0]) == source_dir / "!playlists" / "Turtle Rabbit.jpg"
         cursor = conn.execute("SELECT EXISTS(SELECT * FROM playlists WHERE name = 'Lala Lisa')")
         assert not cursor.fetchone()[0]
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_dump_playlist(config: Config) -> None:
+    out = dump_playlist(config, "Lala Lisa")
+    assert json.loads(out) == {
+        "name": "Lala Lisa",
+        "cover_image_path": f"{config.music_source_dir}/!playlists/Lala Lisa.jpg",
+        "tracks": [
+            {
+                "position": 1,
+                "id": "t1",
+                "source_path": f"{config.music_source_dir}/r1/01.m4a",
+                "title": "Track 1",
+                "release_id": "r1",
+                "tracknumber": "01",
+                "discnumber": "01",
+                "duration_seconds": 120,
+                "artists": {
+                    "main": [
+                        {"name": "Techno Man", "alias": False},
+                        {"name": "Bass Man", "alias": False},
+                    ],
+                    "guest": [],
+                    "remixer": [],
+                    "producer": [],
+                    "composer": [],
+                    "djmixer": [],
+                },
+            },
+            {
+                "position": 2,
+                "id": "t3",
+                "source_path": f"{config.music_source_dir}/r2/01.m4a",
+                "title": "Track 1",
+                "release_id": "r2",
+                "tracknumber": "01",
+                "discnumber": "01",
+                "duration_seconds": 120,
+                "artists": {
+                    "main": [{"name": "Violin Woman", "alias": False}],
+                    "guest": [{"name": "Conductor Woman", "alias": False}],
+                    "remixer": [],
+                    "producer": [],
+                    "composer": [],
+                    "djmixer": [],
+                },
+            },
+        ],
+    }
 
 
 @pytest.mark.usefixtures("seeded_cache")
