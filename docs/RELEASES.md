@@ -43,6 +43,29 @@ toggled manually afterwards. This feature is designed to allow you to
 distinguish between music you've listened to and music you're planning on
 listening to.
 
+# Printing Metadata
+
+Rosé supports printing release and track metadata from the command line in
+JSON format, which can be used in scripts and to compose your own commands.
+Rosé provides four commands:
+
+```
+$ rose releases print 'UUID/Path'
+$ rose releases print-all [matcher?]
+$ rose tracks print 'UUID/Path'
+$ rose tracks print-all [matcher?]
+```
+
+The `print` commands print a single JSON object representing one release/track.
+The release objects contain the tracks that are part of the release. The
+`print-all` commands print an array of JSON objects, one per release/track.
+
+The `print-all` commands accept an optional matcher in the language used for
+the Rules Engine (see [Improving Your Music Metadata](./METADATA_TOOLS.md).
+If provided, only releases/tracks matching the matcher will be printed. Note
+that in the `releases print-all` command, only release-scoped tags may be used
+in the matcher (i.e. no tracktitle, tracknumber, etc.).
+
 # Operations
 
 Rosé allows you to manage releases via the command line and the virtual
