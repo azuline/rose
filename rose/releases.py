@@ -1,5 +1,5 @@
 """
-The releases module encapsulates all mutations that can occur on release and track entities.
+The releases module provides functions for interacting with releases.
 """
 
 from __future__ import annotations

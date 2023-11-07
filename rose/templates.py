@@ -1,8 +1,7 @@
 """
-The templates module contains the virtual path templating logic. Rose supports configuring release
-directory names and track file names as Jinja templates.
-
-All newlines and multi-spaces are replaced with a single space in the final output.
+The templates module provides the ability to customize paths in the source directory and virtual
+filesystem as Jinja templates. Users can specify different templates for different views in the
+virtual filesystem.
 """
 
 from __future__ import annotations
@@ -273,6 +272,7 @@ COLLAPSE_SPACING_REGEX = re.compile(r"\s+", flags=re.MULTILINE)
 
 
 def _collapse_spacing(x: str) -> str:
+    # All newlines and multi-spaces are replaced with a single space in the final output.
     return COLLAPSE_SPACING_REGEX.sub(" ", x).strip()
 
 
@@ -373,9 +373,7 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
     click.secho("  Sample 2: ", dim=True, nl=False)
     track = CachedTrack(
         id="018b6021-f1e5-7d4b-b796-440fbbea3b15",
-        source_path=c.music_source_dir
-        / "BTS - 2016. Young Forever (花樣年華)"
-        / "House of Cards.opus",
+        source_path=c.music_source_dir / "BTS - 2016. Young Forever (花樣年華)" / "House of Cards.opus",
         source_mtime="999",
         title="House of Cards",
         release_id="018b268e-ff1e-7a0c-9ac8-7bbb282761f2",

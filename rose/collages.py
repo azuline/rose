@@ -1,5 +1,5 @@
 """
-The collages module encapsulates all mutations that can occur on collages.
+The collages module provides functions for interacting with collages.
 """
 
 import json

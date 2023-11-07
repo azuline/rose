@@ -1,6 +1,7 @@
 """
-The playlists module encapsulates all mutations that can occur on playlists.
+The playlists module provides functions for interacting with playlists.
 """
+
 
 import json
 import logging

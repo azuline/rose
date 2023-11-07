@@ -1,6 +1,8 @@
 """
-The config module encapsulates the configuration parsing logic. The config module is written with
-special care to provide early and comprehensible errors when the configuration is invalid.
+The config module provides the config spec and parsing logic.
+
+We take special care to optimize the configuration experience: Rose provides detailed errors when an
+invalid configuration is detected, and emits warnings when unrecognized keys are found.
 """
 
 from __future__ import annotations

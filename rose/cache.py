@@ -18,7 +18,7 @@ the overall complexity of the cache update sequence:
 2. **In-progress directory creation:** We may come across a directory while it is in the process of
    being created. For example, due to `cp -r`. Unless --force is passed, we skip directories that
    lack a `.rose.{uuid}.toml` file, yet have a `Release ID` written syncthing synchronization.
-2. **Performance:** We want to minimize file accesses, so we cache heavily and batch operations
+3. **Performance:** We want to minimize file accesses, so we cache heavily and batch operations
    together. This creates a lot of intermediate state that we accumulate throughout the cache
    update.
 """
