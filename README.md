@@ -127,7 +127,7 @@ Rosé's virtual filesystem organizes your music library by the metadata in the
 music tags. The quality of the virtual filesystem depends on the quality of the
 tags.
 
-Thus, Rosé also provides the following functions to improv the tags of your
+Thus, Rosé also provides the following functions to improve the tags of your
 music library:
 
 1. A text-based interface for manually modifying metadata,

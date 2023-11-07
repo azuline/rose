@@ -1,7 +1,8 @@
 """
-The rule_parser module provides the typedef and parser for the rules engine. This is split out from
-the rules engine in order to avoid a dependency cycle between the config module and the rules
-module.
+The rule_parser module provides a parser for the rules engine's DSL.
+
+This is split out from the rules engine in order to avoid a dependency cycle between the config
+module and the rules module.
 """
 
 from __future__ import annotations
@@ -79,6 +80,15 @@ SINGLE_VALUE_TAGS: list[Tag] = [
     "albumtitle",
     "releasetype",
     "year",
+]
+
+RELEASE_TAGS: list[Tag] = [
+    "albumtitle",
+    "albumartist",
+    "releasetype",
+    "year",
+    "genre",
+    "label",
 ]
 
 

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from rose.cache import CACHE_SCHEMA_PATH, update_cache
+from rose.cache import CACHE_SCHEMA_PATH, process_string_for_fts, update_cache
 from rose.common import VERSION
 from rose.config import Config
 from rose.templates import PathTemplateConfig
@@ -171,6 +171,45 @@ INSERT INTO playlists_tracks
 VALUES ('Lala Lisa'  , 't1'    , 1       , false)
      , ('Lala Lisa'  , 't3'    , 2       , false);
             """
+        )
+
+        # And update the FTS index too...
+        conn.create_function("process_string_for_fts", 1, process_string_for_fts)
+        conn.execute(
+            """
+            INSERT INTO rules_engine_fts (
+                rowid
+              , tracktitle
+              , tracknumber
+              , discnumber
+              , albumtitle
+              , year
+              , releasetype
+              , genre
+              , label
+              , albumartist
+              , trackartist
+            )
+            SELECT
+                t.rowid
+              , process_string_for_fts(t.title) AS tracktitle
+              , process_string_for_fts(t.tracknumber) AS tracknumber
+              , process_string_for_fts(t.discnumber) AS discnumber
+              , process_string_for_fts(r.title) AS albumtitle
+              , process_string_for_fts(r.year) AS year
+              , process_string_for_fts(r.releasetype) AS releasetype
+              , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, ' '), '')) AS genre
+              , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, ' '), '')) AS label
+              , process_string_for_fts(COALESCE(GROUP_CONCAT(ra.artist, ' '), '')) AS albumartist
+              , process_string_for_fts(COALESCE(GROUP_CONCAT(ta.artist, ' '), '')) AS trackartist
+            FROM tracks t
+            JOIN releases r ON r.id = t.release_id
+            LEFT JOIN releases_genres rg ON rg.release_id = r.id
+            LEFT JOIN releases_labels rl ON rl.release_id = r.id
+            LEFT JOIN releases_artists ra ON ra.release_id = r.id
+            LEFT JOIN tracks_artists ta ON ta.track_id = t.id
+            GROUP BY t.id
+            """,
         )
 
     (config.music_source_dir / "!collages").mkdir()

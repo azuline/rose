@@ -9,7 +9,14 @@ import tomllib
 
 from conftest import TEST_RELEASE_1
 from rose.audiotags import AudioTags
-from rose.cache import CachedRelease, CachedTrack, connect, get_release, update_cache
+from rose.cache import (
+    CachedRelease,
+    CachedTrack,
+    connect,
+    get_release,
+    get_tracks_associated_with_release,
+    update_cache,
+)
 from rose.common import Artist, ArtistMapping
 from rose.config import Config
 from rose.releases import (
@@ -17,13 +24,14 @@ from rose.releases import (
     create_single_release,
     delete_release,
     delete_release_cover_art,
+    dump_release,
     dump_releases,
     edit_release,
     run_actions_on_release,
     set_release_cover_art,
     toggle_release_new,
 )
-from rose.rule_parser import MetadataAction
+from rose.rule_parser import MetadataAction, MetadataMatcher
 
 
 def test_delete_release(config: Config) -> None:
@@ -159,9 +167,8 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
     monkeypatch.setattr("rose.collages.click.edit", lambda *_, **__: new_toml)
 
     edit_release(config, release_id)
-    rdata = get_release(config, release_id)
-    assert rdata is not None
-    release, tracks = rdata
+    release = get_release(config, release_id)
+    assert release is not None
     assert release == CachedRelease(
         id=release_id,
         source_path=release_path,
@@ -177,6 +184,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         labels=["YG Entertainment"],
         artists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
     )
+    tracks = get_tracks_associated_with_release(config, release)
     assert tracks == [
         CachedTrack(
             id=track_ids[0],
@@ -303,9 +311,8 @@ def test_edit_release_failure_and_resume(
     # Assert the file got deleted.
     assert not resume_file.exists()
 
-    rdata = get_release(config, release_id)
-    assert rdata is not None
-    release, tracks = rdata
+    release = get_release(config, release_id)
+    assert release is not None
     assert release == CachedRelease(
         id=release_id,
         source_path=release_path,
@@ -321,6 +328,7 @@ def test_edit_release_failure_and_resume(
         labels=["YG Entertainment"],
         artists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
     )
+    tracks = get_tracks_associated_with_release(config, release)
     assert tracks == [
         CachedTrack(
             id=track_ids[0],
@@ -372,6 +380,75 @@ def test_extract_single_release(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
+def test_dump_release(config: Config) -> None:
+    assert json.loads(dump_release(config, "r1")) == {
+        "id": "r1",
+        "source_path": f"{config.music_source_dir}/r1",
+        "cover_image_path": None,
+        "added_at": "0000-01-01T00:00:00+00:00",
+        "title": "Release 1",
+        "releasetype": "album",
+        "year": 2023,
+        "new": False,
+        "genres": ["Techno", "Deep House"],
+        "labels": ["Silk Music"],
+        "artists": {
+            "main": [
+                {"name": "Techno Man", "alias": False},
+                {"name": "Bass Man", "alias": False},
+            ],
+            "guest": [],
+            "remixer": [],
+            "producer": [],
+            "composer": [],
+            "djmixer": [],
+        },
+        "tracks": [
+            {
+                "artists": {
+                    "composer": [],
+                    "djmixer": [],
+                    "guest": [],
+                    "main": [
+                        {"alias": False, "name": "Techno Man"},
+                        {"alias": False, "name": "Bass Man"},
+                    ],
+                    "producer": [],
+                    "remixer": [],
+                },
+                "discnumber": "01",
+                "duration_seconds": 120,
+                "id": "t1",
+                "release_id": "r1",
+                "source_path": f"{config.music_source_dir}/r1/01.m4a",
+                "title": "Track 1",
+                "tracknumber": "01",
+            },
+            {
+                "artists": {
+                    "composer": [],
+                    "djmixer": [],
+                    "guest": [],
+                    "main": [
+                        {"alias": False, "name": "Techno Man"},
+                        {"alias": False, "name": "Bass Man"},
+                    ],
+                    "producer": [],
+                    "remixer": [],
+                },
+                "discnumber": "01",
+                "duration_seconds": 240,
+                "id": "t2",
+                "release_id": "r1",
+                "source_path": f"{config.music_source_dir}/r1/02.m4a",
+                "title": "Track 2",
+                "tracknumber": "02",
+            },
+        ],
+    }
+
+
+@pytest.mark.usefixtures("seeded_cache")
 def test_dump_releases(config: Config) -> None:
     assert json.loads(dump_releases(config)) == [
         {
@@ -396,6 +473,48 @@ def test_dump_releases(config: Config) -> None:
                 "composer": [],
                 "djmixer": [],
             },
+            "tracks": [
+                {
+                    "artists": {
+                        "composer": [],
+                        "djmixer": [],
+                        "guest": [],
+                        "main": [
+                            {"alias": False, "name": "Techno Man"},
+                            {"alias": False, "name": "Bass Man"},
+                        ],
+                        "producer": [],
+                        "remixer": [],
+                    },
+                    "discnumber": "01",
+                    "duration_seconds": 120,
+                    "id": "t1",
+                    "release_id": "r1",
+                    "source_path": f"{config.music_source_dir}/r1/01.m4a",
+                    "title": "Track 1",
+                    "tracknumber": "01",
+                },
+                {
+                    "artists": {
+                        "composer": [],
+                        "djmixer": [],
+                        "guest": [],
+                        "main": [
+                            {"alias": False, "name": "Techno Man"},
+                            {"alias": False, "name": "Bass Man"},
+                        ],
+                        "producer": [],
+                        "remixer": [],
+                    },
+                    "discnumber": "01",
+                    "duration_seconds": 240,
+                    "id": "t2",
+                    "release_id": "r1",
+                    "source_path": f"{config.music_source_dir}/r1/02.m4a",
+                    "title": "Track 2",
+                    "tracknumber": "02",
+                },
+            ],
         },
         {
             "id": "r2",
@@ -416,6 +535,25 @@ def test_dump_releases(config: Config) -> None:
                 "composer": [],
                 "djmixer": [],
             },
+            "tracks": [
+                {
+                    "artists": {
+                        "composer": [],
+                        "djmixer": [],
+                        "guest": [{"alias": False, "name": "Conductor Woman"}],
+                        "main": [{"alias": False, "name": "Violin Woman"}],
+                        "producer": [],
+                        "remixer": [],
+                    },
+                    "discnumber": "01",
+                    "duration_seconds": 120,
+                    "id": "t3",
+                    "release_id": "r2",
+                    "source_path": f"{config.music_source_dir}/r2/01.m4a",
+                    "title": "Track 1",
+                    "tracknumber": "01",
+                }
+            ],
         },
         {
             "id": "r3",
@@ -436,6 +574,71 @@ def test_dump_releases(config: Config) -> None:
                 "composer": [],
                 "djmixer": [],
             },
+            "tracks": [
+                {
+                    "artists": {
+                        "composer": [],
+                        "djmixer": [],
+                        "guest": [],
+                        "main": [],
+                        "producer": [],
+                        "remixer": [],
+                    },
+                    "discnumber": "01",
+                    "duration_seconds": 120,
+                    "id": "t4",
+                    "release_id": "r3",
+                    "source_path": f"{config.music_source_dir}/r3/01.m4a",
+                    "title": "Track 1",
+                    "tracknumber": "01",
+                }
+            ],
+        },
+    ]
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_dump_releases_matcher(config: Config) -> None:
+    matcher = MetadataMatcher.parse("albumtitle:2$")
+    assert json.loads(dump_releases(config, matcher)) == [
+        {
+            "id": "r2",
+            "source_path": f"{config.music_source_dir}/r2",
+            "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "title": "Release 2",
+            "releasetype": "album",
+            "year": 2021,
+            "new": False,
+            "genres": ["Classical"],
+            "labels": ["Native State"],
+            "artists": {
+                "main": [{"name": "Violin Woman", "alias": False}],
+                "guest": [{"name": "Conductor Woman", "alias": False}],
+                "remixer": [],
+                "producer": [],
+                "composer": [],
+                "djmixer": [],
+            },
+            "tracks": [
+                {
+                    "artists": {
+                        "composer": [],
+                        "djmixer": [],
+                        "guest": [{"name": "Conductor Woman", "alias": False}],
+                        "main": [{"name": "Violin Woman", "alias": False}],
+                        "producer": [],
+                        "remixer": [],
+                    },
+                    "discnumber": "01",
+                    "duration_seconds": 120,
+                    "id": "t3",
+                    "release_id": "r2",
+                    "source_path": f"{config.music_source_dir}/r2/01.m4a",
+                    "title": "Track 1",
+                    "tracknumber": "01",
+                }
+            ],
         },
     ]
 

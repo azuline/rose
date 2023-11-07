@@ -1,5 +1,5 @@
 """
-The collages module encapsulates all mutations that can occur on collages.
+The collages module provides functions for interacting with collages.
 """
 
 import json
@@ -142,6 +142,16 @@ def add_release_to_collage(
             tomli_w.dump(data, fp)
     logger.info(f"Added release {release_logtext} to collage {collage_name}")
     update_cache_for_collages(c, [collage_name], force=True)
+
+
+def dump_collage(c: Config, collage_name: str) -> str:
+    cdata = get_collage(c, collage_name)
+    if cdata is None:
+        raise CollageDoesNotExistError(f"Collage {collage_name} does not exist")
+    releases: list[dict[str, Any]] = []
+    for idx, rls in enumerate(cdata[1]):
+        releases.append({"position": idx + 1, **rls.dump()})
+    return json.dumps({"name": collage_name, "releases": releases})
 
 
 def dump_collages(c: Config) -> str:

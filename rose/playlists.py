@@ -1,6 +1,7 @@
 """
-The playlists module encapsulates all mutations that can occur on playlists.
+The playlists module provides functions for interacting with playlists.
 """
+
 
 import json
 import logging
@@ -149,6 +150,22 @@ def add_track_to_playlist(
             tomli_w.dump(data, fp)
     logger.info(f"Added track {track_logtext} to playlist {playlist_name}")
     update_cache_for_playlists(c, [playlist_name], force=True)
+
+
+def dump_playlist(c: Config, playlist_name: str) -> str:
+    pdata = get_playlist(c, playlist_name)
+    if pdata is None:
+        raise PlaylistDoesNotExistError(f"Playlist {playlist_name} does not exist")
+    tracks: list[dict[str, Any]] = []
+    for idx, trk in enumerate(pdata[1]):
+        tracks.append({"position": idx + 1, **trk.dump()})
+    return json.dumps(
+        {
+            "name": playlist_name,
+            "cover_image_path": str(pdata[0].cover_path) if pdata[0].cover_path else None,
+            "tracks": tracks,
+        }
+    )
 
 
 def dump_playlists(c: Config) -> str:

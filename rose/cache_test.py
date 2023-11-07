@@ -24,9 +24,11 @@ from rose.cache import (
     get_playlist,
     get_release,
     get_release_logtext,
-    get_release_source_path,
-    get_release_source_paths,
+    get_releases_associated_with_tracks,
     get_track,
+    get_track_logtext,
+    get_tracks_associated_with_release,
+    get_tracks_associated_with_releases,
     label_exists,
     list_artists,
     list_collages,
@@ -34,6 +36,7 @@ from rose.cache import (
     list_labels,
     list_playlists,
     list_releases,
+    list_tracks,
     lock,
     maybe_invalidate_cache_database,
     update_cache,
@@ -573,6 +576,7 @@ def test_update_cache_rename_source_files(config: Config) -> None:
     """Test that we properly rename the source directory on cache update."""
     config = dataclasses.replace(config, rename_source_files=True)
     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    (config.music_source_dir / TEST_RELEASE_1.name / "cover.jpg").touch()
     update_cache(config)
 
     expected_dir = config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]"
@@ -583,8 +587,10 @@ def test_update_cache_rename_source_files(config: Config) -> None:
     assert expected_dir / "02. Track 2.m4a" in files_in_dir
 
     with connect(config) as conn:
-        cursor = conn.execute("SELECT source_path FROM releases")
-        assert Path(cursor.fetchone()[0]) == expected_dir
+        cursor = conn.execute("SELECT source_path, cover_image_path FROM releases")
+        row = cursor.fetchone()
+        assert Path(row["source_path"]) == expected_dir
+        assert Path(row["cover_image_path"]) == expected_dir / "cover.jpg"
         cursor = conn.execute("SELECT source_path FROM tracks")
         assert {Path(r[0]) for r in cursor} == {
             expected_dir / "01. Track 1.m4a",
@@ -1012,8 +1018,7 @@ def test_update_cache_playlists_on_release_rename(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_releases(config: Config) -> None:
-    releases = list(list_releases(config))
-    assert releases == [
+    expected = [
         CachedRelease(
             datafile_mtime="999",
             id="r1",
@@ -1061,136 +1066,88 @@ def test_list_releases(config: Config) -> None:
         ),
     ]
 
-    releases = list(list_releases(config, sanitized_artist_filter="Techno Man"))
-    assert releases == [
-        CachedRelease(
-            datafile_mtime="999",
-            id="r1",
-            source_path=Path(config.music_source_dir / "r1"),
-            cover_image_path=None,
-            added_at="0000-01-01T00:00:00+00:00",
-            title="Release 1",
-            releasetype="album",
-            year=2023,
-            multidisc=False,
-            new=False,
-            genres=["Techno", "Deep House"],
-            labels=["Silk Music"],
-            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-        ),
-    ]
-
-    # Test with artist aliases.
-    config_with_aliases = dataclasses.replace(
-        config,
-        artist_aliases_map={"Hype Boy": ["Bass Man"]},
-        artist_aliases_parents_map={"Bass Man": ["Hype Boy"]},
-    )
-    releases = list(list_releases(config_with_aliases, sanitized_artist_filter="Hype Boy"))
-    assert releases == [
-        CachedRelease(
-            datafile_mtime="999",
-            id="r1",
-            source_path=Path(config.music_source_dir / "r1"),
-            cover_image_path=None,
-            added_at="0000-01-01T00:00:00+00:00",
-            title="Release 1",
-            releasetype="album",
-            year=2023,
-            multidisc=False,
-            new=False,
-            genres=["Techno", "Deep House"],
-            labels=["Silk Music"],
-            artists=ArtistMapping(
-                main=[Artist("Techno Man"), Artist("Bass Man"), Artist("Hype Boy", alias=True)],
-            ),
-        ),
-    ]
-
-    releases = list(list_releases(config, sanitized_genre_filter="Techno"))
-    assert releases == [
-        CachedRelease(
-            datafile_mtime="999",
-            id="r1",
-            source_path=Path(config.music_source_dir / "r1"),
-            cover_image_path=None,
-            added_at="0000-01-01T00:00:00+00:00",
-            title="Release 1",
-            releasetype="album",
-            year=2023,
-            multidisc=False,
-            new=False,
-            genres=["Techno", "Deep House"],
-            labels=["Silk Music"],
-            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-        ),
-    ]
-
-    releases = list(list_releases(config, sanitized_label_filter="Silk Music"))
-    assert releases == [
-        CachedRelease(
-            datafile_mtime="999",
-            id="r1",
-            source_path=Path(config.music_source_dir / "r1"),
-            cover_image_path=None,
-            added_at="0000-01-01T00:00:00+00:00",
-            title="Release 1",
-            releasetype="album",
-            year=2023,
-            multidisc=False,
-            new=False,
-            genres=["Techno", "Deep House"],
-            labels=["Silk Music"],
-            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-        ),
-    ]
+    assert list_releases(config) == expected
+    assert list_releases(config, ["r1"]) == expected[:1]
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_release(config: Config) -> None:
-    assert get_release(config, "r1") == (
-        CachedRelease(
-            datafile_mtime="999",
-            id="r1",
-            source_path=Path(config.music_source_dir / "r1"),
-            cover_image_path=None,
-            added_at="0000-01-01T00:00:00+00:00",
-            title="Release 1",
-            releasetype="album",
-            year=2023,
-            multidisc=False,
-            new=False,
-            genres=["Techno", "Deep House"],
-            labels=["Silk Music"],
-            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-        ),
-        [
-            CachedTrack(
-                id="t1",
-                source_path=config.music_source_dir / "r1" / "01.m4a",
-                source_mtime="999",
-                title="Track 1",
-                release_id="r1",
-                tracknumber="01",
-                discnumber="01",
-                duration_seconds=120,
-                artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-                release_multidisc=False,
-            ),
-            CachedTrack(
-                id="t2",
-                source_path=config.music_source_dir / "r1" / "02.m4a",
-                source_mtime="999",
-                title="Track 2",
-                release_id="r1",
-                tracknumber="02",
-                discnumber="01",
-                duration_seconds=240,
-                artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-                release_multidisc=False,
-            ),
-        ],
+def test_get_release_and_associated_tracks(config: Config) -> None:
+    release = get_release(config, "r1")
+    assert release is not None
+    assert release == CachedRelease(
+        datafile_mtime="999",
+        id="r1",
+        source_path=Path(config.music_source_dir / "r1"),
+        cover_image_path=None,
+        added_at="0000-01-01T00:00:00+00:00",
+        title="Release 1",
+        releasetype="album",
+        year=2023,
+        multidisc=False,
+        new=False,
+        genres=["Techno", "Deep House"],
+        labels=["Silk Music"],
+        artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
     )
+
+    expected_tracks = [
+        CachedTrack(
+            id="t1",
+            source_path=config.music_source_dir / "r1" / "01.m4a",
+            source_mtime="999",
+            title="Track 1",
+            release_id="r1",
+            tracknumber="01",
+            discnumber="01",
+            duration_seconds=120,
+            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+            release_multidisc=False,
+        ),
+        CachedTrack(
+            id="t2",
+            source_path=config.music_source_dir / "r1" / "02.m4a",
+            source_mtime="999",
+            title="Track 2",
+            release_id="r1",
+            tracknumber="02",
+            discnumber="01",
+            duration_seconds=240,
+            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+            release_multidisc=False,
+        ),
+    ]
+
+    assert get_tracks_associated_with_release(config, release) == expected_tracks
+    assert get_tracks_associated_with_releases(config, [release]) == [(release, expected_tracks)]
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_get_releases_associated_with_tracks(config: Config) -> None:
+    t1 = get_track(config, "t1")
+    t2 = get_track(config, "t2")
+    assert t1 is not None
+    assert t2 is not None
+
+    release = CachedRelease(
+        datafile_mtime="999",
+        id="r1",
+        source_path=Path(config.music_source_dir / "r1"),
+        cover_image_path=None,
+        added_at="0000-01-01T00:00:00+00:00",
+        title="Release 1",
+        releasetype="album",
+        year=2023,
+        multidisc=False,
+        new=False,
+        genres=["Techno", "Deep House"],
+        labels=["Silk Music"],
+        artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+    )
+
+    assert get_releases_associated_with_tracks(config, [t1, t2]) == [
+        (t1, release),
+        (t2, release),
+    ]
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -1200,13 +1157,12 @@ def test_get_release_applies_artist_aliases(config: Config) -> None:
         artist_aliases_map={"Hype Boy": ["Bass Man"]},
         artist_aliases_parents_map={"Bass Man": ["Hype Boy"]},
     )
-    rdata = get_release(config, "r1")
-    assert rdata is not None
-    release, tracks = rdata
-
+    release = get_release(config, "r1")
+    assert release is not None
     assert release.artists == ArtistMapping(
         main=[Artist("Techno Man"), Artist("Bass Man"), Artist("Hype Boy", True)],
     )
+    tracks = get_tracks_associated_with_release(config, release)
     for t in tracks:
         assert t.artists == ArtistMapping(
             main=[Artist("Techno Man"), Artist("Bass Man"), Artist("Hype Boy", True)],
@@ -1214,21 +1170,65 @@ def test_get_release_applies_artist_aliases(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_release_logging_identifier(config: Config) -> None:
+def test_get_release_logtext(config: Config) -> None:
     assert get_release_logtext(config, "r1") == "Techno Man & Bass Man - 2023. Release 1"
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_release_source_path(config: Config) -> None:
-    assert get_release_source_path(config, "r1") == config.music_source_dir / "r1"
-
-
-@pytest.mark.usefixtures("seeded_cache")
-def test_get_release_source_paths(config: Config) -> None:
-    assert get_release_source_paths(config, ["r1", "r2"]) == [
-        config.music_source_dir / "r1",
-        config.music_source_dir / "r2",
+def test_list_tracks(config: Config) -> None:
+    expected = [
+        CachedTrack(
+            id="t1",
+            source_path=config.music_source_dir / "r1" / "01.m4a",
+            source_mtime="999",
+            title="Track 1",
+            release_id="r1",
+            tracknumber="01",
+            discnumber="01",
+            duration_seconds=120,
+            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+            release_multidisc=False,
+        ),
+        CachedTrack(
+            id="t2",
+            source_path=config.music_source_dir / "r1" / "02.m4a",
+            source_mtime="999",
+            title="Track 2",
+            release_id="r1",
+            tracknumber="02",
+            discnumber="01",
+            duration_seconds=240,
+            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+            release_multidisc=False,
+        ),
+        CachedTrack(
+            id="t3",
+            source_path=config.music_source_dir / "r2" / "01.m4a",
+            source_mtime="999",
+            title="Track 1",
+            release_id="r2",
+            tracknumber="01",
+            discnumber="01",
+            duration_seconds=120,
+            artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
+            release_multidisc=False,
+        ),
+        CachedTrack(
+            id="t4",
+            source_path=config.music_source_dir / "r3" / "01.m4a",
+            source_mtime="999",
+            title="Track 1",
+            release_id="r3",
+            tracknumber="01",
+            discnumber="01",
+            duration_seconds=120,
+            artists=ArtistMapping(),
+            release_multidisc=False,
+        ),
     ]
+
+    assert list_tracks(config) == expected
+    assert list_tracks(config, ["t1", "t2"]) == expected[:2]
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -1248,8 +1248,13 @@ def test_get_track(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
+def test_get_track_logtext(config: Config) -> None:
+    assert get_track_logtext(config, "t1") == "Techno Man & Bass Man - Track 1.m4a"
+
+
+@pytest.mark.usefixtures("seeded_cache")
 def test_list_artists(config: Config) -> None:
-    artists = list(list_artists(config))
+    artists = list_artists(config)
     assert set(artists) == {
         ("Techno Man", "Techno Man"),
         ("Bass Man", "Bass Man"),
@@ -1260,7 +1265,7 @@ def test_list_artists(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_genres(config: Config) -> None:
-    genres = list(list_genres(config))
+    genres = list_genres(config)
     assert set(genres) == {
         ("Techno", "Techno"),
         ("Deep House", "Deep House"),
@@ -1270,13 +1275,13 @@ def test_list_genres(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_labels(config: Config) -> None:
-    labels = list(list_labels(config))
+    labels = list_labels(config)
     assert set(labels) == {("Silk Music", "Silk Music"), ("Native State", "Native State")}
 
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_collages(config: Config) -> None:
-    collages = list(list_collages(config))
+    collages = list_collages(config)
     assert set(collages) == {"Rose Gold", "Ruby Red"}
 
 
@@ -1373,7 +1378,7 @@ def test_get_collage(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_playlists(config: Config) -> None:
-    playlists = list(list_playlists(config))
+    playlists = list_playlists(config)
     assert set(playlists) == {"Lala Lisa", "Turtle Rabbit"}
 
 

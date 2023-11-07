@@ -18,13 +18,14 @@ the overall complexity of the cache update sequence:
 2. **In-progress directory creation:** We may come across a directory while it is in the process of
    being created. For example, due to `cp -r`. Unless --force is passed, we skip directories that
    lack a `.rose.{uuid}.toml` file, yet have a `Release ID` written syncthing synchronization.
-2. **Performance:** We want to minimize file accesses, so we cache heavily and batch operations
+3. **Performance:** We want to minimize file accesses, so we cache heavily and batch operations
    together. This creates a lot of intermediate state that we accumulate throughout the cache
    update.
 """
 
 import contextlib
 import copy
+import dataclasses
 import hashlib
 import json
 import logging
@@ -35,8 +36,9 @@ import os.path
 import re
 import sqlite3
 import time
+from collections import defaultdict
 from collections.abc import Iterator
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
@@ -418,7 +420,7 @@ def _update_cache_for_releases_executor(
     # good enough.
     collages_to_force_update_receiver: list[str] | None = None,
     playlists_to_force_update_receiver: list[str] | None = None,
-) -> None:  # pragma: no cover
+) -> None:
     """The implementation logic, split out for multiprocessing."""
     # First, call readdir on every release directory. We store the results in a map of
     # Path Basename -> (Release ID if exists, filenames).
@@ -637,7 +639,7 @@ def _update_cache_for_releases_executor(
                 # No need to lock here, as since the release ID is new, there is no way there is a
                 # concurrent writer.
                 with datafile_path.open("wb") as fp:
-                    tomli_w.dump(asdict(stored_release_data), fp)
+                    tomli_w.dump(dataclasses.asdict(stored_release_data), fp)
                 release.id = new_release_id
                 release.new = stored_release_data.new
                 release.added_at = stored_release_data.added_at
@@ -665,7 +667,7 @@ def _update_cache_for_releases_executor(
                     )
                     release.new = datafile.new
                     release.added_at = datafile.added_at
-                    new_resolved_data = asdict(datafile)
+                    new_resolved_data = dataclasses.asdict(datafile)
                     logger.debug(f"Updating values in stored data file for release {source_path}")
                     if new_resolved_data != diskdata:
                         # And then write the data back to disk if it changed. This allows us to update
@@ -854,7 +856,13 @@ def _update_cache_for_releases_executor(
                         f"Renamed source release directory {old_source_path.name} to {new_source_path.name}"
                     )
                     release.source_path = new_source_path
-                    # Update the track paths and schedule them for database insertions.
+                    # Update the cached cover image path.
+                    if release.cover_image_path:
+                        coverlocalpath = str(release.cover_image_path).removeprefix(
+                            f"{old_source_path}/"
+                        )
+                        release.cover_image_path = release.source_path / coverlocalpath
+                    # Update the cached track paths and schedule them for database insertions.
                     for track in tracks:
                         tracklocalpath = str(track.source_path).removeprefix(f"{old_source_path}/")
                         track.source_path = release.source_path / tracklocalpath
@@ -1106,7 +1114,7 @@ def _update_cache_for_releases_executor(
             )
             # That cool section breaker shuriken character is our multi-value delimiter and how we
             # force-match strict prefix/suffix.
-            conn.create_function("process_string_for_fts", 1, _process_string_for_fts)
+            conn.create_function("process_string_for_fts", 1, process_string_for_fts)
             conn.execute(
                 f"""
                 INSERT INTO rules_engine_fts (
@@ -1172,7 +1180,7 @@ def _update_cache_for_releases_executor(
                 WHERE pt.track_id IN ({','.join(['?'] * len(upd_track_ids))})
                 ORDER BY pt.playlist_name
                 """,
-                list(upd_track_ids),
+                upd_track_ids,
             )
             update_playlists = [row["playlist_name"] for row in cursor]
 
@@ -1318,7 +1326,9 @@ def update_cache_for_collages(
                 for i, rls in enumerate(releases):
                     with contextlib.suppress(KeyError):
                         releases[i]["description_meta"] = desc_map[rls["uuid"]]
-                    if rls.get("missing", False):
+                    if rls.get("missing", False) and not releases[i]["description_meta"].endswith(
+                        " {MISSING}"
+                    ):
                         releases[i]["description_meta"] += " {MISSING}"
 
                 # Update the collage on disk if we have changed information.
@@ -1598,13 +1608,13 @@ def update_cache_evict_nonexistent_playlists(c: Config) -> None:
             logger.info(f"Evicted missing playlist {row['name']} from cache")
 
 
-def list_releases(
+def list_releases_delete_this(
     c: Config,
     sanitized_artist_filter: str | None = None,
     sanitized_genre_filter: str | None = None,
     sanitized_label_filter: str | None = None,
     new: bool | None = None,
-) -> Iterator[CachedRelease]:
+) -> list[CachedRelease]:
     with connect(c) as conn:
         query = """
             SELECT
@@ -1659,25 +1669,82 @@ def list_releases(
         query += " ORDER BY source_path"
 
         cursor = conn.execute(query, args)
+        releases: list[CachedRelease] = []
         for row in cursor:
-            yield CachedRelease(
-                id=row["id"],
-                source_path=Path(row["source_path"]),
-                cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
-                added_at=row["added_at"],
-                datafile_mtime=row["datafile_mtime"],
-                title=row["title"],
-                releasetype=row["releasetype"],
-                year=row["year"],
-                multidisc=bool(row["multidisc"]),
-                new=bool(row["new"]),
-                genres=_split(row["genres"]),
-                labels=_split(row["labels"]),
-                artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+            releases.append(
+                CachedRelease(
+                    id=row["id"],
+                    source_path=Path(row["source_path"]),
+                    cover_image_path=Path(row["cover_image_path"])
+                    if row["cover_image_path"]
+                    else None,
+                    added_at=row["added_at"],
+                    datafile_mtime=row["datafile_mtime"],
+                    title=row["title"],
+                    releasetype=row["releasetype"],
+                    year=row["year"],
+                    multidisc=bool(row["multidisc"]),
+                    new=bool(row["new"]),
+                    genres=_split(row["genres"]),
+                    labels=_split(row["labels"]),
+                    artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                )
             )
+        return releases
 
 
-def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedTrack]] | None:
+def list_releases(c: Config, release_ids: list[str] | None = None) -> list[CachedRelease]:
+    """Fetch data associated with given release IDs. Pass None to fetch all."""
+    query = """
+        SELECT
+            id
+          , source_path
+          , cover_image_path
+          , added_at
+          , datafile_mtime
+          , title
+          , releasetype
+          , year
+          , multidisc
+          , new
+          , genres
+          , labels
+          , artist_names
+          , artist_roles
+        FROM releases_view
+    """
+    args = []
+    if release_ids is not None:
+        query += f" WHERE id IN ({','.join(['?']*len(release_ids))})"
+        args = release_ids
+    query += " ORDER BY source_path"
+    with connect(c) as conn:
+        cursor = conn.execute(query, args)
+        releases: list[CachedRelease] = []
+        for row in cursor:
+            releases.append(
+                CachedRelease(
+                    id=row["id"],
+                    source_path=Path(row["source_path"]),
+                    cover_image_path=Path(row["cover_image_path"])
+                    if row["cover_image_path"]
+                    else None,
+                    added_at=row["added_at"],
+                    datafile_mtime=row["datafile_mtime"],
+                    title=row["title"],
+                    releasetype=row["releasetype"],
+                    year=row["year"],
+                    multidisc=bool(row["multidisc"]),
+                    new=bool(row["new"]),
+                    genres=_split(row["genres"]),
+                    labels=_split(row["labels"]),
+                    artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                )
+            )
+        return releases
+
+
+def get_release(c: Config, release_id: str) -> CachedRelease | None:
     with connect(c) as conn:
         cursor = conn.execute(
             """
@@ -1704,7 +1771,7 @@ def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedT
         row = cursor.fetchone()
         if not row:
             return None
-        release = CachedRelease(
+        return CachedRelease(
             id=row["id"],
             source_path=Path(row["source_path"]),
             cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
@@ -1720,44 +1787,68 @@ def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedT
             artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
         )
 
-        tracks: list[CachedTrack] = []
+
+def get_releases_associated_with_tracks(
+    c: Config,
+    tracks: list[CachedTrack],
+) -> list[tuple[CachedTrack, CachedRelease]]:
+    with connect(c) as conn:
         cursor = conn.execute(
-            """
-            SELECT
-                t.id
-              , t.source_path
-              , t.source_mtime
-              , t.title
-              , t.release_id
-              , t.tracknumber
-              , t.discnumber
-              , t.duration_seconds
-              , t.artist_names
-              , t.artist_roles
-            FROM tracks_view t
-            JOIN releases r ON r.id = t.release_id
-            WHERE r.id = ?
-            ORDER BY FORMAT('%4d.%4d', t.discnumber, t.tracknumber)
+            f"""
+            SELECT id, release_id
+            FROM tracks
+            WHERE id IN ({','.join(['?']*len(tracks))})
             """,
-            (release_id,),
+            [t.id for t in tracks],
         )
+        track_to_release_ids_map: dict[str, str] = {r["id"]: r["release_id"] for r in cursor}
+        release_ids = list(set(track_to_release_ids_map.values()))
+        cursor = conn.execute(
+            f"""
+            SELECT
+                id
+              , source_path
+              , cover_image_path
+              , added_at
+              , datafile_mtime
+              , title
+              , releasetype
+              , year
+              , multidisc
+              , new
+              , genres
+              , labels
+              , artist_names
+              , artist_roles
+            FROM releases_view
+            WHERE id IN ({','.join(['?']*len(release_ids))})
+            """,
+            release_ids,
+        )
+        releases_map: dict[str, CachedRelease] = {}
         for row in cursor:
-            tracks.append(
-                CachedTrack(
-                    id=row["id"],
-                    source_path=Path(row["source_path"]),
-                    source_mtime=row["source_mtime"],
-                    title=row["title"],
-                    release_id=row["release_id"],
-                    tracknumber=row["tracknumber"],
-                    discnumber=row["discnumber"],
-                    duration_seconds=row["duration_seconds"],
-                    artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
-                    release_multidisc=release.multidisc,
-                )
+            releases_map[row["id"]] = CachedRelease(
+                id=row["id"],
+                source_path=Path(row["source_path"]),
+                cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
+                added_at=row["added_at"],
+                datafile_mtime=row["datafile_mtime"],
+                title=row["title"],
+                releasetype=row["releasetype"],
+                year=row["year"],
+                multidisc=bool(row["multidisc"]),
+                new=bool(row["new"]),
+                genres=_split(row["genres"]),
+                labels=_split(row["labels"]),
+                artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
             )
 
-    return (release, tracks)
+    rval = []
+    for track in tracks:
+        release_id = track_to_release_ids_map[track.id]
+        release = releases_map[release_id]
+        rval.append((track, release))
+    return rval
 
 
 def get_release_logtext(c: Config, release_id: str) -> str | None:
@@ -1789,24 +1880,49 @@ def calculate_release_logtext(
     return logtext
 
 
-def get_release_source_path(c: Config, uuid: str) -> Path | None:
+def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[CachedTrack]:
+    """Fetch data associated with given track IDs. Pass None to fetch all."""
+    query = """
+        SELECT
+            t.id
+          , t.release_id
+          , t.source_path
+          , t.source_mtime
+          , t.title
+          , t.release_id
+          , t.tracknumber
+          , t.discnumber
+          , t.duration_seconds
+          , t.artist_names
+          , t.artist_roles
+          , r.multidisc
+        FROM tracks_view t
+        JOIN releases r ON r.id = t.release_id
+    """
+    args = []
+    if track_ids is not None:
+        query += f" WHERE t.id IN ({','.join(['?']*len(track_ids))})"
+        args = track_ids
+    query += " ORDER BY r.source_path, FORMAT('%4d.%4d', t.discnumber, t.tracknumber)"
     with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT source_path FROM releases WHERE id = ?",
-            (uuid,),
-        )
-        if row := cursor.fetchone():
-            return Path(row["source_path"])
-        return None
-
-
-def get_release_source_paths(c: Config, uuids: list[str]) -> list[Path]:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            f"SELECT source_path FROM releases WHERE id IN ({','.join(['?']*len(uuids))})",
-            uuids,
-        )
-        return [Path(r["source_path"]) for r in cursor]
+        cursor = conn.execute(query, args)
+        rval = []
+        for row in cursor:
+            rval.append(
+                CachedTrack(
+                    id=row["id"],
+                    source_path=Path(row["source_path"]),
+                    source_mtime=row["source_mtime"],
+                    title=row["title"],
+                    release_id=row["release_id"],
+                    tracknumber=row["tracknumber"],
+                    discnumber=row["discnumber"],
+                    duration_seconds=row["duration_seconds"],
+                    artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                    release_multidisc=bool(row["multidisc"]),
+                )
+            )
+        return rval
 
 
 def get_track(c: Config, uuid: str) -> CachedTrack | None:
@@ -1847,6 +1963,101 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
         )
 
 
+def get_tracks_associated_with_release(
+    c: Config,
+    release: CachedRelease,
+) -> list[CachedTrack]:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            """
+            SELECT
+                t.id
+              , t.release_id
+              , t.source_path
+              , t.source_mtime
+              , t.title
+              , t.release_id
+              , t.tracknumber
+              , t.discnumber
+              , t.duration_seconds
+              , t.artist_names
+              , t.artist_roles
+            FROM tracks_view t
+            WHERE t.release_id = ?
+            ORDER BY t.release_id, FORMAT('%4d.%4d', t.discnumber, t.tracknumber)
+            """,
+            (release.id,),
+        )
+        rval = []
+        for row in cursor:
+            rval.append(
+                CachedTrack(
+                    id=row["id"],
+                    source_path=Path(row["source_path"]),
+                    source_mtime=row["source_mtime"],
+                    title=row["title"],
+                    release_id=row["release_id"],
+                    tracknumber=row["tracknumber"],
+                    discnumber=row["discnumber"],
+                    duration_seconds=row["duration_seconds"],
+                    artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                    release_multidisc=release.multidisc,
+                )
+            )
+        return rval
+
+
+def get_tracks_associated_with_releases(
+    c: Config,
+    releases: list[CachedRelease],
+) -> list[tuple[CachedRelease, list[CachedTrack]]]:
+    tracks_map: dict[str, list[CachedTrack]] = defaultdict(list)
+    with connect(c) as conn:
+        cursor = conn.execute(
+            f"""
+            SELECT
+                t.id
+              , t.release_id
+              , t.source_path
+              , t.source_mtime
+              , t.title
+              , t.release_id
+              , t.tracknumber
+              , t.discnumber
+              , t.duration_seconds
+              , t.artist_names
+              , t.artist_roles
+              , r.multidisc
+            FROM tracks_view t
+            JOIN releases r ON r.id = t.release_id
+            WHERE t.release_id IN ({','.join(['?']*len(releases))})
+            ORDER BY t.release_id, FORMAT('%4d.%4d', t.discnumber, t.tracknumber)
+            """,
+            [r.id for r in releases],
+        )
+        for row in cursor:
+            tracks_map[row["release_id"]].append(
+                CachedTrack(
+                    id=row["id"],
+                    source_path=Path(row["source_path"]),
+                    source_mtime=row["source_mtime"],
+                    title=row["title"],
+                    release_id=row["release_id"],
+                    tracknumber=row["tracknumber"],
+                    discnumber=row["discnumber"],
+                    duration_seconds=row["duration_seconds"],
+                    artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                    release_multidisc=row["multidisc"],
+                )
+            )
+
+    rval = []
+    for release in releases:
+        tracks = tracks_map[release.id]
+        rval.append((release, tracks))
+    return rval
+
+
 def get_track_logtext(c: Config, track_id: str) -> str | None:
     """Get a human-readable identifier for a track suitable for logging."""
     with connect(c) as conn:
@@ -1868,11 +2079,10 @@ def calculate_track_logtext(title: str, artists: ArtistMapping, suffix: str) -> 
     return f"{artistsfmt(artists)} - {title or 'Unknown Title'}{suffix}"
 
 
-def list_playlists(c: Config) -> Iterator[str]:
+def list_playlists(c: Config) -> list[str]:
     with connect(c) as conn:
         cursor = conn.execute("SELECT DISTINCT name FROM playlists")
-        for row in cursor:
-            yield row["name"]
+        return [r["name"] for r in cursor]
 
 
 def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[CachedTrack]] | None:
@@ -1942,11 +2152,10 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
     return playlist, tracks
 
 
-def list_collages(c: Config) -> Iterator[str]:
+def list_collages(c: Config) -> list[str]:
     with connect(c) as conn:
         cursor = conn.execute("SELECT DISTINCT name FROM collages")
-        for row in cursor:
-            yield row["name"]
+        return [r["name"] for r in cursor]
 
 
 def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[CachedRelease]] | None:
@@ -2014,11 +2223,10 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
     return (collage, releases)
 
 
-def list_artists(c: Config) -> Iterator[tuple[str, str]]:
+def list_artists(c: Config) -> list[tuple[str, str]]:
     with connect(c) as conn:
         cursor = conn.execute("SELECT DISTINCT artist, artist_sanitized FROM releases_artists")
-        for row in cursor:
-            yield row["artist"], row["artist_sanitized"]
+        return [(row["artist"], row["artist_sanitized"]) for row in cursor]
 
 
 def artist_exists(c: Config, artist_sanitized: str) -> bool:
@@ -2038,11 +2246,10 @@ def artist_exists(c: Config, artist_sanitized: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
-def list_genres(c: Config) -> Iterator[tuple[str, str]]:
+def list_genres(c: Config) -> list[tuple[str, str]]:
     with connect(c) as conn:
         cursor = conn.execute("SELECT DISTINCT genre, genre_sanitized FROM releases_genres")
-        for row in cursor:
-            yield row["genre"], row["genre_sanitized"]
+        return [(row["genre"], row["genre_sanitized"]) for row in cursor]
 
 
 def genre_exists(c: Config, genre_sanitized: str) -> bool:
@@ -2054,11 +2261,10 @@ def genre_exists(c: Config, genre_sanitized: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
-def list_labels(c: Config) -> Iterator[tuple[str, str]]:
+def list_labels(c: Config) -> list[tuple[str, str]]:
     with connect(c) as conn:
         cursor = conn.execute("SELECT DISTINCT label, label_sanitized FROM releases_labels")
-        for row in cursor:
-            yield row["label"], row["label_sanitized"]
+        return [(row["label"], row["label_sanitized"]) for row in cursor]
 
 
 def label_exists(c: Config, label_sanitized: str) -> bool:
@@ -2118,11 +2324,11 @@ def _unpack(*xxs: str) -> Iterator[tuple[str, ...]]:
     # If the strings are empty, then split will resolve to `[""]`. But we don't want to loop over an
     # empty string, so we specially exit if we hit that case.
     if all(not xs for xs in xxs):
-        return
+        return []
     yield from zip(*[_split(xs) for xs in xxs])
 
 
-def _process_string_for_fts(x: str) -> str:
+def process_string_for_fts(x: str) -> str:
     # In order to have performant substring search, we use FTS and hack it such that every character
     # is a token. We use "¬" as our separator character, hoping that it is not used in any metadata.
     return "¬".join(str(x)) if x else x

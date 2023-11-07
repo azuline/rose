@@ -74,6 +74,23 @@ configurable. See [Configuration](./CONFIGURATION.md).
 > transient or not. For example, a file may be deleted by a tool like syncthing
 > only to be readded later.
 
+# Printing Metadata
+
+Rosé supports printing collage and playlist metadata from the command line in
+JSON format, which can be used in scripts and to compose your own commands.
+Rosé provides four commands:
+
+```
+$ rose collages print 'Collage Name'
+$ rose collages print-all
+$ rose playlists print 'Playlist Name'
+$ rose playlists print-all
+```
+
+The `print` commands print a single JSON object representing one
+playlist/collage. The `print-all` commands print an array of JSON objects, one
+per collage/playlist tracked by Rosé.
+
 # Operations
 
 However, working with this file directly is quite annoying, so Rosé allows you

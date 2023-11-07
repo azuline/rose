@@ -63,15 +63,15 @@ from rose.cache import (
     get_collage,
     get_playlist,
     get_release,
-    get_release_source_path,
     get_track,
+    get_tracks_associated_with_release,
     label_exists,
     list_artists,
     list_collages,
     list_genres,
     list_labels,
     list_playlists,
-    list_releases,
+    list_releases_delete_this,
     update_cache_for_releases,
 )
 from rose.collages import (
@@ -688,12 +688,11 @@ class RoseLogicalCore:
                 if not release_id:
                     raise llfuse.FUSEError(errno.ENOENT)
 
-            rdata = get_release(self.config, release_id)
+            release = get_release(self.config, release_id)
             # Handle a potential release deletion here.
-            if rdata is None:
+            if release is None:
                 logger.debug("LOGICAL: Resolved release_id does not exist in cache")
                 raise llfuse.FUSEError(errno.ENOENT)
-            release, tracks = rdata
 
             # If no file, return stat for the release dir.
             if not p.file:
@@ -703,6 +702,7 @@ class RoseLogicalCore:
                 return self.stat("file", release.cover_image_path)
             if p.file == f".rose.{release.id}.toml":
                 return self.stat("file")
+            tracks = get_tracks_associated_with_release(self.config, release)
             return getattr_track(tracks)
 
         # 8. Playlists
@@ -789,9 +789,9 @@ class RoseLogicalCore:
 
         if p.release:
             if (release_id := self.vnames.lookup_release(p)) and (
-                cachedata := get_release(self.config, release_id)
+                release := get_release(self.config, release_id)
             ):
-                release, tracks = cachedata
+                tracks = get_tracks_associated_with_release(self.config, release)
                 for trk, vname in self.vnames.list_track_paths(p, tracks):
                     yield vname, self.stat("file", trk.source_path)
                 if release.cover_image_path:
@@ -802,14 +802,12 @@ class RoseLogicalCore:
             raise llfuse.FUSEError(errno.ENOENT)
 
         if p.artist or p.genre or p.label or p.view in ["Releases", "New", "Recently Added"]:
-            releases = list(
-                list_releases(
-                    self.config,
-                    sanitized_artist_filter=p.artist,
-                    sanitized_genre_filter=p.genre,
-                    sanitized_label_filter=p.label,
-                    new=True if p.view == "New" else None,
-                )
+            releases = list_releases_delete_this(
+                self.config,
+                sanitized_artist_filter=p.artist,
+                sanitized_genre_filter=p.genre,
+                sanitized_label_filter=p.label,
+                new=True if p.view == "New" else None,
             )
             for rls, vname in self.vnames.list_release_paths(p, releases):
                 yield vname, self.stat("dir", rls.source_path)
@@ -899,9 +897,9 @@ class RoseLogicalCore:
             and p.file
             and p.file.lower() in self.config.valid_cover_arts
             and (release_id := self.vnames.lookup_release(p))
-            and (rdata := get_release(self.config, release_id))
+            and (release := get_release(self.config, release_id))
         ):
-            delete_release_cover_art(self.config, rdata[0].id)
+            delete_release_cover_art(self.config, release.id)
             return
 
         # Otherwise, noop. If we return an error, that prevents rmdir from being called when we rm.
@@ -1016,11 +1014,11 @@ class RoseLogicalCore:
             p.release
             and p.file
             and (release_id := self.vnames.lookup_release(p))
-            and (rdata := get_release(self.config, release_id))
+            and (release := get_release(self.config, release_id))
         ):
-            release, tracks = rdata
             # If the file is a music file, handle it as a music file.
             if track_id := self.vnames.lookup_track(p):
+                tracks = get_tracks_associated_with_release(self.config, release)
                 for t in tracks:
                     if t.id == track_id:
                         fh = self.fhandler.wrap_host(os.open(str(t.source_path), flags))
@@ -1181,8 +1179,8 @@ class RoseLogicalCore:
             logger.debug(
                 f"LOGICAL: Triggering cache update for release {release_id} after release syscall"
             )
-            if source_path := get_release_source_path(self.config, release_id):
-                update_cache_for_releases(self.config, [source_path])
+            if release := get_release(self.config, release_id):
+                update_cache_for_releases(self.config, [release.source_path])
         fh = self.fhandler.unwrap_host(fh)
         os.close(fh)
 

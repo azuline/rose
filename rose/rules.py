@@ -1,6 +1,15 @@
 """
-The rules module implements the Rules Engine for updating metadata. The rules engine accepts,
-previews, and executes rules.
+The rules module implements the Rules Engine, which provides performant substring tag querying and
+bulk metadata updating.
+
+The first part of this file implements the Rule Engine pipeline, which:
+
+1. Fetches a superset of possible tracks from the Read Cache.
+2. Filters out false positives via tags.
+3. Executes actions to update metadata.
+
+The second part of this file provides performant release/track querying entirely from the read
+cache, which is used by other modules to provide release/track filtering capabilities.
 """
 
 import copy
@@ -13,13 +22,16 @@ import click
 
 from rose.audiotags import AudioTags
 from rose.cache import (
+    CachedRelease,
+    CachedTrack,
     connect,
-    get_release_source_paths,
+    list_releases,
     update_cache_for_releases,
 )
 from rose.common import Artist, RoseError, RoseExpectedError, uniq
 from rose.config import Config
 from rose.rule_parser import (
+    RELEASE_TAGS,
     AddAction,
     DeleteAction,
     MetadataAction,
@@ -31,6 +43,10 @@ from rose.rule_parser import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class TrackTagNotAllowedError(RoseExpectedError):
+    pass
 
 
 class InvalidReplacementValueError(RoseExpectedError):
@@ -70,12 +86,12 @@ def execute_metadata_rule(
     """
     # Newline for appearance.
     click.echo()
-    fast_search_results = fast_search_for_matching_files(c, rule.matcher)
+    fast_search_results = fast_search_for_matching_tracks(c, rule.matcher)
     if not fast_search_results:
         click.secho("No matching tracks found", dim=True, italic=True)
         click.echo()
         return
-    matcher_audiotags = filter_false_positives_using_tags(rule.matcher, fast_search_results)
+    matcher_audiotags = filter_track_false_positives_using_tags(rule.matcher, fast_search_results)
     if not matcher_audiotags:
         click.secho("No matching tracks found", dim=True, italic=True)
         click.echo()
@@ -92,37 +108,20 @@ def execute_metadata_rule(
 
 @dataclass
 class FastSearchResult:
-    track_id: str
-    track_path: Path
-    release_id: str
+    id: str
+    path: Path
 
 
-def fast_search_for_matching_files(c: Config, matcher: MetadataMatcher) -> list[FastSearchResult]:
+def fast_search_for_matching_tracks(
+    c: Config,
+    matcher: MetadataMatcher,
+) -> list[FastSearchResult]:
     """
-    Run a search with the matcher on the Full Text Search index. This is _fast_, but will produce
-    false positives. The caller must filter out the false positives after pulling the results.
+    Run a search for tracks with the matcher on the Full Text Search index. This is _fast_, but will
+    produce false positives. The caller must filter out the false positives after pulling the
+    results.
     """
-    # Convert the matcher to a SQL expression for SQLite FTS. We won't be doing the precise
-    # prefix/suffix matching here: for performance, we abuse SQLite FTS by making every character
-    # its own token, which grants us the ability to search for arbitrary substrings. However, FTS
-    # cannot guarantee ordering, which means that a search for `BLACKPINK` will also match
-    # `PINKBLACK`. So we first pull all matching results, and then we use the previously written
-    # precise Python matcher to ignore the false positives and only modify the tags we care about.
-    #
-    # Therefore we strip the `^$` and convert the text into SQLite FTS Match query. We use NEAR to
-    # assert that all the characters are within a substring equivalent to the length of the query,
-    # which should filter out most false positives.
-    matchsqlstr = matcher.pattern
-    if matchsqlstr.startswith("^"):
-        matchsqlstr = matchsqlstr[1:]
-    if matchsqlstr.endswith("$"):
-        matchsqlstr = matchsqlstr[:-1]
-    # Construct the SQL string for the matcher. Escape quotes in the match string.
-    matchsql = "¬".join(matchsqlstr).replace("'", "''").replace('"', '""')
-    # NEAR restricts the query such that the # of tokens in between the first and last tokens of the
-    # matched substring must be less than or equal to a given number. For us, that number is
-    # len(matchsqlstr) - 2, as we subtract the first and last characters.
-    matchsql = f'NEAR("{matchsql}", {max(0, len(matchsqlstr)-2)})'
+    matchsql = _convert_matcher_to_fts_query(matcher.pattern)
     logger.debug(f"Converted match {matcher=} to {matchsql=}")
 
     # Build the query to fetch a superset of tracks to attempt to execute the rules against. Note
@@ -131,7 +130,7 @@ def fast_search_for_matching_files(c: Config, matcher: MetadataMatcher) -> list[
     # paragraph character, so there's no risk of SQL being interpreted.
     ftsquery = f"{{{' '.join(matcher.tags)}}} : {matchsql}"
     query = f"""
-        SELECT DISTINCT t.id, t.source_path, t.release_id
+        SELECT DISTINCT t.id, t.source_path
         FROM rules_engine_fts
         JOIN tracks t ON rules_engine_fts.rowid = t.rowid
         WHERE rules_engine_fts MATCH '{ftsquery}'
@@ -146,22 +145,44 @@ def fast_search_for_matching_files(c: Config, matcher: MetadataMatcher) -> list[
         for row in conn.execute(query):
             results.append(
                 FastSearchResult(
-                    track_id=row["id"],
-                    track_path=Path(row["source_path"]).resolve(),
-                    release_id=row["release_id"],
+                    id=row["id"],
+                    path=Path(row["source_path"]).resolve(),
                 )
             )
     logger.debug(f"Matched {len(results)} tracks from the read cache")
     return results
 
 
-def filter_false_positives_using_tags(
+def _convert_matcher_to_fts_query(pattern: str) -> str:
+    # Convert the matcher to a SQL expression for SQLite FTS. We won't be doing the precise
+    # prefix/suffix matching here: for performance, we abuse SQLite FTS by making every character
+    # its own token, which grants us the ability to search for arbitrary substrings. However, FTS
+    # cannot guarantee ordering, which means that a search for `BLACKPINK` will also match
+    # `PINKBLACK`. So we first pull all matching results, and then we use the previously written
+    # precise Python matcher to ignore the false positives and only modify the tags we care about.
+    #
+    # Therefore we strip the `^$` and convert the text into SQLite FTS Match query. We use NEAR to
+    # assert that all the characters are within a substring equivalent to the length of the query,
+    # which should filter out most false positives.
+    if pattern.startswith("^"):
+        pattern = pattern[1:]
+    if pattern.endswith("$"):
+        pattern = pattern[:-1]
+    # Construct the SQL string for the matcher. Escape quotes in the match string.
+    matchsql = "¬".join(pattern).replace("'", "''").replace('"', '""')
+    # NEAR restricts the query such that the # of tokens in between the first and last tokens of the
+    # matched substring must be less than or equal to a given number. For us, that number is
+    # len(matchsqlstr) - 2, as we subtract the first and last characters.
+    return f'NEAR("{matchsql}", {max(0, len(pattern)-2)})'
+
+
+def filter_track_false_positives_using_tags(
     matcher: MetadataMatcher,
     fast_search_results: list[FastSearchResult],
 ) -> list[AudioTags]:
-    matcher_audiotags: list[AudioTags] = []
+    rval = []
     for fsr in fast_search_results:
-        tags = AudioTags.from_file(fsr.track_path)
+        tags = AudioTags.from_file(fsr.path)
         for field in matcher.tags:
             match = False
             # fmt: off
@@ -177,9 +198,9 @@ def filter_false_positives_using_tags(
             match = match or (field == "albumartist" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.all))  
             # fmt: on
             if match:
-                matcher_audiotags.append(tags)
+                rval.append(tags)
                 break
-    return matcher_audiotags
+    return rval
 
 
 Changes = tuple[str, str | int | None | list[str], str | int | None | list[str]]
@@ -361,7 +382,7 @@ def execute_metadata_actions(
     # == Step 6: Trigger cache update ===
 
     click.echo()
-    source_paths = get_release_source_paths(c, list(changed_release_ids))
+    source_paths = [r.source_path for r in list_releases(c, list(changed_release_ids))]
     update_cache_for_releases(c, source_paths)
 
 
@@ -437,3 +458,90 @@ def execute_multi_value_action(
             if nv:
                 rval.append(nv)
     return uniq(rval)
+
+
+# The following functions are for leveraging the rules engine as a performant query engine.
+
+
+def fast_search_for_matching_releases(
+    c: Config,
+    matcher: MetadataMatcher,
+) -> list[FastSearchResult]:
+    """Basically the same thing as fast_search_for_matching_tracks but with releases."""
+    if track_tags := [t for t in matcher.tags if t not in RELEASE_TAGS]:
+        # But allow an exception if both trackartist and albumartist are defined: means a shorthand
+        # was used. Just ignore trackartist.
+        if "trackartist" in track_tags and "albumartist" in matcher.tags:
+            matcher.tags.remove("trackartist")
+        else:
+            raise TrackTagNotAllowedError(
+                f"Track tags are not allowed when matching against releases: {', '.join(track_tags)}"
+            )
+
+    matchsql = _convert_matcher_to_fts_query(matcher.pattern)
+    logger.debug(f"Converted match {matcher=} to {matchsql=}")
+    ftsquery = f"{{{' '.join(matcher.tags)}}} : {matchsql}"
+    query = f"""
+        SELECT DISTINCT r.id, r.source_path
+        FROM rules_engine_fts
+        JOIN tracks t ON rules_engine_fts.rowid = t.rowid
+        JOIN releases r ON r.id = t.release_id
+        WHERE rules_engine_fts MATCH '{ftsquery}'
+        ORDER BY r.source_path
+    """
+    logger.debug(f"Constructed matching query {query}")
+    results: list[FastSearchResult] = []
+    with connect(c) as conn:
+        for row in conn.execute(query):
+            results.append(FastSearchResult(id=row["id"], path=Path(row["source_path"]).resolve()))
+    logger.debug(f"Matched {len(results)} releases from the read cache")
+    return results
+
+
+def filter_track_false_positives_using_read_cache(
+    matcher: MetadataMatcher,
+    tracks: list[tuple[CachedTrack, CachedRelease]],
+) -> list[tuple[CachedTrack, CachedRelease]]:
+    rval = []
+    for t, r in tracks:
+        for field in matcher.tags:
+            match = False
+            # fmt: off
+            match = match or (field == "tracktitle" and matches_pattern(matcher.pattern, t.title))  
+            match = match or (field == "year" and matches_pattern(matcher.pattern, r.year))  
+            match = match or (field == "tracknumber" and matches_pattern(matcher.pattern, t.tracknumber))  
+            match = match or (field == "discnumber" and matches_pattern(matcher.pattern, t.discnumber))  
+            match = match or (field == "albumtitle" and matches_pattern(matcher.pattern, r.title))  
+            match = match or (field == "releasetype" and matches_pattern(matcher.pattern, r.releasetype))  
+            match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in r.genres))  
+            match = match or (field == "label" and any(matches_pattern(matcher.pattern, x) for x in r.labels))  
+            match = match or (field == "trackartist" and any(matches_pattern(matcher.pattern, x.name) for x in t.artists.all))  
+            match = match or (field == "albumartist" and any(matches_pattern(matcher.pattern, x.name) for x in r.artists.all))  
+            # fmt: on
+            if match:
+                rval.append((t, r))
+                break
+    return rval
+
+
+def filter_release_false_positives_using_read_cache(
+    matcher: MetadataMatcher,
+    releases: list[CachedRelease],
+) -> list[CachedRelease]:
+    rval = []
+    for r in releases:
+        for field in matcher.tags:
+            match = False
+            # Only attempt to match the release tags; ignore track tags.
+            # fmt: off
+            match = match or (field == "year" and matches_pattern(matcher.pattern, r.year))  
+            match = match or (field == "albumtitle" and matches_pattern(matcher.pattern, r.title))  
+            match = match or (field == "releasetype" and matches_pattern(matcher.pattern, r.releasetype))  
+            match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in r.genres))  
+            match = match or (field == "label" and any(matches_pattern(matcher.pattern, x) for x in r.labels))  
+            match = match or (field == "albumartist" and any(matches_pattern(matcher.pattern, x.name) for x in r.artists.all))  
+            # fmt: on
+            if match:
+                rval.append(r)
+                break
+    return rval
