@@ -84,4 +84,9 @@ ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]+')
 
 
 def sanitize_filename(x: str) -> str:
-    return ILLEGAL_FS_CHARS_REGEX.sub("_", x)
+    """
+    Replace illegal characters and truncate. We have 255 bytes in ext4, and we truncate to 240 in
+    order to leave room for any collision numbers.
+    """
+    x = ILLEGAL_FS_CHARS_REGEX.sub("_", x)
+    return x.encode("utf-8")[:240].decode("utf-8", "ignore")

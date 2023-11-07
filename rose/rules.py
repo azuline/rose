@@ -117,8 +117,8 @@ def fast_search_for_matching_files(c: Config, matcher: MetadataMatcher) -> list[
         matchsqlstr = matchsqlstr[1:]
     if matchsqlstr.endswith("$"):
         matchsqlstr = matchsqlstr[:-1]
-    # Construct the SQL string for the matcher. Escape double quotes in the match string.
-    matchsql = "¬".join(matchsqlstr).replace('"', '""')
+    # Construct the SQL string for the matcher. Escape quotes in the match string.
+    matchsql = "¬".join(matchsqlstr).replace("'", "''").replace('"', '""')
     # NEAR restricts the query such that the # of tokens in between the first and last tokens of the
     # matched substring must be less than or equal to a given number. For us, that number is
     # len(matchsqlstr) - 2, as we subtract the first and last characters.

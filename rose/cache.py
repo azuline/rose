@@ -812,7 +812,7 @@ def _update_cache_for_releases_executor(
                 # This is calculated with the virtual filename.
                 duration_seconds=tags.duration_sec,
                 artists=tags.trackartists,
-                # Dummy value: We never use it in this sequence.
+                # We set this later.
                 release_multidisc=False,
             )
             tracks.append(track)
@@ -822,6 +822,8 @@ def _update_cache_for_releases_executor(
         # changed. Otherwise, save CPU cycles.
         if track_ids_to_insert or unknown_cached_tracks:
             multidisc = len({t.discnumber for t in tracks}) > 1
+            for t in tracks:
+                t.release_multidisc = multidisc
             if release.multidisc != multidisc:
                 logger.debug(f"Release multidisc change detected for {source_path}, updating")
                 release_dirty = True
@@ -831,6 +833,7 @@ def _update_cache_for_releases_executor(
         if c.rename_source_files:
             if release_dirty:
                 wanted_dirname = eval_release_template(c.path_templates.source.release, release)
+                wanted_dirname = sanitize_filename(wanted_dirname)
                 # Iterate until we've either:
                 # 1. Realized that the name of the source path matches the desired dirname (which we
                 #    may not realize immediately if there are name conflicts).
@@ -847,6 +850,9 @@ def _update_cache_for_releases_executor(
                     # If no collision, rename the directory.
                     old_source_path = release.source_path
                     old_source_path.rename(new_source_path)
+                    logger.info(
+                        f"Renamed source release directory {old_source_path.name} to {new_source_path.name}"
+                    )
                     release.source_path = new_source_path
                     # Update the track paths and schedule them for database insertions.
                     for track in tracks:
@@ -855,6 +861,7 @@ def _update_cache_for_releases_executor(
                         track_ids_to_insert.add(track.id)
             for track in [t for t in tracks if t.id in track_ids_to_insert]:
                 wanted_filename = eval_track_template(c.path_templates.source.track, track)
+                wanted_filename = sanitize_filename(wanted_filename)
                 # And repeat a similar process to the release rename handling. Except: we can have
                 # arbitrarily nested files here, so we need to compare more than the name.
                 original_wanted_stem = Path(wanted_filename).stem
@@ -874,6 +881,9 @@ def _update_cache_for_releases_executor(
                     old_source_path.rename(new_source_path)
                     track.source_path = new_source_path
                     track.source_mtime = str(os.stat(track.source_path).st_mtime)
+                    logger.info(
+                        f"Renamed source file {release.source_path.name}/{relpath} to {release.source_path.name}/{wanted_filename}"
+                    )
                     # And clean out any empty directories post-rename.
                     while relpath := os.path.dirname(relpath):
                         relppp = release.source_path / relpath
@@ -882,14 +892,14 @@ def _update_cache_for_releases_executor(
 
         # Schedule database executions.
         if unknown_cached_tracks or release_dirty or track_ids_to_insert:
-            logger.info(f"Updating cache for release {source_path.name}")
+            logger.info(f"Updating cache for release {release.source_path.name}")
 
         if unknown_cached_tracks:
             logger.debug(f"Deleting {len(unknown_cached_tracks)} unknown tracks from cache")
             upd_unknown_cached_tracks_args.append((release.id, list(unknown_cached_tracks)))
 
         if release_dirty:
-            logger.debug(f"Scheduling upsert for dirty release in database: {source_path}")
+            logger.debug(f"Scheduling upsert for dirty release in database: {release.source_path}")
             upd_release_args.append(
                 [
                     release.id,
