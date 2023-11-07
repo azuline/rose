@@ -54,7 +54,7 @@ from rose.releases import (
 from rose.rule_parser import MetadataAction, MetadataRule
 from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
 from rose.templates import preview_path_templates
-from rose.tracks import dump_track, run_actions_on_track
+from rose.tracks import dump_track, dump_tracks, run_actions_on_track
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 from rose.watcher import start_watchdog
 
@@ -199,10 +199,11 @@ def releases() -> None:
 
 
 @releases.command(name="print")
-@click.argument("release", type=str, nargs=1)
+@click.argument("release", type=click.Path(), nargs=1)
 @click.pass_obj
 def print1(ctx: Context, release: str) -> None:
     """Print a single release (in JSON). Accepts a release's UUID/path."""
+    release = parse_release_argument(release)
     click.echo(dump_release(ctx.config, release))
 
 
@@ -215,7 +216,7 @@ def print_all(ctx: Context) -> None:
 
 @releases.command(name="edit")
 # fmt: off
-@click.argument("release", type=str, nargs=1)
+@click.argument("release", type=click.Path(), nargs=1)
 @click.option("--resume", "-r", type=click.Path(path_type=Path), nargs=1, help="Resume a failed release edit.")
 # fmt: on
 @click.pass_obj
@@ -226,7 +227,7 @@ def edit2(ctx: Context, release: str, resume: Path | None) -> None:
 
 
 @releases.command()
-@click.argument("release", type=str, nargs=1)
+@click.argument("release", type=click.Path(), nargs=1)
 @click.pass_obj
 def toggle_new(ctx: Context, release: str) -> None:
     """Toggle a release's "new"-ness. Accepts a release's UUID/path."""
@@ -235,7 +236,7 @@ def toggle_new(ctx: Context, release: str) -> None:
 
 
 @releases.command(name="delete")
-@click.argument("release", type=str, nargs=1)
+@click.argument("release", type=click.Path(), nargs=1)
 @click.pass_obj
 def delete3(ctx: Context, release: str) -> None:
     """
@@ -247,7 +248,7 @@ def delete3(ctx: Context, release: str) -> None:
 
 
 @releases.command()
-@click.argument("release", type=str, nargs=1)
+@click.argument("release", type=click.Path(), nargs=1)
 @click.argument("cover", type=click.Path(path_type=Path), nargs=1)
 @click.pass_obj
 def set_cover(ctx: Context, release: str, cover: Path) -> None:
@@ -257,7 +258,7 @@ def set_cover(ctx: Context, release: str, cover: Path) -> None:
 
 
 @releases.command()
-@click.argument("release", type=str, nargs=1)
+@click.argument("release", type=click.Path(), nargs=1)
 @click.pass_obj
 def delete_cover(ctx: Context, release: str) -> None:
     """Delete the cover art of a release."""
@@ -267,7 +268,7 @@ def delete_cover(ctx: Context, release: str) -> None:
 
 @releases.command()
 # fmt: off
-@click.argument("release", type=str, nargs=1)
+@click.argument("release", type=click.Path(), nargs=1)
 @click.argument("actions", type=str, nargs=-1)
 @click.option("--dry-run", "-d", is_flag=True, help="Display intended changes without applying them.") 
 @click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
@@ -300,20 +301,27 @@ def create_single(ctx: Context, track_path: Path) -> None:
 @cli.group()
 def tracks() -> None:
     """Manage tracks."""
-    # TODO: print / print-all / run-rule
 
 
 @tracks.command(name="print")
-@click.argument("track", type=str, nargs=1)
+@click.argument("track", type=click.Path(), nargs=1)
 @click.pass_obj
 def print4(ctx: Context, track: str) -> None:
     """Print a single track (in JSON). Accepts a tracks's UUID/path."""
+    track = parse_track_argument(track)
     click.echo(dump_track(ctx.config, track))
+
+
+@tracks.command(name="print-all")
+@click.pass_obj
+def print_all3(ctx: Context) -> None:
+    """Print all tracks (in JSON)."""
+    click.echo(dump_tracks(ctx.config))
 
 
 @tracks.command(name="run-rule")
 # fmt: off
-@click.argument("track", type=str, nargs=1)
+@click.argument("track", type=click.Path(), nargs=1)
 @click.argument("actions", type=str, nargs=-1)
 @click.option("--dry-run", "-d", is_flag=True, help="Display intended changes without applying them.") 
 @click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
@@ -335,7 +343,6 @@ def run_rule2(ctx: Context, track: str, actions: list[str], dry_run: bool, yes: 
 @cli.group()
 def collages() -> None:
     """Manage collages."""
-    # TODO: print
 
 
 @collages.command()
@@ -409,7 +416,6 @@ def print_all1(ctx: Context) -> None:
 @cli.group()
 def playlists() -> None:
     """Manage playlists."""
-    # TODO: print
 
 
 @playlists.command(name="create")
