@@ -25,6 +25,7 @@ the overall complexity of the cache update sequence:
 
 import contextlib
 import copy
+import dataclasses
 import hashlib
 import json
 import logging
@@ -36,7 +37,7 @@ import re
 import sqlite3
 import time
 from collections.abc import Iterator
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
@@ -637,7 +638,7 @@ def _update_cache_for_releases_executor(
                 # No need to lock here, as since the release ID is new, there is no way there is a
                 # concurrent writer.
                 with datafile_path.open("wb") as fp:
-                    tomli_w.dump(asdict(stored_release_data), fp)
+                    tomli_w.dump(dataclasses.asdict(stored_release_data), fp)
                 release.id = new_release_id
                 release.new = stored_release_data.new
                 release.added_at = stored_release_data.added_at
@@ -665,7 +666,7 @@ def _update_cache_for_releases_executor(
                     )
                     release.new = datafile.new
                     release.added_at = datafile.added_at
-                    new_resolved_data = asdict(datafile)
+                    new_resolved_data = dataclasses.asdict(datafile)
                     logger.debug(f"Updating values in stored data file for release {source_path}")
                     if new_resolved_data != diskdata:
                         # And then write the data back to disk if it changed. This allows us to update
@@ -1106,7 +1107,7 @@ def _update_cache_for_releases_executor(
             )
             # That cool section breaker shuriken character is our multi-value delimiter and how we
             # force-match strict prefix/suffix.
-            conn.create_function("process_string_for_fts", 1, _process_string_for_fts)
+            conn.create_function("process_string_for_fts", 1, process_string_for_fts)
             conn.execute(
                 f"""
                 INSERT INTO rules_engine_fts (
@@ -1766,7 +1767,7 @@ def list_releases_with_tracks(
     return rval
 
 
-def list_tracks(c: Config, track_ids: str) -> list[CachedTrack]:
+def list_tracks(c: Config, track_ids: list[str]) -> list[CachedTrack]:
     rval: list[CachedTrack] = []
     with connect(c) as conn:
         cursor = conn.execute(
@@ -2255,7 +2256,7 @@ def _unpack(*xxs: str) -> Iterator[tuple[str, ...]]:
     yield from zip(*[_split(xs) for xs in xxs])
 
 
-def _process_string_for_fts(x: str) -> str:
+def process_string_for_fts(x: str) -> str:
     # In order to have performant substring search, we use FTS and hack it such that every character
     # is a token. We use "¬" as our separator character, hoping that it is not used in any metadata.
     return "¬".join(str(x)) if x else x

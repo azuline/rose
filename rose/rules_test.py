@@ -6,11 +6,16 @@ from unittest.mock import Mock
 import pytest
 
 from rose.audiotags import AudioTags
-from rose.cache import update_cache
+from rose.cache import list_releases_with_tracks, update_cache
 from rose.common import Artist
 from rose.config import Config
-from rose.rule_parser import MetadataRule
-from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
+from rose.rule_parser import MetadataMatcher, MetadataRule
+from rose.rules import (
+    TrackTagNotAllowedError,
+    execute_metadata_rule,
+    execute_stored_metadata_rules,
+    fast_search_for_matching_releases,
+)
 
 
 def test_rules_execution_match_substring(config: Config, source_dir: Path) -> None:
@@ -300,3 +305,28 @@ def test_run_stored_rules(config: Config, source_dir: Path) -> None:
     execute_stored_metadata_rules(config)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title == "lalala"
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_fast_search_for_matching_releases(config: Config) -> None:
+    results = fast_search_for_matching_releases(
+        config, MetadataMatcher.parse("albumartist:Techno Man")
+    )
+    assert results == ["r1"]
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_fast_search_for_matching_releases_invalid_tag(config: Config) -> None:
+    with pytest.raises(TrackTagNotAllowedError):
+        fast_search_for_matching_releases(config, MetadataMatcher.parse("tracktitle:x"))
+    with pytest.raises(TrackTagNotAllowedError):
+        fast_search_for_matching_releases(config, MetadataMatcher.parse("trackartist:x"))
+    # But allow artist tag:
+    fast_search_for_matching_releases(config, MetadataMatcher.parse("artist:x"))
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_filter_release_false_positives_with_read_cache(config: Config) -> None:
+    fsresults = fast_search_for_matching_releases(config, MetadataMatcher.parse("albumartist:^Man"))
+    assert len(fsresults) == 2
+    cacheresults = list_releases_with_tracks(config, fsresults)

@@ -463,21 +463,21 @@ def execute_multi_value_action(
 # The following functions are for leveraging the rules engine as a performant query engine.
 
 
-@dataclass
-class FastReleaseSearchResult:
-    release_id: str
-    release_path: Path
-
-
-def fast_search_for_matching_releases(
-    c: Config,
-    matcher: MetadataMatcher,
-) -> list[FastReleaseSearchResult]:
-    """Basically the same thing as fast_search_for_matching_tracks but with releases."""
+def fast_search_for_matching_releases(c: Config, matcher: MetadataMatcher) -> list[str]:
+    """
+    Basically the same thing as fast_search_for_matching_tracks but with releases.
+    Returns release IDs.
+    """
     if track_tags := [t for t in matcher.tags if t not in RELEASE_TAGS]:
-        raise TrackTagNotAllowedError(
-            f"Track tags are not allowed when matching against releases: {', '.join(track_tags)}"
-        )
+        # But allow an exception if both trackartist and albumartist are defined: means a shorthand
+        # was used. Just ignore trackartist.
+        if "trackartist" in track_tags and "albumartist" in matcher.tags:
+            matcher.tags.remove("trackartist")
+        else:
+            raise TrackTagNotAllowedError(
+                f"Track tags are not allowed when matching against releases: {', '.join(track_tags)}"
+            )
+
     matchsql = _convert_matcher_to_fts_query(matcher.pattern)
     logger.debug(f"Converted match {matcher=} to {matchsql=}")
     ftsquery = f"{{{' '.join(matcher.tags)}}} : {matchsql}"
@@ -490,15 +490,10 @@ def fast_search_for_matching_releases(
         ORDER BY r.source_path
     """
     logger.debug(f"Constructed matching query {query}")
-    results: list[FastReleaseSearchResult] = []
+    results: list[str] = []
     with connect(c) as conn:
         for row in conn.execute(query):
-            results.append(
-                FastReleaseSearchResult(
-                    release_id=row["id"],
-                    release_path=Path(row["source_path"]).resolve(),
-                )
-            )
+            results.append(row["id"])
     logger.debug(f"Matched {len(results)} releases from the read cache")
     return results
 
