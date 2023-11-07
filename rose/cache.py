@@ -856,7 +856,13 @@ def _update_cache_for_releases_executor(
                         f"Renamed source release directory {old_source_path.name} to {new_source_path.name}"
                     )
                     release.source_path = new_source_path
-                    # Update the track paths and schedule them for database insertions.
+                    # Update the cached cover image path.
+                    if release.cover_image_path:
+                        coverlocalpath = str(release.cover_image_path).removeprefix(
+                            f"{old_source_path}/"
+                        )
+                        release.cover_image_path = release.source_path / coverlocalpath
+                    # Update the cached track paths and schedule them for database insertions.
                     for track in tracks:
                         tracklocalpath = str(track.source_path).removeprefix(f"{old_source_path}/")
                         track.source_path = release.source_path / tracklocalpath
@@ -1320,7 +1326,9 @@ def update_cache_for_collages(
                 for i, rls in enumerate(releases):
                     with contextlib.suppress(KeyError):
                         releases[i]["description_meta"] = desc_map[rls["uuid"]]
-                    if rls.get("missing", False):
+                    if rls.get("missing", False) and not releases[i]["description_meta"].endswith(
+                        " {MISSING}"
+                    ):
                         releases[i]["description_meta"] += " {MISSING}"
 
                 # Update the collage on disk if we have changed information.
