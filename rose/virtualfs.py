@@ -802,14 +802,12 @@ class RoseLogicalCore:
             raise llfuse.FUSEError(errno.ENOENT)
 
         if p.artist or p.genre or p.label or p.view in ["Releases", "New", "Recently Added"]:
-            releases = list(
-                list_releases_delete_this(
-                    self.config,
-                    sanitized_artist_filter=p.artist,
-                    sanitized_genre_filter=p.genre,
-                    sanitized_label_filter=p.label,
-                    new=True if p.view == "New" else None,
-                )
+            releases = list_releases_delete_this(
+                self.config,
+                sanitized_artist_filter=p.artist,
+                sanitized_genre_filter=p.genre,
+                sanitized_label_filter=p.label,
+                new=True if p.view == "New" else None,
             )
             for rls, vname in self.vnames.list_release_paths(p, releases):
                 yield vname, self.stat("dir", rls.source_path)

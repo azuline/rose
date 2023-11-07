@@ -1222,7 +1222,7 @@ def test_get_track_logtext(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_artists(config: Config) -> None:
-    artists = list(list_artists(config))
+    artists = list_artists(config)
     assert set(artists) == {
         ("Techno Man", "Techno Man"),
         ("Bass Man", "Bass Man"),
@@ -1233,7 +1233,7 @@ def test_list_artists(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_genres(config: Config) -> None:
-    genres = list(list_genres(config))
+    genres = list_genres(config)
     assert set(genres) == {
         ("Techno", "Techno"),
         ("Deep House", "Deep House"),
@@ -1243,13 +1243,13 @@ def test_list_genres(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_labels(config: Config) -> None:
-    labels = list(list_labels(config))
+    labels = list_labels(config)
     assert set(labels) == {("Silk Music", "Silk Music"), ("Native State", "Native State")}
 
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_collages(config: Config) -> None:
-    collages = list(list_collages(config))
+    collages = list_collages(config)
     assert set(collages) == {"Rose Gold", "Ruby Red"}
 
 
@@ -1346,7 +1346,7 @@ def test_get_collage(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_playlists(config: Config) -> None:
-    playlists = list(list_playlists(config))
+    playlists = list_playlists(config)
     assert set(playlists) == {"Lala Lisa", "Turtle Rabbit"}
 
 

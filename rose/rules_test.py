@@ -339,9 +339,9 @@ def test_filter_release_false_positives_with_read_cache(config: Config) -> None:
     matcher = MetadataMatcher.parse("albumartist:^Man")
     fsresults = fast_search_for_matching_releases(config, matcher)
     assert len(fsresults) == 2
-    cacheresults = list(list_releases(config, [r.id for r in fsresults]))
+    cacheresults = list_releases(config, [r.id for r in fsresults])
     assert len(cacheresults) == 2
-    filteredresults = list(filter_release_false_positives_using_read_cache(matcher, cacheresults))
+    filteredresults = filter_release_false_positives_using_read_cache(matcher, cacheresults)
     assert not filteredresults
 
 
@@ -350,10 +350,8 @@ def test_filter_track_false_positives_with_read_cache(config: Config) -> None:
     matcher = MetadataMatcher.parse("trackartist:^Man")
     fsresults = fast_search_for_matching_tracks(config, matcher)
     assert len(fsresults) == 3
-    tracks = list(list_tracks(config, [r.id for r in fsresults]))
+    tracks = list_tracks(config, [r.id for r in fsresults])
     assert len(tracks) == 3
     tracks_with_releases = get_releases_associated_with_tracks(config, tracks)
-    filteredresults = list(
-        filter_track_false_positives_using_read_cache(matcher, tracks_with_releases)
-    )
+    filteredresults = filter_track_false_positives_using_read_cache(matcher, tracks_with_releases)
     assert not filteredresults

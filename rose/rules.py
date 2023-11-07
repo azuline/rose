@@ -17,7 +17,6 @@ import logging
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator
 
 import click
 
@@ -92,9 +91,7 @@ def execute_metadata_rule(
         click.secho("No matching tracks found", dim=True, italic=True)
         click.echo()
         return
-    matcher_audiotags = list(
-        filter_track_false_positives_using_tags(rule.matcher, fast_search_results)
-    )
+    matcher_audiotags = filter_track_false_positives_using_tags(rule.matcher, fast_search_results)
     if not matcher_audiotags:
         click.secho("No matching tracks found", dim=True, italic=True)
         click.echo()
@@ -181,8 +178,9 @@ def _convert_matcher_to_fts_query(pattern: str) -> str:
 
 def filter_track_false_positives_using_tags(
     matcher: MetadataMatcher,
-    fast_search_results: Iterable[FastSearchResult],
-) -> Iterator[AudioTags]:
+    fast_search_results: list[FastSearchResult],
+) -> list[AudioTags]:
+    rval = []
     for fsr in fast_search_results:
         tags = AudioTags.from_file(fsr.path)
         for field in matcher.tags:
@@ -200,8 +198,9 @@ def filter_track_false_positives_using_tags(
             match = match or (field == "albumartist" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.all))  
             # fmt: on
             if match:
-                yield tags
+                rval.append(tags)
                 break
+    return rval
 
 
 Changes = tuple[str, str | int | None | list[str], str | int | None | list[str]]
@@ -501,8 +500,9 @@ def fast_search_for_matching_releases(
 
 def filter_track_false_positives_using_read_cache(
     matcher: MetadataMatcher,
-    tracks: Iterable[tuple[CachedTrack, CachedRelease]],
-) -> Iterator[tuple[CachedTrack, CachedRelease]]:
+    tracks: list[tuple[CachedTrack, CachedRelease]],
+) -> list[tuple[CachedTrack, CachedRelease]]:
+    rval = []
     for t, r in tracks:
         for field in matcher.tags:
             match = False
@@ -519,14 +519,15 @@ def filter_track_false_positives_using_read_cache(
             match = match or (field == "albumartist" and any(matches_pattern(matcher.pattern, x.name) for x in r.artists.all))  
             # fmt: on
             if match:
-                yield t, r
-                break
+                rval.append((t, r))
+    return rval
 
 
 def filter_release_false_positives_using_read_cache(
     matcher: MetadataMatcher,
-    releases: Iterable[CachedRelease],
-) -> Iterator[CachedRelease]:
+    releases: list[CachedRelease],
+) -> list[CachedRelease]:
+    rval = []
     for r in releases:
         for field in matcher.tags:
             match = False
@@ -540,5 +541,6 @@ def filter_release_false_positives_using_read_cache(
             match = match or (field == "albumartist" and any(matches_pattern(matcher.pattern, x.name) for x in r.artists.all))  
             # fmt: on
             if match:
-                yield r
+                rval.append(r)
                 break
+    return rval

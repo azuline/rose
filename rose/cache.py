@@ -1174,7 +1174,7 @@ def _update_cache_for_releases_executor(
                 WHERE pt.track_id IN ({','.join(['?'] * len(upd_track_ids))})
                 ORDER BY pt.playlist_name
                 """,
-                list(upd_track_ids),
+                upd_track_ids,
             )
             update_playlists = [row["playlist_name"] for row in cursor]
 
