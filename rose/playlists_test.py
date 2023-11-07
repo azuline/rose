@@ -142,8 +142,8 @@ def test_dump_playlists(config: Config) -> None:
                     "duration_seconds": 120,
                     "artists": {
                         "main": [
-                            {"name": "Bass Man", "alias": False},
                             {"name": "Techno Man", "alias": False},
+                            {"name": "Bass Man", "alias": False},
                         ],
                         "guest": [],
                         "remixer": [],

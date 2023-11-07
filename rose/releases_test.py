@@ -383,12 +383,12 @@ def test_dump_releases(config: Config) -> None:
             "releasetype": "album",
             "year": 2023,
             "new": False,
-            "genres": ["Deep House", "Techno"],
+            "genres": ["Techno", "Deep House"],
             "labels": ["Silk Music"],
             "artists": {
                 "main": [
-                    {"name": "Bass Man", "alias": False},
                     {"name": "Techno Man", "alias": False},
+                    {"name": "Bass Man", "alias": False},
                 ],
                 "guest": [],
                 "remixer": [],

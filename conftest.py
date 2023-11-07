@@ -118,15 +118,15 @@ VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '
      , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , 2021, false    , true );
 
 INSERT INTO releases_genres
-       (release_id, genre       , genre_sanitized)
-VALUES ('r1'      , 'Techno'    , 'Techno')
-     , ('r1'      , 'Deep House', 'Deep House')
-     , ('r2'      , 'Classical' , 'Classical');
+       (release_id, genre       , genre_sanitized, position)
+VALUES ('r1'      , 'Techno'    , 'Techno'       , 1)
+     , ('r1'      , 'Deep House', 'Deep House'   , 2)
+     , ('r2'      , 'Classical' , 'Classical'    , 1);
 
 INSERT INTO releases_labels
-       (release_id, label         , label_sanitized)
-VALUES ('r1'      , 'Silk Music'  , 'Silk Music')
-     , ('r2'      , 'Native State', 'Native State');
+       (release_id, label         , label_sanitized, position)
+VALUES ('r1'      , 'Silk Music'  , 'Silk Music'   , 1)
+     , ('r2'      , 'Native State', 'Native State' , 1);
 
 INSERT INTO tracks
        (id  , source_path      , source_mtime, title    , release_id, tracknumber, discnumber, duration_seconds)
@@ -136,20 +136,20 @@ VALUES ('t1', '{musicpaths[0]}', '999'       , 'Track 1', 'r1'      , '01'      
      , ('t4', '{musicpaths[3]}', '999'       , 'Track 1', 'r3'      , '01'       , '01'      , 120             );
 
 INSERT INTO releases_artists
-       (release_id, artist           , artist_sanitized , role   )
-VALUES ('r1'      , 'Techno Man'     , 'Techno Man'     , 'main' )
-     , ('r1'      , 'Bass Man'       , 'Bass Man'       , 'main' )
-     , ('r2'      , 'Violin Woman'   , 'Violin Woman'   , 'main' )
-     , ('r2'      , 'Conductor Woman', 'Conductor Woman', 'guest');
+       (release_id, artist           , artist_sanitized , role   , position)
+VALUES ('r1'      , 'Techno Man'     , 'Techno Man'     , 'main' , 1)
+     , ('r1'      , 'Bass Man'       , 'Bass Man'       , 'main' , 2)
+     , ('r2'      , 'Violin Woman'   , 'Violin Woman'   , 'main' , 1)
+     , ('r2'      , 'Conductor Woman', 'Conductor Woman', 'guest', 2);
 
 INSERT INTO tracks_artists
-       (track_id, artist           , artist_sanitized , role   )
-VALUES ('t1'    , 'Techno Man'     , 'Techno Man'     , 'main' )
-     , ('t1'    , 'Bass Man'       , 'Bass Man'       , 'main' )
-     , ('t2'    , 'Techno Man'     , 'Techno Man'     , 'main' )
-     , ('t2'    , 'Bass Man'       , 'Bass Man'       , 'main' )
-     , ('t3'    , 'Violin Woman'   , 'Violin Woman'   , 'main' )
-     , ('t3'    , 'Conductor Woman', 'Conductor Woman', 'guest');
+       (track_id, artist           , artist_sanitized , role   , position)
+VALUES ('t1'    , 'Techno Man'     , 'Techno Man'     , 'main' , 1)
+     , ('t1'    , 'Bass Man'       , 'Bass Man'       , 'main' , 2)
+     , ('t2'    , 'Techno Man'     , 'Techno Man'     , 'main' , 1)
+     , ('t2'    , 'Bass Man'       , 'Bass Man'       , 'main' , 2)
+     , ('t3'    , 'Violin Woman'   , 'Violin Woman'   , 'main' , 1)
+     , ('t3'    , 'Conductor Woman', 'Conductor Woman', 'guest', 2);
 
 INSERT INTO collages
        (name       , source_mtime)

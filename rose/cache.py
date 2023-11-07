@@ -781,7 +781,7 @@ def _update_cache_for_releases_executor(
             # (since we have .rose.{uuid}.toml!), but provides a layer of defense in situations like
             # a directory being written file-by-file and being processed in a half-written state.
             track_id = tags.id
-            if not track_id or not tags.release_id:
+            if not track_id or not tags.release_id or tags.release_id != release.id:
                 # This is our first time reading this track in the system, so no cocurrent processes
                 # should be reading/writing this file. We can avoid locking. And If we have two
                 # concurrent first-time cache updates, other places will have issues too.
@@ -858,6 +858,7 @@ def _update_cache_for_releases_executor(
                     for track in tracks:
                         tracklocalpath = str(track.source_path).removeprefix(f"{old_source_path}/")
                         track.source_path = release.source_path / tracklocalpath
+                        track.source_mtime = str(os.stat(track.source_path).st_mtime)
                         track_ids_to_insert.add(track.id)
             for track in [t for t in tracks if t.id in track_ids_to_insert]:
                 wanted_filename = eval_track_template(c.path_templates.source.track, track)
@@ -915,15 +916,17 @@ def _update_cache_for_releases_executor(
                 ]
             )
             upd_release_ids.append(release.id)
-            for genre in release.genres:
-                upd_release_genre_args.append([release.id, genre, sanitize_filename(genre)])
-            for label in release.labels:
-                upd_release_label_args.append([release.id, label, sanitize_filename(label)])
+            for pos, genre in enumerate(release.genres):
+                upd_release_genre_args.append([release.id, genre, sanitize_filename(genre), pos])
+            for pos, label in enumerate(release.labels):
+                upd_release_label_args.append([release.id, label, sanitize_filename(label), pos])
+            pos = 0
             for role, artists in release.artists.items():
                 for art in artists:
                     upd_release_artist_args.append(
-                        [release.id, art.name, sanitize_filename(art.name), role]
+                        [release.id, art.name, sanitize_filename(art.name), role, pos]
                     )
+                    pos += 1
 
         if track_ids_to_insert:
             for track in tracks:
@@ -943,11 +946,13 @@ def _update_cache_for_releases_executor(
                     ]
                 )
                 upd_track_ids.append(track.id)
+                pos = 0
                 for role, artists in track.artists.items():
                     for art in artists:
                         upd_track_artist_args.append(
-                            [track.id, art.name, sanitize_filename(art.name), role]
+                            [track.id, art.name, sanitize_filename(art.name), role, pos]
                         )
+                        pos += 1
     logger.debug(f"Release update scheduling loop time {time.time() - loop_start=}")
 
     exec_start = time.time()
@@ -1006,8 +1011,8 @@ def _update_cache_for_releases_executor(
             )
             conn.execute(
                 f"""
-                INSERT INTO releases_genres (release_id, genre, genre_sanitized)
-                VALUES {",".join(["(?,?,?)"]*len(upd_release_genre_args))}
+                INSERT INTO releases_genres (release_id, genre, genre_sanitized, position)
+                VALUES {",".join(["(?,?,?,?)"]*len(upd_release_genre_args))}
                 """,
                 _flatten(upd_release_genre_args),
             )
@@ -1021,8 +1026,8 @@ def _update_cache_for_releases_executor(
             )
             conn.execute(
                 f"""
-                INSERT INTO releases_labels (release_id, label, label_sanitized)
-                VALUES {",".join(["(?,?,?)"]*len(upd_release_label_args))}
+                INSERT INTO releases_labels (release_id, label, label_sanitized, position)
+                VALUES {",".join(["(?,?,?,?)"]*len(upd_release_label_args))}
                 """,
                 _flatten(upd_release_label_args),
             )
@@ -1036,8 +1041,8 @@ def _update_cache_for_releases_executor(
             )
             conn.execute(
                 f"""
-                INSERT INTO releases_artists (release_id, artist, artist_sanitized, role)
-                VALUES {",".join(["(?,?,?,?)"]*len(upd_release_artist_args))}
+                INSERT INTO releases_artists (release_id, artist, artist_sanitized, role, position)
+                VALUES {",".join(["(?,?,?,?,?)"]*len(upd_release_artist_args))}
                 """,
                 _flatten(upd_release_artist_args),
             )
@@ -1076,8 +1081,8 @@ def _update_cache_for_releases_executor(
             )
             conn.execute(
                 f"""
-                INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role)
-                VALUES {",".join(["(?,?,?,?)"]*len(upd_track_artist_args))}
+                INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role, position)
+                VALUES {",".join(["(?,?,?,?,?)"]*len(upd_track_artist_args))}
                 """,
                 _flatten(upd_track_artist_args),
             )

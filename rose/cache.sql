@@ -42,9 +42,12 @@ CREATE TABLE releases_genres (
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
     genre TEXT,
     genre_sanitized TEXT NOT NULL,
-    PRIMARY KEY (release_id, genre)
+    position INTEGER NOT NULL,
+    PRIMARY KEY (release_id, genre),
+    UNIQUE (release_id, position)
 );
 CREATE INDEX releases_genres_release_id ON releases_genres(release_id);
+CREATE INDEX releases_genres_release_id_position ON releases_genres(release_id, position);
 CREATE INDEX releases_genres_genre ON releases_genres(genre);
 CREATE INDEX releases_genres_genre_sanitized ON releases_genres(genre_sanitized);
 
@@ -52,9 +55,12 @@ CREATE TABLE releases_labels (
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
     label TEXT,
     label_sanitized TEXT NOT NULL,
-    PRIMARY KEY (release_id, label)
+    position INTEGER NOT NULL,
+    PRIMARY KEY (release_id, label),
+    UNIQUE (release_id, position)
 );
 CREATE INDEX releases_labels_release_id ON releases_labels(release_id);
+CREATE INDEX releases_labels_release_id_position ON releases_labels(release_id, position);
 CREATE INDEX releases_labels_label ON releases_labels(label);
 CREATE INDEX releases_labels_label_sanitized ON releases_labels(label_sanitized);
 
@@ -89,9 +95,12 @@ CREATE TABLE releases_artists (
     artist TEXT,
     artist_sanitized TEXT NOT NULL,
     role TEXT REFERENCES artist_role_enum(value) NOT NULL,
+    position INTEGER NOT NULL,
     PRIMARY KEY (release_id, artist, role)
+    UNIQUE (release_id, position)
 );
 CREATE INDEX releases_artists_release_id ON releases_artists(release_id);
+CREATE INDEX releases_artists_release_id_position ON releases_artists(release_id, position);
 CREATE INDEX releases_artists_artist ON releases_artists(artist);
 CREATE INDEX releases_artists_artist_sanitized ON releases_artists(artist_sanitized);
 
@@ -100,9 +109,12 @@ CREATE TABLE tracks_artists (
     artist TEXT,
     artist_sanitized TEXT NOT NULL,
     role TEXT REFERENCES artist_role_enum(value) NOT NULL,
-    PRIMARY KEY (track_id, artist, role)
+    position INTEGER NOT NULL,
+    PRIMARY KEY (track_id, artist, role),
+    UNIQUE (track_id, position)
 );
 CREATE INDEX tracks_artists_track_id ON tracks_artists(track_id);
+CREATE INDEX tracks_artists_track_id_position ON tracks_artists(track_id, position);
 CREATE INDEX tracks_artists_artist ON tracks_artists(artist);
 CREATE INDEX tracks_artists_artist_sanitized ON tracks_artists(artist_sanitized);
 
@@ -176,20 +188,20 @@ CREATE VIEW releases_view AS
         SELECT
             release_id
           , GROUP_CONCAT(genre, ' ¬ ') AS genres
-        FROM (SELECT * FROM releases_genres ORDER BY genre)
+        FROM (SELECT * FROM releases_genres ORDER BY position)
         GROUP BY release_id
     ), labels AS (
         SELECT
             release_id
           , GROUP_CONCAT(label, ' ¬ ') AS labels
-        FROM (SELECT * FROM releases_labels ORDER BY label)
+        FROM (SELECT * FROM releases_labels ORDER BY position)
         GROUP BY release_id
     ), artists AS (
         SELECT
             release_id
           , GROUP_CONCAT(artist, ' ¬ ') AS names
           , GROUP_CONCAT(role, ' ¬ ') AS roles
-        FROM (SELECT * FROM releases_artists ORDER BY artist, role)
+        FROM (SELECT * FROM releases_artists ORDER BY position)
         GROUP BY release_id
     )
     SELECT
@@ -218,7 +230,7 @@ CREATE VIEW tracks_view AS
             track_id
           , GROUP_CONCAT(artist, ' ¬ ') AS names
           , GROUP_CONCAT(role, ' ¬ ') AS roles
-        FROM (SELECT * FROM tracks_artists ORDER BY artist, role)
+        FROM (SELECT * FROM tracks_artists ORDER BY position)
         GROUP BY track_id
     )
     SELECT

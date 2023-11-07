@@ -449,26 +449,26 @@ def test_update_cache_releases_evicts_relations(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases_genres (release_id, genre, genre_sanitized)
-            VALUES ('ilovecarly', 'lalala', 'lalala')
+            INSERT INTO releases_genres (release_id, genre, genre_sanitized, position)
+            VALUES ('ilovecarly', 'lalala', 'lalala', 2)
             """,
         )
         conn.execute(
             """
-            INSERT INTO releases_labels (release_id, label, label_sanitized)
-            VALUES ('ilovecarly', 'lalala', 'lalala')
+            INSERT INTO releases_labels (release_id, label, label_sanitized, position)
+            VALUES ('ilovecarly', 'lalala', 'lalala', 1)
             """,
         )
         conn.execute(
             """
-            INSERT INTO releases_artists (release_id, artist, artist_sanitized, role)
-            VALUES ('ilovecarly', 'lalala', 'lalala', 'main')
+            INSERT INTO releases_artists (release_id, artist, artist_sanitized, role, position)
+            VALUES ('ilovecarly', 'lalala', 'lalala', 'main', 1)
             """,
         )
         conn.execute(
             """
-            INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role)
-            SELECT id, 'lalala', 'lalala', 'main' FROM tracks
+            INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role, position)
+            SELECT id, 'lalala', 'lalala', 'main', 1 FROM tracks
             """,
         )
     # Second cache refresh.
@@ -1025,9 +1025,9 @@ def test_list_releases(config: Config) -> None:
             year=2023,
             multidisc=False,
             new=False,
-            genres=["Deep House", "Techno"],
+            genres=["Techno", "Deep House"],
             labels=["Silk Music"],
-            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
+            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
         ),
         CachedRelease(
             datafile_mtime="999",
@@ -1074,9 +1074,9 @@ def test_list_releases(config: Config) -> None:
             year=2023,
             multidisc=False,
             new=False,
-            genres=["Deep House", "Techno"],
+            genres=["Techno", "Deep House"],
             labels=["Silk Music"],
-            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
+            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
         ),
     ]
 
@@ -1099,10 +1099,10 @@ def test_list_releases(config: Config) -> None:
             year=2023,
             multidisc=False,
             new=False,
-            genres=["Deep House", "Techno"],
+            genres=["Techno", "Deep House"],
             labels=["Silk Music"],
             artists=ArtistMapping(
-                main=[Artist("Bass Man"), Artist("Hype Boy", alias=True), Artist("Techno Man")],
+                main=[Artist("Techno Man"), Artist("Bass Man"), Artist("Hype Boy", alias=True)],
             ),
         ),
     ]
@@ -1120,9 +1120,9 @@ def test_list_releases(config: Config) -> None:
             year=2023,
             multidisc=False,
             new=False,
-            genres=["Deep House", "Techno"],
+            genres=["Techno", "Deep House"],
             labels=["Silk Music"],
-            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
+            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
         ),
     ]
 
@@ -1139,9 +1139,9 @@ def test_list_releases(config: Config) -> None:
             year=2023,
             multidisc=False,
             new=False,
-            genres=["Deep House", "Techno"],
+            genres=["Techno", "Deep House"],
             labels=["Silk Music"],
-            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
+            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
         ),
     ]
 
@@ -1160,9 +1160,9 @@ def test_get_release(config: Config) -> None:
             year=2023,
             multidisc=False,
             new=False,
-            genres=["Deep House", "Techno"],
+            genres=["Techno", "Deep House"],
             labels=["Silk Music"],
-            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
+            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
         ),
         [
             CachedTrack(
@@ -1174,7 +1174,7 @@ def test_get_release(config: Config) -> None:
                 tracknumber="01",
                 discnumber="01",
                 duration_seconds=120,
-                artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
+                artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
                 release_multidisc=False,
             ),
             CachedTrack(
@@ -1186,7 +1186,7 @@ def test_get_release(config: Config) -> None:
                 tracknumber="02",
                 discnumber="01",
                 duration_seconds=240,
-                artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
+                artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
                 release_multidisc=False,
             ),
         ],
@@ -1205,17 +1205,17 @@ def test_get_release_applies_artist_aliases(config: Config) -> None:
     release, tracks = rdata
 
     assert release.artists == ArtistMapping(
-        main=[Artist("Bass Man"), Artist("Hype Boy", True), Artist("Techno Man")],
+        main=[Artist("Techno Man"), Artist("Bass Man"), Artist("Hype Boy", True)],
     )
     for t in tracks:
         assert t.artists == ArtistMapping(
-            main=[Artist("Bass Man"), Artist("Hype Boy", True), Artist("Techno Man")],
+            main=[Artist("Techno Man"), Artist("Bass Man"), Artist("Hype Boy", True)],
         )
 
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_get_release_logging_identifier(config: Config) -> None:
-    assert get_release_logtext(config, "r1") == "Bass Man & Techno Man - 2023. Release 1"
+    assert get_release_logtext(config, "r1") == "Techno Man & Bass Man - 2023. Release 1"
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -1242,7 +1242,7 @@ def test_get_track(config: Config) -> None:
         tracknumber="01",
         discnumber="01",
         duration_seconds=120,
-        artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
+        artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
         release_multidisc=False,
     )
 
@@ -1302,9 +1302,9 @@ def test_get_collage(config: Config) -> None:
             year=2023,
             new=False,
             multidisc=False,
-            genres=["Deep House", "Techno"],
+            genres=["Techno", "Deep House"],
             labels=["Silk Music"],
-            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
+            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
         ),
         CachedRelease(
             id="r2",
@@ -1353,7 +1353,7 @@ def test_get_collage(config: Config) -> None:
             tracknumber="01",
             discnumber="01",
             duration_seconds=120,
-            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
+            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
             release_multidisc=False,
         ),
         CachedTrack(
@@ -1398,7 +1398,7 @@ def test_get_playlist(config: Config) -> None:
             tracknumber="01",
             discnumber="01",
             duration_seconds=120,
-            artists=ArtistMapping(main=[Artist("Bass Man"), Artist("Techno Man")]),
+            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
             release_multidisc=False,
         ),
         CachedTrack(

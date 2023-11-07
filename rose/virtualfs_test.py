@@ -14,7 +14,7 @@ from rose.audiotags import AudioTags
 from rose.config import Config
 from rose.virtualfs import mount_virtualfs, unmount_virtualfs
 
-R1_VNAME = "Bass Man & Techno Man - 2023. Release 1"
+R1_VNAME = "Techno Man & Bass Man - 2023. Release 1"
 R2_VNAME = "Violin Woman (feat. Conductor Woman) - 2021. Release 2"
 R3_VNAME = "Unknown Artists - 2021. Release 3 [NEW]"
 
@@ -112,10 +112,10 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert (root / "8. Playlists" / "Lala Lisa").is_dir()
         assert (root / "8. Playlists" / "Turtle Rabbit").is_dir()
         assert not (root / "8. Playlists" / "lalala").exists()
-        assert (root / "8. Playlists" / "Lala Lisa" / "1. Bass Man & Techno Man - Track 1.m4a").is_file()
+        assert (root / "8. Playlists" / "Lala Lisa" / "1. Techno Man & Bass Man - Track 1.m4a").is_file()
         assert (root / "8. Playlists" / "Lala Lisa" / "cover.jpg").is_file()
         assert not (root / "8. Playlists" / "Lala Lisa" / "lalala").exists()
-        assert can_read(root / "8. Playlists" / "Lala Lisa" / "1. Bass Man & Techno Man - Track 1.m4a")
+        assert can_read(root / "8. Playlists" / "Lala Lisa" / "1. Techno Man & Bass Man - Track 1.m4a")
         assert can_read(root / "8. Playlists" / "Lala Lisa" / "cover.jpg")
         # fmt: on
 
