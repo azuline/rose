@@ -108,63 +108,63 @@ def test_preview_templates(config: Config) -> None:
     assert (
         output
         == """\
-Preview for template Source Directory - Release:
+Source Directory - Release:
   Sample 1: Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: BTS - 2016. Young Forever (花樣年華)
-Preview for template Source Directory - Track:
+Source Directory - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
 
-Preview for template 1. All Releases - Release:
+1. All Releases - Release:
   Sample 1: Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: BTS - 2016. Young Forever (花樣年華)
-Preview for template 1. All Releases - Track:
+1. All Releases - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
 
-Preview for template 2. New Releases - Release:
+2. New Releases - Release:
   Sample 1: Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: BTS - 2016. Young Forever (花樣年華)
-Preview for template 2. New Releases - Track:
+2. New Releases - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
 
-Preview for template 3. Recently Added Releases - Release:
+3. Recently Added Releases - Release:
   Sample 1: [2023-04-20] Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: [2023-06-09] BTS - 2016. Young Forever (花樣年華)
-Preview for template 3. Recently Added Releases - Track:
+3. Recently Added Releases - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
 
-Preview for template 4. Artists - Release:
+4. Artists - Release:
   Sample 1: Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: BTS - 2016. Young Forever (花樣年華)
-Preview for template 4. Artists - Track:
+4. Artists - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
 
-Preview for template 5. Genres - Release:
+5. Genres - Release:
   Sample 1: Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: BTS - 2016. Young Forever (花樣年華)
-Preview for template 5. Genres - Track:
+5. Genres - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
 
-Preview for template 6. Labels - Release:
+6. Labels - Release:
   Sample 1: Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: BTS - 2016. Young Forever (花樣年華)
-Preview for template 6. Labels - Track:
+6. Labels - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
 
-Preview for template 7. Collages - Release:
+7. Collages - Release:
   Sample 1: 1. Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: 2. BTS - 2016. Young Forever (花樣年華)
-Preview for template 7. Collages - Track:
+7. Collages - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
 
-Preview for template 8. Playlists - Track:
+8. Playlists - Track:
   Sample 1: 1. Kim Lip - Eclipse.opus
   Sample 2: 2. BTS - House of Cards.opus
 """

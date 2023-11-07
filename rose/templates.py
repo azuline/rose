@@ -310,7 +310,7 @@ def _preview_release_template(c: Config, label: str, template: PathTemplate) -> 
     # Import cycle trick :)
     from rose.cache import CachedRelease
 
-    click.secho(f"Preview for template {label}:", dim=True, underline=True)
+    click.secho(f"{label}:", dim=True, underline=True)
 
     click.secho("  Sample 1: ", dim=True, nl=False)
     release = CachedRelease(
@@ -353,7 +353,7 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
     # Import cycle trick :)
     from rose.cache import CachedTrack
 
-    click.secho(f"Preview for template {label}:", dim=True, underline=True)
+    click.secho(f"{label}:", dim=True, underline=True)
 
     click.secho("  Sample 1: ", dim=True, nl=False)
     track = CachedTrack(
