@@ -17,6 +17,7 @@ import logging
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable, Iterator
 
 import click
 
@@ -91,7 +92,9 @@ def execute_metadata_rule(
         click.secho("No matching tracks found", dim=True, italic=True)
         click.echo()
         return
-    matcher_audiotags = filter_track_false_positives_using_tags(rule.matcher, fast_search_results)
+    matcher_audiotags = list(
+        filter_track_false_positives_using_tags(rule.matcher, fast_search_results)
+    )
     if not matcher_audiotags:
         click.secho("No matching tracks found", dim=True, italic=True)
         click.echo()
@@ -107,15 +110,15 @@ def execute_metadata_rule(
 
 
 @dataclass
-class FastTrackSearchResult:
-    track_id: str
-    track_path: Path
+class FastSearchResult:
+    id: str
+    path: Path
 
 
 def fast_search_for_matching_tracks(
     c: Config,
     matcher: MetadataMatcher,
-) -> list[FastTrackSearchResult]:
+) -> list[FastSearchResult]:
     """
     Run a search for tracks with the matcher on the Full Text Search index. This is _fast_, but will
     produce false positives. The caller must filter out the false positives after pulling the
@@ -140,13 +143,13 @@ def fast_search_for_matching_tracks(
     # And then execute the SQL query. Note that we don't pull the tag values here. This query is
     # only used to identify the matching tracks. Afterwards, we will read each track's tags from
     # disk and apply the action on those tag values.
-    results: list[FastTrackSearchResult] = []
+    results: list[FastSearchResult] = []
     with connect(c) as conn:
         for row in conn.execute(query):
             results.append(
-                FastTrackSearchResult(
-                    track_id=row["id"],
-                    track_path=Path(row["source_path"]).resolve(),
+                FastSearchResult(
+                    id=row["id"],
+                    path=Path(row["source_path"]).resolve(),
                 )
             )
     logger.debug(f"Matched {len(results)} tracks from the read cache")
@@ -178,11 +181,10 @@ def _convert_matcher_to_fts_query(pattern: str) -> str:
 
 def filter_track_false_positives_using_tags(
     matcher: MetadataMatcher,
-    fast_search_results: list[FastTrackSearchResult],
-) -> list[AudioTags]:
-    matcher_audiotags: list[AudioTags] = []
+    fast_search_results: Iterable[FastSearchResult],
+) -> Iterator[AudioTags]:
     for fsr in fast_search_results:
-        tags = AudioTags.from_file(fsr.track_path)
+        tags = AudioTags.from_file(fsr.path)
         for field in matcher.tags:
             match = False
             # fmt: off
@@ -198,9 +200,8 @@ def filter_track_false_positives_using_tags(
             match = match or (field == "albumartist" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.all))  
             # fmt: on
             if match:
-                matcher_audiotags.append(tags)
+                yield tags
                 break
-    return matcher_audiotags
 
 
 Changes = tuple[str, str | int | None | list[str], str | int | None | list[str]]
@@ -463,11 +464,11 @@ def execute_multi_value_action(
 # The following functions are for leveraging the rules engine as a performant query engine.
 
 
-def fast_search_for_matching_releases(c: Config, matcher: MetadataMatcher) -> list[str]:
-    """
-    Basically the same thing as fast_search_for_matching_tracks but with releases.
-    Returns release IDs.
-    """
+def fast_search_for_matching_releases(
+    c: Config,
+    matcher: MetadataMatcher,
+) -> list[FastSearchResult]:
+    """Basically the same thing as fast_search_for_matching_tracks but with releases."""
     if track_tags := [t for t in matcher.tags if t not in RELEASE_TAGS]:
         # But allow an exception if both trackartist and albumartist are defined: means a shorthand
         # was used. Just ignore trackartist.
@@ -490,19 +491,18 @@ def fast_search_for_matching_releases(c: Config, matcher: MetadataMatcher) -> li
         ORDER BY r.source_path
     """
     logger.debug(f"Constructed matching query {query}")
-    results: list[str] = []
+    results: list[FastSearchResult] = []
     with connect(c) as conn:
         for row in conn.execute(query):
-            results.append(row["id"])
+            results.append(FastSearchResult(id=row["id"], path=Path(row["source_path"]).resolve()))
     logger.debug(f"Matched {len(results)} releases from the read cache")
     return results
 
 
 def filter_track_false_positives_using_read_cache(
     matcher: MetadataMatcher,
-    tracks: list[tuple[CachedTrack, CachedRelease]],
-) -> list[CachedTrack]:
-    matched_tracks: list[CachedTrack] = []
+    tracks: Iterable[tuple[CachedTrack, CachedRelease]],
+) -> Iterator[tuple[CachedTrack, CachedRelease]]:
     for t, r in tracks:
         for field in matcher.tags:
             match = False
@@ -519,16 +519,14 @@ def filter_track_false_positives_using_read_cache(
             match = match or (field == "albumartist" and any(matches_pattern(matcher.pattern, x.name) for x in r.artists.all))  
             # fmt: on
             if match:
-                matched_tracks.append(t)
+                yield t, r
                 break
-    return matched_tracks
 
 
 def filter_release_false_positives_using_read_cache(
     matcher: MetadataMatcher,
-    releases: list[CachedRelease],
-) -> list[CachedRelease]:
-    matched_releases: list[CachedRelease] = []
+    releases: Iterable[CachedRelease],
+) -> Iterator[CachedRelease]:
     for r in releases:
         for field in matcher.tags:
             match = False
@@ -542,6 +540,5 @@ def filter_release_false_positives_using_read_cache(
             match = match or (field == "albumartist" and any(matches_pattern(matcher.pattern, x.name) for x in r.artists.all))  
             # fmt: on
             if match:
-                matched_releases.append(r)
+                yield r
                 break
-    return matched_releases

@@ -6,15 +6,24 @@ from unittest.mock import Mock
 import pytest
 
 from rose.audiotags import AudioTags
-from rose.cache import list_releases_with_tracks, update_cache
+from rose.cache import (
+    get_releases_associated_with_tracks,
+    list_releases_by_ids,
+    list_tracks,
+    update_cache,
+)
 from rose.common import Artist
 from rose.config import Config
 from rose.rule_parser import MetadataMatcher, MetadataRule
 from rose.rules import (
+    FastSearchResult,
     TrackTagNotAllowedError,
     execute_metadata_rule,
     execute_stored_metadata_rules,
     fast_search_for_matching_releases,
+    fast_search_for_matching_tracks,
+    filter_release_false_positives_using_read_cache,
+    filter_track_false_positives_using_read_cache,
 )
 
 
@@ -312,7 +321,7 @@ def test_fast_search_for_matching_releases(config: Config) -> None:
     results = fast_search_for_matching_releases(
         config, MetadataMatcher.parse("albumartist:Techno Man")
     )
-    assert results == ["r1"]
+    assert results == [FastSearchResult(id="r1", path=config.music_source_dir / "r1")]
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -327,6 +336,24 @@ def test_fast_search_for_matching_releases_invalid_tag(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_filter_release_false_positives_with_read_cache(config: Config) -> None:
-    fsresults = fast_search_for_matching_releases(config, MetadataMatcher.parse("albumartist:^Man"))
+    matcher = MetadataMatcher.parse("albumartist:^Man")
+    fsresults = fast_search_for_matching_releases(config, matcher)
     assert len(fsresults) == 2
-    cacheresults = list_releases_with_tracks(config, fsresults)
+    cacheresults = list(list_releases_by_ids(config, [r.id for r in fsresults]))
+    assert len(cacheresults) == 2
+    filteredresults = list(filter_release_false_positives_using_read_cache(matcher, cacheresults))
+    assert not filteredresults
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_filter_track_false_positives_with_read_cache(config: Config) -> None:
+    matcher = MetadataMatcher.parse("trackartist:^Man")
+    fsresults = fast_search_for_matching_tracks(config, matcher)
+    assert len(fsresults) == 3
+    tracks = list(list_tracks(config, [r.id for r in fsresults]))
+    assert len(tracks) == 3
+    tracks_with_releases = get_releases_associated_with_tracks(config, tracks)
+    filteredresults = list(
+        filter_track_false_positives_using_read_cache(matcher, tracks_with_releases)
+    )
+    assert not filteredresults

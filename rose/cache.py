@@ -36,6 +36,7 @@ import os.path
 import re
 import sqlite3
 import time
+from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
@@ -1678,12 +1679,8 @@ def list_releases(
             )
 
 
-def list_releases_with_tracks(
-    c: Config,
-    release_ids: str,
-) -> list[tuple[CachedRelease, list[CachedTrack]]]:
-    rval: list[tuple[CachedRelease, list[CachedTrack]]] = []
-    tracksmap: dict[str, tuple[CachedRelease, list[CachedTrack]]] = {}
+# TODO: Replace prev with this one.
+def list_releases_by_ids(c: Config, release_ids: list[str]) -> Iterator[CachedRelease]:
     with connect(c) as conn:
         cursor = conn.execute(
             f"""
@@ -1704,11 +1701,12 @@ def list_releases_with_tracks(
               , artist_roles
             FROM releases_view
             WHERE id IN ({','.join(['?']*len(release_ids))})
-            """,
+            ORDER BY source_path
+        """,
             release_ids,
         )
         for row in cursor:
-            release = CachedRelease(
+            yield CachedRelease(
                 id=row["id"],
                 source_path=Path(row["source_path"]),
                 cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
@@ -1723,94 +1721,9 @@ def list_releases_with_tracks(
                 labels=_split(row["labels"]),
                 artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
             )
-            tracks: list[CachedTrack] = []
-            tup = (release, tracks)
-            rval.append(tup)
-            tracksmap[release.id] = tup
-
-        cursor = conn.execute(
-            f"""
-            SELECT
-                id
-              , release_id
-              , source_path
-              , source_mtime
-              , title
-              , release_id
-              , tracknumber
-              , discnumber
-              , duration_seconds
-              , artist_names
-              , artist_roles
-            FROM tracks_view
-            WHERE release_id IN ({','.join(['?']*len(release_ids))})
-            ORDER BY release_id, FORMAT('%4d.%4d', discnumber, tracknumber)
-            """,
-            release_ids,
-        )
-        for row in cursor:
-            tracksmap[row["release_id"]][1].append(
-                CachedTrack(
-                    id=row["id"],
-                    source_path=Path(row["source_path"]),
-                    source_mtime=row["source_mtime"],
-                    title=row["title"],
-                    release_id=row["release_id"],
-                    tracknumber=row["tracknumber"],
-                    discnumber=row["discnumber"],
-                    duration_seconds=row["duration_seconds"],
-                    artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
-                    release_multidisc=tracksmap[row["release_id"]][0].multidisc,
-                )
-            )
-
-    return rval
 
 
-def list_tracks(c: Config, track_ids: list[str]) -> list[CachedTrack]:
-    rval: list[CachedTrack] = []
-    with connect(c) as conn:
-        cursor = conn.execute(
-            f"""
-            SELECT
-                t.id
-              , t.release_id
-              , t.source_path
-              , t.source_mtime
-              , t.title
-              , t.release_id
-              , t.tracknumber
-              , t.discnumber
-              , t.duration_seconds
-              , t.artist_names
-              , t.artist_roles
-              , r.multidisc
-            FROM tracks_view t
-            JOIN releases r ON r.id = t.release_id
-            WHERE t.id IN ({','.join(['?']*len(track_ids))})
-            ORDER BY r.source_path, FORMAT('%4d.%4d', t.discnumber, t.tracknumber)
-            """,
-            track_ids,
-        )
-        for row in cursor:
-            rval.append(
-                CachedTrack(
-                    id=row["id"],
-                    source_path=Path(row["source_path"]),
-                    source_mtime=row["source_mtime"],
-                    title=row["title"],
-                    release_id=row["release_id"],
-                    tracknumber=row["tracknumber"],
-                    discnumber=row["discnumber"],
-                    duration_seconds=row["duration_seconds"],
-                    artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
-                    release_multidisc=bool(row["multidisc"]),
-                )
-            )
-
-    return rval
-
-
+# TODO: rm tracks from this; let callers compose two calls, its same efficiency actually minus jump
 def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedTrack]] | None:
     with connect(c) as conn:
         cursor = conn.execute(
@@ -1894,6 +1807,68 @@ def get_release(c: Config, release_id: str) -> tuple[CachedRelease, list[CachedT
     return (release, tracks)
 
 
+def get_releases_associated_with_tracks(
+    c: Config,
+    tracks: list[CachedTrack],
+) -> Iterator[tuple[CachedTrack, CachedRelease]]:
+    track_ids = [t.id for t in tracks]
+    with connect(c) as conn:
+        cursor = conn.execute(
+            f"""
+            SELECT id, release_id
+            FROM tracks
+            WHERE id IN ({','.join(['?']*len(track_ids))})
+            """,
+            track_ids,
+        )
+        track_to_release_ids_map: dict[str, str] = {r["id"]: r["release_id"] for r in cursor}
+        release_ids = list(set(track_to_release_ids_map.values()))
+        cursor = conn.execute(
+            f"""
+            SELECT
+                id
+              , source_path
+              , cover_image_path
+              , added_at
+              , datafile_mtime
+              , title
+              , releasetype
+              , year
+              , multidisc
+              , new
+              , genres
+              , labels
+              , artist_names
+              , artist_roles
+            FROM releases_view
+            WHERE id IN ({','.join(['?']*len(release_ids))})
+            """,
+            release_ids,
+        )
+        releases_map: dict[str, CachedRelease] = {}
+        for row in cursor:
+            releases_map[row["id"]] = CachedRelease(
+                id=row["id"],
+                source_path=Path(row["source_path"]),
+                cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
+                added_at=row["added_at"],
+                datafile_mtime=row["datafile_mtime"],
+                title=row["title"],
+                releasetype=row["releasetype"],
+                year=row["year"],
+                multidisc=bool(row["multidisc"]),
+                new=bool(row["new"]),
+                genres=_split(row["genres"]),
+                labels=_split(row["labels"]),
+                artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+            )
+
+    for track in tracks:
+        release_id = track_to_release_ids_map[track.id]
+        release = releases_map[release_id]
+        yield track, release
+
+
 def get_release_logtext(c: Config, release_id: str) -> str | None:
     """Get a human-readable identifier for a release suitable for logging."""
     with connect(c) as conn:
@@ -1941,6 +1916,93 @@ def get_release_source_paths(c: Config, uuids: list[str]) -> list[Path]:
             uuids,
         )
         return [Path(r["source_path"]) for r in cursor]
+
+
+def list_tracks(c: Config, track_ids: list[str]) -> Iterator[CachedTrack]:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            f"""
+            SELECT
+                t.id
+              , t.release_id
+              , t.source_path
+              , t.source_mtime
+              , t.title
+              , t.release_id
+              , t.tracknumber
+              , t.discnumber
+              , t.duration_seconds
+              , t.artist_names
+              , t.artist_roles
+              , r.multidisc
+            FROM tracks_view t
+            JOIN releases r ON r.id = t.release_id
+            WHERE t.id IN ({','.join(['?']*len(track_ids))})
+            ORDER BY r.source_path, FORMAT('%4d.%4d', t.discnumber, t.tracknumber)
+            """,
+            track_ids,
+        )
+        for row in cursor:
+            yield CachedTrack(
+                id=row["id"],
+                source_path=Path(row["source_path"]),
+                source_mtime=row["source_mtime"],
+                title=row["title"],
+                release_id=row["release_id"],
+                tracknumber=row["tracknumber"],
+                discnumber=row["discnumber"],
+                duration_seconds=row["duration_seconds"],
+                artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                release_multidisc=bool(row["multidisc"]),
+            )
+
+
+def get_tracks_associated_with_release(
+    c: Config,
+    releases: list[CachedRelease],
+) -> Iterator[tuple[CachedRelease, list[CachedTrack]]]:
+    tracks_map: dict[str, list[CachedTrack]] = defaultdict(list)
+    with connect(c) as conn:
+        cursor = conn.execute(
+            f"""
+            SELECT
+                t.id
+              , t.release_id
+              , t.source_path
+              , t.source_mtime
+              , t.title
+              , t.release_id
+              , t.tracknumber
+              , t.discnumber
+              , t.duration_seconds
+              , t.artist_names
+              , t.artist_roles
+            FROM tracks_view t
+            JOIN releases ON r.id = t.release_id
+            WHERE t.release_id IN ({','.join(['?']*len(releases))})
+            ORDER BY t.release_id, FORMAT('%4d.%4d', t.discnumber, t.tracknumber)
+            """,
+            [r.id for r in releases],
+        )
+        for row in cursor:
+            tracks_map[row["release_id"]].append(
+                CachedTrack(
+                    id=row["id"],
+                    source_path=Path(row["source_path"]),
+                    source_mtime=row["source_mtime"],
+                    title=row["title"],
+                    release_id=row["release_id"],
+                    tracknumber=row["tracknumber"],
+                    discnumber=row["discnumber"],
+                    duration_seconds=row["duration_seconds"],
+                    artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                    release_multidisc=row["multidisc"],
+                )
+            )
+
+    for release in releases:
+        tracks = tracks_map[release.id]
+        yield release, tracks
 
 
 def get_track(c: Config, uuid: str) -> CachedTrack | None:
