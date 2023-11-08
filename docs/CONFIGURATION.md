@@ -129,7 +129,7 @@ default.release = """
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 """
 default.track = """
-{% if multidisc %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
+{% if disctotal > 1 %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
 {{ title }}
 {% if artists.guest %}(feat. {{ artists.guest | artistsarrayfmt }}){% endif %}
 """

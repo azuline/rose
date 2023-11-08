@@ -36,7 +36,7 @@ import os.path
 import re
 import sqlite3
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
@@ -200,7 +200,7 @@ class CachedRelease:
     releasetype: str
     year: int | None
     new: bool
-    multidisc: bool
+    disctotal: int
     genres: list[str]
     labels: list[str]
     artists: ArtistMapping
@@ -217,6 +217,7 @@ class CachedRelease:
             "releasetype": self.releasetype,
             "year": self.year,
             "new": self.new,
+            "disctotal": self.disctotal,
             "genres": self.genres,
             "labels": self.labels,
             "artists": self.artists.dump(),
@@ -231,13 +232,12 @@ class CachedTrack:
     title: str
     release_id: str
     tracknumber: str
+    tracktotal: int
     discnumber: str
+    disctotal: int
     duration_seconds: int
 
     artists: ArtistMapping
-
-    # Stored on here for virtual path generation; not inserted into the database.
-    release_multidisc: bool
 
     def dump(self) -> dict[str, Any]:
         return {
@@ -246,7 +246,9 @@ class CachedTrack:
             "title": self.title,
             "release_id": self.release_id,
             "tracknumber": self.tracknumber,
+            "tracktotal": self.tracktotal,
             "discnumber": self.discnumber,
+            "disctotal": self.disctotal,
             "duration_seconds": self.duration_seconds,
             "artists": self.artists.dump(),
         }
@@ -462,7 +464,7 @@ def _update_cache_for_releases_executor(
               , title
               , releasetype
               , year
-              , multidisc
+              , disctotal
               , new
               , genres
               , labels
@@ -486,7 +488,7 @@ def _update_cache_for_releases_executor(
                     title=row["title"],
                     releasetype=row["releasetype"],
                     year=row["year"],
-                    multidisc=bool(row["multidisc"]),
+                    disctotal=row["disctotal"],
                     new=bool(row["new"]),
                     genres=_split(row["genres"]),
                     labels=_split(row["labels"]),
@@ -502,19 +504,20 @@ def _update_cache_for_releases_executor(
         cursor = conn.execute(
             rf"""
             SELECT
-                t.id
-              , t.source_path
-              , t.source_mtime
-              , t.title
-              , t.release_id
-              , t.tracknumber
-              , t.discnumber
-              , t.duration_seconds
-              , t.artist_names
-              , t.artist_roles
-            FROM tracks_view t
-            JOIN releases r ON r.id = t.release_id
-            WHERE r.id IN ({','.join(['?']*len(release_uuids))})
+                id
+              , source_path
+              , source_mtime
+              , title
+              , release_id
+              , tracknumber
+              , tracktotal
+              , discnumber
+              , disctotal
+              , duration_seconds
+              , artist_names
+              , artist_roles
+            FROM tracks_view
+            WHERE release_id IN ({','.join(['?']*len(release_uuids))})
             """,
             release_uuids,
         )
@@ -527,10 +530,11 @@ def _update_cache_for_releases_executor(
                 title=row["title"],
                 release_id=row["release_id"],
                 tracknumber=row["tracknumber"],
+                tracktotal=row["tracktotal"],
                 discnumber=row["discnumber"],
+                disctotal=row["disctotal"],
                 duration_seconds=row["duration_seconds"],
                 artists=_unpack_artists(c, row["artist_names"], row["artist_roles"], aliases=False),
-                release_multidisc=cached_releases[row["release_id"]][0].multidisc,
             )
             num_tracks_found += 1
         logger.debug(f"Found {num_tracks_found} tracks in cache")
@@ -591,7 +595,7 @@ def _update_cache_for_releases_executor(
                 releasetype="",
                 year=None,
                 new=True,
-                multidisc=False,
+                disctotal=0,
                 genres=[],
                 labels=[],
                 artists=ArtistMapping(),
@@ -708,6 +712,7 @@ def _update_cache_for_releases_executor(
         # This value is set to true if we read an AudioTags and used it to confirm the release
         # tags.
         pulled_release_tags = False
+        totals_ctr: dict[str, int] = Counter()
         for f in files:
             if f.suffix.lower() not in SUPPORTED_AUDIO_EXTENSIONS:
                 continue
@@ -724,6 +729,7 @@ def _update_cache_for_releases_executor(
                         f"Track cache hit (mtime) for {os.path.basename(f)}, reusing cached data"
                     )
                     tracks.append(cached_track)
+                    totals_ctr[cached_track.discnumber] += 1
                     continue
 
                 # Otherwise, read tags from disk and construct a new cached_track.
@@ -808,28 +814,37 @@ def _update_cache_for_releases_executor(
                 title=tags.title or "Unknown Title",
                 release_id=release.id,
                 # Remove `.` here because we use `.` to parse out discno/trackno in the virtual
-                # filesystem. It should almost never happen, but better to be safe.
+                # filesystem. It should almost never happen, but better to be safe. We set the
+                # totals on all tracks the end of the loop.
                 tracknumber=(tags.tracknumber or "1").replace(".", ""),
+                tracktotal=tags.tracktotal or 1,
                 discnumber=(tags.discnumber or "1").replace(".", ""),
+                disctotal=tags.disctotal or 1,
                 # This is calculated with the virtual filename.
                 duration_seconds=tags.duration_sec,
                 artists=tags.trackartists,
-                # We set this later.
-                release_multidisc=False,
             )
             tracks.append(track)
             track_ids_to_insert.add(track.id)
+            totals_ctr[track.discnumber] += 1
 
-        # Now calculate whether this release is multidisc. Only recompute this if any tracks have
-        # changed. Otherwise, save CPU cycles.
-        if track_ids_to_insert or unknown_cached_tracks:
-            multidisc = len({t.discnumber for t in tracks}) > 1
-            for t in tracks:
-                t.release_multidisc = multidisc
-            if release.multidisc != multidisc:
-                logger.debug(f"Release multidisc change detected for {source_path}, updating")
-                release_dirty = True
-                release.multidisc = multidisc
+        # Now set the tracktotals and disctotals.
+        disctotal = len(totals_ctr)
+        if release.disctotal != disctotal:
+            logger.debug(f"Release disctotal change detected for {release.source_path}, updating")
+            release_dirty = True
+            release.disctotal = disctotal
+        for track in tracks:
+            if disctotal != track.disctotal:
+                logger.debug(f"Track disctotal change detected for {track.source_path}, updating")
+                track.disctotal = disctotal
+                track_ids_to_insert.add(track.id)
+            tracktotal = totals_ctr[track.discnumber]
+            assert tracktotal != 0, "This track isn't in the counter, impossible!"
+            if tracktotal != track.tracktotal:
+                logger.debug(f"Track tracktotal change detected for {track.source_path}, updating")
+                track.tracktotal = tracktotal
+                track_ids_to_insert.add(track.id)
 
         # And now perform directory/file renames if configured.
         if c.rename_source_files:
@@ -919,7 +934,7 @@ def _update_cache_for_releases_executor(
                     release.title,
                     release.releasetype,
                     release.year,
-                    release.multidisc,
+                    release.disctotal,
                     release.new,
                 ]
             )
@@ -949,7 +964,9 @@ def _update_cache_for_releases_executor(
                         track.title,
                         track.release_id,
                         track.tracknumber,
+                        track.tracktotal,
                         track.discnumber,
+                        track.disctotal,
                         track.duration_seconds,
                     ]
                 )
@@ -993,7 +1010,7 @@ def _update_cache_for_releases_executor(
                   , title
                   , releasetype
                   , year
-                  , multidisc
+                  , disctotal
                   , new
                 ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
                 ON CONFLICT (id) DO UPDATE SET
@@ -1004,7 +1021,7 @@ def _update_cache_for_releases_executor(
                   , title            = excluded.title
                   , releasetype      = excluded.releasetype
                   , year             = excluded.year
-                  , multidisc        = excluded.multidisc
+                  , disctotal        = excluded.disctotal
                   , new              = excluded.new
                 """,
                 _flatten(upd_release_args),
@@ -1064,10 +1081,12 @@ def _update_cache_for_releases_executor(
                   , title
                   , release_id
                   , tracknumber
+                  , tracktotal
                   , discnumber
+                  , disctotal
                   , duration_seconds
                 )
-                VALUES {",".join(["(?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
+                VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
                 ON CONFLICT (id) DO UPDATE SET
                     source_path                = excluded.source_path
                   , source_mtime               = excluded.source_mtime
@@ -1121,7 +1140,9 @@ def _update_cache_for_releases_executor(
                     rowid
                   , tracktitle
                   , tracknumber
+                  , tracktotal
                   , discnumber
+                  , disctotal
                   , albumtitle
                   , year
                   , releasetype
@@ -1134,7 +1155,9 @@ def _update_cache_for_releases_executor(
                     t.rowid
                   , process_string_for_fts(t.title) AS tracktitle
                   , process_string_for_fts(t.tracknumber) AS tracknumber
+                  , process_string_for_fts(t.tracktotal) AS tracknumber
                   , process_string_for_fts(t.discnumber) AS discnumber
+                  , process_string_for_fts(t.disctotal) AS discnumber
                   , process_string_for_fts(r.title) AS albumtitle
                   , process_string_for_fts(r.year) AS year
                   , process_string_for_fts(r.releasetype) AS releasetype
@@ -1626,7 +1649,7 @@ def list_releases_delete_this(
               , title
               , releasetype
               , year
-              , multidisc
+              , disctotal
               , new
               , genres
               , labels
@@ -1683,7 +1706,7 @@ def list_releases_delete_this(
                     title=row["title"],
                     releasetype=row["releasetype"],
                     year=row["year"],
-                    multidisc=bool(row["multidisc"]),
+                    disctotal=row["disctotal"],
                     new=bool(row["new"]),
                     genres=_split(row["genres"]),
                     labels=_split(row["labels"]),
@@ -1705,7 +1728,7 @@ def list_releases(c: Config, release_ids: list[str] | None = None) -> list[Cache
           , title
           , releasetype
           , year
-          , multidisc
+          , disctotal
           , new
           , genres
           , labels
@@ -1734,7 +1757,7 @@ def list_releases(c: Config, release_ids: list[str] | None = None) -> list[Cache
                     title=row["title"],
                     releasetype=row["releasetype"],
                     year=row["year"],
-                    multidisc=bool(row["multidisc"]),
+                    disctotal=row["disctotal"],
                     new=bool(row["new"]),
                     genres=_split(row["genres"]),
                     labels=_split(row["labels"]),
@@ -1757,7 +1780,7 @@ def get_release(c: Config, release_id: str) -> CachedRelease | None:
               , title
               , releasetype
               , year
-              , multidisc
+              , disctotal
               , new
               , genres
               , labels
@@ -1780,7 +1803,7 @@ def get_release(c: Config, release_id: str) -> CachedRelease | None:
             title=row["title"],
             releasetype=row["releasetype"],
             year=row["year"],
-            multidisc=bool(row["multidisc"]),
+            disctotal=row["disctotal"],
             new=bool(row["new"]),
             genres=_split(row["genres"]) if row["genres"] else [],
             labels=_split(row["labels"]) if row["labels"] else [],
@@ -1814,7 +1837,7 @@ def get_releases_associated_with_tracks(
               , title
               , releasetype
               , year
-              , multidisc
+              , disctotal
               , new
               , genres
               , labels
@@ -1836,7 +1859,7 @@ def get_releases_associated_with_tracks(
                 title=row["title"],
                 releasetype=row["releasetype"],
                 year=row["year"],
-                multidisc=bool(row["multidisc"]),
+                disctotal=row["disctotal"],
                 new=bool(row["new"]),
                 genres=_split(row["genres"]),
                 labels=_split(row["labels"]),
@@ -1884,26 +1907,26 @@ def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[CachedTra
     """Fetch data associated with given track IDs. Pass None to fetch all."""
     query = """
         SELECT
-            t.id
-          , t.release_id
-          , t.source_path
-          , t.source_mtime
-          , t.title
-          , t.release_id
-          , t.tracknumber
-          , t.discnumber
-          , t.duration_seconds
-          , t.artist_names
-          , t.artist_roles
-          , r.multidisc
-        FROM tracks_view t
-        JOIN releases r ON r.id = t.release_id
+            id
+          , release_id
+          , source_path
+          , source_mtime
+          , title
+          , release_id
+          , tracknumber
+          , tracktotal
+          , discnumber
+          , disctotal
+          , duration_seconds
+          , artist_names
+          , artist_roles
+        FROM tracks_view
     """
     args = []
     if track_ids is not None:
-        query += f" WHERE t.id IN ({','.join(['?']*len(track_ids))})"
+        query += f" WHERE id IN ({','.join(['?']*len(track_ids))})"
         args = track_ids
-    query += " ORDER BY r.source_path, FORMAT('%4d.%4d', t.discnumber, t.tracknumber)"
+    query += " ORDER BY source_path"
     with connect(c) as conn:
         cursor = conn.execute(query, args)
         rval = []
@@ -1916,10 +1939,11 @@ def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[CachedTra
                     title=row["title"],
                     release_id=row["release_id"],
                     tracknumber=row["tracknumber"],
+                    tracktotal=row["tracktotal"],
                     discnumber=row["discnumber"],
+                    disctotal=row["disctotal"],
                     duration_seconds=row["duration_seconds"],
                     artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
-                    release_multidisc=bool(row["multidisc"]),
                 )
             )
         return rval
@@ -1936,9 +1960,10 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
               , title
               , release_id
               , tracknumber
+              , tracktotal
               , discnumber
+              , disctotal
               , duration_seconds
-              , multidisc
               , artist_names
               , artist_roles
             FROM tracks_view
@@ -1956,10 +1981,11 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
             title=row["title"],
             release_id=row["release_id"],
             tracknumber=row["tracknumber"],
+            tracktotal=row["tracktotal"],
             discnumber=row["discnumber"],
+            disctotal=row["disctotal"],
             duration_seconds=row["duration_seconds"],
             artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
-            release_multidisc=row["multidisc"],
         )
 
 
@@ -1971,20 +1997,22 @@ def get_tracks_associated_with_release(
         cursor = conn.execute(
             """
             SELECT
-                t.id
-              , t.release_id
-              , t.source_path
-              , t.source_mtime
-              , t.title
-              , t.release_id
-              , t.tracknumber
-              , t.discnumber
-              , t.duration_seconds
-              , t.artist_names
-              , t.artist_roles
-            FROM tracks_view t
-            WHERE t.release_id = ?
-            ORDER BY t.release_id, FORMAT('%4d.%4d', t.discnumber, t.tracknumber)
+                id
+              , release_id
+              , source_path
+              , source_mtime
+              , title
+              , release_id
+              , tracknumber
+              , tracktotal
+              , discnumber
+              , disctotal
+              , duration_seconds
+              , artist_names
+              , artist_roles
+            FROM tracks_view
+            WHERE release_id = ?
+            ORDER BY release_id, FORMAT('%4d.%4d', discnumber, tracknumber)
             """,
             (release.id,),
         )
@@ -1998,10 +2026,11 @@ def get_tracks_associated_with_release(
                     title=row["title"],
                     release_id=row["release_id"],
                     tracknumber=row["tracknumber"],
+                    tracktotal=row["tracktotal"],
                     discnumber=row["discnumber"],
+                    disctotal=row["disctotal"],
                     duration_seconds=row["duration_seconds"],
                     artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
-                    release_multidisc=release.multidisc,
                 )
             )
         return rval
@@ -2016,22 +2045,22 @@ def get_tracks_associated_with_releases(
         cursor = conn.execute(
             f"""
             SELECT
-                t.id
-              , t.release_id
-              , t.source_path
-              , t.source_mtime
-              , t.title
-              , t.release_id
-              , t.tracknumber
-              , t.discnumber
-              , t.duration_seconds
-              , t.artist_names
-              , t.artist_roles
-              , r.multidisc
-            FROM tracks_view t
-            JOIN releases r ON r.id = t.release_id
-            WHERE t.release_id IN ({','.join(['?']*len(releases))})
-            ORDER BY t.release_id, FORMAT('%4d.%4d', t.discnumber, t.tracknumber)
+                id
+              , release_id
+              , source_path
+              , source_mtime
+              , title
+              , release_id
+              , tracknumber
+              , tracktotal
+              , discnumber
+              , disctotal
+              , duration_seconds
+              , artist_names
+              , artist_roles
+            FROM tracks_view
+            WHERE release_id IN ({','.join(['?']*len(releases))})
+            ORDER BY release_id, FORMAT('%4d.%4d', discnumber, tracknumber)
             """,
             [r.id for r in releases],
         )
@@ -2044,10 +2073,11 @@ def get_tracks_associated_with_releases(
                     title=row["title"],
                     release_id=row["release_id"],
                     tracknumber=row["tracknumber"],
+                    tracktotal=row["tracktotal"],
                     discnumber=row["discnumber"],
+                    disctotal=row["disctotal"],
                     duration_seconds=row["duration_seconds"],
                     artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
-                    release_multidisc=row["multidisc"],
                 )
             )
 
@@ -2118,13 +2148,13 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
               , t.title
               , t.release_id
               , t.tracknumber
+              , t.tracktotal
               , t.discnumber
+              , t.disctotal
               , t.duration_seconds
-              , r.multidisc
               , t.artist_names
               , t.artist_roles
             FROM tracks_view t
-            JOIN releases r ON r.id = t.release_id
             JOIN playlists_tracks pt ON pt.track_id = t.id
             WHERE pt.playlist_name = ? AND NOT pt.missing
             ORDER BY pt.position ASC
@@ -2142,10 +2172,11 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
                     title=row["title"],
                     release_id=row["release_id"],
                     tracknumber=row["tracknumber"],
+                    tracktotal=row["tracktotal"],
                     discnumber=row["discnumber"],
+                    disctotal=row["disctotal"],
                     duration_seconds=row["duration_seconds"],
                     artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
-                    release_multidisc=row["multidisc"],
                 )
             )
 
@@ -2184,7 +2215,7 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
               , r.title
               , r.releasetype
               , r.year
-              , r.multidisc
+              , r.disctotal
               , r.new
               , r.genres
               , r.labels
@@ -2212,7 +2243,7 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
                     title=row["title"],
                     releasetype=row["releasetype"],
                     year=row["year"],
-                    multidisc=bool(row["multidisc"]),
+                    disctotal=row["disctotal"],
                     new=bool(row["new"]),
                     genres=_split(row["genres"]) if row["genres"] else [],
                     labels=_split(row["labels"]) if row["labels"] else [],

@@ -48,7 +48,7 @@ other unset templates (except playlist). Otherwise the templates default to:
 
 {# "Default Default" Track Template #}
 
-{% if multidisc %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
+{% if disctotal > 1 %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
 {{ title }}
 {% if artists.guest %}(feat. {{ artists.guest | artistsarrayfmt }}){% endif %}
 ```
@@ -81,6 +81,7 @@ title: str
 releasetype: str                # Type of the release (e.g. single, ep, etc). One of the enums as defined in TAGGING_CONVENTIONS.md.
 year: int | None
 new: bool                       # The "new"-ness of the release. See RELEASES.md for documentation on this feature.
+disctotal: int                  # The number of discs in the release.
 genres: list[str]
 labels: list[str]
 artists: ArtistMapping          # All release artists: an object with 6 properties, each corresponding to one role.
@@ -98,9 +99,10 @@ And provides the template variables for tracks:
 ```python
 title: str
 tracknumber: str
+tracktotal: int                 # The number of tracks on this disc.
 discnumber: str
+disctotal: int                  # The number of discs in the release.
 duration_seconds: int
-multidisc: bool                 # Whether the parent release has multiple discs.
 artists: ArtistMapping          # All track artists: an object with 6 properties, each corresponding to one role.
 artists.main: list[Artist]      # The Artist object has a `name` property with the artist name.
 artists.guest: list[Artist]

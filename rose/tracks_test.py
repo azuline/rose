@@ -34,12 +34,14 @@ def test_dump_tracks(config: Config) -> None:
                 "remixer": [],
             },
             "discnumber": "01",
+            "disctotal": 1,
             "duration_seconds": 120,
             "id": "t1",
             "release_id": "r1",
             "source_path": f"{config.music_source_dir}/r1/01.m4a",
             "title": "Track 1",
             "tracknumber": "01",
+            "tracktotal": 2,
         },
         {
             "artists": {
@@ -54,12 +56,14 @@ def test_dump_tracks(config: Config) -> None:
                 "remixer": [],
             },
             "discnumber": "01",
+            "disctotal": 1,
             "duration_seconds": 240,
             "id": "t2",
             "release_id": "r1",
             "source_path": f"{config.music_source_dir}/r1/02.m4a",
             "title": "Track 2",
             "tracknumber": "02",
+            "tracktotal": 2,
         },
         {
             "artists": {
@@ -71,12 +75,14 @@ def test_dump_tracks(config: Config) -> None:
                 "remixer": [],
             },
             "discnumber": "01",
+            "disctotal": 1,
             "duration_seconds": 120,
             "id": "t3",
             "release_id": "r2",
             "source_path": f"{config.music_source_dir}/r2/01.m4a",
             "title": "Track 1",
             "tracknumber": "01",
+            "tracktotal": 1,
         },
         {
             "artists": {
@@ -88,12 +94,14 @@ def test_dump_tracks(config: Config) -> None:
                 "remixer": [],
             },
             "discnumber": "01",
+            "disctotal": 1,
             "duration_seconds": 120,
             "id": "t4",
             "release_id": "r3",
             "source_path": f"{config.music_source_dir}/r3/01.m4a",
             "title": "Track 1",
             "tracknumber": "01",
+            "tracktotal": 1,
         },
     ]
 
@@ -115,12 +123,14 @@ def test_dump_tracks_with_matcher(config: Config) -> None:
                 "remixer": [],
             },
             "discnumber": "01",
+            "disctotal": 1,
             "duration_seconds": 120,
             "id": "t1",
             "release_id": "r1",
             "source_path": f"{config.music_source_dir}/r1/01.m4a",
             "title": "Track 1",
             "tracknumber": "01",
+            "tracktotal": 2,
         },
         {
             "artists": {
@@ -135,12 +145,14 @@ def test_dump_tracks_with_matcher(config: Config) -> None:
                 "remixer": [],
             },
             "discnumber": "01",
+            "disctotal": 1,
             "duration_seconds": 240,
             "id": "t2",
             "release_id": "r1",
             "source_path": f"{config.music_source_dir}/r1/02.m4a",
             "title": "Track 2",
             "tracknumber": "02",
+            "tracktotal": 2,
         },
     ]
 
@@ -160,10 +172,12 @@ def test_dump_track(config: Config) -> None:
             "remixer": [],
         },
         "discnumber": "01",
+        "disctotal": 1,
         "duration_seconds": 120,
         "id": "t1",
         "release_id": "r1",
         "source_path": f"{config.music_source_dir}/r1/01.m4a",
         "title": "Track 1",
         "tracknumber": "01",
+        "tracktotal": 2,
     }

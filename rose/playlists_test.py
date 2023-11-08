@@ -138,7 +138,9 @@ def test_dump_playlist(config: Config) -> None:
                 "title": "Track 1",
                 "release_id": "r1",
                 "tracknumber": "01",
+                "tracktotal": 2,
                 "discnumber": "01",
+                "disctotal": 1,
                 "duration_seconds": 120,
                 "artists": {
                     "main": [
@@ -159,7 +161,9 @@ def test_dump_playlist(config: Config) -> None:
                 "title": "Track 1",
                 "release_id": "r2",
                 "tracknumber": "01",
+                "tracktotal": 1,
                 "discnumber": "01",
+                "disctotal": 1,
                 "duration_seconds": 120,
                 "artists": {
                     "main": [{"name": "Violin Woman", "alias": False}],
@@ -189,7 +193,9 @@ def test_dump_playlists(config: Config) -> None:
                     "title": "Track 1",
                     "release_id": "r1",
                     "tracknumber": "01",
+                    "tracktotal": 2,
                     "discnumber": "01",
+                    "disctotal": 1,
                     "duration_seconds": 120,
                     "artists": {
                         "main": [
@@ -210,7 +216,9 @@ def test_dump_playlists(config: Config) -> None:
                     "title": "Track 1",
                     "release_id": "r2",
                     "tracknumber": "01",
+                    "tracktotal": 1,
                     "discnumber": "01",
+                    "disctotal": 1,
                     "duration_seconds": 120,
                     "artists": {
                         "main": [{"name": "Violin Woman", "alias": False}],
