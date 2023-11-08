@@ -112,7 +112,7 @@ def seeded_cache(config: Config) -> None:
         conn.executescript(
             f"""\
 INSERT INTO releases
-       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype, year, multidisc, new  )
+       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype, year, disctotal, new  )
 VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'    , 2023, false    , false)
      , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'    , 2021, false    , false)
      , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , 2021, false    , true );

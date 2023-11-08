@@ -179,7 +179,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         releasetype="single",
         year=2222,
         new=True,
-        multidisc=False,
+        disctotal=False,
         genres=["J-Pop", "Pop-Rap"],
         labels=["YG Entertainment"],
         artists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
@@ -196,7 +196,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             discnumber="1",
             duration_seconds=2,
             artists=ArtistMapping(main=[Artist("BLACKPINK")]),
-            release_multidisc=False,
+            disctotal=False,
         ),
         CachedTrack(
             id=track_ids[1],
@@ -208,7 +208,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             discnumber="1",
             duration_seconds=2,
             artists=ArtistMapping(main=[Artist("JISOO")]),
-            release_multidisc=False,
+            disctotal=False,
         ),
     ]
 
@@ -323,7 +323,7 @@ def test_edit_release_failure_and_resume(
         releasetype="single",
         year=2222,
         new=True,
-        multidisc=False,
+        disctotal=False,
         genres=["J-Pop", "Pop-Rap"],
         labels=["YG Entertainment"],
         artists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
@@ -340,7 +340,7 @@ def test_edit_release_failure_and_resume(
             discnumber="1",
             duration_seconds=2,
             artists=ArtistMapping(main=[Artist("BLACKPINK")]),
-            release_multidisc=False,
+            disctotal=False,
         ),
         CachedTrack(
             id=track_ids[1],
@@ -352,7 +352,7 @@ def test_edit_release_failure_and_resume(
             discnumber="1",
             duration_seconds=2,
             artists=ArtistMapping(main=[Artist("JISOO")]),
-            release_multidisc=False,
+            disctotal=False,
         ),
     ]
 

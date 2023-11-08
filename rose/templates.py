@@ -125,7 +125,7 @@ DEFAULT_RELEASE_TEMPLATE = PathTemplate(
 
 DEFAULT_TRACK_TEMPLATE = PathTemplate(
     """
-{% if multidisc %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
+{% if disctotal %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
 {{ title }}
 {% if artists.guest %}(feat. {{ artists.guest | artistsarrayfmt }}){% endif %}
 """
@@ -262,7 +262,7 @@ def _calc_track_variables(track: CachedTrack, position: str | None) -> dict[str,
         "tracknumber": track.tracknumber,
         "discnumber": track.discnumber,
         "duration_seconds": track.duration_seconds,
-        "multidisc": track.release_multidisc,
+        "disctotal": track.disctotal,
         "artists": track.artists,
         "position": position,
     }
@@ -323,7 +323,7 @@ def _preview_release_template(c: Config, label: str, template: PathTemplate) -> 
         releasetype="single",
         year=2017,
         new=True,
-        multidisc=False,
+        disctotal=False,
         genres=["K-Pop", "Dance-Pop", "Contemporary R&B"],
         labels=["BlockBerryCreative"],
         artists=ArtistMapping(main=[Artist("Kim Lip")]),
@@ -341,7 +341,7 @@ def _preview_release_template(c: Config, label: str, template: PathTemplate) -> 
         releasetype="album",
         year=2016,
         new=False,
-        multidisc=True,
+        disctotal=True,
         genres=["K-Pop"],
         labels=["BIGHIT"],
         artists=ArtistMapping(main=[Artist("BTS")]),
@@ -366,7 +366,7 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         discnumber="1",
         duration_seconds=230,
         artists=ArtistMapping(main=[Artist("Kim Lip")]),
-        release_multidisc=False,
+        disctotal=False,
     )
     click.secho(eval_track_template(template, track, "1"))
 
@@ -383,6 +383,6 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         discnumber="2",
         duration_seconds=226,
         artists=ArtistMapping(main=[Artist("BTS")]),
-        release_multidisc=True,
+        disctotal=True,
     )
     click.secho(eval_track_template(template, track, "2"))

@@ -48,7 +48,7 @@ other unset templates (except playlist). Otherwise the templates default to:
 
 {# "Default Default" Track Template #}
 
-{% if multidisc %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
+{% if disctotal %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
 {{ title }}
 {% if artists.guest %}(feat. {{ artists.guest | artistsarrayfmt }}){% endif %}
 ```
@@ -100,7 +100,7 @@ title: str
 tracknumber: str
 discnumber: str
 duration_seconds: int
-multidisc: bool                 # Whether the parent release has multiple discs.
+disctotal: bool                 # Whether the parent release has multiple discs.
 artists: ArtistMapping          # All track artists: an object with 6 properties, each corresponding to one role.
 artists.main: list[Artist]      # The Artist object has a `name` property with the artist name.
 artists.guest: list[Artist]

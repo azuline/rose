@@ -30,7 +30,7 @@ CREATE TABLE releases (
     title TEXT NOT NULL,
     releasetype TEXT NOT NULL REFERENCES releasetype_enum(value),
     year INTEGER,
-    multidisc BOOLEAN NOT NULL,
+    disctotal BOOLEAN NOT NULL,
     new BOOLEAN NOT NULL DEFAULT true
 );
 CREATE INDEX releases_source_path ON releases(source_path);
@@ -213,7 +213,7 @@ CREATE VIEW releases_view AS
       , r.title
       , r.releasetype
       , r.year
-      , r.multidisc
+      , r.disctotal
       , r.new
       , COALESCE(g.genres, '') AS genres
       , COALESCE(l.labels, '') AS labels
@@ -242,7 +242,7 @@ CREATE VIEW tracks_view AS
       , t.tracknumber
       , t.discnumber
       , t.duration_seconds
-      , r.multidisc
+      , r.disctotal
       , COALESCE(a.names, '') AS artist_names
       , COALESCE(a.roles, '') AS artist_roles
     FROM tracks t
