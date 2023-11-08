@@ -281,25 +281,44 @@ specification.
 The rules engine supports matching and acting on the following tags:
 
 - `tracktitle`
-- `trackartist`
+- `trackartist[main]`
+- `trackartist[guest]`
+- `trackartist[remixer]`
+- `trackartist[producer]`
+- `trackartist[composer]`
+- `trackartist[djmixer]`
 - `tracknumber`
 - `tracktotal` (match only, actions not supported)
 - `discnumber`
 - `disctotal` (match only, actions not supported)
 - `albumtitle`
-- `albumartist`
+- `albumartist[main]`
+- `albumartist[guest]`
+- `albumartist[remixer]`
+- `albumartist[producer]`
+- `albumartist[composer]`
+- `albumartist[djmixer]`
 - `releasetype`
 - `year`
 - `genre`
 - `label`
 
-The `trackartist`, `albumartist`, `genre`, and `label` tags are _multi-value_
-tags, which have a slightly different behavior from single-value tags for some
-of the actions. We'll explore this difference in the [Actions](#actions)
-section.
+The `trackartist[*]`, `albumartist[*]`, `genre`, and `label` tags are
+_multi-value_ tags, which have a slightly different behavior from single-value
+tags for some of the actions. We'll explore this difference in the
+[Actions](#actions) section.
 
-For convenience, the rules parser also accepts the tag `artist`, which it
-expands to `trackartist,albumartist`.
+For convenience, the rules parser also allows you to specify _tag aliases_ in
+place of the above tags, which expand to multiple tags when matching. The
+supported aliases are:
+
+- `trackartist`: Expands to all the `trackartist[*]` tags.
+- `albumartist`: Expands to all the `albumartist[*]` tags.
+- `artist`: Expands to all `trackartist[*]` and `albumartist[*]` tags.
+
+The specific `artist[role]`-style tags are only needed when you want to match
+on a specific role. The aliases provide a more convenient shorthand for most
+typical queries.
 
 ### Matchers
 

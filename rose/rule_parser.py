@@ -45,13 +45,23 @@ Failed to parse {self.rule_name}, invalid syntax:
 
 Tag = Literal[
     "tracktitle",
-    "trackartist",
+    "trackartist[main]",
+    "trackartist[guest]",
+    "trackartist[remixer]",
+    "trackartist[producer]",
+    "trackartist[composer]",
+    "trackartist[djmixer]",
     "tracknumber",
     "tracktotal",
     "discnumber",
     "disctotal",
     "albumtitle",
-    "albumartist",
+    "albumartist[main]",
+    "albumartist[guest]",
+    "albumartist[remixer]",
+    "albumartist[producer]",
+    "albumartist[composer]",
+    "albumartist[djmixer]",
     "releasetype",
     "year",
     "genre",
@@ -62,27 +72,76 @@ Tag = Literal[
 # certain tags be aliases for multiple other tags, purely for convenience.
 ALL_TAGS: dict[str, list[Tag]] = {
     "tracktitle": ["tracktitle"],
-    "trackartist": ["trackartist"],
+    "trackartist": [
+        "trackartist[main]",
+        "trackartist[guest]",
+        "trackartist[remixer]",
+        "trackartist[producer]",
+        "trackartist[composer]",
+        "trackartist[djmixer]",
+    ],
+    "trackartist[main]": ["trackartist[main]"],
+    "trackartist[guest]": ["trackartist[guest]"],
+    "trackartist[remixer]": ["trackartist[remixer]"],
+    "trackartist[producer]": ["trackartist[producer]"],
+    "trackartist[composer]": ["trackartist[composer]"],
+    "trackartist[djmixer]": ["trackartist[djmixer]"],
     "tracknumber": ["tracknumber"],
     "tracktotal": ["tracktotal"],
     "discnumber": ["discnumber"],
     "disctotal": ["disctotal"],
     "albumtitle": ["albumtitle"],
-    "albumartist": ["albumartist"],
+    "albumartist": [
+        "albumartist[main]",
+        "albumartist[guest]",
+        "albumartist[remixer]",
+        "albumartist[producer]",
+        "albumartist[composer]",
+        "albumartist[djmixer]",
+    ],
+    "albumartist[main]": ["albumartist[main]"],
+    "albumartist[guest]": ["albumartist[guest]"],
+    "albumartist[remixer]": ["albumartist[remixer]"],
+    "albumartist[producer]": ["albumartist[producer]"],
+    "albumartist[composer]": ["albumartist[composer]"],
+    "albumartist[djmixer]": ["albumartist[djmixer]"],
     "releasetype": ["releasetype"],
     "year": ["year"],
     "genre": ["genre"],
     "label": ["label"],
-    "artist": ["trackartist", "albumartist"],
+    "artist": [
+        "trackartist[main]",
+        "trackartist[guest]",
+        "trackartist[remixer]",
+        "trackartist[producer]",
+        "trackartist[composer]",
+        "trackartist[djmixer]",
+        "albumartist[main]",
+        "albumartist[guest]",
+        "albumartist[remixer]",
+        "albumartist[producer]",
+        "albumartist[composer]",
+        "albumartist[djmixer]",
+    ],
 }
 
 MODIFIABLE_TAGS: list[Tag] = [
     "tracktitle",
-    "trackartist",
+    "trackartist[main]",
+    "trackartist[guest]",
+    "trackartist[remixer]",
+    "trackartist[producer]",
+    "trackartist[composer]",
+    "trackartist[djmixer]",
     "tracknumber",
     "discnumber",
     "albumtitle",
-    "albumartist",
+    "albumartist[main]",
+    "albumartist[guest]",
+    "albumartist[remixer]",
+    "albumartist[producer]",
+    "albumartist[composer]",
+    "albumartist[djmixer]",
     "releasetype",
     "year",
     "genre",
@@ -102,7 +161,13 @@ SINGLE_VALUE_TAGS: list[Tag] = [
 
 RELEASE_TAGS: list[Tag] = [
     "albumtitle",
-    "albumartist",
+    "albumartist[main]",
+    "albumartist[guest]",
+    "albumartist[remixer]",
+    "albumartist[producer]",
+    "albumartist[composer]",
+    "albumartist[djmixer]",
+    "releasetype",
     "releasetype",
     "year",
     "genre",
@@ -180,7 +245,7 @@ class MetadataMatcher:
     pattern: MatcherPattern
 
     def __str__(self) -> str:
-        r = ",".join(self.tags)
+        r = stringify_tags(self.tags)
         r += ":"
         r += str(self.pattern)
         return r
@@ -273,7 +338,7 @@ class MetadataAction:
 
     def __str__(self) -> str:
         r = ""
-        r += ",".join(self.tags)
+        r += stringify_tags(self.tags)
         if self.pattern:
             r += ":" + str(self.pattern)
         if r:
@@ -597,3 +662,26 @@ def take(x: str, until: str, including: bool = True) -> tuple[str, int]:
     result = r.getvalue()
     r.close()
     return result, seen_idx
+
+
+def stringify_tags(tags_input: list[Tag]) -> str:
+    """Basically a ",".join(tags), except we collapse aliases down to their shorthand form."""
+    # Yes, I know the computational complexity of this is high, but the size of `n` is so small that
+    # it's irrelevant.
+    tags: list[str] = [*tags_input]
+    if all(x in tags for x in ALL_TAGS["artist"]):
+        idx = tags.index(ALL_TAGS["artist"][0])
+        for x in ALL_TAGS["artist"]:
+            tags.remove(x)
+        tags.insert(idx, "artist")
+    if all(x in tags for x in ALL_TAGS["trackartist"]):
+        idx = tags.index(ALL_TAGS["trackartist"][0])
+        for x in ALL_TAGS["trackartist"]:
+            tags.remove(x)
+        tags.insert(idx, "trackartist")
+    if all(x in tags for x in ALL_TAGS["albumartist"]):
+        idx = tags.index(ALL_TAGS["albumartist"][0])
+        for x in ALL_TAGS["albumartist"]:
+            tags.remove(x)
+        tags.insert(idx, "albumartist")
+    return ",".join(tags)

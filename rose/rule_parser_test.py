@@ -20,58 +20,22 @@ from rose.rule_parser import (
 
 
 def test_rule_str() -> None:
-    rule = MetadataRule(
-        matcher=MetadataMatcher(tags=["tracktitle"], pattern=MatcherPattern("Track")),
-        actions=[
-            MetadataAction(
-                behavior=ReplaceAction(replacement="lalala"),
-                tags=["albumartist", "genre"],
-            ),
-        ],
-    )
+    rule = MetadataRule.parse("tracktitle:Track", ["albumartist,genre::replace:lalala"])
     assert str(rule) == "matcher=tracktitle:Track action=albumartist,genre::replace:lalala"
 
     # Test that rules are quoted properly.
-    rule = MetadataRule(
-        matcher=MetadataMatcher(
-            tags=["tracktitle", "albumartist", "genre"], pattern=MatcherPattern(":")
-        ),
-        actions=[
-            MetadataAction(
-                behavior=SedAction(src=re.compile(r":"), dst="; "),
-                tags=["tracktitle", "albumartist", "genre"],
-            )
-        ],
-    )
+    rule = MetadataRule.parse(r"tracktitle,albumartist,genre:\:", [r"sed:\::; "])
     assert (
         str(rule)
-        == r"matcher='tracktitle,albumartist,genre:\:' action='tracktitle,albumartist,genre::sed:\::; '"
+        == r"matcher='tracktitle,albumartist,genre:\:' action='tracktitle,albumartist,genre:\:::sed:\::; '"
     )
 
     # Test that custom action matcher is printed properly.
-    rule = MetadataRule(
-        matcher=MetadataMatcher(tags=["tracktitle"], pattern=MatcherPattern("Track")),
-        actions=[
-            MetadataAction(
-                behavior=ReplaceAction(replacement="lalala"),
-                tags=["genre"],
-                pattern=MatcherPattern("lala"),
-            ),
-        ],
-    )
+    rule = MetadataRule.parse("tracktitle:Track", ["genre:lala::replace:lalala"])
     assert str(rule) == "matcher=tracktitle:Track action=genre:lala::replace:lalala"
 
     # Test that we print `matched` when action pattern is not null.
-    rule = MetadataRule(
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("b")),
-        actions=[
-            MetadataAction(
-                behavior=ReplaceAction(replacement="hi"),
-                tags=["genre"],
-                pattern=MatcherPattern("h"),
-            )
-        ],
-    )
+    rule = MetadataRule.parse("genre:b", ["genre:h::replace:hi"])
     assert str(rule) == r"matcher=genre:b action=genre:h::replace:hi"
 
 
@@ -113,7 +77,7 @@ Failed to parse matcher, invalid syntax:
 
     tracknumber^Track$
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, tracknumber, tracktotal, discnumber, disctotal, albumtitle, albumartist, releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[djmixer], tracknumber, tracktotal, discnumber, disctotal, albumtitle, albumartist, albumartist[main], albumartist[guest], albumartist[remixer], albumartist[producer], albumartist[composer], albumartist[djmixer], releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -297,7 +261,7 @@ Failed to parse action 1, invalid syntax:
 
     haha::delete
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, tracknumber, discnumber, albumtitle, albumartist, releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[djmixer], tracknumber, discnumber, albumtitle, albumartist, albumartist[main], albumartist[guest], albumartist[remixer], albumartist[producer], albumartist[composer], albumartist[djmixer], releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -308,7 +272,7 @@ Failed to parse action 1, invalid syntax:
 
     tracktitler::delete
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, tracknumber, discnumber, albumtitle, albumartist, releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[djmixer], tracknumber, discnumber, albumtitle, albumartist, albumartist[main], albumartist[guest], albumartist[remixer], albumartist[producer], albumartist[composer], albumartist[djmixer], releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -539,22 +503,24 @@ Failed to parse action 1, invalid syntax:
 def test_rule_parsing_end_to_end() -> None:
     matcher = "tracktitle:Track"
     action = "delete"
-    assert f"matcher={matcher} action=tracktitle:Track::{action}" == str(
-        MetadataRule.parse(matcher, [action])
+    assert (
+        str(MetadataRule.parse(matcher, [action]))
+        == f"matcher={matcher} action=tracktitle:Track::{action}"
     )
 
     matcher = "tracktitle:Track"
     action = "genre:lala::replace:lalala"
-    assert f"matcher={matcher} action={action}" == str(MetadataRule.parse(matcher, [action]))
+    assert str(MetadataRule.parse(matcher, [action])) == f"matcher={matcher} action={action}"
 
     matcher = "tracktitle,genre,trackartist:Track"
-    action = "tracktitle,genre,trackartist,albumartist::delete"
-    assert f"matcher={matcher} action={action}" == str(MetadataRule.parse(matcher, [action]))
+    action = "tracktitle,genre,artist::delete"
+    assert str(MetadataRule.parse(matcher, [action])) == f"matcher={matcher} action={action}"
 
     matcher = "tracktitle:Track"
     action = "delete"
-    assert f"matcher={matcher} action=tracktitle:Track::{action}" == str(
-        MetadataRule.parse(matcher, [action])
+    assert (
+        str(MetadataRule.parse(matcher, [action]))
+        == f"matcher={matcher} action=tracktitle:Track::{action}"
     )
 
 
