@@ -303,7 +303,7 @@ expands to `trackartist,albumartist`.
 
 ### Matchers
 
-Matchers are a tuple of `(tags, pattern)`.
+Matchers are a tuple of `(tags, pattern, flags)`.
 
 The tags are a list of [supported tags](#tags). The pattern is a string. Tracks
 _match_ the matcher if the `pattern` is a substring of one or more of the
@@ -321,20 +321,24 @@ example, the pattern `^Chuu$` matches only the value `Chuu`,
 If your pattern actually starts with `^` or ends with `$`, you can escape them
 with backslashes. For example, the pattern `\^.\$` matches the value `=^.$=`.
 
+The flags allow you to configure the matching logic. The only available flag is
+`i`, which enables case-insensitive matching.
+
 ### Actions
 
-Actions are a tuple of `(tags, pattern, kind, *kind_specific_args)`.
+Actions are a tuple of `(tags, pattern, flags, kind, *kind_specific_args)`.
 
-`tags` and `pattern` determine which tags and values to modify on the matched
-track. These may differ from the `tags` and `pattern` in the matcher. For
-example, you _can_ match tracks on `label:^SUNSEASKY$`, and action on the
-`genre` tag.
+`tags`, `pattern`, and `flags` determine which tags and values to modify on the
+matched track, and have essentially the same semantics as the matcher. These
+values may differ from the `tags` and `pattern` in the matcher. For example,
+you can match tracks on `label:^SUNSEASKY$`, and modify their `genre` tags.
 
-But by default, `tags` is set to `matched`, which means "action on the tags of
-the matcher." And by default, `pattern` is set to the `pattern` of the matcher,
-which restricts the modified tags to those matched by the matcher. However,
-`pattern` does not default to the matcher's pattern if `tags != matched`. In
-those cases, `pattern` defaults to null, which matches all values.
+By default, `tags` is set to `matched`, which means "action on the tags of the
+matcher." And by default, `pattern` and `flags` are set to the `pattern` and
+`flags` of the matcher, which restricts the modified tags to those matched by
+the matcher. However, `pattern` does not default to the matcher's pattern if
+`tags != matched`. In those cases, `pattern` defaults to null, which matches
+all values.
 
 `kind` determines which action is taken on the matched tags. There are five
 kinds of actions, each of which has _kind-specific args_:
@@ -387,6 +391,7 @@ tags, and `pattern` is a string. For example:
 
 - `tracktitle:Hello`
 - `tracktitle,albumtitle:^Hello`
+- `tracktitle:Hello:i`
 
 Actions are specified as `tags:pattern::kind:{kind_args}`. `tags` and `pattern`
 are optional, as they default to the matcher's `tags` and `pattern`. `kind` is
@@ -400,6 +405,7 @@ arguments for the specific kind of action. For example:
 - `delete`
 - `genre::replace:K-Pop;Dance-Pop` _(pattern is optional)_
 - `matched:new-pattern::replace:Hi` _(but tags must be specified if pattern is specified)_
+- `matched:new-pattern:i::replace:Hi`
 - `label:::delete` _(null pattern)_
 
 Any colon characters that are not delimiters must be escaped with a backslash.
@@ -409,12 +415,13 @@ Backslashes must also be escaped.
 The formal syntax is defined by the following grammar:
 
 ```
-<matcher> ::= <tags> ':' <pattern>
+<matcher> ::= <tags> ':' <pattern> | <tags> ':' <pattern> ':' <flags>
 <tags>    ::= string | string ',' <tags>
 <pattern> ::= string | '^' string | string '$' | '^' string '$'
+<flags>   ::= 'i' | ''
 
 <action>         ::= <action-matcher> '::' <subaction> | <subaction>
-<action-matcher> ::= <tags> | <tags> ':' <pattern>
+<action-matcher> ::= <tags> | <tags> ':' <pattern> | <tags> ':' <pattern> ':' <flags>
 <subaction>      ::= <replace-action> | <sed-action> | <split-action> | <add-action> | <delete-action>
 <replace-action> ::= 'replace' ':' string
 <sed-action>     ::= 'sed' ':' string ':' string

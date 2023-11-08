@@ -34,6 +34,7 @@ from rose.rule_parser import (
     RELEASE_TAGS,
     AddAction,
     DeleteAction,
+    MatcherPattern,
     MetadataAction,
     MetadataMatcher,
     MetadataRule,
@@ -153,7 +154,7 @@ def fast_search_for_matching_tracks(
     return results
 
 
-def _convert_matcher_to_fts_query(pattern: str) -> str:
+def _convert_matcher_to_fts_query(pattern: MatcherPattern) -> str:
     # Convert the matcher to a SQL expression for SQLite FTS. We won't be doing the precise
     # prefix/suffix matching here: for performance, we abuse SQLite FTS by making every character
     # its own token, which grants us the ability to search for arbitrary substrings. However, FTS
@@ -164,16 +165,17 @@ def _convert_matcher_to_fts_query(pattern: str) -> str:
     # Therefore we strip the `^$` and convert the text into SQLite FTS Match query. We use NEAR to
     # assert that all the characters are within a substring equivalent to the length of the query,
     # which should filter out most false positives.
-    if pattern.startswith("^"):
-        pattern = pattern[1:]
-    if pattern.endswith("$"):
-        pattern = pattern[:-1]
+    needle = pattern.pattern
+    if needle.startswith("^"):
+        needle = needle[1:]
+    if needle.endswith("$"):
+        needle = needle[:-1]
     # Construct the SQL string for the matcher. Escape quotes in the match string.
-    matchsql = "¬".join(pattern).replace("'", "''").replace('"', '""')
+    matchsql = "¬".join(needle).replace("'", "''").replace('"', '""')
     # NEAR restricts the query such that the # of tokens in between the first and last tokens of the
     # matched substring must be less than or equal to a given number. For us, that number is
     # len(matchsqlstr) - 2, as we subtract the first and last characters.
-    return f'NEAR("{matchsql}", {max(0, len(pattern)-2)})'
+    return f'NEAR("{matchsql}", {max(0, len(needle)-2)})'
 
 
 def filter_track_false_positives_using_tags(
@@ -388,17 +390,24 @@ def execute_metadata_actions(
     update_cache_for_releases(c, source_paths)
 
 
-def matches_pattern(pattern: str, value: str | int | None) -> bool:
+def matches_pattern(pattern: MatcherPattern, value: str | int | None) -> bool:
     value = str(value) if value is not None else ""
-    strictstart = pattern.startswith("^")
-    strictend = pattern.endswith("$")
+
+    needle = pattern.pattern
+    haystack = value
+    if pattern.case_insensitive:
+        needle = needle.lower()
+        haystack = haystack.lower()
+
+    strictstart = needle.startswith("^")
+    strictend = needle.endswith("$")
     if strictstart and strictend:
-        return value == pattern[1:-1]
+        return haystack == needle[1:-1]
     if strictstart:
-        return value.startswith(pattern[1:])
+        return haystack.startswith(needle[1:])
     if strictend:
-        return value.endswith(pattern[:-1])
-    return pattern in value
+        return haystack.endswith(needle[:-1])
+    return needle in haystack
 
 
 # Factor out the logic for executing an action on a single-value tag and a multi-value tag.

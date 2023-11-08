@@ -159,18 +159,30 @@ class DeleteAction:
 
 
 @dataclass
+class MatcherPattern:
+    # Substring match with support for `^$` strict start / strict end matching.
+    pattern: str
+    case_insensitive: bool = False
+
+    def __str__(self) -> str:
+        r = self.pattern.replace(":", r"\:")
+        if self.case_insensitive:
+            r += ":i"
+        return r
+
+
+@dataclass
 class MetadataMatcher:
     # Tags to test against the pattern. If any tags match the pattern, the action will be ran
     # against the track.
     tags: list[Tag]
-    # The pattern to test the tag against. Substring match with support for `^$` strict start /
-    # strict end matching.
-    pattern: str
+    # The pattern to test the tag against.
+    pattern: MatcherPattern
 
     def __str__(self) -> str:
         r = ",".join(self.tags)
         r += ":"
-        r += self.pattern.replace(":", r"\:")
+        r += str(self.pattern)
         return r
 
     @classmethod
@@ -211,14 +223,40 @@ class MetadataMatcher:
         # Then parse the pattern.
         pattern, fwd = take(raw[idx:], ":", including=False)
         idx += fwd
+
+        # If more input is remaining, it should be optional single-character flags.
+        case_insensitive = False
+        if idx < len(raw) and raw[idx] == ":":
+            idx += 1
+            flags, fwd = take(raw[idx:], ":")
+            if not flags:
+                raise RuleSyntaxError(
+                    **err,
+                    index=idx,
+                    feedback="No flags specified: Please remove this section (by deleting the colon) or specify one of the supported flags: `i` (case insensitive).",
+                )
+            for i, flag in enumerate(flags):
+                if flag == "i":
+                    case_insensitive = True
+                    continue
+                raise RuleSyntaxError(
+                    **err,
+                    index=idx + i,
+                    feedback="Unrecognized flag: Please specify one of the supported flags: `i` (case insensitive).",
+                )
+            idx += fwd
+
         if raw[idx:]:
             raise RuleSyntaxError(
                 **err,
                 index=idx,
-                feedback="Found another section after the pattern, but the pattern must be the last section. Perhaps you meant to escape this colon?",
+                feedback="Extra input found after end of matcher. Perhaps you meant to escape this colon?",
             )
 
-        matcher = cls(tags=tags, pattern=pattern)
+        matcher = MetadataMatcher(
+            tags=tags,
+            pattern=MatcherPattern(pattern=pattern, case_insensitive=case_insensitive),
+        )
         logger.debug(f"Parsed rule matcher {raw=} as {matcher=}")
         return matcher
 
@@ -231,13 +269,13 @@ class MetadataAction:
     tags: list[Tag]
     # Only apply the action on values that match this pattern. None means that all values are acted
     # upon.
-    pattern: str | None = None
+    pattern: MatcherPattern | None = None
 
     def __str__(self) -> str:
         r = ""
         r += ",".join(self.tags)
         if self.pattern:
-            r += ":" + self.pattern.replace(":", r"\:")
+            r += ":" + str(self.pattern)
         if r:
             r += "::"
 
@@ -291,8 +329,9 @@ class MetadataAction:
                     "Must specify tags to modify, since there is no matcher to default to. "
                     "Make sure you are formatting your action like {tags}:{pattern}::{kind}:{args} (where `:{pattern}` is optional)",
                 )
-            tags = [x for x in matcher.tags if x in MODIFIABLE_TAGS]
-            pattern = matcher.pattern
+            tags: list[Tag] = [x for x in matcher.tags if x in MODIFIABLE_TAGS]
+            pattern = matcher.pattern.pattern
+            case_insensitive = matcher.pattern.case_insensitive
         else:
             # First, parse the tags. If the tag is matched, keep going, otherwise employ the list
             # parsing logic.
@@ -305,7 +344,8 @@ class MetadataAction:
                     )
                 idx += len("matched:")
                 tags = [x for x in matcher.tags if x in MODIFIABLE_TAGS]
-                pattern = matcher.pattern
+                pattern = matcher.pattern.pattern
+                case_insensitive = matcher.pattern.case_insensitive
             else:
                 tags = []
                 found_colon = False
@@ -341,6 +381,7 @@ class MetadataAction:
             # And now parse the optional pattern. If the next character is a `::`, then we have an
             # explicitly empty pattern, after which we reach the end of the tags+pattern section.
             pattern = None
+            case_insensitive = False
             if raw[idx : idx + 2] == "::":
                 idx += 2
             # Otherwise, if we hit a lone `:`, we've hit the end of the tags+pattern section, but
@@ -350,22 +391,36 @@ class MetadataAction:
             elif raw[idx] == ":":
                 idx += 1
                 if matcher and tags == matcher.tags:
-                    pattern = matcher.pattern
+                    pattern = matcher.pattern.pattern
             # And otherwise, parse the pattern!
             else:
                 pattern, fwd = take(raw[idx:], ":")
                 idx += fwd
-                # Because we treat `::` as going to action, empty pattern should be impossible.
-                if raw[idx] != ":":
-                    raise RuleSyntaxError(
-                        **err,
-                        index=idx,
-                        feedback="End of the action matcher not found. Please end the matcher with a `::`.",
-                    )
-                # Skip the second colon. Now we're at the start of the action.
-                idx += 1
                 # Set an empty pattern to null.
                 pattern = pattern or None
+
+                # If we don't see the second colon here, that means we are looking at
+                # single-character flags. Only check this if pattern is not null though.
+                if pattern and raw[idx : idx + 1] != ":":
+                    flags, fwd = take(raw[idx:], ":")
+                    if not flags:
+                        raise RuleSyntaxError(
+                            **err,
+                            index=idx,
+                            feedback="No flags specified: Please remove this section (by deleting the colon) or specify one of the supported flags: `i` (case insensitive).",
+                        )
+                    for i, flag in enumerate(flags):
+                        if flag == "i":
+                            case_insensitive = True
+                            continue
+                        raise RuleSyntaxError(
+                            **err,
+                            index=idx + i,
+                            feedback="Unrecognized flag: Either you forgot a colon here (to end the matcher), or this is an invalid matcher flag. The only supported flag is `i` (case insensitive).",
+                        )
+                    idx += fwd
+                # Skip the second colon. Now we're at the start of the action.
+                idx += 1
 
         # Then let's start parsing the action!
         action_kind, fwd = take(raw[idx:], ":")
@@ -485,7 +540,13 @@ class MetadataAction:
         else:  # pragma: no cover
             raise RoseError(f"Impossible: unknown action_kind {action_kind=}")
 
-        action = cls(behavior=behavior, tags=tags, pattern=pattern)
+        action = MetadataAction(
+            behavior=behavior,
+            tags=tags,
+            pattern=MatcherPattern(pattern=pattern, case_insensitive=case_insensitive)
+            if pattern
+            else None,
+        )
         logger.debug(f"Parsed rule action {raw=} {matcher=} as {action=}")
         return action
 
@@ -513,8 +574,9 @@ class MetadataRule:
 
 def take(x: str, until: str, including: bool = True) -> tuple[str, int]:
     """
-    Reads until the next unescaped `until` is found. Returns the read string and the number of
-    characters consumed from the input. `until` is counted as consumed if `including` is true.
+    Reads until the next unescaped `until` or end of string is found. Returns the read string and
+    the number of characters consumed from the input. `until` is counted as consumed if `including`
+    is true.
     """
     r = io.StringIO()
     escaped = False

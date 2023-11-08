@@ -5,7 +5,13 @@ import click
 import pytest
 
 from rose.config import Config, ConfigNotFoundError, InvalidConfigValueError, MissingConfigKeyError
-from rose.rule_parser import MetadataAction, MetadataMatcher, MetadataRule, ReplaceAction
+from rose.rule_parser import (
+    MatcherPattern,
+    MetadataAction,
+    MetadataMatcher,
+    MetadataRule,
+    ReplaceAction,
+)
 from rose.templates import PathTemplate, PathTemplateConfig, PathTemplatePair
 
 
@@ -136,12 +142,12 @@ def test_config_full() -> None:
             ignore_release_directories=["dummy boy"],
             stored_metadata_rules=[
                 MetadataRule(
-                    matcher=MetadataMatcher(tags=["tracktitle"], pattern="lala"),
+                    matcher=MetadataMatcher(tags=["tracktitle"], pattern=MatcherPattern("lala")),
                     actions=[
                         MetadataAction(
                             behavior=ReplaceAction(replacement="hihi"),
                             tags=["tracktitle"],
-                            pattern="lala",
+                            pattern=MatcherPattern("lala"),
                         )
                     ],
                 )
