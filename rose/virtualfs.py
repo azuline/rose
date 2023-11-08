@@ -94,7 +94,6 @@ from rose.playlists import (
 )
 from rose.releases import (
     delete_release,
-    delete_release_cover_art,
     set_release_cover_art,
     toggle_release_new,
 )
@@ -873,7 +872,11 @@ class RoseLogicalCore:
         # Possible actions:
         # 1. Delete a track from a playlist.
         # 2. Delete cover art from a playlist.
-        # 3. Delete cover art from a release.
+        #
+        # Note: We do not support deleting cover art from a release via the delete operation. This
+        # is because when removing a release from a collage via `rm -r`, `unlink` gets called
+        # recurisvely on every file, including each release's cover art. If we supported removing
+        # cover art, all cover art would be removed when we removed a release from a collage.
         if (
             p.view == "Playlists"
             and p.playlist
@@ -891,15 +894,6 @@ class RoseLogicalCore:
             and (track_id := self.vnames.lookup_track(p))
         ):
             remove_track_from_playlist(self.config, p.playlist, track_id)
-            return
-        if (
-            p.release
-            and p.file
-            and p.file.lower() in self.config.valid_cover_arts
-            and (release_id := self.vnames.lookup_release(p))
-            and (release := get_release(self.config, release_id))
-        ):
-            delete_release_cover_art(self.config, release.id)
             return
 
         # Otherwise, noop. If we return an error, that prevents rmdir from being called when we rm.

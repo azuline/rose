@@ -177,7 +177,7 @@ $ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/"
 
 ## Delete Release Cover Art
 
-Command line:
+This operation is only supported on the command line.
 
 ```bash
 $ cd $fuse_mount_dir
@@ -185,22 +185,6 @@ $ cd $fuse_mount_dir
 $ rose releases delete-cover "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [02:13:17] INFO: Deleted cover arts of release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [02:13:17] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
-
-$ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/"
-1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/
-├── 01. LOOΠΔ ODD EYE CIRCLE - ODD.opus
-├── 02. LOOΠΔ ODD EYE CIRCLE - Girl Front.opus
-├── 03. LOOΠΔ ODD EYE CIRCLE - LOONATIC.opus
-├── 04. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
-└── 05. LOOΠΔ ODD EYE CIRCLE - Starlight.opus
-```
-
-Virtual filesystem:
-
-```bash
-$ cd $fuse_mount_dir
-
-$ rm "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/cover.jpg"
 
 $ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/"
 1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/

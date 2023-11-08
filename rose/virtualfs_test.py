@@ -285,12 +285,6 @@ def test_virtual_filesystem_release_cover_art_actions(
                 continue
             break
 
-        # Now delete the cover art.
-        (release_dir / "cover.png").unlink()
-        for _ in retry_for_sec(0.2):
-            if not (release_dir / "cover.png").exists():
-                break
-
 
 def test_virtual_filesystem_playlist_cover_art_actions(
     config: Config,
