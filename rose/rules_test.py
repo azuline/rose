@@ -111,11 +111,25 @@ def test_rules_fields_match_tracknumber(config: Config, source_dir: Path) -> Non
     assert af.tracknumber == "8"
 
 
+def test_rules_fields_match_tracktotal(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule.parse("tracktotal:2", ["tracktitle::replace:8"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.title == "8"
+
+
 def test_rules_fields_match_discnumber(config: Config, source_dir: Path) -> None:
     rule = MetadataRule.parse("discnumber:1", ["replace:8"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.discnumber == "8"
+
+
+def test_rules_fields_match_disctotal(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule.parse("disctotal:1", ["tracktitle::replace:8"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.title == "8"
 
 
 def test_rules_fields_match_albumtitle(config: Config, source_dir: Path) -> None:

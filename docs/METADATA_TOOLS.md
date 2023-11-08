@@ -283,7 +283,9 @@ The rules engine supports matching and acting on the following tags:
 - `tracktitle`
 - `trackartist`
 - `tracknumber`
+- `tracktotal` (match only, actions not supported)
 - `discnumber`
+- `disctotal` (match only, actions not supported)
 - `albumtitle`
 - `albumartist`
 - `releasetype`

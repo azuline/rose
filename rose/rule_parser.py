@@ -47,7 +47,9 @@ Tag = Literal[
     "tracktitle",
     "trackartist",
     "tracknumber",
+    "tracktotal",
     "discnumber",
+    "disctotal",
     "albumtitle",
     "albumartist",
     "releasetype",
@@ -62,7 +64,9 @@ ALL_TAGS: dict[str, list[Tag]] = {
     "tracktitle": ["tracktitle"],
     "trackartist": ["trackartist"],
     "tracknumber": ["tracknumber"],
+    "tracktotal": ["tracktotal"],
     "discnumber": ["discnumber"],
+    "disctotal": ["disctotal"],
     "albumtitle": ["albumtitle"],
     "albumartist": ["albumartist"],
     "releasetype": ["releasetype"],
@@ -72,11 +76,25 @@ ALL_TAGS: dict[str, list[Tag]] = {
     "artist": ["trackartist", "albumartist"],
 }
 
+MODIFIABLE_TAGS: list[Tag] = [
+    "tracktitle",
+    "trackartist",
+    "tracknumber",
+    "discnumber",
+    "albumtitle",
+    "albumartist",
+    "releasetype",
+    "year",
+    "genre",
+    "label",
+]
 
 SINGLE_VALUE_TAGS: list[Tag] = [
     "tracktitle",
     "tracknumber",
+    "tracktotal",
     "discnumber",
+    "disctotal",
     "albumtitle",
     "releasetype",
     "year",
@@ -89,6 +107,7 @@ RELEASE_TAGS: list[Tag] = [
     "year",
     "genre",
     "label",
+    "disctotal",
 ]
 
 
@@ -272,7 +291,7 @@ class MetadataAction:
                     "Must specify tags to modify, since there is no matcher to default to. "
                     "Make sure you are formatting your action like {tags}:{pattern}::{kind}:{args} (where `:{pattern}` is optional)",
                 )
-            tags = matcher.tags
+            tags = [x for x in matcher.tags if x in MODIFIABLE_TAGS]
             pattern = matcher.pattern
         else:
             # First, parse the tags. If the tag is matched, keep going, otherwise employ the list
@@ -285,7 +304,7 @@ class MetadataAction:
                         feedback="Cannot use `matched` in this context: there is no matcher to default to.",
                     )
                 idx += len("matched:")
-                tags = matcher.tags
+                tags = [x for x in matcher.tags if x in MODIFIABLE_TAGS]
                 pattern = matcher.pattern
             else:
                 tags = []
@@ -296,14 +315,25 @@ class MetadataAction:
                             continue
                         if raw[idx:][len(t)] not in [":", ","]:
                             continue
-                        tags.extend(resolved)
+                        for resolvedtag in resolved:
+                            if resolvedtag not in MODIFIABLE_TAGS:
+                                raise RuleSyntaxError(
+                                    **err,
+                                    index=idx,
+                                    feedback=f"Invalid tag: {t} is not modifiable.",
+                                )
+                            tags.append(resolvedtag)
                         idx += len(t) + 1
                         found_colon = raw[idx - 1] == ":"
                         break
                     else:
-                        feedback = f"Invalid tag: must be one of {{{', '.join(ALL_TAGS)}}}. The next character after a tag must be ':' or ','."
+                        tags_to_print: list[str] = []
+                        for t, resolvedtags in ALL_TAGS.items():
+                            if all(r in MODIFIABLE_TAGS for r in resolvedtags):
+                                tags_to_print.append(t)
+                        feedback = f"Invalid tag: must be one of {{{', '.join(tags_to_print)}}}. The next character after a tag must be ':' or ','."
                         if matcher:
-                            feedback = f"Invalid tag: must be one of matched, {{{', '.join(ALL_TAGS)}}}. (And if the value is matched, it must be alone.) The next character after a tag must be ':' or ','."
+                            feedback = f"Invalid tag: must be one of matched, {{{', '.join(tags_to_print)}}}. (And if the value is matched, it must be alone.) The next character after a tag must be ':' or ','."
                         raise RuleSyntaxError(**err, index=idx, feedback=feedback)
                     if found_colon:
                         break
