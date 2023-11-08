@@ -125,7 +125,7 @@ DEFAULT_RELEASE_TEMPLATE = PathTemplate(
 
 DEFAULT_TRACK_TEMPLATE = PathTemplate(
     """
-{% if disctotal %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
+{% if disctotal > 1 %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
 {{ title }}
 {% if artists.guest %}(feat. {{ artists.guest | artistsarrayfmt }}){% endif %}
 """
@@ -249,6 +249,7 @@ def _calc_release_variables(release: CachedRelease, position: str | None) -> dic
         "releasetype": release.releasetype,
         "year": release.year,
         "new": release.new,
+        "disctotal": release.disctotal,
         "genres": release.genres,
         "labels": release.labels,
         "artists": release.artists,
@@ -260,9 +261,10 @@ def _calc_track_variables(track: CachedTrack, position: str | None) -> dict[str,
     return {
         "title": track.title,
         "tracknumber": track.tracknumber,
+        "tracktotal": track.tracktotal,
         "discnumber": track.discnumber,
-        "duration_seconds": track.duration_seconds,
         "disctotal": track.disctotal,
+        "duration_seconds": track.duration_seconds,
         "artists": track.artists,
         "position": position,
     }
@@ -323,7 +325,7 @@ def _preview_release_template(c: Config, label: str, template: PathTemplate) -> 
         releasetype="single",
         year=2017,
         new=True,
-        disctotal=False,
+        disctotal=1,
         genres=["K-Pop", "Dance-Pop", "Contemporary R&B"],
         labels=["BlockBerryCreative"],
         artists=ArtistMapping(main=[Artist("Kim Lip")]),
@@ -341,7 +343,7 @@ def _preview_release_template(c: Config, label: str, template: PathTemplate) -> 
         releasetype="album",
         year=2016,
         new=False,
-        disctotal=True,
+        disctotal=2,
         genres=["K-Pop"],
         labels=["BIGHIT"],
         artists=ArtistMapping(main=[Artist("BTS")]),
@@ -363,10 +365,11 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         title="Eclipse",
         release_id="018b268e-ff1e-7a0c-9ac8-7bbb282761f2",
         tracknumber="1",
+        tracktotal=2,
         discnumber="1",
+        disctotal=1,
         duration_seconds=230,
         artists=ArtistMapping(main=[Artist("Kim Lip")]),
-        disctotal=False,
     )
     click.secho(eval_track_template(template, track, "1"))
 
@@ -380,9 +383,10 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         title="House of Cards",
         release_id="018b268e-ff1e-7a0c-9ac8-7bbb282761f2",
         tracknumber="5",
+        tracktotal=8,
         discnumber="2",
+        disctotal=2,
         duration_seconds=226,
         artists=ArtistMapping(main=[Artist("BTS")]),
-        disctotal=True,
     )
     click.secho(eval_track_template(template, track, "2"))

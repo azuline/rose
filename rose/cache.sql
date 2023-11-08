@@ -30,7 +30,8 @@ CREATE TABLE releases (
     title TEXT NOT NULL,
     releasetype TEXT NOT NULL REFERENCES releasetype_enum(value),
     year INTEGER,
-    disctotal BOOLEAN NOT NULL,
+    -- Disctotal is also denormalized on the track.
+    disctotal INTEGER NOT NULL,
     new BOOLEAN NOT NULL DEFAULT true
 );
 CREATE INDEX releases_source_path ON releases(source_path);
@@ -71,7 +72,11 @@ CREATE TABLE tracks (
     title TEXT NOT NULL,
     release_id TEXT NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
     tracknumber TEXT NOT NULL,
+    -- Per-disc track total.
+    tracktotal INTEGER NOT NULL,
     discnumber TEXT NOT NULL,
+    -- Disctotal is also denormalized on the release.
+    disctotal INTEGER NOT NULL,
     duration_seconds INTEGER NOT NULL
 );
 CREATE INDEX tracks_source_path ON tracks(source_path);
@@ -166,7 +171,9 @@ CREATE INDEX playlists_tracks_access ON playlists_tracks(playlist_name, missing,
 CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
     tracktitle
   , tracknumber
+  , tracktotal
   , discnumber
+  , disctotal
   , albumtitle
   , year
   , releasetype
@@ -240,11 +247,11 @@ CREATE VIEW tracks_view AS
       , t.title
       , t.release_id
       , t.tracknumber
+      , t.tracktotal
       , t.discnumber
+      , t.disctotal
       , t.duration_seconds
-      , r.disctotal
       , COALESCE(a.names, '') AS artist_names
       , COALESCE(a.roles, '') AS artist_roles
     FROM tracks t
-    JOIN releases r ON r.id = t.release_id
     LEFT JOIN artists a ON a.track_id = t.id;

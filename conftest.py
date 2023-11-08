@@ -113,9 +113,9 @@ def seeded_cache(config: Config) -> None:
             f"""\
 INSERT INTO releases
        (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype, year, disctotal, new  )
-VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'    , 2023, false    , false)
-     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'    , 2021, false    , false)
-     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , 2021, false    , true );
+VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'    , 2023, 1        , false)
+     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'    , 2021, 1        , false)
+     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , 2021, 1        , true );
 
 INSERT INTO releases_genres
        (release_id, genre       , genre_sanitized, position)
@@ -129,11 +129,11 @@ VALUES ('r1'      , 'Silk Music'  , 'Silk Music'   , 1)
      , ('r2'      , 'Native State', 'Native State' , 1);
 
 INSERT INTO tracks
-       (id  , source_path      , source_mtime, title    , release_id, tracknumber, discnumber, duration_seconds)
-VALUES ('t1', '{musicpaths[0]}', '999'       , 'Track 1', 'r1'      , '01'       , '01'      , 120             )
-     , ('t2', '{musicpaths[1]}', '999'       , 'Track 2', 'r1'      , '02'       , '01'      , 240             )
-     , ('t3', '{musicpaths[2]}', '999'       , 'Track 1', 'r2'      , '01'       , '01'      , 120             )
-     , ('t4', '{musicpaths[3]}', '999'       , 'Track 1', 'r3'      , '01'       , '01'      , 120             );
+       (id  , source_path      , source_mtime, title    , release_id, tracknumber, tracktotal, discnumber, disctotal, duration_seconds)
+VALUES ('t1', '{musicpaths[0]}', '999'       , 'Track 1', 'r1'      , '01'       , 2         , '01'      , 1        , 120             )
+     , ('t2', '{musicpaths[1]}', '999'       , 'Track 2', 'r1'      , '02'       , 2         , '01'      , 1        , 240             )
+     , ('t3', '{musicpaths[2]}', '999'       , 'Track 1', 'r2'      , '01'       , 1         , '01'      , 1        , 120             )
+     , ('t4', '{musicpaths[3]}', '999'       , 'Track 1', 'r3'      , '01'       , 1         , '01'      , 1        , 120             );
 
 INSERT INTO releases_artists
        (release_id, artist           , artist_sanitized , role   , position)

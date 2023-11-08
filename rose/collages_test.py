@@ -134,6 +134,7 @@ def test_dump_collage(config: Config) -> None:
                 "releasetype": "album",
                 "year": 2023,
                 "new": False,
+                "disctotal": 1,
                 "genres": ["Techno", "Deep House"],
                 "labels": ["Silk Music"],
                 "artists": {
@@ -158,6 +159,7 @@ def test_dump_collage(config: Config) -> None:
                 "releasetype": "album",
                 "year": 2021,
                 "new": False,
+                "disctotal": 1,
                 "genres": ["Classical"],
                 "labels": ["Native State"],
                 "artists": {
@@ -190,6 +192,7 @@ def test_dump_collages(config: Config) -> None:
                     "releasetype": "album",
                     "year": 2023,
                     "new": False,
+                    "disctotal": 1,
                     "genres": ["Techno", "Deep House"],
                     "labels": ["Silk Music"],
                     "artists": {
@@ -214,6 +217,7 @@ def test_dump_collages(config: Config) -> None:
                     "releasetype": "album",
                     "year": 2021,
                     "new": False,
+                    "disctotal": 1,
                     "genres": ["Classical"],
                     "labels": ["Native State"],
                     "artists": {

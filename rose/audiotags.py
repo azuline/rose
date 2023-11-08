@@ -88,7 +88,9 @@ class AudioTags:
     title: str | None
     year: int | None
     tracknumber: str | None
+    tracktotal: int | None
     discnumber: str | None
+    disctotal: int | None
     album: str | None
     genre: list[str]
     label: list[str]
@@ -112,8 +114,19 @@ class AudioTags:
             raise UnsupportedFiletypeError(f"Failed to open file: {e}") from e
         if isinstance(m, mutagen.mp3.MP3):
             # ID3 returns trackno/discno tags as no/total. We have to parse.
-            def _parse_num(x: str | None) -> str | None:
-                return x.split("/")[0] if x else None
+            tracknumber = discnumber = tracktotal = disctotal = None
+            if tracknos := _get_tag(m.tags, ["TRCK"]):
+                try:
+                    tracknumber, tracktotalstr = tracknos.split("/", 1)
+                    tracktotal = _parse_int(tracktotalstr)
+                except ValueError:
+                    tracknumber = tracknos
+            if discnos := _get_tag(m.tags, ["TPOS"]):
+                try:
+                    discnumber, disctotalstr = discnos.split("/", 1)
+                    disctotal = _parse_int(disctotalstr)
+                except ValueError:
+                    discnumber = discnos
 
             def _get_paired_frame(x: str) -> str | None:
                 if not m.tags:
@@ -131,8 +144,10 @@ class AudioTags:
                 release_id=_get_tag(m.tags, ["TXXX:ROSERELEASEID"]),
                 title=_get_tag(m.tags, ["TIT2"]),
                 year=_parse_year(_get_tag(m.tags, ["TDRC", "TYER"])),
-                tracknumber=_parse_num(_get_tag(m.tags, ["TRCK"], first=True)),
-                discnumber=_parse_num(_get_tag(m.tags, ["TPOS"], first=True)),
+                tracknumber=tracknumber,
+                tracktotal=tracktotal,
+                discnumber=discnumber,
+                disctotal=disctotal,
                 album=_get_tag(m.tags, ["TALB"]),
                 genre=_split_tag(_get_tag(m.tags, ["TCON"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["TPUB"], split=True)),
@@ -150,13 +165,23 @@ class AudioTags:
                 path=p,
             )
         if isinstance(m, mutagen.mp4.MP4):
+            tracknumber = discnumber = tracktotal = disctotal = None
+            with contextlib.suppress(ValueError):
+                tracknumber, tracktotalstr = _get_tuple_tag(m.tags, ["trkn"])  # type: ignore
+                tracktotal = _parse_int(tracktotalstr)
+            with contextlib.suppress(ValueError):
+                discnumber, disctotalstr = _get_tuple_tag(m.tags, ["disk"])  # type: ignore
+                disctotal = _parse_int(disctotalstr)
+
             return AudioTags(
                 id=_get_tag(m.tags, ["----:net.sunsetglow.rose:ID"]),
                 release_id=_get_tag(m.tags, ["----:net.sunsetglow.rose:RELEASEID"]),
                 title=_get_tag(m.tags, ["\xa9nam"]),
                 year=_parse_year(_get_tag(m.tags, ["\xa9day"])),
-                tracknumber=_get_tag(m.tags, ["trkn"], first=True),
-                discnumber=_get_tag(m.tags, ["disk"], first=True),
+                tracknumber=str(tracknumber),
+                tracktotal=tracktotal,
+                discnumber=str(discnumber),
+                disctotal=disctotal,
                 album=_get_tag(m.tags, ["\xa9alb"]),
                 genre=_split_tag(_get_tag(m.tags, ["\xa9gen"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["----:com.apple.iTunes:LABEL"], split=True)),
@@ -182,7 +207,9 @@ class AudioTags:
                 title=_get_tag(m.tags, ["title"]),
                 year=_parse_year(_get_tag(m.tags, ["date", "year"])),
                 tracknumber=_get_tag(m.tags, ["tracknumber"], first=True),
+                tracktotal=_parse_int(_get_tag(m.tags, ["tracktotal"], first=True)),
                 discnumber=_get_tag(m.tags, ["discnumber"], first=True),
+                disctotal=_parse_int(_get_tag(m.tags, ["disctotal"], first=True)),
                 album=_get_tag(m.tags, ["album"]),
                 genre=_split_tag(_get_tag(m.tags, ["genre"], split=True)),
                 label=_split_tag(
@@ -367,9 +394,6 @@ def _get_tag(t: Any, keys: list[str], *, split: bool = False, first: bool = Fals
                     values.extend(_split_tag(val.decode()) if split else [val.decode()])
                 elif isinstance(val, mutagen.id3.ID3TimeStamp):  # type: ignore
                     values.extend(_split_tag(val.text) if split else [val.text])
-                elif isinstance(val, tuple):
-                    for v in val:
-                        values.extend(_split_tag(str(v)) if split else [str(v)])
                 else:
                     raise UnsupportedTagValueTypeError(
                         f"Encountered a tag value of type {type(val)}"
@@ -380,6 +404,33 @@ def _get_tag(t: Any, keys: list[str], *, split: bool = False, first: bool = Fals
         except (KeyError, ValueError):
             pass
     return None
+
+
+def _get_tuple_tag(t: Any, keys: list[str]) -> tuple[str, str] | tuple[None, None]:
+    if not t:
+        return None, None
+    for k in keys:
+        try:
+            raw_values = t[k].text if isinstance(t, mutagen.id3.ID3) else t[k]
+            for val in raw_values:
+                if isinstance(val, tuple):
+                    return val  # type: ignore
+                else:
+                    raise UnsupportedTagValueTypeError(
+                        f"Encountered a tag value of type {type(val)}: expected tuple"
+                    )
+        except (KeyError, ValueError):
+            pass
+    return None, None
+
+
+def _parse_int(x: str | None) -> int | None:
+    if x is None:
+        return None
+    try:
+        return int(x)
+    except ValueError:
+        return None
 
 
 def _parse_year(value: str | None) -> int | None:

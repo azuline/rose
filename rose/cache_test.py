@@ -1028,7 +1028,7 @@ def test_list_releases(config: Config) -> None:
             title="Release 1",
             releasetype="album",
             year=2023,
-            disctotal=False,
+            disctotal=1,
             new=False,
             genres=["Techno", "Deep House"],
             labels=["Silk Music"],
@@ -1043,7 +1043,7 @@ def test_list_releases(config: Config) -> None:
             title="Release 2",
             releasetype="album",
             year=2021,
-            disctotal=False,
+            disctotal=1,
             new=False,
             genres=["Classical"],
             labels=["Native State"],
@@ -1058,7 +1058,7 @@ def test_list_releases(config: Config) -> None:
             title="Release 3",
             releasetype="album",
             year=2021,
-            disctotal=False,
+            disctotal=1,
             new=True,
             genres=[],
             labels=[],
@@ -1083,7 +1083,7 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
         title="Release 1",
         releasetype="album",
         year=2023,
-        disctotal=False,
+        disctotal=1,
         new=False,
         genres=["Techno", "Deep House"],
         labels=["Silk Music"],
@@ -1098,10 +1098,11 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
             title="Track 1",
             release_id="r1",
             tracknumber="01",
+            tracktotal=2,
             discnumber="01",
+            disctotal=1,
             duration_seconds=120,
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-            disctotal=False,
         ),
         CachedTrack(
             id="t2",
@@ -1110,10 +1111,11 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
             title="Track 2",
             release_id="r1",
             tracknumber="02",
+            tracktotal=2,
             discnumber="01",
+            disctotal=1,
             duration_seconds=240,
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-            disctotal=False,
         ),
     ]
 
@@ -1137,7 +1139,7 @@ def test_get_releases_associated_with_tracks(config: Config) -> None:
         title="Release 1",
         releasetype="album",
         year=2023,
-        disctotal=False,
+        disctotal=1,
         new=False,
         genres=["Techno", "Deep House"],
         labels=["Silk Music"],
@@ -1184,10 +1186,11 @@ def test_list_tracks(config: Config) -> None:
             title="Track 1",
             release_id="r1",
             tracknumber="01",
+            tracktotal=2,
             discnumber="01",
+            disctotal=1,
             duration_seconds=120,
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-            disctotal=False,
         ),
         CachedTrack(
             id="t2",
@@ -1196,10 +1199,11 @@ def test_list_tracks(config: Config) -> None:
             title="Track 2",
             release_id="r1",
             tracknumber="02",
+            tracktotal=2,
             discnumber="01",
+            disctotal=1,
             duration_seconds=240,
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-            disctotal=False,
         ),
         CachedTrack(
             id="t3",
@@ -1208,10 +1212,11 @@ def test_list_tracks(config: Config) -> None:
             title="Track 1",
             release_id="r2",
             tracknumber="01",
+            tracktotal=1,
             discnumber="01",
+            disctotal=1,
             duration_seconds=120,
             artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
-            disctotal=False,
         ),
         CachedTrack(
             id="t4",
@@ -1220,10 +1225,11 @@ def test_list_tracks(config: Config) -> None:
             title="Track 1",
             release_id="r3",
             tracknumber="01",
+            tracktotal=1,
             discnumber="01",
+            disctotal=1,
             duration_seconds=120,
             artists=ArtistMapping(),
-            disctotal=False,
         ),
     ]
 
@@ -1240,10 +1246,11 @@ def test_get_track(config: Config) -> None:
         title="Track 1",
         release_id="r1",
         tracknumber="01",
+        tracktotal=2,
         discnumber="01",
+        disctotal=1,
         duration_seconds=120,
         artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-        disctotal=False,
     )
 
 
@@ -1306,7 +1313,7 @@ def test_get_collage(config: Config) -> None:
             releasetype="album",
             year=2023,
             new=False,
-            disctotal=False,
+            disctotal=1,
             genres=["Techno", "Deep House"],
             labels=["Silk Music"],
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
@@ -1321,7 +1328,7 @@ def test_get_collage(config: Config) -> None:
             releasetype="album",
             year=2021,
             new=False,
-            disctotal=False,
+            disctotal=1,
             genres=["Classical"],
             labels=["Native State"],
             artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
@@ -1337,43 +1344,6 @@ def test_get_collage(config: Config) -> None:
         release_ids=[],
     )
     assert releases == []
-
-    # lalalisa
-    pdata = get_playlist(config, "Lala Lisa")
-    assert pdata is not None
-    playlist, tracks = pdata
-    assert playlist == CachedPlaylist(
-        name="Lala Lisa",
-        source_mtime="999",
-        cover_path=config.music_source_dir / "!playlists" / "Lala Lisa.jpg",
-        track_ids=["t1", "t3"],
-    )
-    assert tracks == [
-        CachedTrack(
-            id="t1",
-            source_path=config.music_source_dir / "r1" / "01.m4a",
-            source_mtime="999",
-            title="Track 1",
-            release_id="r1",
-            tracknumber="01",
-            discnumber="01",
-            duration_seconds=120,
-            artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-            disctotal=False,
-        ),
-        CachedTrack(
-            id="t3",
-            source_path=config.music_source_dir / "r2" / "01.m4a",
-            source_mtime="999",
-            title="Track 1",
-            release_id="r2",
-            tracknumber="01",
-            discnumber="01",
-            duration_seconds=120,
-            artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
-            disctotal=False,
-        ),
-    ]
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -1401,10 +1371,11 @@ def test_get_playlist(config: Config) -> None:
             title="Track 1",
             release_id="r1",
             tracknumber="01",
+            tracktotal=2,
             discnumber="01",
+            disctotal=1,
             duration_seconds=120,
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-            disctotal=False,
         ),
         CachedTrack(
             id="t3",
@@ -1413,10 +1384,11 @@ def test_get_playlist(config: Config) -> None:
             title="Track 1",
             release_id="r2",
             tracknumber="01",
+            tracktotal=1,
             discnumber="01",
+            disctotal=1,
             duration_seconds=120,
             artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
-            disctotal=False,
         ),
     ]
 
