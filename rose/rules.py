@@ -139,7 +139,7 @@ def fast_search_for_matching_tracks(
     # Remove the "artist role" from the tag, as we do not track the role information in the FTS
     # table. The false positives should be minimal enough that performance should be roughly the
     # same if we filter them out in the tag checking step.
-    columns = [TAG_ROLE_REGEX.sub("", t) for t in matcher.tags]
+    columns = uniq([TAG_ROLE_REGEX.sub("", t) for t in matcher.tags])
     ftsquery = f"{{{' '.join(columns)}}} : {matchsql}"
     query = f"""
         SELECT DISTINCT t.id, t.source_path
@@ -529,7 +529,7 @@ def fast_search_for_matching_releases(
 
     matchsql = _convert_matcher_to_fts_query(matcher.pattern)
     logger.debug(f"Converted match {matcher=} to {matchsql=}")
-    columns = [TAG_ROLE_REGEX.sub("", t) for t in matcher.tags]
+    columns = uniq([TAG_ROLE_REGEX.sub("", t) for t in matcher.tags])
     ftsquery = f"{{{' '.join(columns)}}} : {matchsql}"
     query = f"""
         SELECT DISTINCT r.id, r.source_path
