@@ -128,8 +128,8 @@ def test_update_cache_all(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, disctotal)
-            VALUES ('aaaaaa', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false)
+            INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, disctotal, metahash)
+            VALUES ('aaaaaa', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, '0')
             """
         )
 
@@ -405,8 +405,8 @@ def test_update_cache_releases_delete_nonexistent(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, disctotal)
-            VALUES ('aaaaaa', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false)
+            INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, disctotal, metahash)
+            VALUES ('aaaaaa', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, '0')
             """
         )
     update_cache_evict_nonexistent_releases(config)
@@ -1033,6 +1033,7 @@ def test_list_releases(config: Config) -> None:
             genres=["Techno", "Deep House"],
             labels=["Silk Music"],
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+            metahash="1",
         ),
         CachedRelease(
             datafile_mtime="999",
@@ -1048,6 +1049,7 @@ def test_list_releases(config: Config) -> None:
             genres=["Classical"],
             labels=["Native State"],
             artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
+            metahash="2",
         ),
         CachedRelease(
             datafile_mtime="999",
@@ -1063,6 +1065,7 @@ def test_list_releases(config: Config) -> None:
             genres=[],
             labels=[],
             artists=ArtistMapping(),
+            metahash="3",
         ),
     ]
 
@@ -1088,6 +1091,7 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
         genres=["Techno", "Deep House"],
         labels=["Silk Music"],
         artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+        metahash="1",
     )
 
     expected_tracks = [
@@ -1103,6 +1107,7 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
             disctotal=1,
             duration_seconds=120,
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+            metahash="1",
         ),
         CachedTrack(
             id="t2",
@@ -1116,6 +1121,7 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
             disctotal=1,
             duration_seconds=240,
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+            metahash="2",
         ),
     ]
 
@@ -1144,6 +1150,7 @@ def test_get_releases_associated_with_tracks(config: Config) -> None:
         genres=["Techno", "Deep House"],
         labels=["Silk Music"],
         artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+        metahash="1",
     )
 
     assert get_releases_associated_with_tracks(config, [t1, t2]) == [
@@ -1191,6 +1198,7 @@ def test_list_tracks(config: Config) -> None:
             disctotal=1,
             duration_seconds=120,
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+            metahash="1",
         ),
         CachedTrack(
             id="t2",
@@ -1204,6 +1212,7 @@ def test_list_tracks(config: Config) -> None:
             disctotal=1,
             duration_seconds=240,
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+            metahash="2",
         ),
         CachedTrack(
             id="t3",
@@ -1217,6 +1226,7 @@ def test_list_tracks(config: Config) -> None:
             disctotal=1,
             duration_seconds=120,
             artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
+            metahash="3",
         ),
         CachedTrack(
             id="t4",
@@ -1230,6 +1240,7 @@ def test_list_tracks(config: Config) -> None:
             disctotal=1,
             duration_seconds=120,
             artists=ArtistMapping(),
+            metahash="4",
         ),
     ]
 
@@ -1251,6 +1262,7 @@ def test_get_track(config: Config) -> None:
         disctotal=1,
         duration_seconds=120,
         artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+        metahash="1",
     )
 
 
@@ -1317,6 +1329,7 @@ def test_get_collage(config: Config) -> None:
             genres=["Techno", "Deep House"],
             labels=["Silk Music"],
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+            metahash="1",
         ),
         CachedRelease(
             id="r2",
@@ -1332,6 +1345,7 @@ def test_get_collage(config: Config) -> None:
             genres=["Classical"],
             labels=["Native State"],
             artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
+            metahash="2",
         ),
     ]
 
@@ -1376,6 +1390,7 @@ def test_get_playlist(config: Config) -> None:
             disctotal=1,
             duration_seconds=120,
             artists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+            metahash="1",
         ),
         CachedTrack(
             id="t3",
@@ -1389,6 +1404,7 @@ def test_get_playlist(config: Config) -> None:
             disctotal=1,
             duration_seconds=120,
             artists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
+            metahash="3",
         ),
     ]
 

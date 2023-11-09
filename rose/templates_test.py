@@ -28,6 +28,7 @@ EMPTY_CACHED_RELEASE = CachedRelease(
     genres=[],
     labels=[],
     artists=ArtistMapping(),
+    metahash="0",
 )
 
 EMPTY_CACHED_TRACK = CachedTrack(
@@ -42,6 +43,7 @@ EMPTY_CACHED_TRACK = CachedTrack(
     disctotal=1,
     duration_seconds=0,
     artists=ArtistMapping(),
+    metahash="0",
 )
 
 

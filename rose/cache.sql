@@ -32,6 +32,9 @@ CREATE TABLE releases (
     year INTEGER,
     -- Disctotal is also denormalized on the track.
     disctotal INTEGER NOT NULL,
+    -- A sha256() of the release object, which can be used as a performant cache
+    -- key.
+    metahash TEXT NOT NULL UNIQUE,
     new BOOLEAN NOT NULL DEFAULT true
 );
 CREATE INDEX releases_source_path ON releases(source_path);
@@ -77,7 +80,10 @@ CREATE TABLE tracks (
     discnumber TEXT NOT NULL,
     -- Disctotal is also denormalized on the release.
     disctotal INTEGER NOT NULL,
-    duration_seconds INTEGER NOT NULL
+    duration_seconds INTEGER NOT NULL,
+    -- A sha256 of the release object, which can be used as a performant cache
+    -- key.
+    metahash TEXT NOT NULL UNIQUE
 );
 CREATE INDEX tracks_source_path ON tracks(source_path);
 CREATE INDEX tracks_release_id ON tracks(release_id);
@@ -222,6 +228,7 @@ CREATE VIEW releases_view AS
       , r.year
       , r.disctotal
       , r.new
+      , r.metahash
       , COALESCE(g.genres, '') AS genres
       , COALESCE(l.labels, '') AS labels
       , COALESCE(a.names, '') AS artist_names
@@ -251,6 +258,7 @@ CREATE VIEW tracks_view AS
       , t.discnumber
       , t.disctotal
       , t.duration_seconds
+      , t.metahash
       , COALESCE(a.names, '') AS artist_names
       , COALESCE(a.roles, '') AS artist_roles
     FROM tracks t

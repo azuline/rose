@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import collections
 import contextlib
-import dataclasses
 import errno
 import logging
 import os
@@ -99,7 +98,7 @@ from rose.releases import (
     set_release_cover_art,
     toggle_release_new,
 )
-from rose.templates import eval_release_template, eval_track_template
+from rose.templates import PathTemplate, eval_release_template, eval_track_template
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +111,7 @@ POSITION_REGEX = re.compile(r"^([^.]+)\. ")
 ADDED_AT_REGEX = re.compile(r"^\[[\d-]{10}\] ")
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class VirtualPath:
     view: (
         Literal[
@@ -135,9 +134,6 @@ class VirtualPath:
     playlist: str | None = None
     release: str | None = None
     file: str | None = None
-
-    def __hash__(self) -> int:
-        return hash(dataclasses.astuple(self))
 
     @property
     def release_parent(self) -> VirtualPath:
@@ -305,6 +301,9 @@ class VirtualNameGenerator:
         # We also track the what the "inverse" new-ness paths are for a release. This allows us to
         # handle toggle-new operations by comparing the new directory name against the inverse.
         self._inverse_new_store: cachetools.TTLCache[tuple[VirtualPath, str], str] = cachetools.TTLCache(maxsize=9999999, ttl=60 * 15)
+        # Cache template evaluations because they're expensive.
+        self._release_template_eval_cache: dict[tuple[VirtualPath, PathTemplate, str, str | None], tuple[str, str]] = {}
+        self._track_template_eval_cache: dict[tuple[VirtualPath, PathTemplate, str, str | None], str] = {}
         # fmt: on
 
     def list_release_paths(
@@ -340,22 +339,37 @@ class VirtualNameGenerator:
             else:
                 raise RoseError(f"VNAMES: No release template found for {release_parent=}.")
 
+            logtext = calculate_release_logtext(
+                title=release.title,
+                year=release.year,
+                artists=release.artists,
+            )
+
             # Generate a position if we're in a collage.
             position = None
             if release_parent.collage:
                 position = f"{str(idx+1).zfill(prefix_pad_size)}"
+
             # Generate the virtual name.
             time_start = time.time()
-            vname = eval_release_template(template, release, position)
-            vname = sanitize_filename(vname)
-            # Generate the inverse new virtual name for toggle new checking.
-            inverse_new_release = deepcopy(release)
-            inverse_new_release.new = not release.new
-            inverse_new_vname = eval_release_template(template, inverse_new_release, position)
-            inverse_new_vname = sanitize_filename(inverse_new_vname)
-            logger.debug(
-                f"VNAMES: Time cost of generating the virtual dirname: {time.time()-time_start=} seconds"
-            )
+            cachekey = (release_parent, template, release.metahash, position)
+            try:
+                vname, inverse_new_vname = self._release_template_eval_cache[cachekey]
+                logger.debug(
+                    f"VNAMES: Reused cached virtual dirname {vname} for release {logtext} in {time.time()-time_start} seconds"
+                )
+            except KeyError:
+                vname = eval_release_template(template, release, position)
+                vname = sanitize_filename(vname)
+                # Generate the inverse new virtual name for toggle new checking.
+                inverse_new_release = deepcopy(release)
+                inverse_new_release.new = not release.new
+                inverse_new_vname = eval_release_template(template, inverse_new_release, position)
+                inverse_new_vname = sanitize_filename(inverse_new_vname)
+                self._release_template_eval_cache[cachekey] = vname, inverse_new_vname
+                logger.debug(
+                    f"VNAMES: Generated virtual dirname {vname} for release {logtext} in {time.time()-time_start} seconds"
+                )
 
             # Handle name collisions by appending a unique discriminator to the end.
             original_vname = vname
@@ -368,13 +382,7 @@ class VirtualNameGenerator:
                 vname = f"{original_vname} [{collision_no}]"
                 inverse_new_vname = f"{original_inverse_new_vname} [{collision_no}]"
                 collision_no += 1
-
-            logtext = calculate_release_logtext(
-                title=release.title,
-                year=release.year,
-                artists=release.artists,
-            )
-            logger.debug(f"VNAMES: Generated virtual dirname {vname} for release {logtext}")
+                logger.debug(f"VNAMES: Added collision number to virtual dirname {vname}")
 
             # Store the generated release name in the cache.
             time_start = time.time()
@@ -382,7 +390,7 @@ class VirtualNameGenerator:
             self._inverse_new_store[(release_parent, vname)] = inverse_new_vname
             seen.add(vname)
             logger.debug(
-                f"VNAMES: Time cost of caching the virtual dirname: {time.time()-time_start=} seconds"
+                f"VNAMES: Time cost of storing the virtual dirname: {time.time()-time_start=} seconds"
             )
 
             yield release, vname
@@ -421,13 +429,28 @@ class VirtualNameGenerator:
             else:
                 raise RoseError(f"VNAMES: No track template found for {track_parent=}.")
 
+            logtext = calculate_track_logtext(
+                title=track.title,
+                artists=track.artists,
+                suffix=track.source_path.suffix,
+            )
+
             # Generate a position if we're in a playlist.
             position = None
             if track_parent.playlist:
                 position = f"{str(idx+1).zfill(prefix_pad_size)}"
             # Generate the virtual filename.
-            vname = eval_track_template(template, track, position)
-            vname = sanitize_filename(vname)
+            time_start = time.time()
+            cachekey = (track_parent, template, track.metahash, position)
+            try:
+                vname = self._track_template_eval_cache[cachekey]
+            except KeyError:
+                vname = eval_track_template(template, track, position)
+                vname = sanitize_filename(vname)
+                logger.debug(
+                    f"VNAMES: Generated virtual filename {vname} for track {logtext} in {time.time() - time_start} seconds"
+                )
+                self._track_template_eval_cache[cachekey] = vname
 
             # And in case of a name collision, add an extra number at the end. Iterate to find
             # the first unused number.
@@ -440,18 +463,16 @@ class VirtualNameGenerator:
                 pov = Path(original_vname)
                 vname = f"{pov.stem} [{collision_no}]{pov.suffix}"
                 collision_no += 1
+                logger.debug(f"VNAMES: Added collision number to virtual filepath {vname}")
             seen.add(vname)
-
-            logtext = calculate_track_logtext(
-                title=track.title,
-                artists=track.artists,
-                suffix=track.source_path.suffix,
-            )
-            logger.debug(f"VNAMES: Generated virtual filename {vname} for track {logtext}")
 
             # Store the generated track name in the cache.
+            time_start = time.time()
             self._track_store[(track_parent, vname)] = track.id
             seen.add(vname)
+            logger.debug(
+                f"VNAMES: Time cost of storing the virtual filename: {time.time()-time_start=} seconds"
+            )
 
             yield track, vname
 

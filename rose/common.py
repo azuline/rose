@@ -4,6 +4,7 @@ _typically_ a bad idea, we have few enough things in it that it's OK for now.
 """
 
 import dataclasses
+import hashlib
 import re
 import uuid
 from collections.abc import Iterator
@@ -90,3 +91,24 @@ def sanitize_filename(x: str) -> str:
     """
     x = ILLEGAL_FS_CHARS_REGEX.sub("_", x)
     return x.encode("utf-8")[:240].decode("utf-8", "ignore")
+
+
+def sha256_dataclass(dc: Any) -> str:
+    hasher = hashlib.sha256()
+    _rec_sha256_dataclass(hasher, dc)
+    return hasher.hexdigest()
+
+
+def _rec_sha256_dataclass(hasher: Any, value: Any) -> None:
+    if dataclasses.is_dataclass(value):
+        for field in sorted(value.__dataclass_fields__):  # Sort the fields for consistent order
+            _rec_sha256_dataclass(hasher, getattr(value, field))
+    elif isinstance(value, list):
+        for item in value:
+            _rec_sha256_dataclass(hasher, item)
+    elif isinstance(value, dict):
+        for k, v in sorted(value.items()):  # Sort the keys for consistent order
+            hasher.update(str(k).encode())
+            _rec_sha256_dataclass(hasher, v)
+    else:
+        hasher.update(str(value).encode())
