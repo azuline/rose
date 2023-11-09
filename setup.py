@@ -15,7 +15,6 @@ setuptools.setup(
     package_data={"rose": ["*.sql", ".version"]},
     install_requires=[
         "appdirs",
-        "cachetools",
         "click",
         "jinja2",
         "llfuse",

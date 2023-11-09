@@ -3,28 +3,30 @@ The virtualfs module renders a virtual filesystem from the read cache. It is wri
 Object-Oriented style, against my typical sensibilities, because that's how the FUSE libraries tend
 to be implemented. But it's OK :)
 
-Since this is a pretty hefty module, we'll cover the organization. This module contains 7 classes:
+Since this is a pretty hefty module, we'll cover the organization. This module contains 8 classes:
 
-1. VirtualPath: A semantic representation of a path in the virtual filesystem along with a parser.
+1. TTLCache: A wrapper around dict that expires key/value pairs after a given TTL.
+
+2. VirtualPath: A semantic representation of a path in the virtual filesystem along with a parser.
    All virtual filesystem paths are parsed by this class into a far more ergonomic dataclass.
 
-2. VirtualNameGenerator: A class that generates virtual directory and filenames given releases and
+3. VirtualNameGenerator: A class that generates virtual directory and filenames given releases and
    tracks, and maintains inverse mappings for resolving release IDs from virtual paths.
 
-3. "CanShow"er: An abstraction that encapsulates the logic of whether an artist, genre, or label
+4. "CanShow"er: An abstraction that encapsulates the logic of whether an artist, genre, or label
    should be shown in their respective virtual views, based on the whitelist/blacklist configuration
    parameters.
 
-4. FileHandleGenerator: A class that keeps generates new file handles. It is a counter that wraps
-   back to 4 when the file handles exceed ~10k, as to avoid any overflows.
+5. FileHandleGenerator: A class that keeps generates new file handles. It is a counter that wraps
+   back to 5 when the file handles exceed ~10k, as to avoid any overflows.
 
-5. RoseLogicalCore: A logical representation of Rose's filesystem logic, freed from the annoying
+6. RoseLogicalCore: A logical representation of Rose's filesystem logic, freed from the annoying
    implementation details that a low-level library like `llfuse` comes with.
 
-6. INodeMapper: A class that tracks the INode <-> Path mappings. It is used to convert inodes to
+7. INodeMapper: A class that tracks the INode <-> Path mappings. It is used to convert inodes to
    paths in VirtualFS.
 
-7. VirtualFS: The main Virtual Filesystem class, which manages the annoying implementation details
+8. VirtualFS: The main Virtual Filesystem class, which manages the annoying implementation details
    of a low-level virtual filesystem, and delegates logic to the above classes. It uses INodeMapper
    and VirtualPath to translate inodes into semantically useful dataclasses, and then passes them
    into RoseLogicalCore.
@@ -47,9 +49,8 @@ from collections.abc import Iterator
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Generic, Literal, TypeVar
 
-import cachetools
 import llfuse
 
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
@@ -101,6 +102,52 @@ from rose.releases import (
 from rose.templates import PathTemplate, eval_release_template, eval_track_template
 
 logger = logging.getLogger(__name__)
+
+K = TypeVar("K")
+V = TypeVar("V")
+T = TypeVar("T")
+
+
+class TTLCache(Generic[K, V]):
+    """
+    TTLCache is a dictionary with a time-to-live (TTL) for each key/value pair. After the TTL
+    passes, the key/value pair is no longer accessible.
+
+    We do not currently free entries in this cache, because we expect little churn to occur in
+    entries in normal operation. We do not have a great time to clear the cache that does not affect
+    performance. We will probably implement freeing entries later when we give more of a shit or
+    someone complains about the memory usage. I happen to have a lot of free RAM!
+    """
+
+    def __init__(self, ttl_seconds: int = 5):
+        self.ttl_seconds = ttl_seconds
+        self.__backing: dict[K, tuple[V, float]] = {}
+
+    def __contains__(self, key: K) -> bool:
+        try:
+            _, insert_time = self.__backing[key]
+        except KeyError:
+            return False
+        return time.time() - insert_time <= self.ttl_seconds
+
+    def __getitem__(self, key: K) -> V:
+        v, insert_time = self.__backing[key]
+        if time.time() - insert_time > self.ttl_seconds:
+            raise KeyError(key)
+        return v
+
+    def __setitem__(self, key: K, value: V) -> None:
+        self.__backing[key] = (value, time.time())
+
+    def __delitem__(self, key: K) -> None:
+        del self.__backing[key]
+
+    def get(self, key: K, default: T) -> V | T:
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
 
 # In collages, playlists, and releases, we print directories with position of the release/track in
 # the collage. When parsing, strip it out. Otherwise we will have to handle this parsing in every
@@ -296,11 +343,11 @@ class VirtualNameGenerator:
         #
         # Entries expire after 15 minutes, which implements the "serve accesses to previous paths"
         # behavior as specified in the class docstring.
-        self._release_store: cachetools.TTLCache[tuple[VirtualPath, str], str] = cachetools.TTLCache(maxsize=999999, ttl=60 * 15)
-        self._track_store: cachetools.TTLCache[tuple[VirtualPath, str], str] = cachetools.TTLCache(maxsize=9999999, ttl=60 * 15)
+        self._release_store: TTLCache[tuple[VirtualPath, str], str] = TTLCache(ttl_seconds=60 * 15)
+        self._track_store: TTLCache[tuple[VirtualPath, str], str] = TTLCache(ttl_seconds=60 * 15)
         # We also track the what the "inverse" new-ness paths are for a release. This allows us to
         # handle toggle-new operations by comparing the new directory name against the inverse.
-        self._inverse_new_store: cachetools.TTLCache[tuple[VirtualPath, str], str] = cachetools.TTLCache(maxsize=9999999, ttl=60 * 15)
+        self._inverse_new_store: TTLCache[tuple[VirtualPath, str], str] = TTLCache(ttl_seconds=60 * 15)
         # Cache template evaluations because they're expensive.
         self._release_template_eval_cache: dict[tuple[VirtualPath, PathTemplate, str, str | None], tuple[str, str]] = {}
         self._track_template_eval_cache: dict[tuple[VirtualPath, PathTemplate, str, str | None], str] = {}
@@ -483,7 +530,7 @@ class VirtualNameGenerator:
             # Bumps the expiration time for another 15 minutes.
             r = self._release_store[(p.release_parent, p.release)]
             logger.debug(f"VNAMES: Successfully resolved release virtual name {p} to {r}")
-            return r  # type: ignore
+            return r
         except KeyError:
             logger.debug(f"VNAMES: Failed to resolve release virtual name {p}")
             return None
@@ -495,7 +542,7 @@ class VirtualNameGenerator:
             # Bumps the expiration time for another 15 minutes.
             r = self._track_store[(p.track_parent, p.file)]
             logger.debug(f"VNAMES: Successfully resolved track virtual name {p} to {r}")
-            return r  # type: ignore
+            return r
         except KeyError:
             logger.debug(f"VNAMES: Failed to resolve track virtual name {p}")
             return None
@@ -1299,8 +1346,8 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         # results from being read from it.
         #
         # The dict is a map of paths to entry attributes.
-        self.getattr_cache: cachetools.TTLCache[int, llfuse.EntryAttributes]
-        self.lookup_cache: cachetools.TTLCache[tuple[int, bytes], llfuse.EntryAttributes]
+        self.getattr_cache: TTLCache[int, llfuse.EntryAttributes]
+        self.lookup_cache: TTLCache[tuple[int, bytes], llfuse.EntryAttributes]
         self.reset_getattr_caches()
         # We handle state for readdir calls here. Because programs invoke readdir multiple times
         # with offsets, we end up with many readdir calls for a single directory. However, we do not
@@ -1323,9 +1370,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         # filesystem, we have these ghost files that exist for a period of time following an
         # operation.
         # All values in this maps are `true`; we just don't have TTLSet :)
-        self.ghost_existing_files: cachetools.TTLCache[str, bool] = cachetools.TTLCache(
-            maxsize=9999, ttl=5
-        )
+        self.ghost_existing_files: TTLCache[str, bool] = TTLCache(ttl_seconds=5)
         # We support adding releases to collages by "copying" a release directory into the collage
         # directory. What we actually do is:
         #
@@ -1334,15 +1379,13 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         #    routed to /dev/null.
         # 3. If we receive an O_CREAT open for a `.rose.{uuid}.toml` file, forward that to
         #    RoseLogicalCore so it can handle the release addition to collage.
-        self.in_progress_collage_additions: cachetools.TTLCache[str, bool] = cachetools.TTLCache(
-            maxsize=9999, ttl=5
-        )
+        self.in_progress_collage_additions: TTLCache[str, bool] = TTLCache(ttl_seconds=5)
 
     def reset_getattr_caches(self) -> None:
         # When a write happens, clear these caches. These caches are very short-lived and intended
         # to make readdir's subsequent getattrs more performant, so this is harmless.
-        self.getattr_cache = cachetools.TTLCache(maxsize=99999, ttl=1)
-        self.lookup_cache = cachetools.TTLCache(maxsize=99999, ttl=1)
+        self.getattr_cache = TTLCache(ttl_seconds=1)
+        self.lookup_cache = TTLCache(ttl_seconds=1)
 
     def make_entry_attributes(self, attrs: dict[str, Any]) -> llfuse.EntryAttributes:
         for k, v in self.default_attrs.items():

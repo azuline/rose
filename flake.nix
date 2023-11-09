@@ -28,7 +28,6 @@
       };
       prod-deps = with python.pkgs; [
         appdirs
-        cachetools
         click
         jinja2
         llfuse
