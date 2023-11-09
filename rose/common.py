@@ -32,7 +32,7 @@ class Artist:
     alias: bool = False
 
     def __hash__(self) -> int:
-        return hash(f"{self.name}+{self.alias}")
+        return hash((self.name, self.alias))
 
 
 @dataclasses.dataclass

@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import collections
 import contextlib
+import dataclasses
 import errno
 import logging
 import os
@@ -42,6 +43,7 @@ import re
 import stat
 import subprocess
 import tempfile
+import time
 from collections.abc import Iterator
 from copy import deepcopy
 from dataclasses import dataclass
@@ -135,9 +137,7 @@ class VirtualPath:
     file: str | None = None
 
     def __hash__(self) -> int:
-        return hash(
-            f"{self.view}+{self.artist}+{self.genre}+{self.label}+{self.collage}+{self.playlist}+{self.release}+{self.file}"
-        )
+        return hash(dataclasses.astuple(self))
 
     @property
     def release_parent(self) -> VirtualPath:
@@ -293,9 +293,8 @@ class VirtualNameGenerator:
     """
 
     def __init__(self, config: Config):
-        self._config = config
         # fmt: off
-        #
+        self._config = config
         # These are the stateful maps that we use to remember path mappings. They are maps from the
         # (parent_path, virtual path) -> entity ID.
         #
@@ -345,15 +344,18 @@ class VirtualNameGenerator:
             position = None
             if release_parent.collage:
                 position = f"{str(idx+1).zfill(prefix_pad_size)}"
-
-            # Generate the directory name.
+            # Generate the virtual name.
+            time_start = time.time()
             vname = eval_release_template(template, release, position)
             vname = sanitize_filename(vname)
-            # And generate the inverse new virtual name for toggle new checking.
+            # Generate the inverse new virtual name for toggle new checking.
             inverse_new_release = deepcopy(release)
             inverse_new_release.new = not release.new
             inverse_new_vname = eval_release_template(template, inverse_new_release, position)
             inverse_new_vname = sanitize_filename(inverse_new_vname)
+            logger.debug(
+                f"VNAMES: Time cost of generating the virtual dirname: {time.time()-time_start=} seconds"
+            )
 
             # Handle name collisions by appending a unique discriminator to the end.
             original_vname = vname
@@ -375,9 +377,13 @@ class VirtualNameGenerator:
             logger.debug(f"VNAMES: Generated virtual dirname {vname} for release {logtext}")
 
             # Store the generated release name in the cache.
+            time_start = time.time()
             self._release_store[(release_parent, vname)] = release.id
             self._inverse_new_store[(release_parent, vname)] = inverse_new_vname
             seen.add(vname)
+            logger.debug(
+                f"VNAMES: Time cost of caching the virtual dirname: {time.time()-time_start=} seconds"
+            )
 
             yield release, vname
 
@@ -419,8 +425,7 @@ class VirtualNameGenerator:
             position = None
             if track_parent.playlist:
                 position = f"{str(idx+1).zfill(prefix_pad_size)}"
-
-            # Generate the main track filename.
+            # Generate the virtual filename.
             vname = eval_track_template(template, track, position)
             vname = sanitize_filename(vname)
 
@@ -454,10 +459,9 @@ class VirtualNameGenerator:
         """Given a release path, return the associated release ID."""
         assert p.release is not None
         try:
+            # Bumps the expiration time for another 15 minutes.
             r = self._release_store[(p.release_parent, p.release)]
             logger.debug(f"VNAMES: Successfully resolved release virtual name {p} to {r}")
-            # Bump the expiration time for another 15 minutes.
-            self._release_store[(p.release_parent, p.release)] = r
             return r  # type: ignore
         except KeyError:
             logger.debug(f"VNAMES: Failed to resolve release virtual name {p}")
@@ -467,10 +471,9 @@ class VirtualNameGenerator:
         """Given a track path, return the associated track ID."""
         assert p.file is not None
         try:
+            # Bumps the expiration time for another 15 minutes.
             r = self._track_store[(p.track_parent, p.file)]
             logger.debug(f"VNAMES: Successfully resolved track virtual name {p} to {r}")
-            # Bump the expiration time for another 15 minutes.
-            self._track_store[(p.track_parent, p.file)] = r
             return r  # type: ignore
         except KeyError:
             logger.debug(f"VNAMES: Failed to resolve track virtual name {p}")
