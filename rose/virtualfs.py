@@ -83,7 +83,7 @@ from rose.collages import (
     remove_release_from_collage,
     rename_collage,
 )
-from rose.common import RoseError, sanitize_filename
+from rose.common import RoseError, sanitize_dirname, sanitize_filename
 from rose.config import Config
 from rose.playlists import (
     add_track_to_playlist,
@@ -407,12 +407,12 @@ class VirtualNameGenerator:
                 )
             except KeyError:
                 vname = eval_release_template(template, release, position)
-                vname = sanitize_filename(vname)
+                vname = sanitize_dirname(vname)
                 # Generate the inverse new virtual name for toggle new checking.
                 inverse_new_release = deepcopy(release)
                 inverse_new_release.new = not release.new
                 inverse_new_vname = eval_release_template(template, inverse_new_release, position)
-                inverse_new_vname = sanitize_filename(inverse_new_vname)
+                inverse_new_vname = sanitize_dirname(inverse_new_vname)
                 self._release_template_eval_cache[cachekey] = vname, inverse_new_vname
                 logger.debug(
                     f"VNAMES: Generated virtual dirname {vname} for release {logtext} in {time.time()-time_start} seconds"

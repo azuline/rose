@@ -85,15 +85,21 @@ def uniq(xs: list[T]) -> list[T]:
 ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]+')
 
 
-def sanitize_filename(filename: str) -> str:
+def sanitize_dirname(filename: str) -> str:
     """
     Replace illegal characters and truncate. We have 255 bytes in ext4, and we truncate to 240 in
     order to leave room for any collision numbers.
     """
+    filename = ILLEGAL_FS_CHARS_REGEX.sub("_", filename)
+    return filename.encode("utf-8")[:240].decode("utf-8", "ignore")
+
+
+def sanitize_filename(filename: str) -> str:
+    """Same as sanitize dirname, except we preserve file extension."""
     # Preserve the extension.
     stem, ext = os.path.splitext(filename)
     # But ignore if the extension is longer than 6 characters; that means it's probably bullshit.
-    if len(ext) > 6:
+    if len(ext.encode()) > 6:
         stem = filename
         ext = ""
     stem = ILLEGAL_FS_CHARS_REGEX.sub("_", stem)

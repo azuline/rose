@@ -49,7 +49,15 @@ import tomllib
 import uuid6
 
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
-from rose.common import VERSION, Artist, ArtistMapping, sanitize_filename, sha256_dataclass, uniq
+from rose.common import (
+    VERSION,
+    Artist,
+    ArtistMapping,
+    sanitize_dirname,
+    sanitize_filename,
+    sha256_dataclass,
+    uniq,
+)
 from rose.config import Config
 from rose.templates import artistsfmt, eval_release_template, eval_track_template
 
@@ -857,7 +865,7 @@ def _update_cache_for_releases_executor(
         if c.rename_source_files:
             if release_dirty:
                 wanted_dirname = eval_release_template(c.path_templates.source.release, release)
-                wanted_dirname = sanitize_filename(wanted_dirname)
+                wanted_dirname = sanitize_dirname(wanted_dirname)
                 # Iterate until we've either:
                 # 1. Realized that the name of the source path matches the desired dirname (which we
                 #    may not realize immediately if there are name conflicts).
@@ -948,14 +956,14 @@ def _update_cache_for_releases_executor(
             )
             upd_release_ids.append(release.id)
             for pos, genre in enumerate(release.genres):
-                upd_release_genre_args.append([release.id, genre, sanitize_filename(genre), pos])
+                upd_release_genre_args.append([release.id, genre, sanitize_dirname(genre), pos])
             for pos, label in enumerate(release.labels):
-                upd_release_label_args.append([release.id, label, sanitize_filename(label), pos])
+                upd_release_label_args.append([release.id, label, sanitize_dirname(label), pos])
             pos = 0
             for role, artists in release.artists.items():
                 for art in artists:
                     upd_release_artist_args.append(
-                        [release.id, art.name, sanitize_filename(art.name), role, pos]
+                        [release.id, art.name, sanitize_dirname(art.name), role, pos]
                     )
                     pos += 1
 
@@ -984,7 +992,7 @@ def _update_cache_for_releases_executor(
                 for role, artists in track.artists.items():
                     for art in artists:
                         upd_track_artist_args.append(
-                            [track.id, art.name, sanitize_filename(art.name), role, pos]
+                            [track.id, art.name, sanitize_dirname(art.name), role, pos]
                         )
                         pos += 1
     logger.debug(f"Release update scheduling loop time {time.time() - loop_start=}")

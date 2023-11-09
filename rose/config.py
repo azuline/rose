@@ -20,7 +20,7 @@ from typing import Any
 import appdirs
 import tomllib
 
-from rose.common import RoseExpectedError, sanitize_filename
+from rose.common import RoseExpectedError, sanitize_dirname
 from rose.rule_parser import MetadataRule, RuleSyntaxError
 from rose.templates import (
     DEFAULT_TEMPLATE_PAIR,
@@ -476,8 +476,8 @@ class Config:
 
     @functools.cached_property
     def sanitized_artist_aliases_map(self) -> dict[str, list[str]]:
-        return {sanitize_filename(k): v for k, v in self.artist_aliases_map.items()}
+        return {sanitize_dirname(k): v for k, v in self.artist_aliases_map.items()}
 
     @functools.cached_property
     def sanitized_artist_aliases_parents_map(self) -> dict[str, list[str]]:
-        return {sanitize_filename(k): v for k, v in self.artist_aliases_parents_map.items()}
+        return {sanitize_dirname(k): v for k, v in self.artist_aliases_parents_map.items()}
