@@ -1117,7 +1117,9 @@ def _update_cache_for_releases_executor(
                   , title                      = excluded.title
                   , release_id                 = excluded.release_id
                   , tracknumber                = excluded.tracknumber
+                  , tracktotal                 = excluded.tracktotal
                   , discnumber                 = excluded.discnumber
+                  , disctotal                  = excluded.disctotal
                   , duration_seconds           = excluded.duration_seconds
                   , metahash                   = excluded.metahash
                 """,
