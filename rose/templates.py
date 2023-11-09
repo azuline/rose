@@ -332,6 +332,7 @@ def _preview_release_template(c: Config, label: str, template: PathTemplate) -> 
         genres=["K-Pop", "Dance-Pop", "Contemporary R&B"],
         labels=["BlockBerryCreative"],
         artists=ArtistMapping(main=[Artist("Kim Lip")]),
+        metahash="0",
     )
     click.secho(eval_release_template(template, release, "1"))
 
@@ -350,6 +351,7 @@ def _preview_release_template(c: Config, label: str, template: PathTemplate) -> 
         genres=["K-Pop"],
         labels=["BIGHIT"],
         artists=ArtistMapping(main=[Artist("BTS")]),
+        metahash="0",
     )
     click.secho(eval_release_template(template, release, "2"))
 
@@ -373,6 +375,7 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         disctotal=1,
         duration_seconds=230,
         artists=ArtistMapping(main=[Artist("Kim Lip")]),
+        metahash="0",
     )
     click.secho(eval_track_template(template, track, "1"))
 
@@ -391,5 +394,6 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         disctotal=2,
         duration_seconds=226,
         artists=ArtistMapping(main=[Artist("BTS")]),
+        metahash="0",
     )
     click.secho(eval_track_template(template, track, "2"))

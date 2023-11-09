@@ -49,7 +49,7 @@ import tomllib
 import uuid6
 
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
-from rose.common import VERSION, Artist, ArtistMapping, sanitize_filename, uniq
+from rose.common import VERSION, Artist, ArtistMapping, sanitize_filename, sha256_dataclass, uniq
 from rose.config import Config
 from rose.templates import artistsfmt, eval_release_template, eval_track_template
 
@@ -204,6 +204,7 @@ class CachedRelease:
     genres: list[str]
     labels: list[str]
     artists: ArtistMapping
+    metahash: str
 
     def dump(self) -> dict[str, Any]:
         return {
@@ -236,8 +237,8 @@ class CachedTrack:
     discnumber: str
     disctotal: int
     duration_seconds: int
-
     artists: ArtistMapping
+    metahash: str
 
     def dump(self) -> dict[str, Any]:
         return {
@@ -470,6 +471,7 @@ def _update_cache_for_releases_executor(
               , labels
               , artist_names
               , artist_roles
+              , metahash
             FROM releases_view
             WHERE id IN ({','.join(['?']*len(release_uuids))})
             """,
@@ -495,6 +497,7 @@ def _update_cache_for_releases_executor(
                     artists=_unpack_artists(
                         c, row["artist_names"], row["artist_roles"], aliases=False
                     ),
+                    metahash=row["metahash"],
                 ),
                 {},
             )
@@ -516,6 +519,7 @@ def _update_cache_for_releases_executor(
               , duration_seconds
               , artist_names
               , artist_roles
+              , metahash
             FROM tracks_view
             WHERE release_id IN ({','.join(['?']*len(release_uuids))})
             """,
@@ -535,6 +539,7 @@ def _update_cache_for_releases_executor(
                 disctotal=row["disctotal"],
                 duration_seconds=row["duration_seconds"],
                 artists=_unpack_artists(c, row["artist_names"], row["artist_roles"], aliases=False),
+                metahash=row["metahash"],
             )
             num_tracks_found += 1
         logger.debug(f"Found {num_tracks_found} tracks in cache")
@@ -599,6 +604,7 @@ def _update_cache_for_releases_executor(
                 genres=[],
                 labels=[],
                 artists=ArtistMapping(),
+                metahash="",
             )
             cached_tracks = {}
 
@@ -823,6 +829,7 @@ def _update_cache_for_releases_executor(
                 # This is calculated with the virtual filename.
                 duration_seconds=tags.duration_sec,
                 artists=tags.trackartists,
+                metahash="",
             )
             tracks.append(track)
             track_ids_to_insert.add(track.id)
@@ -936,6 +943,7 @@ def _update_cache_for_releases_executor(
                     release.year,
                     release.disctotal,
                     release.new,
+                    sha256_dataclass(release),
                 ]
             )
             upd_release_ids.append(release.id)
@@ -968,6 +976,7 @@ def _update_cache_for_releases_executor(
                         track.discnumber,
                         track.disctotal,
                         track.duration_seconds,
+                        sha256_dataclass(track),
                     ]
                 )
                 upd_track_ids.append(track.id)
@@ -1012,7 +1021,8 @@ def _update_cache_for_releases_executor(
                   , year
                   , disctotal
                   , new
-                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
+                  , metahash
+                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
                 ON CONFLICT (id) DO UPDATE SET
                     source_path      = excluded.source_path
                   , cover_image_path = excluded.cover_image_path
@@ -1023,6 +1033,7 @@ def _update_cache_for_releases_executor(
                   , year             = excluded.year
                   , disctotal        = excluded.disctotal
                   , new              = excluded.new
+                  , metahash         = excluded.metahash
                 """,
                 _flatten(upd_release_args),
             )
@@ -1085,16 +1096,18 @@ def _update_cache_for_releases_executor(
                   , discnumber
                   , disctotal
                   , duration_seconds
+                  , metahash
                 )
-                VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
+                VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
                 ON CONFLICT (id) DO UPDATE SET
                     source_path                = excluded.source_path
                   , source_mtime               = excluded.source_mtime
                   , title                      = excluded.title
                   , release_id                 = excluded.release_id
-                  , tracknumber               = excluded.tracknumber
-                  , discnumber                = excluded.discnumber
+                  , tracknumber                = excluded.tracknumber
+                  , discnumber                 = excluded.discnumber
                   , duration_seconds           = excluded.duration_seconds
+                  , metahash                   = excluded.metahash
                 """,
                 _flatten(upd_track_args),
             )
@@ -1655,6 +1668,7 @@ def list_releases_delete_this(
               , labels
               , artist_names
               , artist_roles
+              , metahash
             FROM releases_view
             WHERE 1=1
         """
@@ -1711,6 +1725,7 @@ def list_releases_delete_this(
                     genres=_split(row["genres"]),
                     labels=_split(row["labels"]),
                     artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                    metahash=row["metahash"],
                 )
             )
         return releases
@@ -1734,6 +1749,7 @@ def list_releases(c: Config, release_ids: list[str] | None = None) -> list[Cache
           , labels
           , artist_names
           , artist_roles
+          , metahash
         FROM releases_view
     """
     args = []
@@ -1762,6 +1778,7 @@ def list_releases(c: Config, release_ids: list[str] | None = None) -> list[Cache
                     genres=_split(row["genres"]),
                     labels=_split(row["labels"]),
                     artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                    metahash=row["metahash"],
                 )
             )
         return releases
@@ -1786,6 +1803,7 @@ def get_release(c: Config, release_id: str) -> CachedRelease | None:
               , labels
               , artist_names
               , artist_roles
+              , metahash
             FROM releases_view
             WHERE id = ?
             """,
@@ -1808,6 +1826,7 @@ def get_release(c: Config, release_id: str) -> CachedRelease | None:
             genres=_split(row["genres"]) if row["genres"] else [],
             labels=_split(row["labels"]) if row["labels"] else [],
             artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+            metahash=row["metahash"],
         )
 
 
@@ -1843,6 +1862,7 @@ def get_releases_associated_with_tracks(
               , labels
               , artist_names
               , artist_roles
+              , metahash
             FROM releases_view
             WHERE id IN ({','.join(['?']*len(release_ids))})
             """,
@@ -1864,6 +1884,7 @@ def get_releases_associated_with_tracks(
                 genres=_split(row["genres"]),
                 labels=_split(row["labels"]),
                 artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                metahash=row["metahash"],
             )
 
     rval = []
@@ -1920,6 +1941,7 @@ def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[CachedTra
           , duration_seconds
           , artist_names
           , artist_roles
+          , metahash
         FROM tracks_view
     """
     args = []
@@ -1944,6 +1966,7 @@ def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[CachedTra
                     disctotal=row["disctotal"],
                     duration_seconds=row["duration_seconds"],
                     artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                    metahash=row["metahash"],
                 )
             )
         return rval
@@ -1966,6 +1989,7 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
               , duration_seconds
               , artist_names
               , artist_roles
+              , metahash
             FROM tracks_view
             WHERE id = ?
             """,
@@ -1986,6 +2010,7 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
             disctotal=row["disctotal"],
             duration_seconds=row["duration_seconds"],
             artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+            metahash=row["metahash"],
         )
 
 
@@ -2010,6 +2035,7 @@ def get_tracks_associated_with_release(
               , duration_seconds
               , artist_names
               , artist_roles
+              , metahash
             FROM tracks_view
             WHERE release_id = ?
             ORDER BY release_id, FORMAT('%4d.%4d', discnumber, tracknumber)
@@ -2031,6 +2057,7 @@ def get_tracks_associated_with_release(
                     disctotal=row["disctotal"],
                     duration_seconds=row["duration_seconds"],
                     artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                    metahash=row["metahash"],
                 )
             )
         return rval
@@ -2058,6 +2085,7 @@ def get_tracks_associated_with_releases(
               , duration_seconds
               , artist_names
               , artist_roles
+              , metahash
             FROM tracks_view
             WHERE release_id IN ({','.join(['?']*len(releases))})
             ORDER BY release_id, FORMAT('%4d.%4d', discnumber, tracknumber)
@@ -2078,6 +2106,7 @@ def get_tracks_associated_with_releases(
                     disctotal=row["disctotal"],
                     duration_seconds=row["duration_seconds"],
                     artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                    metahash=row["metahash"],
                 )
             )
 
@@ -2154,6 +2183,7 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
               , t.duration_seconds
               , t.artist_names
               , t.artist_roles
+              , t.metahash
             FROM tracks_view t
             JOIN playlists_tracks pt ON pt.track_id = t.id
             WHERE pt.playlist_name = ? AND NOT pt.missing
@@ -2177,6 +2207,7 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
                     disctotal=row["disctotal"],
                     duration_seconds=row["duration_seconds"],
                     artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                    metahash=row["metahash"],
                 )
             )
 
@@ -2221,6 +2252,7 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
               , r.labels
               , r.artist_names
               , r.artist_roles
+              , r.metahash
             FROM releases_view r
             JOIN collages_releases cr ON cr.release_id = r.id
             WHERE cr.collage_name = ?
@@ -2248,6 +2280,7 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
                     genres=_split(row["genres"]) if row["genres"] else [],
                     labels=_split(row["labels"]) if row["labels"] else [],
                     artists=_unpack_artists(c, row["artist_names"], row["artist_roles"]),
+                    metahash=row["metahash"],
                 )
             )
 

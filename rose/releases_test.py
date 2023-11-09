@@ -183,6 +183,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         genres=["J-Pop", "Pop-Rap"],
         labels=["YG Entertainment"],
         artists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
+        metahash=release.metahash,
     )
     tracks = get_tracks_associated_with_release(config, release)
     assert tracks == [
@@ -198,6 +199,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             disctotal=1,
             duration_seconds=2,
             artists=ArtistMapping(main=[Artist("BLACKPINK")]),
+            metahash=tracks[0].metahash,
         ),
         CachedTrack(
             id=track_ids[1],
@@ -211,6 +213,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             disctotal=1,
             duration_seconds=2,
             artists=ArtistMapping(main=[Artist("JISOO")]),
+            metahash=tracks[1].metahash,
         ),
     ]
 
@@ -329,6 +332,7 @@ def test_edit_release_failure_and_resume(
         genres=["J-Pop", "Pop-Rap"],
         labels=["YG Entertainment"],
         artists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
+        metahash=release.metahash,
     )
     tracks = get_tracks_associated_with_release(config, release)
     assert tracks == [
@@ -344,6 +348,7 @@ def test_edit_release_failure_and_resume(
             disctotal=1,
             duration_seconds=2,
             artists=ArtistMapping(main=[Artist("BLACKPINK")]),
+            metahash=tracks[0].metahash,
         ),
         CachedTrack(
             id=track_ids[1],
@@ -357,6 +362,7 @@ def test_edit_release_failure_and_resume(
             disctotal=1,
             duration_seconds=2,
             artists=ArtistMapping(main=[Artist("JISOO")]),
+            metahash=tracks[1].metahash,
         ),
     ]
 
