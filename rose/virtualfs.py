@@ -112,7 +112,7 @@ POSITION_REGEX = re.compile(r"^([^.]+)\. ")
 ADDED_AT_REGEX = re.compile(r"^\[[\d-]{10}\] ")
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class VirtualPath:
     view: (
         Literal[
@@ -135,9 +135,6 @@ class VirtualPath:
     playlist: str | None = None
     release: str | None = None
     file: str | None = None
-
-    def __hash__(self) -> int:
-        return hash(dataclasses.astuple(self))
 
     @property
     def release_parent(self) -> VirtualPath:
