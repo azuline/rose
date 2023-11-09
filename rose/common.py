@@ -3,8 +3,8 @@ The common module is our ugly grab bag of common toys. Though a fully generalize
 _typically_ a bad idea, we have few enough things in it that it's OK for now.
 """
 
-import hashlib
 import dataclasses
+import hashlib
 import re
 import uuid
 from collections.abc import Iterator
