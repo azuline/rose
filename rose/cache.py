@@ -2255,7 +2255,7 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
               , r.metahash
             FROM releases_view r
             JOIN collages_releases cr ON cr.release_id = r.id
-            WHERE cr.collage_name = ?
+            WHERE cr.collage_name = ? AND NOT cr.missing
             ORDER BY cr.position ASC
             """,
             (collage_name,),

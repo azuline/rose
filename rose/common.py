@@ -5,6 +5,7 @@ _typically_ a bad idea, we have few enough things in it that it's OK for now.
 
 import dataclasses
 import hashlib
+import os.path
 import re
 import uuid
 from collections.abc import Iterator
@@ -84,13 +85,20 @@ def uniq(xs: list[T]) -> list[T]:
 ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]+')
 
 
-def sanitize_filename(x: str) -> str:
+def sanitize_filename(filename: str) -> str:
     """
     Replace illegal characters and truncate. We have 255 bytes in ext4, and we truncate to 240 in
     order to leave room for any collision numbers.
     """
-    x = ILLEGAL_FS_CHARS_REGEX.sub("_", x)
-    return x.encode("utf-8")[:240].decode("utf-8", "ignore")
+    # Preserve the extension.
+    stem, ext = os.path.splitext(filename)
+    # But ignore if the extension is longer than 6 characters; that means it's probably bullshit.
+    if len(ext) > 6:
+        stem = filename
+        ext = ""
+    stem = ILLEGAL_FS_CHARS_REGEX.sub("_", stem)
+    stem = stem.encode("utf-8")[:240].decode("utf-8", "ignore")
+    return stem + ext
 
 
 def sha256_dataclass(dc: Any) -> str:

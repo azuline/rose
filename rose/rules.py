@@ -27,7 +27,9 @@ from rose.cache import (
     CachedRelease,
     CachedTrack,
     connect,
+    get_releases_associated_with_tracks,
     list_releases,
+    list_tracks,
     update_cache_for_releases,
 )
 from rose.common import Artist, RoseError, RoseExpectedError, uniq
@@ -94,6 +96,27 @@ def execute_metadata_rule(
         click.secho("No matching tracks found", dim=True, italic=True)
         click.echo()
         return
+    # If there are more than 400 tracks matched, first filter the matched tracks using the cache,
+    # has a sublinear time complexity (but higher baseline). Only then run the tag filter, which has
+    # linear time complexity.
+    if len(fast_search_results) > 400:
+        time_start = time.time()
+        tracks = list_tracks(c, [t.id for t in fast_search_results])
+        logger.debug(
+            f"Fetched tracks from cache for filtering in {time.time() - time_start} seconds"
+        )
+        tr_pairs = get_releases_associated_with_tracks(c, tracks)
+        logger.debug(
+            f"Fetched tracks and releases from cache for filtering in {time.time() - time_start} seconds"
+        )
+        tr_pairs = filter_track_false_positives_using_read_cache(rule.matcher, tr_pairs)
+        track_ids = {x[0].id for x in tr_pairs}
+        fast_search_results = [t for t in fast_search_results if t.id in track_ids]
+    if not fast_search_results:
+        click.secho("No matching tracks found", dim=True, italic=True)
+        click.echo()
+        return
+
     matcher_audiotags = filter_track_false_positives_using_tags(rule.matcher, fast_search_results)
     if not matcher_audiotags:
         click.secho("No matching tracks found", dim=True, italic=True)

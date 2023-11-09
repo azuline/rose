@@ -38,9 +38,7 @@ CREATE TABLE releases (
     new BOOLEAN NOT NULL DEFAULT true
 );
 CREATE INDEX releases_source_path ON releases(source_path);
-CREATE INDEX releases_year ON releases(year);
-CREATE INDEX releases_title ON releases(title);
-CREATE INDEX releases_type ON releases(releasetype);
+CREATE INDEX releases_new ON releases(new);
 
 CREATE TABLE releases_genres (
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
@@ -50,7 +48,6 @@ CREATE TABLE releases_genres (
     PRIMARY KEY (release_id, genre),
     UNIQUE (release_id, position)
 );
-CREATE INDEX releases_genres_release_id ON releases_genres(release_id);
 CREATE INDEX releases_genres_release_id_position ON releases_genres(release_id, position);
 CREATE INDEX releases_genres_genre ON releases_genres(genre);
 CREATE INDEX releases_genres_genre_sanitized ON releases_genres(genre_sanitized);
@@ -63,7 +60,6 @@ CREATE TABLE releases_labels (
     PRIMARY KEY (release_id, label),
     UNIQUE (release_id, position)
 );
-CREATE INDEX releases_labels_release_id ON releases_labels(release_id);
 CREATE INDEX releases_labels_release_id_position ON releases_labels(release_id, position);
 CREATE INDEX releases_labels_label ON releases_labels(label);
 CREATE INDEX releases_labels_label_sanitized ON releases_labels(label_sanitized);
@@ -110,7 +106,6 @@ CREATE TABLE releases_artists (
     PRIMARY KEY (release_id, artist, role)
     UNIQUE (release_id, position)
 );
-CREATE INDEX releases_artists_release_id ON releases_artists(release_id);
 CREATE INDEX releases_artists_release_id_position ON releases_artists(release_id, position);
 CREATE INDEX releases_artists_artist ON releases_artists(artist);
 CREATE INDEX releases_artists_artist_sanitized ON releases_artists(artist_sanitized);
@@ -124,7 +119,6 @@ CREATE TABLE tracks_artists (
     PRIMARY KEY (track_id, artist, role),
     UNIQUE (track_id, position)
 );
-CREATE INDEX tracks_artists_track_id ON tracks_artists(track_id);
 CREATE INDEX tracks_artists_track_id_position ON tracks_artists(track_id, position);
 CREATE INDEX tracks_artists_artist ON tracks_artists(artist);
 CREATE INDEX tracks_artists_artist_sanitized ON tracks_artists(artist_sanitized);
@@ -144,7 +138,6 @@ CREATE TABLE collages_releases (
     missing BOOL NOT NULL
 );
 CREATE INDEX collages_releases_collage_name ON collages_releases(collage_name);
-CREATE INDEX collages_releases_release_id ON collages_releases(release_id);
 CREATE INDEX collages_releases_access ON collages_releases(collage_name, missing, release_id);
 
 CREATE TABLE playlists (
@@ -164,7 +157,6 @@ CREATE TABLE playlists_tracks (
     missing BOOL NOT NULL
 );
 CREATE INDEX playlists_tracks_playlist_name ON playlists_tracks(playlist_name);
-CREATE INDEX playlists_tracks_track_id ON playlists_tracks(track_id);
 CREATE INDEX playlists_tracks_access ON playlists_tracks(playlist_name, missing, track_id);
 
 -- A full text search setup for rules engine performance. The point of this table is to enable
@@ -214,7 +206,7 @@ CREATE VIEW releases_view AS
             release_id
           , GROUP_CONCAT(artist, ' ¬ ') AS names
           , GROUP_CONCAT(role, ' ¬ ') AS roles
-        FROM (SELECT * FROM releases_artists ORDER BY position)
+        FROM (SELECT * FROM releases_artists ORDER BY release_id, position)
         GROUP BY release_id
     )
     SELECT
@@ -244,7 +236,7 @@ CREATE VIEW tracks_view AS
             track_id
           , GROUP_CONCAT(artist, ' ¬ ') AS names
           , GROUP_CONCAT(role, ' ¬ ') AS roles
-        FROM (SELECT * FROM tracks_artists ORDER BY position)
+        FROM (SELECT * FROM tracks_artists ORDER BY track_id, position)
         GROUP BY track_id
     )
     SELECT
