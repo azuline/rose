@@ -16,6 +16,7 @@ import copy
 import logging
 import re
 import shlex
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -126,6 +127,7 @@ def fast_search_for_matching_tracks(
     produce false positives. The caller must filter out the false positives after pulling the
     results.
     """
+    time_start = time.time()
     matchsql = _convert_matcher_to_fts_query(matcher.pattern)
     logger.debug(f"Converted match {matcher=} to {matchsql=}")
 
@@ -159,7 +161,9 @@ def fast_search_for_matching_tracks(
                     path=Path(row["source_path"]).resolve(),
                 )
             )
-    logger.debug(f"Matched {len(results)} tracks from the read cache")
+    logger.debug(
+        f"Matched {len(results)} tracks from the read cache in {time.time() - time_start} seconds"
+    )
     return results
 
 
@@ -191,6 +195,7 @@ def filter_track_false_positives_using_tags(
     matcher: MetadataMatcher,
     fast_search_results: list[FastSearchResult],
 ) -> list[AudioTags]:
+    time_start = time.time()
     rval = []
     for fsr in fast_search_results:
         tags = AudioTags.from_file(fsr.path)
@@ -223,6 +228,9 @@ def filter_track_false_positives_using_tags(
             if match:
                 rval.append(tags)
                 break
+    logger.debug(
+        f"Filtered {len(fast_search_results)} tracks down to {len(rval)} tracks in {time.time() - time_start} seconds"
+    )
     return rval
 
 
@@ -508,6 +516,7 @@ def fast_search_for_matching_releases(
     matcher: MetadataMatcher,
 ) -> list[FastSearchResult]:
     """Basically the same thing as fast_search_for_matching_tracks but with releases."""
+    time_start = time.time()
     if track_tags := [t for t in matcher.tags if t not in RELEASE_TAGS]:
         # But allow an exception if both trackartist and albumartist are defined: means a shorthand
         # was used. Just ignore trackartist.
@@ -535,7 +544,9 @@ def fast_search_for_matching_releases(
     with connect(c) as conn:
         for row in conn.execute(query):
             results.append(FastSearchResult(id=row["id"], path=Path(row["source_path"]).resolve()))
-    logger.debug(f"Matched {len(results)} releases from the read cache")
+    logger.debug(
+        f"Matched {len(results)} releases from the read cache in {time.time() - time_start} seconds"
+    )
     return results
 
 
@@ -543,6 +554,7 @@ def filter_track_false_positives_using_read_cache(
     matcher: MetadataMatcher,
     tracks: list[tuple[CachedTrack, CachedRelease]],
 ) -> list[tuple[CachedTrack, CachedRelease]]:
+    time_start = time.time()
     rval = []
     for t, r in tracks:
         for field in matcher.tags:
@@ -574,6 +586,9 @@ def filter_track_false_positives_using_read_cache(
             if match:
                 rval.append((t, r))
                 break
+    logger.debug(
+        f"Filtered {len(tracks)} tracks down to {len(rval)} tracks in {time.time() - time_start} seconds"
+    )
     return rval
 
 
@@ -581,6 +596,7 @@ def filter_release_false_positives_using_read_cache(
     matcher: MetadataMatcher,
     releases: list[CachedRelease],
 ) -> list[CachedRelease]:
+    time_start = time.time()
     rval = []
     for r in releases:
         for field in matcher.tags:
@@ -602,4 +618,7 @@ def filter_release_false_positives_using_read_cache(
             if match:
                 rval.append(r)
                 break
+    logger.debug(
+        f"Filtered {len(releases)} releases down to {len(rval)} releases in {time.time() - time_start} seconds"
+    )
     return rval
