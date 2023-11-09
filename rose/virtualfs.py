@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import collections
 import contextlib
-import dataclasses
 import errno
 import logging
 import os
