@@ -85,26 +85,33 @@ def uniq(xs: list[T]) -> list[T]:
 ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]+')
 
 
-def sanitize_dirname(filename: str) -> str:
+def sanitize_dirname(name: str, enforce_maxlen: bool) -> str:
     """
     Replace illegal characters and truncate. We have 255 bytes in ext4, and we truncate to 240 in
     order to leave room for any collision numbers.
+
+    enforce_maxlen is for host filesystems, which are sometimes subject to length constraints (e.g.
+    ext4).
     """
-    filename = ILLEGAL_FS_CHARS_REGEX.sub("_", filename)
-    return filename.encode("utf-8")[:240].decode("utf-8", "ignore")
+    name = ILLEGAL_FS_CHARS_REGEX.sub("_", name)
+    if enforce_maxlen:
+        name = name.encode("utf-8")[:240].decode("utf-8", "ignore")
+    return name
 
 
-def sanitize_filename(filename: str) -> str:
+def sanitize_filename(name: str, enforce_maxlen: bool) -> str:
     """Same as sanitize dirname, except we preserve file extension."""
-    # Preserve the extension.
-    stem, ext = os.path.splitext(filename)
-    # But ignore if the extension is longer than 6 characters; that means it's probably bullshit.
-    if len(ext.encode()) > 6:
-        stem = filename
-        ext = ""
-    stem = ILLEGAL_FS_CHARS_REGEX.sub("_", stem)
-    stem = stem.encode("utf-8")[:240].decode("utf-8", "ignore")
-    return stem + ext
+    name = ILLEGAL_FS_CHARS_REGEX.sub("_", name)
+    if enforce_maxlen:
+        # Preserve the extension.
+        stem, ext = os.path.splitext(name)
+        # But ignore if the extension is longer than 6 characters; that means it's probably bullshit.
+        if len(ext.encode()) > 6:
+            stem = name
+            ext = ""
+        stem = stem.encode("utf-8")[:240].decode("utf-8", "ignore")
+        name = stem + ext
+    return name
 
 
 def sha256_dataclass(dc: Any) -> str:

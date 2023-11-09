@@ -476,8 +476,8 @@ class Config:
 
     @functools.cached_property
     def sanitized_artist_aliases_map(self) -> dict[str, list[str]]:
-        return {sanitize_dirname(k): v for k, v in self.artist_aliases_map.items()}
+        return {sanitize_dirname(k, False): v for k, v in self.artist_aliases_map.items()}
 
     @functools.cached_property
     def sanitized_artist_aliases_parents_map(self) -> dict[str, list[str]]:
-        return {sanitize_dirname(k): v for k, v in self.artist_aliases_parents_map.items()}
+        return {sanitize_dirname(k, False): v for k, v in self.artist_aliases_parents_map.items()}
