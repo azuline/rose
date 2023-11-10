@@ -197,7 +197,7 @@ def playlist_lock_name(playlist_name: str) -> str:
     return f"playlist-{playlist_name}"
 
 
-@dataclass
+@dataclass(slots=True)
 class CachedRelease:
     id: str
     source_path: Path
@@ -233,7 +233,7 @@ class CachedRelease:
         }
 
 
-@dataclass
+@dataclass(slots=True)
 class CachedTrack:
     id: str
     source_path: Path
@@ -263,14 +263,14 @@ class CachedTrack:
         }
 
 
-@dataclass
+@dataclass(slots=True)
 class CachedCollage:
     name: str
     source_mtime: str
     release_ids: list[str]
 
 
-@dataclass
+@dataclass(slots=True)
 class CachedPlaylist:
     name: str
     source_mtime: str
@@ -278,7 +278,7 @@ class CachedPlaylist:
     track_ids: list[str]
 
 
-@dataclass
+@dataclass(slots=True)
 class StoredDataFile:
     new: bool
     added_at: str  # ISO8601 timestamp
