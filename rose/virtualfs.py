@@ -868,7 +868,6 @@ class RoseLogicalCore:
                     yield release.cover_image_path.name, self.stat("file", release.cover_image_path)
                 yield f".rose.{release.id}.toml", self.stat("file")
                 return
-            logger.debug("HI?")
             raise llfuse.FUSEError(errno.ENOENT)
 
         if p.artist or p.genre or p.label or p.view in ["Releases", "New", "Recently Added"]:
@@ -906,7 +905,6 @@ class RoseLogicalCore:
 
         if p.view == "Collages" and p.collage:
             _, releases = get_collage(self.config, p.collage)  # type: ignore
-            # Two zeros because `max(single_arg)` assumes that the single_arg is enumerable.
             for rls, vname in self.vnames.list_release_paths(p, releases):
                 yield vname, self.stat("dir", rls.source_path)
             return
@@ -1283,6 +1281,8 @@ class INodeMapper:
             return path / name.decode()
         except KeyError as e:
             raise llfuse.FUSEError(errno.ENOENT) from e
+        except UnicodeDecodeError as e:
+            raise llfuse.FUSEError(errno.EINVAL) from e
 
     def calc_inode(self, path: Path) -> int:
         """
