@@ -311,6 +311,7 @@ class CachedTrack:
         if with_release_info:
             r.update(
                 {
+                    "release_id": self.release.id,
                     "added_at": self.release.added_at,
                     "albumtitle": self.release.albumtitle,
                     "releasetype": self.release.releasetype,
