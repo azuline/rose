@@ -22,7 +22,7 @@ def test_run_action_on_track(config: Config, source_dir: Path) -> None:
 def test_dump_tracks(config: Config) -> None:
     assert json.loads(dump_tracks(config)) == [
         {
-            "artists": {
+            "trackartists": {
                 "composer": [],
                 "djmixer": [],
                 "guest": [],
@@ -37,14 +37,31 @@ def test_dump_tracks(config: Config) -> None:
             "disctotal": 1,
             "duration_seconds": 120,
             "id": "t1",
-            "release_id": "r1",
             "source_path": f"{config.music_source_dir}/r1/01.m4a",
-            "title": "Track 1",
+            "tracktitle": "Track 1",
             "tracknumber": "01",
             "tracktotal": 2,
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "albumtitle": "Release 1",
+            "releasetype": "album",
+            "year": 2023,
+            "new": False,
+            "genres": ["Techno", "Deep House"],
+            "labels": ["Silk Music"],
+            "albumartists": {
+                "main": [
+                    {"name": "Techno Man", "alias": False},
+                    {"name": "Bass Man", "alias": False},
+                ],
+                "guest": [],
+                "remixer": [],
+                "producer": [],
+                "composer": [],
+                "djmixer": [],
+            },
         },
         {
-            "artists": {
+            "trackartists": {
                 "composer": [],
                 "djmixer": [],
                 "guest": [],
@@ -59,14 +76,31 @@ def test_dump_tracks(config: Config) -> None:
             "disctotal": 1,
             "duration_seconds": 240,
             "id": "t2",
-            "release_id": "r1",
             "source_path": f"{config.music_source_dir}/r1/02.m4a",
-            "title": "Track 2",
+            "tracktitle": "Track 2",
             "tracknumber": "02",
             "tracktotal": 2,
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "albumtitle": "Release 1",
+            "releasetype": "album",
+            "year": 2023,
+            "new": False,
+            "genres": ["Techno", "Deep House"],
+            "labels": ["Silk Music"],
+            "albumartists": {
+                "main": [
+                    {"name": "Techno Man", "alias": False},
+                    {"name": "Bass Man", "alias": False},
+                ],
+                "guest": [],
+                "remixer": [],
+                "producer": [],
+                "composer": [],
+                "djmixer": [],
+            },
         },
         {
-            "artists": {
+            "trackartists": {
                 "composer": [],
                 "djmixer": [],
                 "guest": [{"alias": False, "name": "Conductor Woman"}],
@@ -78,14 +112,28 @@ def test_dump_tracks(config: Config) -> None:
             "disctotal": 1,
             "duration_seconds": 120,
             "id": "t3",
-            "release_id": "r2",
             "source_path": f"{config.music_source_dir}/r2/01.m4a",
-            "title": "Track 1",
+            "tracktitle": "Track 1",
             "tracknumber": "01",
             "tracktotal": 1,
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "albumtitle": "Release 2",
+            "releasetype": "album",
+            "year": 2021,
+            "new": False,
+            "genres": ["Classical"],
+            "labels": ["Native State"],
+            "albumartists": {
+                "main": [{"name": "Violin Woman", "alias": False}],
+                "guest": [{"name": "Conductor Woman", "alias": False}],
+                "remixer": [],
+                "producer": [],
+                "composer": [],
+                "djmixer": [],
+            },
         },
         {
-            "artists": {
+            "trackartists": {
                 "composer": [],
                 "djmixer": [],
                 "guest": [],
@@ -97,11 +145,25 @@ def test_dump_tracks(config: Config) -> None:
             "disctotal": 1,
             "duration_seconds": 120,
             "id": "t4",
-            "release_id": "r3",
             "source_path": f"{config.music_source_dir}/r3/01.m4a",
-            "title": "Track 1",
+            "tracktitle": "Track 1",
             "tracknumber": "01",
             "tracktotal": 1,
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "albumtitle": "Release 3",
+            "releasetype": "album",
+            "year": 2021,
+            "new": True,
+            "genres": [],
+            "labels": [],
+            "albumartists": {
+                "main": [],
+                "guest": [],
+                "remixer": [],
+                "producer": [],
+                "composer": [],
+                "djmixer": [],
+            },
         },
     ]
 
@@ -111,7 +173,7 @@ def test_dump_tracks_with_matcher(config: Config) -> None:
     matcher = MetadataMatcher.parse("artist:Techno Man")
     assert json.loads(dump_tracks(config, matcher)) == [
         {
-            "artists": {
+            "trackartists": {
                 "composer": [],
                 "djmixer": [],
                 "guest": [],
@@ -126,14 +188,31 @@ def test_dump_tracks_with_matcher(config: Config) -> None:
             "disctotal": 1,
             "duration_seconds": 120,
             "id": "t1",
-            "release_id": "r1",
             "source_path": f"{config.music_source_dir}/r1/01.m4a",
-            "title": "Track 1",
+            "tracktitle": "Track 1",
             "tracknumber": "01",
             "tracktotal": 2,
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "albumtitle": "Release 1",
+            "releasetype": "album",
+            "year": 2023,
+            "new": False,
+            "genres": ["Techno", "Deep House"],
+            "labels": ["Silk Music"],
+            "albumartists": {
+                "main": [
+                    {"name": "Techno Man", "alias": False},
+                    {"name": "Bass Man", "alias": False},
+                ],
+                "guest": [],
+                "remixer": [],
+                "producer": [],
+                "composer": [],
+                "djmixer": [],
+            },
         },
         {
-            "artists": {
+            "trackartists": {
                 "composer": [],
                 "djmixer": [],
                 "guest": [],
@@ -148,11 +227,28 @@ def test_dump_tracks_with_matcher(config: Config) -> None:
             "disctotal": 1,
             "duration_seconds": 240,
             "id": "t2",
-            "release_id": "r1",
             "source_path": f"{config.music_source_dir}/r1/02.m4a",
-            "title": "Track 2",
+            "tracktitle": "Track 2",
             "tracknumber": "02",
             "tracktotal": 2,
+            "added_at": "0000-01-01T00:00:00+00:00",
+            "albumtitle": "Release 1",
+            "releasetype": "album",
+            "year": 2023,
+            "new": False,
+            "genres": ["Techno", "Deep House"],
+            "labels": ["Silk Music"],
+            "albumartists": {
+                "main": [
+                    {"name": "Techno Man", "alias": False},
+                    {"name": "Bass Man", "alias": False},
+                ],
+                "guest": [],
+                "remixer": [],
+                "producer": [],
+                "composer": [],
+                "djmixer": [],
+            },
         },
     ]
 
@@ -160,7 +256,7 @@ def test_dump_tracks_with_matcher(config: Config) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_dump_track(config: Config) -> None:
     assert json.loads(dump_track(config, "t1")) == {
-        "artists": {
+        "trackartists": {
             "composer": [],
             "djmixer": [],
             "guest": [],
@@ -175,9 +271,26 @@ def test_dump_track(config: Config) -> None:
         "disctotal": 1,
         "duration_seconds": 120,
         "id": "t1",
-        "release_id": "r1",
         "source_path": f"{config.music_source_dir}/r1/01.m4a",
-        "title": "Track 1",
+        "tracktitle": "Track 1",
         "tracknumber": "01",
         "tracktotal": 2,
+        "added_at": "0000-01-01T00:00:00+00:00",
+        "albumtitle": "Release 1",
+        "releasetype": "album",
+        "year": 2023,
+        "new": False,
+        "genres": ["Techno", "Deep House"],
+        "labels": ["Silk Music"],
+        "albumartists": {
+            "main": [
+                {"name": "Techno Man", "alias": False},
+                {"name": "Bass Man", "alias": False},
+            ],
+            "guest": [],
+            "remixer": [],
+            "producer": [],
+            "composer": [],
+            "djmixer": [],
+        },
     }

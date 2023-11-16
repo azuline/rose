@@ -7,7 +7,6 @@ import pytest
 
 from rose.audiotags import AudioTags
 from rose.cache import (
-    get_releases_associated_with_tracks,
     list_releases,
     list_tracks,
     update_cache,
@@ -373,6 +372,5 @@ def test_filter_track_false_positives_with_read_cache(config: Config) -> None:
     assert len(fsresults) == 3
     tracks = list_tracks(config, [r.id for r in fsresults])
     assert len(tracks) == 3
-    tracks_with_releases = get_releases_associated_with_tracks(config, tracks)
-    filteredresults = filter_track_false_positives_using_read_cache(matcher, tracks_with_releases)
+    filteredresults = filter_track_false_positives_using_read_cache(matcher, tracks)
     assert not filteredresults

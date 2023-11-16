@@ -248,27 +248,27 @@ def eval_track_template(
 def _calc_release_variables(release: CachedRelease, position: str | None) -> dict[str, Any]:
     return {
         "added_at": release.added_at,
-        "title": release.title,
+        "title": release.albumtitle,
         "releasetype": release.releasetype,
         "year": release.year,
         "new": release.new,
         "disctotal": release.disctotal,
         "genres": release.genres,
         "labels": release.labels,
-        "artists": release.artists,
+        "artists": release.albumartists,
         "position": position,
     }
 
 
 def _calc_track_variables(track: CachedTrack, position: str | None) -> dict[str, Any]:
     return {
-        "title": track.title,
+        "title": track.tracktitle,
         "tracknumber": track.tracknumber,
         "tracktotal": track.tracktotal,
         "discnumber": track.discnumber,
         "disctotal": track.disctotal,
         "duration_seconds": track.duration_seconds,
-        "artists": track.artists,
+        "artists": track.trackartists,
         "position": position,
     }
 
@@ -311,54 +311,61 @@ def preview_path_templates(c: Config) -> None:
     # fmt: on
 
 
-def _preview_release_template(c: Config, label: str, template: PathTemplate) -> None:
-    # Import cycle trick :)
+def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease]:
     from rose.cache import CachedRelease
 
-    click.secho(f"{label}:", dim=True, underline=True)
-
-    click.secho("  Sample 1: ", dim=True, nl=False)
-    release = CachedRelease(
+    kimlip = CachedRelease(
         id="018b268e-ff1e-7a0c-9ac8-7bbb282761f2",
         source_path=c.music_source_dir / "LOONA - 2017. Kim Lip",
         cover_image_path=None,
         added_at="2023-04-20:23:45Z",
         datafile_mtime="999",
-        title="Kim Lip",
+        albumtitle="Kim Lip",
         releasetype="single",
         year=2017,
         new=True,
         disctotal=1,
         genres=["K-Pop", "Dance-Pop", "Contemporary R&B"],
         labels=["BlockBerryCreative"],
-        artists=ArtistMapping(main=[Artist("Kim Lip")]),
+        albumartists=ArtistMapping(main=[Artist("Kim Lip")]),
         metahash="0",
     )
-    click.secho(eval_release_template(template, release, "1"))
 
-    click.secho("  Sample 2: ", dim=True, nl=False)
-    release = CachedRelease(
+    youngforever = CachedRelease(
         id="018b6021-f1e5-7d4b-b796-440fbbea3b13",
         source_path=c.music_source_dir / "BTS - 2016. Young Forever (花樣年華)",
         cover_image_path=None,
         added_at="2023-06-09:23:45Z",
         datafile_mtime="999",
-        title="Young Forever (花樣年華)",
+        albumtitle="Young Forever (花樣年華)",
         releasetype="album",
         year=2016,
         new=False,
         disctotal=2,
         genres=["K-Pop"],
         labels=["BIGHIT"],
-        artists=ArtistMapping(main=[Artist("BTS")]),
+        albumartists=ArtistMapping(main=[Artist("BTS")]),
         metahash="0",
     )
-    click.secho(eval_release_template(template, release, "2"))
+
+    return kimlip, youngforever
+
+
+def _preview_release_template(c: Config, label: str, template: PathTemplate) -> None:
+    # Import cycle trick :)
+    kimlip, youngforever = _get_preview_releases(c)
+    click.secho(f"{label}:", dim=True, underline=True)
+    click.secho("  Sample 1: ", dim=True, nl=False)
+    click.secho(eval_release_template(template, kimlip, "1"))
+    click.secho("  Sample 2: ", dim=True, nl=False)
+    click.secho(eval_release_template(template, youngforever, "2"))
 
 
 def _preview_track_template(c: Config, label: str, template: PathTemplate) -> None:
     # Import cycle trick :)
     from rose.cache import CachedTrack
+
+    kimlip, youngforever = _get_preview_releases(c)
 
     click.secho(f"{label}:", dim=True, underline=True)
 
@@ -367,15 +374,15 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         id="018b268e-ff1e-7a0c-9ac8-7bbb282761f1",
         source_path=c.music_source_dir / "LOONA - 2017. Kim Lip" / "01. Eclipse.opus",
         source_mtime="999",
-        title="Eclipse",
-        release_id="018b268e-ff1e-7a0c-9ac8-7bbb282761f2",
+        tracktitle="Eclipse",
         tracknumber="1",
         tracktotal=2,
         discnumber="1",
         disctotal=1,
         duration_seconds=230,
-        artists=ArtistMapping(main=[Artist("Kim Lip")]),
+        trackartists=ArtistMapping(main=[Artist("Kim Lip")]),
         metahash="0",
+        release=kimlip,
     )
     click.secho(eval_track_template(template, track, "1"))
 
@@ -386,14 +393,14 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         / "BTS - 2016. Young Forever (花樣年華)"
         / "House of Cards.opus",
         source_mtime="999",
-        title="House of Cards",
-        release_id="018b268e-ff1e-7a0c-9ac8-7bbb282761f2",
+        tracktitle="House of Cards",
         tracknumber="5",
         tracktotal=8,
         discnumber="2",
         disctotal=2,
         duration_seconds=226,
-        artists=ArtistMapping(main=[Artist("BTS")]),
+        trackartists=ArtistMapping(main=[Artist("BTS")]),
         metahash="0",
+        release=youngforever,
     )
     click.secho(eval_track_template(template, track, "2"))

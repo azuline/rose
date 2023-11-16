@@ -387,9 +387,9 @@ class VirtualNameGenerator:
                 raise RoseError(f"VNAMES: No release template found for {release_parent=}.")
 
             logtext = calculate_release_logtext(
-                title=release.title,
+                title=release.albumtitle,
                 year=release.year,
-                artists=release.artists,
+                artists=release.albumartists,
             )
 
             # Generate a position if we're in a collage.
@@ -477,8 +477,8 @@ class VirtualNameGenerator:
                 raise RoseError(f"VNAMES: No track template found for {track_parent=}.")
 
             logtext = calculate_track_logtext(
-                title=track.title,
-                artists=track.artists,
+                title=track.tracktitle,
+                artists=track.trackartists,
                 suffix=track.source_path.suffix,
             )
 
@@ -1099,9 +1099,9 @@ class RoseLogicalCore:
             if p.file.lower() in self.config.valid_cover_arts and flags & os.O_CREAT == os.O_CREAT:
                 fh = self.fhandler.next()
                 logtext = calculate_release_logtext(
-                    title=release.title,
+                    title=release.albumtitle,
                     year=release.year,
-                    artists=release.artists,
+                    artists=release.albumartists,
                 )
                 logger.debug(
                     f"LOGICAL: Begin new cover art sequence for release "
@@ -1157,7 +1157,7 @@ class RoseLogicalCore:
             ):
                 fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
                 if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
-                    self.update_release_on_fh_close[fh] = track.release_id
+                    self.update_release_on_fh_close[fh] = track.release.id
                 return fh
             if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
                 return self.fhandler.wrap_host(os.open(playlist.cover_path, flags))

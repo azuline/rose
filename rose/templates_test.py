@@ -20,14 +20,14 @@ EMPTY_CACHED_RELEASE = CachedRelease(
     cover_image_path=None,
     added_at="0000-01-01T00:00:00Z",
     datafile_mtime="999",
-    title="",
+    albumtitle="",
     releasetype="unknown",
     year=None,
     new=False,
     disctotal=1,
     genres=[],
     labels=[],
-    artists=ArtistMapping(),
+    albumartists=ArtistMapping(),
     metahash="0",
 )
 
@@ -35,15 +35,15 @@ EMPTY_CACHED_TRACK = CachedTrack(
     id="",
     source_path=Path("hi.m4a"),
     source_mtime="",
-    title="",
-    release_id="",
+    tracktitle="",
     tracknumber="",
     tracktotal=1,
     discnumber="",
     disctotal=1,
     duration_seconds=0,
-    artists=ArtistMapping(),
+    trackartists=ArtistMapping(),
     metahash="0",
+    release=EMPTY_CACHED_RELEASE,
 )
 
 
@@ -51,9 +51,9 @@ def test_default_templates() -> None:
     templates = PathTemplateConfig.with_defaults()
 
     release = deepcopy(EMPTY_CACHED_RELEASE)
-    release.title = "Title"
+    release.albumtitle = "Title"
     release.year = 2023
-    release.artists = ArtistMapping(
+    release.albumartists = ArtistMapping(
         main=[Artist("A1"), Artist("A2"), Artist("A3")],
         guest=[Artist("BB")],
         producer=[Artist("PP")],
@@ -69,7 +69,7 @@ def test_default_templates() -> None:
     )
 
     release = deepcopy(EMPTY_CACHED_RELEASE)
-    release.title = "Title"
+    release.albumtitle = "Title"
     assert eval_release_template(templates.source.release, release) == "Unknown Artists - Title"
     assert (
         eval_release_template(templates.collages.release, release, "4")
@@ -78,7 +78,7 @@ def test_default_templates() -> None:
 
     track = deepcopy(EMPTY_CACHED_TRACK)
     track.tracknumber = "2"
-    track.title = "Trick"
+    track.tracktitle = "Trick"
     assert eval_track_template(templates.source.track, track) == "02. Trick.m4a"
     assert eval_track_template(templates.playlists, track, "4") == "4. Unknown Artists - Trick.m4a"
 
@@ -86,8 +86,8 @@ def test_default_templates() -> None:
     track.disctotal = 2
     track.discnumber = "4"
     track.tracknumber = "2"
-    track.title = "Trick"
-    track.artists = ArtistMapping(
+    track.tracktitle = "Trick"
+    track.trackartists = ArtistMapping(
         main=[Artist("Main")],
         guest=[Artist("Hi"), Artist("High"), Artist("Hye")],
     )

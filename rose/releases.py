@@ -71,7 +71,9 @@ def dump_release(c: Config, release_id: str) -> str:
     if not release:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
     tracks = get_tracks_associated_with_release(c, release)
-    return json.dumps({**release.dump(), "tracks": [t.dump() for t in tracks]})
+    return json.dumps(
+        {**release.dump(), "tracks": [t.dump(with_release_info=False) for t in tracks]}
+    )
 
 
 def dump_releases(c: Config, matcher: MetadataMatcher | None = None) -> str:
@@ -83,7 +85,10 @@ def dump_releases(c: Config, matcher: MetadataMatcher | None = None) -> str:
         releases = filter_release_false_positives_using_read_cache(matcher, releases)
     rt_pairs = get_tracks_associated_with_releases(c, releases)
     return json.dumps(
-        [{**release.dump(), "tracks": [t.dump() for t in tracks]} for release, tracks in rt_pairs]
+        [
+            {**release.dump(), "tracks": [t.dump(with_release_info=False) for t in tracks]}
+            for release, tracks in rt_pairs
+        ]
     )
 
 
@@ -94,9 +99,9 @@ def delete_release(c: Config, release_id: str) -> None:
     with lock(c, release_lock_name(release_id)):
         send2trash(release.source_path)
     release_logtext = calculate_release_logtext(
-        title=release.title,
+        title=release.albumtitle,
         year=release.year,
-        artists=release.artists,
+        artists=release.albumartists,
     )
     logger.info(f"Trashed release {release_logtext}")
     update_cache_evict_nonexistent_releases(c)
@@ -110,9 +115,9 @@ def toggle_release_new(c: Config, release_id: str) -> None:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
     release_logtext = calculate_release_logtext(
-        title=release.title,
+        title=release.albumtitle,
         year=release.year,
-        artists=release.artists,
+        artists=release.albumartists,
     )
 
     for f in release.source_path.iterdir():
@@ -152,9 +157,9 @@ def set_release_cover_art(
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
     release_logtext = calculate_release_logtext(
-        title=release.title,
+        title=release.albumtitle,
         year=release.year,
-        artists=release.artists,
+        artists=release.albumartists,
     )
 
     for f in release.source_path.iterdir():
@@ -173,9 +178,9 @@ def delete_release_cover_art(c: Config, release_id: str) -> None:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
     release_logtext = calculate_release_logtext(
-        title=release.title,
+        title=release.albumtitle,
         year=release.year,
-        artists=release.artists,
+        artists=release.albumartists,
     )
 
     found = False
@@ -239,18 +244,18 @@ class MetadataRelease:
     @classmethod
     def from_cache(cls, release: CachedRelease, tracks: list[CachedTrack]) -> MetadataRelease:
         return MetadataRelease(
-            title=release.title,
+            title=release.albumtitle,
             releasetype=release.releasetype,
             year=release.year,
             genres=release.genres,
             labels=release.labels,
-            artists=MetadataArtist.from_mapping(release.artists),
+            artists=MetadataArtist.from_mapping(release.albumartists),
             tracks={
                 t.id: MetadataTrack(
                     discnumber=t.discnumber,
                     tracknumber=t.tracknumber,
-                    title=t.title,
-                    artists=MetadataArtist.from_mapping(t.artists),
+                    title=t.tracktitle,
+                    artists=MetadataArtist.from_mapping(t.trackartists),
                 )
                 for t in tracks
             },

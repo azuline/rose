@@ -130,14 +130,14 @@ def test_dump_collage(config: Config) -> None:
                 "source_path": f"{config.music_source_dir}/r1",
                 "cover_image_path": None,
                 "added_at": "0000-01-01T00:00:00+00:00",
-                "title": "Release 1",
+                "albumtitle": "Release 1",
                 "releasetype": "album",
                 "year": 2023,
                 "new": False,
                 "disctotal": 1,
                 "genres": ["Techno", "Deep House"],
                 "labels": ["Silk Music"],
-                "artists": {
+                "albumartists": {
                     "main": [
                         {"name": "Techno Man", "alias": False},
                         {"name": "Bass Man", "alias": False},
@@ -155,14 +155,14 @@ def test_dump_collage(config: Config) -> None:
                 "source_path": f"{config.music_source_dir}/r2",
                 "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
                 "added_at": "0000-01-01T00:00:00+00:00",
-                "title": "Release 2",
+                "albumtitle": "Release 2",
                 "releasetype": "album",
                 "year": 2021,
                 "new": False,
                 "disctotal": 1,
                 "genres": ["Classical"],
                 "labels": ["Native State"],
-                "artists": {
+                "albumartists": {
                     "main": [{"name": "Violin Woman", "alias": False}],
                     "guest": [{"name": "Conductor Woman", "alias": False}],
                     "remixer": [],
@@ -188,14 +188,14 @@ def test_dump_collages(config: Config) -> None:
                     "source_path": f"{config.music_source_dir}/r1",
                     "cover_image_path": None,
                     "added_at": "0000-01-01T00:00:00+00:00",
-                    "title": "Release 1",
+                    "albumtitle": "Release 1",
                     "releasetype": "album",
                     "year": 2023,
                     "new": False,
                     "disctotal": 1,
                     "genres": ["Techno", "Deep House"],
                     "labels": ["Silk Music"],
-                    "artists": {
+                    "albumartists": {
                         "main": [
                             {"name": "Techno Man", "alias": False},
                             {"name": "Bass Man", "alias": False},
@@ -213,14 +213,14 @@ def test_dump_collages(config: Config) -> None:
                     "source_path": f"{config.music_source_dir}/r2",
                     "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
                     "added_at": "0000-01-01T00:00:00+00:00",
-                    "title": "Release 2",
+                    "albumtitle": "Release 2",
                     "releasetype": "album",
                     "year": 2021,
                     "new": False,
                     "disctotal": 1,
                     "genres": ["Classical"],
                     "labels": ["Native State"],
-                    "artists": {
+                    "albumartists": {
                         "main": [{"name": "Violin Woman", "alias": False}],
                         "guest": [{"name": "Conductor Woman", "alias": False}],
                         "remixer": [],

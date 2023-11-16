@@ -200,7 +200,7 @@ CREATE VIEW releases_view AS
       , r.cover_image_path
       , r.added_at
       , r.datafile_mtime
-      , r.title
+      , r.title AS albumtitle
       , r.releasetype
       , r.year
       , r.disctotal
@@ -208,8 +208,8 @@ CREATE VIEW releases_view AS
       , r.metahash
       , COALESCE(g.genres, '') AS genres
       , COALESCE(l.labels, '') AS labels
-      , COALESCE(a.names, '') AS artist_names
-      , COALESCE(a.roles, '') AS artist_roles
+      , COALESCE(a.names, '') AS albumartist_names
+      , COALESCE(a.roles, '') AS albumartist_roles
     FROM releases r
     LEFT JOIN genres g ON g.release_id = r.id
     LEFT JOIN labels l ON l.release_id = r.id
@@ -228,7 +228,7 @@ CREATE VIEW tracks_view AS
         t.id
       , t.source_path
       , t.source_mtime
-      , t.title
+      , t.title AS tracktitle
       , t.release_id
       , t.tracknumber
       , t.tracktotal
@@ -236,7 +236,7 @@ CREATE VIEW tracks_view AS
       , t.disctotal
       , t.duration_seconds
       , t.metahash
-      , COALESCE(a.names, '') AS artist_names
-      , COALESCE(a.roles, '') AS artist_roles
+      , COALESCE(a.names, '') AS trackartist_names
+      , COALESCE(a.roles, '') AS trackartist_roles
     FROM tracks t
     LEFT JOIN artists a ON a.track_id = t.id;

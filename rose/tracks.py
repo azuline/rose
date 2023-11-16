@@ -9,7 +9,6 @@ import logging
 
 from rose.audiotags import AudioTags
 from rose.cache import (
-    get_releases_associated_with_tracks,
     get_track,
     list_tracks,
 )
@@ -42,9 +41,7 @@ def dump_tracks(c: Config, matcher: MetadataMatcher | None = None) -> str:
         track_ids = [t.id for t in fast_search_for_matching_tracks(c, matcher)]
     tracks = list_tracks(c, track_ids)
     if matcher:
-        tr_pairs = get_releases_associated_with_tracks(c, tracks)
-        tr_pairs = filter_track_false_positives_using_read_cache(matcher, tr_pairs)
-        tracks = [x[0] for x in tr_pairs]
+        tracks = filter_track_false_positives_using_read_cache(matcher, tracks)
     return json.dumps([t.dump() for t in tracks])
 
 

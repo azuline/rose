@@ -175,14 +175,14 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         cover_image_path=None,
         added_at=release.added_at,
         datafile_mtime=release.datafile_mtime,
-        title="I Really Love Blackpink",
+        albumtitle="I Really Love Blackpink",
         releasetype="single",
         year=2222,
         new=True,
         disctotal=1,
         genres=["J-Pop", "Pop-Rap"],
         labels=["YG Entertainment"],
-        artists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
+        albumartists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
         metahash=release.metahash,
     )
     tracks = get_tracks_associated_with_release(config, release)
@@ -191,29 +191,29 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             id=track_ids[0],
             source_path=release_path / "01.m4a",
             source_mtime=tracks[0].source_mtime,
-            title="I Do Like That",
-            release_id=release_id,
+            tracktitle="I Do Like That",
             tracknumber="1",
             tracktotal=2,
             discnumber="1",
             disctotal=1,
             duration_seconds=2,
-            artists=ArtistMapping(main=[Artist("BLACKPINK")]),
+            trackartists=ArtistMapping(main=[Artist("BLACKPINK")]),
             metahash=tracks[0].metahash,
+            release=release,
         ),
         CachedTrack(
             id=track_ids[1],
             source_path=release_path / "02.m4a",
             source_mtime=tracks[1].source_mtime,
-            title="All Eyes On Me",
-            release_id=release_id,
+            tracktitle="All Eyes On Me",
             tracknumber="2",
             tracktotal=2,
             discnumber="1",
             disctotal=1,
             duration_seconds=2,
-            artists=ArtistMapping(main=[Artist("JISOO")]),
+            trackartists=ArtistMapping(main=[Artist("JISOO")]),
             metahash=tracks[1].metahash,
+            release=release,
         ),
     ]
 
@@ -324,14 +324,14 @@ def test_edit_release_failure_and_resume(
         cover_image_path=None,
         added_at=release.added_at,
         datafile_mtime=release.datafile_mtime,
-        title="I Really Love Blackpink",
+        albumtitle="I Really Love Blackpink",
         releasetype="single",
         year=2222,
         new=True,
         disctotal=1,
         genres=["J-Pop", "Pop-Rap"],
         labels=["YG Entertainment"],
-        artists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
+        albumartists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
         metahash=release.metahash,
     )
     tracks = get_tracks_associated_with_release(config, release)
@@ -340,29 +340,29 @@ def test_edit_release_failure_and_resume(
             id=track_ids[0],
             source_path=release_path / "01.m4a",
             source_mtime=tracks[0].source_mtime,
-            title="I Do Like That",
-            release_id=release_id,
+            tracktitle="I Do Like That",
             tracknumber="1",
             tracktotal=2,
             discnumber="1",
             disctotal=1,
             duration_seconds=2,
-            artists=ArtistMapping(main=[Artist("BLACKPINK")]),
+            trackartists=ArtistMapping(main=[Artist("BLACKPINK")]),
             metahash=tracks[0].metahash,
+            release=release,
         ),
         CachedTrack(
             id=track_ids[1],
             source_path=release_path / "02.m4a",
             source_mtime=tracks[1].source_mtime,
-            title="All Eyes On Me",
-            release_id=release_id,
+            tracktitle="All Eyes On Me",
             tracknumber="2",
             tracktotal=2,
             discnumber="1",
             disctotal=1,
             duration_seconds=2,
-            artists=ArtistMapping(main=[Artist("JISOO")]),
+            trackartists=ArtistMapping(main=[Artist("JISOO")]),
             metahash=tracks[1].metahash,
+            release=release,
         ),
     ]
 
@@ -396,14 +396,14 @@ def test_dump_release(config: Config) -> None:
         "source_path": f"{config.music_source_dir}/r1",
         "cover_image_path": None,
         "added_at": "0000-01-01T00:00:00+00:00",
-        "title": "Release 1",
+        "albumtitle": "Release 1",
         "releasetype": "album",
         "year": 2023,
         "new": False,
         "disctotal": 1,
         "genres": ["Techno", "Deep House"],
         "labels": ["Silk Music"],
-        "artists": {
+        "albumartists": {
             "main": [
                 {"name": "Techno Man", "alias": False},
                 {"name": "Bass Man", "alias": False},
@@ -416,7 +416,7 @@ def test_dump_release(config: Config) -> None:
         },
         "tracks": [
             {
-                "artists": {
+                "trackartists": {
                     "composer": [],
                     "djmixer": [],
                     "guest": [],
@@ -431,14 +431,13 @@ def test_dump_release(config: Config) -> None:
                 "disctotal": 1,
                 "duration_seconds": 120,
                 "id": "t1",
-                "release_id": "r1",
                 "source_path": f"{config.music_source_dir}/r1/01.m4a",
-                "title": "Track 1",
+                "tracktitle": "Track 1",
                 "tracknumber": "01",
                 "tracktotal": 2,
             },
             {
-                "artists": {
+                "trackartists": {
                     "composer": [],
                     "djmixer": [],
                     "guest": [],
@@ -453,9 +452,8 @@ def test_dump_release(config: Config) -> None:
                 "disctotal": 1,
                 "duration_seconds": 240,
                 "id": "t2",
-                "release_id": "r1",
                 "source_path": f"{config.music_source_dir}/r1/02.m4a",
-                "title": "Track 2",
+                "tracktitle": "Track 2",
                 "tracknumber": "02",
                 "tracktotal": 2,
             },
@@ -471,14 +469,14 @@ def test_dump_releases(config: Config) -> None:
             "source_path": f"{config.music_source_dir}/r1",
             "cover_image_path": None,
             "added_at": "0000-01-01T00:00:00+00:00",
-            "title": "Release 1",
+            "albumtitle": "Release 1",
             "releasetype": "album",
             "year": 2023,
             "new": False,
             "disctotal": 1,
             "genres": ["Techno", "Deep House"],
             "labels": ["Silk Music"],
-            "artists": {
+            "albumartists": {
                 "main": [
                     {"name": "Techno Man", "alias": False},
                     {"name": "Bass Man", "alias": False},
@@ -491,7 +489,7 @@ def test_dump_releases(config: Config) -> None:
             },
             "tracks": [
                 {
-                    "artists": {
+                    "trackartists": {
                         "composer": [],
                         "djmixer": [],
                         "guest": [],
@@ -506,14 +504,13 @@ def test_dump_releases(config: Config) -> None:
                     "disctotal": 1,
                     "duration_seconds": 120,
                     "id": "t1",
-                    "release_id": "r1",
                     "source_path": f"{config.music_source_dir}/r1/01.m4a",
-                    "title": "Track 1",
+                    "tracktitle": "Track 1",
                     "tracknumber": "01",
                     "tracktotal": 2,
                 },
                 {
-                    "artists": {
+                    "trackartists": {
                         "composer": [],
                         "djmixer": [],
                         "guest": [],
@@ -528,9 +525,8 @@ def test_dump_releases(config: Config) -> None:
                     "disctotal": 1,
                     "duration_seconds": 240,
                     "id": "t2",
-                    "release_id": "r1",
                     "source_path": f"{config.music_source_dir}/r1/02.m4a",
-                    "title": "Track 2",
+                    "tracktitle": "Track 2",
                     "tracknumber": "02",
                     "tracktotal": 2,
                 },
@@ -541,14 +537,14 @@ def test_dump_releases(config: Config) -> None:
             "source_path": f"{config.music_source_dir}/r2",
             "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
             "added_at": "0000-01-01T00:00:00+00:00",
-            "title": "Release 2",
+            "albumtitle": "Release 2",
             "releasetype": "album",
             "year": 2021,
             "new": False,
             "disctotal": 1,
             "genres": ["Classical"],
             "labels": ["Native State"],
-            "artists": {
+            "albumartists": {
                 "main": [{"name": "Violin Woman", "alias": False}],
                 "guest": [{"name": "Conductor Woman", "alias": False}],
                 "remixer": [],
@@ -558,7 +554,7 @@ def test_dump_releases(config: Config) -> None:
             },
             "tracks": [
                 {
-                    "artists": {
+                    "trackartists": {
                         "composer": [],
                         "djmixer": [],
                         "guest": [{"alias": False, "name": "Conductor Woman"}],
@@ -570,9 +566,8 @@ def test_dump_releases(config: Config) -> None:
                     "disctotal": 1,
                     "duration_seconds": 120,
                     "id": "t3",
-                    "release_id": "r2",
                     "source_path": f"{config.music_source_dir}/r2/01.m4a",
-                    "title": "Track 1",
+                    "tracktitle": "Track 1",
                     "tracknumber": "01",
                     "tracktotal": 1,
                 }
@@ -583,14 +578,14 @@ def test_dump_releases(config: Config) -> None:
             "source_path": f"{config.music_source_dir}/r3",
             "cover_image_path": None,
             "added_at": "0000-01-01T00:00:00+00:00",
-            "title": "Release 3",
+            "albumtitle": "Release 3",
             "releasetype": "album",
             "year": 2021,
             "new": True,
             "disctotal": 1,
             "genres": [],
             "labels": [],
-            "artists": {
+            "albumartists": {
                 "main": [],
                 "guest": [],
                 "remixer": [],
@@ -600,7 +595,7 @@ def test_dump_releases(config: Config) -> None:
             },
             "tracks": [
                 {
-                    "artists": {
+                    "trackartists": {
                         "composer": [],
                         "djmixer": [],
                         "guest": [],
@@ -612,9 +607,8 @@ def test_dump_releases(config: Config) -> None:
                     "disctotal": 1,
                     "duration_seconds": 120,
                     "id": "t4",
-                    "release_id": "r3",
                     "source_path": f"{config.music_source_dir}/r3/01.m4a",
-                    "title": "Track 1",
+                    "tracktitle": "Track 1",
                     "tracknumber": "01",
                     "tracktotal": 1,
                 }
@@ -632,14 +626,14 @@ def test_dump_releases_matcher(config: Config) -> None:
             "source_path": f"{config.music_source_dir}/r2",
             "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
             "added_at": "0000-01-01T00:00:00+00:00",
-            "title": "Release 2",
+            "albumtitle": "Release 2",
             "releasetype": "album",
             "year": 2021,
             "new": False,
             "disctotal": 1,
             "genres": ["Classical"],
             "labels": ["Native State"],
-            "artists": {
+            "albumartists": {
                 "main": [{"name": "Violin Woman", "alias": False}],
                 "guest": [{"name": "Conductor Woman", "alias": False}],
                 "remixer": [],
@@ -649,7 +643,7 @@ def test_dump_releases_matcher(config: Config) -> None:
             },
             "tracks": [
                 {
-                    "artists": {
+                    "trackartists": {
                         "composer": [],
                         "djmixer": [],
                         "guest": [{"name": "Conductor Woman", "alias": False}],
@@ -661,9 +655,8 @@ def test_dump_releases_matcher(config: Config) -> None:
                     "disctotal": 1,
                     "duration_seconds": 120,
                     "id": "t3",
-                    "release_id": "r2",
                     "source_path": f"{config.music_source_dir}/r2/01.m4a",
-                    "title": "Track 1",
+                    "tracktitle": "Track 1",
                     "tracknumber": "01",
                     "tracktotal": 1,
                 }
