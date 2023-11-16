@@ -5,21 +5,6 @@ CREATE TABLE locks (
     PRIMARY KEY (name, valid_until)
 );
 
-CREATE TABLE releasetype_enum (value TEXT PRIMARY KEY);
-INSERT INTO releasetype_enum (value) VALUES
-    ('album'),
-    ('single'),
-    ('ep'),
-    ('compilation'),
-    ('anthology'),
-    ('soundtrack'),
-    ('live'),
-    ('remix'),
-    ('djmix'),
-    ('mixtape'),
-    ('other'),
-    ('unknown');
-
 CREATE TABLE releases (
     id TEXT PRIMARY KEY,
     source_path TEXT NOT NULL UNIQUE,
@@ -28,7 +13,7 @@ CREATE TABLE releases (
     added_at TEXT NOT NULL,
     datafile_mtime TEXT NOT NULL,
     title TEXT NOT NULL,
-    releasetype TEXT NOT NULL REFERENCES releasetype_enum(value),
+    releasetype TEXT NOT NULL,
     year INTEGER,
     -- Disctotal is also denormalized on the track.
     disctotal INTEGER NOT NULL,
