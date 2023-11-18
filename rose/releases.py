@@ -234,6 +234,7 @@ class MetadataTrack:
 @dataclass
 class MetadataRelease:
     title: str
+    new: bool
     releasetype: str
     year: int | None
     genres: list[str]
@@ -245,6 +246,7 @@ class MetadataRelease:
     def from_cache(cls, release: CachedRelease, tracks: list[CachedTrack]) -> MetadataRelease:
         return MetadataRelease(
             title=release.albumtitle,
+            new=release.new,
             releasetype=release.releasetype,
             year=release.year,
             genres=release.genres,
@@ -273,6 +275,7 @@ class MetadataRelease:
         d = tomllib.loads(toml)
         return MetadataRelease(
             title=d["title"],
+            new=d["new"],
             releasetype=d["releasetype"],
             year=d["year"] if d["year"] != -9999 else None,
             genres=d["genres"],
@@ -336,6 +339,7 @@ def edit_release(
         if original_toml == toml:
             logger.info("Aborting manual release edit: no metadata change detected.")
             return
+
         try:
             release_meta = MetadataRelease.from_toml(toml)
             for t in tracks:
@@ -395,6 +399,9 @@ def edit_release(
                         f"Flushing changed tags to {str(t.source_path).removeprefix(str(c.music_source_dir) + '/')}"
                     )
                     tags.flush()
+
+            if release_meta.new != release.new:
+                toggle_release_new(c, release.id)
         except RoseError as e:
             new_resume_path = c.cache_dir / f"failed-release-edit.{release_id}.toml"
             with new_resume_path.open("w") as fp:

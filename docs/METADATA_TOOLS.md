@@ -39,6 +39,7 @@ An example of the release's TOML representation:
 
 ```toml
 title = "Mix & Match"
+new = false
 releasetype = "ep"
 year = 2017
 genres = [

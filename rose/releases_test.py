@@ -134,6 +134,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
 
     new_toml = f"""
         title = "I Really Love Blackpink"
+        new = false
         releasetype = "single"
         year = 2222
         genres = [
@@ -178,7 +179,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         albumtitle="I Really Love Blackpink",
         releasetype="single",
         year=2222,
-        new=True,
+        new=False,
         disctotal=1,
         genres=["J-Pop", "Pop-Rap"],
         labels=["YG Entertainment"],
@@ -234,6 +235,7 @@ def test_edit_release_failure_and_resume(
     # Notice the bullshit releasetype.
     bad_toml = f"""
         title = "I Really Love Blackpink"
+        new = false
         releasetype = "bullshit"
         year = 2222
         genres = [
@@ -275,6 +277,7 @@ def test_edit_release_failure_and_resume(
 
     correct_toml = f"""
         title = "I Really Love Blackpink"
+        new = false
         releasetype = "single"
         year = 2222
         genres = [
@@ -327,7 +330,7 @@ def test_edit_release_failure_and_resume(
         albumtitle="I Really Love Blackpink",
         releasetype="single",
         year=2222,
-        new=True,
+        new=False,
         disctotal=1,
         genres=["J-Pop", "Pop-Rap"],
         labels=["YG Entertainment"],
