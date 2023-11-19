@@ -78,7 +78,7 @@ supported. All views in the virtual directory are supported as well.
 
 ## Toggle Release "new"-ness
 
-Command line:
+This operation is only supported on the command line.
 
 ```bash
 $ cd $fuse_mount_dir
@@ -97,33 +97,6 @@ $ rose releases toggle-new "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Mat
 [21:49:36] INFO: Updating cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [21:49:36] INFO: Updating release descriptions for Long Flight
 [21:49:36] INFO: Updating cache for collage Long Flight
-
-$ tree "2. Releases - New/"
-2. Releases - New/
-└── LOOΠΔ - 2017. Kim Lip - Single [NEW]/...
-```
-
-Virtual filesystem:
-
-_Note that if the release template produces the same path for new and non-new
-releases, this operation is not possible via the virtual filesystem._
-
-```bash
-$ cd $fuse_mount_dir
-
-# The specific path to rename to depends on the release path template. Here we
-# are renaming the directory to what it would have been named if the release
-# were new. In the default template, that means appending [NEW]. If you have a
-# custom template, you will need to rename the directory in line with how
-# "new"-ness is rendered in your template.
-$ mv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [NEW]"
-
-$ tree "2. Releases - New/"
-2. Releases - New/
-├── LOOΠΔ - 2017. Kim Lip - Single [NEW]/...
-└── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [NEW]/...
-
-$ mv "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [NEW]" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 
 $ tree "2. Releases - New/"
 2. Releases - New/

@@ -370,22 +370,6 @@ def test_virtual_filesystem_read_from_deleted_file(config: Config, source_dir: P
         assert (config.fuse_mount_dir / "1. Releases").is_dir()
 
 
-def test_virtual_filesystem_toggle_new(config: Config, source_dir: Path) -> None:  # noqa: ARG001
-    dirname = "NewJeans - 1990. I Love NewJeans"
-    root = config.fuse_mount_dir
-    with start_virtual_fs(config):
-        (root / "1. Releases" / dirname).rename(root / "1. Releases" / f"{dirname} [NEW]")
-        assert (root / "1. Releases" / f"{dirname} [NEW]").is_dir()
-        assert (root / "1. Releases" / dirname) not in set((root / "1. Releases").iterdir())
-        (root / "1. Releases" / f"{dirname} [NEW]").rename(root / "1. Releases" / dirname)
-        assert (root / "1. Releases" / dirname).is_dir()
-        assert (root / "1. Releases" / f"{dirname} [NEW]") not in set(
-            (root / "1. Releases").iterdir()
-        )
-        with pytest.raises(OSError):  # noqa: PT011
-            (root / "1. Releases" / dirname).rename(root / "1. Releases" / "lalala")
-
-
 @pytest.mark.usefixtures("seeded_cache")
 def test_virtual_filesystem_blacklist(config: Config) -> None:
     new_config = dataclasses.replace(
