@@ -11,9 +11,9 @@ git diff --exit-code
 
 echo "$version" > "$ROSE_ROOT/rose/.version"
 git add .
-git commit -am "[Release] $version - $message"
-git tag "$version" HEAD -m "$version"
-git push origin "$version"
+git commit -am "[Release] v$version - $message"
+git tag "$version" HEAD -m "v$version"
+git push origin "v$version"
 git checkout release
-git reset --hard "$version"
+git reset --hard "v$version"
 git push --force
