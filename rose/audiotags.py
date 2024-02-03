@@ -252,8 +252,8 @@ class AudioTags:
 
             def _write_standard_tag(key: str, value: str | None) -> None:
                 m.tags.delall(key)
-                frame = getattr(mutagen.id3, key)(text=value)
                 if value:
+                    frame = getattr(mutagen.id3, key)(text=value)
                     m.tags.add(frame)
 
             def _write_tag_with_description(name: str, value: str | None) -> None:
