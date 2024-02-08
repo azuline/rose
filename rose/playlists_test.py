@@ -352,7 +352,7 @@ def test_edit_playlists_duplicate_track_name(monkeypatch: Any, config: Config) -
     monkeypatch.setattr("rose.playlists.click.edit", editfn)
     edit_playlist_in_editor(config, "You & Me")
 
-    assert seen == "\n".join([f"BLACKPINK - Track 1.m4a [{tid}]" for tid in track_ids])
+    assert seen == "\n".join([f"BLACKPINK - Track 1 [1990].m4a [{tid}]" for tid in track_ids])
 
     with (config.music_source_dir / "!playlists" / "You & Me.toml").open("rb") as fp:
         data = tomllib.load(fp)

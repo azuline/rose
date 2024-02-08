@@ -233,12 +233,12 @@ def test_virtual_filesystem_playlist_actions(
         assert (root / "8. Playlists" / "New Jeans" / filename).is_file()
         assert (root / "8. Playlists" / "New Jeans" / "1. BLACKPINK - Track 1.m4a").is_file()
         with (src / "!playlists" / "New Jeans.toml").open("r") as fp:
-            assert "BLACKPINK - Track 1.m4a" in fp.read()
+            assert "BLACKPINK - Track 1 [1990].m4a" in fp.read()
         # Delete track from playlist.
         (root / "8. Playlists" / "New Jeans" / "1. BLACKPINK - Track 1.m4a").unlink()
         assert not (root / "8. Playlists" / "New Jeans" / "1. BLACKPINK - Track 1.m4a").exists()
         with (src / "!playlists" / "New Jeans.toml").open("r") as fp:
-            assert "BLACKPINK - Track 1.m4a" not in fp.read()
+            assert "BLACKPINK - Track 1 [1990].m4a" not in fp.read()
         # Delete playlist.
         (root / "8. Playlists" / "New Jeans").rmdir()
         assert not (src / "!playlists" / "New Jeans.toml").exists()

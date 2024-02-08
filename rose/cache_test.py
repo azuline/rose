@@ -952,8 +952,8 @@ def test_update_tracks_updates_playlists_description_meta(
             fp.read()
             == """\
 tracks = [
-    { uuid = "iloveloona", description_meta = "Carly Rae Jepsen - Track 1.m4a" },
-    { uuid = "ilovetwice", description_meta = "Carly Rae Jepsen - Track 2.m4a" },
+    { uuid = "iloveloona", description_meta = "Carly Rae Jepsen - Track 1 [1990].m4a" },
+    { uuid = "ilovetwice", description_meta = "Carly Rae Jepsen - Track 2 [1990].m4a" },
 ]
 """
         )
@@ -980,8 +980,8 @@ description_meta = "hahaha"
             fp.read()
             == """\
 tracks = [
-    { uuid = "iloveloona", description_meta = "Carly Rae Jepsen - Track 1.m4a" },
-    { uuid = "ilovetwice", description_meta = "Carly Rae Jepsen - Track 2.m4a" },
+    { uuid = "iloveloona", description_meta = "Carly Rae Jepsen - Track 1 [1990].m4a" },
+    { uuid = "ilovetwice", description_meta = "Carly Rae Jepsen - Track 2 [1990].m4a" },
 ]
 """
         )
@@ -1318,7 +1318,7 @@ def test_get_track(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_get_track_logtext(config: Config) -> None:
-    assert get_track_logtext(config, "t1") == "Techno Man & Bass Man - Track 1.m4a"
+    assert get_track_logtext(config, "t1") == "Techno Man & Bass Man - Track 1 [2023].m4a"
 
 
 @pytest.mark.usefixtures("seeded_cache")

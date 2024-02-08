@@ -465,6 +465,7 @@ class VirtualNameGenerator:
             logtext = calculate_track_logtext(
                 title=track.tracktitle,
                 artists=track.trackartists,
+                year=track.release.year,
                 suffix=track.source_path.suffix,
             )
 

@@ -1584,8 +1584,16 @@ def update_cache_for_playlists(
                 desc_map: dict[str, str] = {}
                 cursor = conn.execute(
                     f"""
-                    SELECT id, tracktitle, source_path, trackartist_names, trackartist_roles FROM tracks_view
-                    WHERE id IN ({','.join(['?']*len(tracks))})
+                    SELECT
+                        t.id
+                      , t.tracktitle
+                      , t.source_path
+                      , t.trackartist_names
+                      , t.trackartist_roles
+                      , r.year
+                    FROM tracks_view t
+                    JOIN releases_view r ON r.id = t.release_id
+                    WHERE t.id IN ({','.join(['?']*len(tracks))})
                     """,
                     cached_playlist.track_ids,
                 )
@@ -1595,6 +1603,7 @@ def update_cache_for_playlists(
                         artists=_unpack_artists(
                             c, row["trackartist_names"], row["trackartist_roles"]
                         ),
+                        year=row["year"],
                         suffix=Path(row["source_path"]).suffix,
                     )
                 for i, trk in enumerate(tracks):
@@ -1867,7 +1876,17 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
     """Get a human-readable identifier for a track suitable for logging."""
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT tracktitle, source_path, trackartist_names, trackartist_roles FROM tracks_view WHERE id = ?",
+            """
+            SELECT
+                t.tracktitle
+              , t.source_path
+              , t.trackartist_names
+              , t.trackartist_roles
+              , r.year
+            FROM tracks_view t
+            JOIN releases_view r ON r.id = t.release_id
+            WHERE t.id = ?
+            """,
             (track_id,),
         )
         row = cursor.fetchone()
@@ -1876,12 +1895,15 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
         return calculate_track_logtext(
             title=row["tracktitle"],
             artists=_unpack_artists(c, row["trackartist_names"], row["trackartist_roles"]),
+            year=row["year"],
             suffix=Path(row["source_path"]).suffix,
         )
 
 
-def calculate_track_logtext(title: str, artists: ArtistMapping, suffix: str) -> str:
-    return f"{artistsfmt(artists)} - {title or 'Unknown Title'}{suffix}"
+def calculate_track_logtext(
+    title: str, artists: ArtistMapping, year: int | None, suffix: str
+) -> str:
+    return f"{artistsfmt(artists)} - {title or 'Unknown Title'} [{year}]{suffix}"
 
 
 def list_playlists(c: Config) -> list[str]:
