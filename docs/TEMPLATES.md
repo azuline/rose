@@ -98,6 +98,7 @@ And provides the template variables for tracks:
 
 ```python
 title: str
+year: int | None
 tracknumber: str
 tracktotal: int                 # The number of tracks on this disc.
 discnumber: str

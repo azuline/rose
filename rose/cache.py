@@ -265,6 +265,7 @@ class CachedTrack:
     tracknumber: str
     tracktotal: int
     discnumber: str
+    # TODO: Remove, it's also on release.
     disctotal: int
     duration_seconds: int
     trackartists: ArtistMapping

@@ -265,6 +265,7 @@ def _calc_release_variables(release: CachedRelease, position: str | None) -> dic
 def _calc_track_variables(track: CachedTrack, position: str | None) -> dict[str, Any]:
     return {
         "title": track.tracktitle,
+        "year": track.release.year,
         "tracknumber": track.tracknumber,
         "tracktotal": track.tracktotal,
         "discnumber": track.discnumber,
