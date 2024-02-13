@@ -132,6 +132,7 @@ class TTLCache(Generic[K, V]):
         v, insert_time = self.__backing[key]
         if time.time() - insert_time > self.ttl_seconds:
             raise KeyError(key)
+        self.__backing[key] = (v, time.time())
         return v
 
     def __setitem__(self, key: K, value: V) -> None:
