@@ -326,7 +326,7 @@ class VirtualNameGenerator:
     path is getattr'ed, which is somewhat excessive, however, we can decouple the virtual templates
     from the cache this way, and the lookup _miss_ case should be rather rare in normal operations
 
-    The VirtualNameGenerator also remembers all previous path mappings for 15 minutes since last use.
+    The VirtualNameGenerator also remembers all previous path mappings for 2 hours since last use.
     This allows Rose to continue to serving accesses to old paths, even after the file metadata
     changed. This is useful, for example, if a directory or file is renamed (due to a metadata
     change) while its tracks are in a mpv playlist. mpv's requests to the old paths will still
@@ -340,10 +340,10 @@ class VirtualNameGenerator:
         # These are the stateful maps that we use to remember path mappings. They are maps from the
         # (parent_path, virtual path) -> entity ID.
         #
-        # Entries expire after 15 minutes, which implements the "serve accesses to previous paths"
+        # Entries expire after 2 hours, which implements the "serve accesses to previous paths"
         # behavior as specified in the class docstring.
-        self._release_store: TTLCache[tuple[VirtualPath, str], str] = TTLCache(ttl_seconds=60 * 15)
-        self._track_store: TTLCache[tuple[VirtualPath, str], str] = TTLCache(ttl_seconds=60 * 15)
+        self._release_store: TTLCache[tuple[VirtualPath, str], str] = TTLCache(ttl_seconds=60 * 60 * 2)
+        self._track_store: TTLCache[tuple[VirtualPath, str], str] = TTLCache(ttl_seconds=60 * 60 * 2)
         # Cache template evaluations because they're expensive.
         self._release_template_eval_cache: dict[tuple[VirtualPath, PathTemplate, str, str | None], str] = {}
         self._track_template_eval_cache: dict[tuple[VirtualPath, PathTemplate, str, str | None], str] = {}
