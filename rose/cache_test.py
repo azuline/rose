@@ -722,6 +722,17 @@ def test_update_cache_releases_updates_full_text_search(config: Config) -> None:
         }
 
 
+def test_update_cache_releases_new_directory_same_path(config: Config) -> None:
+    """If a previous release is replaced by a new release with the same path, avoid a source_path unique conflict."""
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    update_cache(config)
+    shutil.rmtree(release_dir)
+    shutil.copytree(TEST_RELEASE_2, release_dir)
+    # Should not error.
+    update_cache(config)
+
+
 def test_update_cache_collages(config: Config) -> None:
     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
     shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")

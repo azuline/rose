@@ -1027,7 +1027,7 @@ def _update_cache_for_releases_executor(
         if upd_release_args:
             conn.execute(
                 f"""
-                INSERT INTO releases (
+                INSERT OR REPLACE INTO releases (
                     id
                   , source_path
                   , cover_image_path
@@ -1040,17 +1040,6 @@ def _update_cache_for_releases_executor(
                   , new
                   , metahash
                 ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
-                ON CONFLICT (id) DO UPDATE SET
-                    source_path      = excluded.source_path
-                  , cover_image_path = excluded.cover_image_path
-                  , added_at         = excluded.added_at
-                  , datafile_mtime   = excluded.datafile_mtime
-                  , title            = excluded.title
-                  , releasetype      = excluded.releasetype
-                  , year             = excluded.year
-                  , disctotal        = excluded.disctotal
-                  , new              = excluded.new
-                  , metahash         = excluded.metahash
                 """,
                 _flatten(upd_release_args),
             )
@@ -1102,7 +1091,7 @@ def _update_cache_for_releases_executor(
         if upd_track_args:
             conn.execute(
                 f"""
-                INSERT INTO tracks (
+                INSERT OR REPLACE INTO tracks (
                     id
                   , source_path
                   , source_mtime
@@ -1116,17 +1105,6 @@ def _update_cache_for_releases_executor(
                   , metahash
                 )
                 VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
-                ON CONFLICT (id) DO UPDATE SET
-                    source_path                = excluded.source_path
-                  , source_mtime               = excluded.source_mtime
-                  , title                      = excluded.title
-                  , release_id                 = excluded.release_id
-                  , tracknumber                = excluded.tracknumber
-                  , tracktotal                 = excluded.tracktotal
-                  , discnumber                 = excluded.discnumber
-                  , disctotal                  = excluded.disctotal
-                  , duration_seconds           = excluded.duration_seconds
-                  , metahash                   = excluded.metahash
                 """,
                 _flatten(upd_track_args),
             )
@@ -1399,8 +1377,7 @@ def update_cache_for_collages(
                 logger.info(f"Updating cache for collage {cached_collage.name}")
                 conn.execute(
                     """
-                    INSERT INTO collages (name, source_mtime) VALUES (?, ?)
-                    ON CONFLICT (name) DO UPDATE SET source_mtime = excluded.source_mtime
+                    INSERT OR REPLACE INTO collages (name, source_mtime) VALUES (?, ?)
                     """,
                     (cached_collage.name, cached_collage.source_mtime),
                 )
@@ -1623,10 +1600,7 @@ def update_cache_for_playlists(
                 logger.info(f"Updating cache for playlist {cached_playlist.name}")
                 conn.execute(
                     """
-                    INSERT INTO playlists (name, source_mtime, cover_path) VALUES (?, ?, ?)
-                    ON CONFLICT (name) DO UPDATE SET
-                        source_mtime = excluded.source_mtime
-                      , cover_path = excluded.cover_path
+                    INSERT OR REPLACE INTO playlists (name, source_mtime, cover_path) VALUES (?, ?, ?)
                     """,
                     (
                         cached_playlist.name,
