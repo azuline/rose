@@ -120,9 +120,9 @@ class PathTemplatePair:
 
 DEFAULT_RELEASE_TEMPLATE = PathTemplate(
     """
-{{ artists | artistsfmt }} -
+{{ albumartists | artistsfmt }} -
 {% if year %}{{ year }}.{% endif %}
-{{ title }}
+{{ albumtitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 {% if new %}[NEW]{% endif %}
 """
@@ -131,8 +131,8 @@ DEFAULT_RELEASE_TEMPLATE = PathTemplate(
 DEFAULT_TRACK_TEMPLATE = PathTemplate(
     """
 {% if disctotal > 1 %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
-{{ title }}
-{% if artists.guest %}(feat. {{ artists.guest | artistsarrayfmt }}){% endif %}
+{{ tracktitle }}
+{% if trackartists.guest %}(feat. {{ trackartists.guest | artistsarrayfmt }}){% endif %}
 """
 )
 
@@ -177,8 +177,8 @@ class PathTemplateConfig:
             playlists=PathTemplate(
                 """
 {{ position }}.
-{{ artists | artistsfmt }} -
-{{ title }}
+{{ trackartists | artistsfmt }} -
+{{ tracktitle }}
 """
             ),
         )
@@ -250,28 +250,35 @@ def eval_track_template(
 def _calc_release_variables(release: CachedRelease, position: str | None) -> dict[str, Any]:
     return {
         "added_at": release.added_at,
-        "title": release.albumtitle,
+        "albumtitle": release.albumtitle,
         "releasetype": release.releasetype,
         "year": release.year,
         "new": release.new,
         "disctotal": release.disctotal,
         "genres": release.genres,
         "labels": release.labels,
-        "artists": release.albumartists,
+        "albumartists": release.albumartists,
         "position": position,
     }
 
 
 def _calc_track_variables(track: CachedTrack, position: str | None) -> dict[str, Any]:
     return {
-        "title": track.tracktitle,
-        "year": track.release.year,
+        "added_at": track.release.added_at,
+        "tracktitle": track.tracktitle,
         "tracknumber": track.tracknumber,
         "tracktotal": track.tracktotal,
         "discnumber": track.discnumber,
         "disctotal": track.disctotal,
         "duration_seconds": track.duration_seconds,
-        "artists": track.trackartists,
+        "trackartists": track.trackartists,
+        "albumtitle": track.release.albumtitle,
+        "releasetype": track.release.releasetype,
+        "year": track.release.year,
+        "new": track.release.new,
+        "genres": track.release.genres,
+        "labels": track.release.labels,
+        "albumartists": track.release.albumartists,
         "position": position,
     }
 
