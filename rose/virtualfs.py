@@ -680,11 +680,12 @@ class RoseLogicalCore:
         attrs["st_mtime_ns"] = 0.0
         attrs["st_ctime_ns"] = 0.0
         if realpath:
-            s = realpath.stat()
-            attrs["st_size"] = s.st_size
-            attrs["st_atime_ns"] = s.st_atime
-            attrs["st_mtime_ns"] = s.st_mtime
-            attrs["st_ctime_ns"] = s.st_ctime
+            with contextlib.suppress(FileNotFoundError):
+                s = realpath.stat()
+                attrs["st_size"] = s.st_size
+                attrs["st_atime_ns"] = s.st_atime
+                attrs["st_mtime_ns"] = s.st_mtime
+                attrs["st_ctime_ns"] = s.st_ctime
 
         return attrs
 
