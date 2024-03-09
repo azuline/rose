@@ -31,6 +31,7 @@ from rose.cache import (
     release_lock_name,
     update_cache_evict_nonexistent_releases,
     update_cache_for_collages,
+    update_cache_for_playlists,
     update_cache_for_releases,
 )
 from rose.common import Artist, ArtistMapping, RoseError, RoseExpectedError
@@ -105,8 +106,9 @@ def delete_release(c: Config, release_id: str) -> None:
     )
     logger.info(f"Trashed release {release_logtext}")
     update_cache_evict_nonexistent_releases(c)
-    # Update all collages so that the release is removed from whichever collages it was in.
+    # Update all collages and playlists so that the release is removed from whichever it was in.
     update_cache_for_collages(c, None, force=True)
+    update_cache_for_playlists(c, None, force=True)
 
 
 def toggle_release_new(c: Config, release_id: str) -> None:
