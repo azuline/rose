@@ -452,10 +452,12 @@ def create_single_release(c: Config, track_path: Path) -> None:
 
     # Step 1. Compute the new directory name for the single.
     af = AudioTags.from_file(track_path)
+    title = (af.title or "Unknown Title").strip()
+
     dirname = f"{artistsfmt(af.trackartists)} - "
     if af.year:
         dirname += f"{af.year}. "
-    dirname += af.title or "Unknown Title"
+    dirname += title
     # Handle directory name collisions.
     collision_no = 2
     original_dirname = dirname
@@ -468,7 +470,7 @@ def create_single_release(c: Config, track_path: Path) -> None:
     # directory, copy that over too.
     source_path = c.music_source_dir / dirname
     source_path.mkdir()
-    new_track_path = source_path / f"01. {af.title}{track_path.suffix}"
+    new_track_path = source_path / f"01. {title}{track_path.suffix}"
     shutil.copyfile(track_path, new_track_path)
     for f in track_path.parent.iterdir():
         if f.name.lower() in c.valid_cover_arts:
@@ -476,7 +478,7 @@ def create_single_release(c: Config, track_path: Path) -> None:
             break
     # Step 3. Update the tags of the new track. Clear the Rose IDs too: this is a brand new track.
     af = AudioTags.from_file(new_track_path)
-    af.album = af.title
+    af.album = title
     af.releasetype = "single"
     af.albumartists = af.trackartists
     af.tracknumber = "1"

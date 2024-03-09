@@ -392,6 +392,20 @@ def test_extract_single_release(config: Config) -> None:
     assert af.albumartists == af.trackartists
 
 
+def test_extract_single_release_with_trailing_space(config: Config) -> None:
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    af = AudioTags.from_file(release_dir / "02.m4a")
+    af.title = "Trailing Space "
+    af.flush()
+    update_cache(config)
+    create_single_release(config, release_dir / "02.m4a")
+    # Assert that we've successfully written/copied our files.
+    source_path = config.music_source_dir / "BLACKPINK - 1990. Trailing Space"
+    assert source_path.is_dir()
+    assert (source_path / "01. Trailing Space.m4a").is_file()
+
+
 @pytest.mark.usefixtures("seeded_cache")
 def test_dump_release(config: Config) -> None:
     assert json.loads(dump_release(config, "r1")) == {
