@@ -1588,6 +1588,10 @@ def update_cache_for_playlists(
                         tracks[i]["description_meta"] = desc_map[trk["uuid"]]
                     if trk.get("missing", False):
                         tracks[i]["description_meta"] += " {MISSING}"
+                    if trk.get("missing", False) and not tracks[i]["description_meta"].endswith(
+                        " {MISSING}"
+                    ):
+                        tracks[i]["description_meta"] += " {MISSING}"
 
                 # Update the playlist on disk if we have changed information.
                 if tracks != original_tracks:
