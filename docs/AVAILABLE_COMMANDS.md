@@ -78,3 +78,4 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
   - `rules run`: Run an ad hoc rule in the command line interface. You can also
     easily test rules with the `--dry-run` flag.
   - `rules run-stored`: Run the rules stored in the configuration file.
+- `version`: Print the installed version.

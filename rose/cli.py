@@ -14,7 +14,7 @@ from pathlib import Path
 
 import click
 
-from rose.common import RoseExpectedError
+from rose.common import VERSION, RoseExpectedError
 from rose.config import Config
 
 logger = logging.getLogger(__name__)
@@ -53,6 +53,12 @@ def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     maybe_invalidate_cache_database(cc.obj.config)
+
+
+@cli.command()
+def version() -> None:
+    """Print version."""
+    click.echo(VERSION)
 
 
 @cli.group()
