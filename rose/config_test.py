@@ -11,6 +11,7 @@ from rose.rule_parser import (
     MetadataMatcher,
     MetadataRule,
     ReplaceAction,
+    SplitAction,
 )
 from rose.templates import PathTemplate, PathTemplateConfig, PathTemplatePair
 
@@ -57,6 +58,11 @@ def test_config_full() -> None:
                 [[stored_metadata_rules]]
                 matcher = "tracktitle:lala"
                 actions = ["replace:hihi"]
+
+                [[stored_metadata_rules]]
+                matcher = "trackartist[main]:haha"
+                actions = ["replace:bibi", "split: "]
+                ignore = ["albumtitle:blabla"]
 
                 [path_templates]
                 default.release = "{{{{ title }}}}"
@@ -151,7 +157,25 @@ def test_config_full() -> None:
                         )
                     ],
                     ignore=[],
-                )
+                ),
+                MetadataRule(
+                    matcher=MetadataMatcher(
+                        tags=["trackartist[main]"], pattern=MatcherPattern("haha")
+                    ),
+                    actions=[
+                        MetadataAction(
+                            behavior=ReplaceAction(replacement="bibi"),
+                            tags=["trackartist[main]"],
+                            pattern=MatcherPattern("haha"),
+                        ),
+                        MetadataAction(
+                            behavior=SplitAction(delimiter=" "),
+                            tags=["trackartist[main]"],
+                            pattern=MatcherPattern("haha"),
+                        ),
+                    ],
+                    ignore=[MetadataMatcher(tags=["albumtitle"], pattern=MatcherPattern("blabla"))],
+                ),
             ],
         )
 
@@ -486,6 +510,22 @@ Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'ma
     delete:hi
            ^
            Found another section after the action kind, but the delete action has no parameters. Please remove this section.
+"""
+        )
+        write(
+            config
+            + '\nstored_metadata_rules = [{ matcher = "tracktitle:hi", actions = ["delete"], ignore = ["tracktitle:bye:"] }]'
+        )
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            click.unstyle(str(excinfo.value))
+            == f"""\
+Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'matcher': 'tracktitle:hi', 'actions': ['delete'], 'ignore': ['tracktitle:bye:']}}: Failed to parse matcher, invalid syntax:
+
+    tracktitle:bye:
+                   ^
+                   No flags specified: Please remove this section (by deleting the colon) or specify one of the supported flags: `i` (case insensitive).
 """
         )
 

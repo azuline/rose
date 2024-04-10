@@ -367,8 +367,19 @@ class Config:
                         f"Invalid value for `actions` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}: must be a list of strings: got {type(action)}"
                     )
 
+            ignore = d.get("ignore", [])
+            if not isinstance(ignore, list):
+                raise InvalidConfigValueError(
+                    f"Invalid value for `ignore` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}: must be a list of strings"
+                )
+            for i in ignore:
+                if not isinstance(i, str):
+                    raise InvalidConfigValueError(
+                        f"Invalid value for `ignore` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}: must be a list of strings: got {type(i)}"
+                    )
+
             try:
-                stored_metadata_rules.append(MetadataRule.parse(matcher, actions))
+                stored_metadata_rules.append(MetadataRule.parse(matcher, actions, ignore))
             except RuleSyntaxError as e:
                 raise InvalidConfigValueError(
                     f"Failed to parse stored_metadata_rules in configuration file ({cfgpath}): rule {d}: {e}"
