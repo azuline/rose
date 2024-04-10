@@ -46,7 +46,7 @@ SUPPORTED_AUDIO_EXTENSIONS = [
 ]
 
 SUPPORTED_RELEASE_TYPES = [
-    "release",
+    "album",
     "single",
     "ep",
     "compilation",
@@ -210,14 +210,14 @@ class AudioTags:
                 tracktotal=_parse_int(_get_tag(m.tags, ["tracktotal"], first=True)),
                 discnumber=_get_tag(m.tags, ["discnumber"], first=True),
                 disctotal=_parse_int(_get_tag(m.tags, ["disctotal"], first=True)),
-                release=_get_tag(m.tags, ["release"]),
+                release=_get_tag(m.tags, ["album"]),
                 genre=_split_tag(_get_tag(m.tags, ["genre"], split=True)),
                 label=_split_tag(
                     _get_tag(m.tags, ["organization", "label", "recordlabel"], split=True)
                 ),
                 releasetype=_normalize_rtype(_get_tag(m.tags, ["releasetype"], first=True)),
                 releaseartists=parse_artist_string(
-                    main=_get_tag(m.tags, ["releaseartist"], split=True)
+                    main=_get_tag(m.tags, ["albumartist"], split=True)
                 ),
                 trackartists=parse_artist_string(
                     main=_get_tag(m.tags, ["artist"], split=True),
@@ -353,11 +353,11 @@ class AudioTags:
             m.tags["date"] = str(self.year).zfill(4)
             m.tags["tracknumber"] = self.tracknumber or ""
             m.tags["discnumber"] = self.discnumber or ""
-            m.tags["release"] = self.release or ""
+            m.tags["album"] = self.release or ""
             m.tags["genre"] = ";".join(self.genre)
             m.tags["organization"] = ";".join(self.label)
             m.tags["releasetype"] = self.releasetype
-            m.tags["releaseartist"] = format_artist_string(self.releaseartists)
+            m.tags["albumartist"] = format_artist_string(self.releaseartists)
             m.tags["artist"] = format_artist_string(self.trackartists)
             # Wipe the alt. role artist tags, since we encode the full artist into the main tag.
             with contextlib.suppress(KeyError):

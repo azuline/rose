@@ -23,7 +23,7 @@ if typing.TYPE_CHECKING:
     from rose.config import Config
 
 RELEASE_TYPE_FORMATTER = {
-    "release": "Album",
+    "album": "Album",
     "single": "Single",
     "ep": "EP",
     "compilation": "Compilation",
@@ -348,7 +348,7 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease]:
         added_at="2023-06-09:23:45Z",
         datafile_mtime="999",
         releasetitle="Young Forever (花樣年華)",
-        releasetype="release",
+        releasetype="album",
         year=2016,
         new=False,
         disctotal=2,
