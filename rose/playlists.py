@@ -2,7 +2,6 @@
 The playlists module provides functions for interacting with playlists.
 """
 
-
 import json
 import logging
 import shutil

@@ -13,12 +13,12 @@ test-seq:
 
 lintcheck:
 	ruff format --check .
-	ruff .
+	ruff check .
 	prettier --check .
 
 lint:
 	ruff format .
-	ruff --fix .
+	ruff check --fix .
 	prettier --write .
 
 .PHONY: check test typecheck lintcheck lint

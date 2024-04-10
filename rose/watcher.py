@@ -72,7 +72,7 @@ class EventHandler(FileSystemEventHandler):  # pragma: no cover
         self.queue = queue
 
     def on_any_event(self, event: FileSystemEvent) -> None:
-        super().on_any_event(event)  # type: ignore
+        super().on_any_event(event)
         path = event.dest_path if isinstance(event, FileSystemMovedEvent) else event.src_path
         logger.debug(f"Notified of {event.event_type} event for {path}")
 
@@ -156,7 +156,7 @@ async def event_processor(c: Config, queue: Queue[WatchdogEvent]) -> None:  # pr
 
         # Debounce events.
         key = hash(event)
-        last = debounce_times.get(key, None)
+        last = debounce_times.get(key)
         if last and time.time() - last < 0.2:
             logger.debug(f"Skipped event {key} due to debouncer")
             continue

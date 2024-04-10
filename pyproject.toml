@@ -1,6 +1,17 @@
 [tool.black]
 line-length = 100
+
 [tool.ruff]
+line-length = 100
+src = ["."]
+exclude = [
+  ".git",
+  ".mypy_cache",
+  ".ruff_cache",
+  ".venv",
+]
+
+[tool.ruff.lint]
 select = [
   # pycodestyle
   "E",
@@ -40,19 +51,10 @@ ignore = [
   # Fixtures that do not return anything do not need leading underscore.
   "PT004",
 ]
-line-length = 100
-exclude = [
-  ".git",
-  ".mypy_cache",
-  ".ruff_cache",
-  ".venv",
-]
-
 unfixable = [
   # Remove unused variables.
   "F841",
 ]
-src = ["."]
 
 [tool.mypy]
 strict = true

@@ -414,7 +414,7 @@ def _get_tuple_tag(t: Any, keys: list[str]) -> tuple[str, str] | tuple[None, Non
             raw_values = t[k].text if isinstance(t, mutagen.id3.ID3) else t[k]
             for val in raw_values:
                 if isinstance(val, tuple):
-                    return val  # type: ignore
+                    return val
                 else:
                     raise UnsupportedTagValueTypeError(
                         f"Encountered a tag value of type {type(val)}: expected tuple"
