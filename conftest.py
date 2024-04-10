@@ -182,12 +182,12 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
               , tracktitle
               , tracknumber
               , discnumber
-              , albumtitle
+              , releasetitle
               , year
               , releasetype
               , genre
               , label
-              , albumartist
+              , releaseartist
               , trackartist
             )
             SELECT
@@ -195,12 +195,12 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
               , process_string_for_fts(t.title) AS tracktitle
               , process_string_for_fts(t.tracknumber) AS tracknumber
               , process_string_for_fts(t.discnumber) AS discnumber
-              , process_string_for_fts(r.title) AS albumtitle
+              , process_string_for_fts(r.title) AS releasetitle
               , process_string_for_fts(r.year) AS year
               , process_string_for_fts(r.releasetype) AS releasetype
               , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, ' '), '')) AS genre
               , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, ' '), '')) AS label
-              , process_string_for_fts(COALESCE(GROUP_CONCAT(ra.artist, ' '), '')) AS albumartist
+              , process_string_for_fts(COALESCE(GROUP_CONCAT(ra.artist, ' '), '')) AS releaseartist
               , process_string_for_fts(COALESCE(GROUP_CONCAT(ta.artist, ' '), '')) AS trackartist
             FROM tracks t
             JOIN releases r ON r.id = t.release_id

@@ -20,14 +20,14 @@ from rose.rule_parser import (
 
 
 def test_rule_str() -> None:
-    rule = MetadataRule.parse("tracktitle:Track", ["albumartist,genre::replace:lalala"])
-    assert str(rule) == "matcher=tracktitle:Track action=albumartist,genre::replace:lalala"
+    rule = MetadataRule.parse("tracktitle:Track", ["releaseartist,genre::replace:lalala"])
+    assert str(rule) == "matcher=tracktitle:Track action=releaseartist,genre::replace:lalala"
 
     # Test that rules are quoted properly.
-    rule = MetadataRule.parse(r"tracktitle,albumartist,genre:\:", [r"sed:\::; "])
+    rule = MetadataRule.parse(r"tracktitle,releaseartist,genre:\:", [r"sed:\::; "])
     assert (
         str(rule)
-        == r"matcher='tracktitle,albumartist,genre:\:' action='tracktitle,albumartist,genre:\:::sed:\::; '"
+        == r"matcher='tracktitle,releaseartist,genre:\:' action='tracktitle,releaseartist,genre:\:::sed:\::; '"
     )
 
     # Test that custom action matcher is printed properly.
@@ -77,7 +77,7 @@ Failed to parse matcher, invalid syntax:
 
     tracknumber^Track$
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[djmixer], tracknumber, tracktotal, discnumber, disctotal, albumtitle, albumartist, albumartist[main], albumartist[guest], albumartist[remixer], albumartist[producer], albumartist[composer], albumartist[djmixer], releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[djmixer], tracknumber, tracktotal, discnumber, disctotal, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[djmixer], releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -261,7 +261,7 @@ Failed to parse action 1, invalid syntax:
 
     haha::delete
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[djmixer], tracknumber, discnumber, albumtitle, albumartist, albumartist[main], albumartist[guest], albumartist[remixer], albumartist[producer], albumartist[composer], albumartist[djmixer], releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[djmixer], releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -272,7 +272,7 @@ Failed to parse action 1, invalid syntax:
 
     tracktitler::delete
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[djmixer], tracknumber, discnumber, albumtitle, albumartist, albumartist[main], albumartist[guest], albumartist[remixer], albumartist[producer], albumartist[composer], albumartist[djmixer], releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[djmixer], releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 

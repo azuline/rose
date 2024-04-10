@@ -383,9 +383,9 @@ class VirtualNameGenerator:
                 raise RoseError(f"VNAMES: No release template found for {release_parent=}.")
 
             logtext = calculate_release_logtext(
-                title=release.albumtitle,
+                title=release.releasetitle,
                 year=release.year,
-                artists=release.albumartists,
+                artists=release.releaseartists,
             )
 
             # Generate a position if we're in a collage.
@@ -806,7 +806,7 @@ class RoseLogicalCore:
         logger.debug(f"LOGICAL: Received readdir for {p=}")
 
         # Call getattr to validate existence. We can now assume that the provided path exists. This
-        # for example includes checks that a given album belongs to the artist/genre/label/collage
+        # for example includes checks that a given release belongs to the artist/genre/label/collage
         # its nested under.
         logger.debug(f"LOGICAL: Invoking getattr in readdir to validate existence of {p}")
         self.getattr(p)
@@ -1061,9 +1061,9 @@ class RoseLogicalCore:
             if p.file.lower() in self.config.valid_cover_arts and flags & os.O_CREAT == os.O_CREAT:
                 fh = self.fhandler.next()
                 logtext = calculate_release_logtext(
-                    title=release.albumtitle,
+                    title=release.releasetitle,
                     year=release.year,
-                    artists=release.albumartists,
+                    artists=release.releaseartists,
                 )
                 logger.debug(
                     f"LOGICAL: Begin new cover art sequence for release "

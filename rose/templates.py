@@ -120,9 +120,9 @@ class PathTemplatePair:
 
 DEFAULT_RELEASE_TEMPLATE = PathTemplate(
     """
-{{ albumartists | artistsfmt }} -
+{{ releaseartists | artistsfmt }} -
 {% if year %}{{ year }}.{% endif %}
-{{ albumtitle }}
+{{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 {% if new %}[NEW]{% endif %}
 """
@@ -250,14 +250,14 @@ def eval_track_template(
 def _calc_release_variables(release: CachedRelease, position: str | None) -> dict[str, Any]:
     return {
         "added_at": release.added_at,
-        "albumtitle": release.albumtitle,
+        "releasetitle": release.releasetitle,
         "releasetype": release.releasetype,
         "year": release.year,
         "new": release.new,
         "disctotal": release.disctotal,
         "genres": release.genres,
         "labels": release.labels,
-        "albumartists": release.albumartists,
+        "releaseartists": release.releaseartists,
         "position": position,
     }
 
@@ -272,13 +272,13 @@ def _calc_track_variables(track: CachedTrack, position: str | None) -> dict[str,
         "disctotal": track.disctotal,
         "duration_seconds": track.duration_seconds,
         "trackartists": track.trackartists,
-        "albumtitle": track.release.albumtitle,
+        "releasetitle": track.release.releasetitle,
         "releasetype": track.release.releasetype,
         "year": track.release.year,
         "new": track.release.new,
         "genres": track.release.genres,
         "labels": track.release.labels,
-        "albumartists": track.release.albumartists,
+        "releaseartists": track.release.releaseartists,
         "position": position,
     }
 
@@ -330,14 +330,14 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease]:
         cover_image_path=None,
         added_at="2023-04-20:23:45Z",
         datafile_mtime="999",
-        albumtitle="Kim Lip",
+        releasetitle="Kim Lip",
         releasetype="single",
         year=2017,
         new=True,
         disctotal=1,
         genres=["K-Pop", "Dance-Pop", "Contemporary R&B"],
         labels=["BlockBerryCreative"],
-        albumartists=ArtistMapping(main=[Artist("Kim Lip")]),
+        releaseartists=ArtistMapping(main=[Artist("Kim Lip")]),
         metahash="0",
     )
 
@@ -347,14 +347,14 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease]:
         cover_image_path=None,
         added_at="2023-06-09:23:45Z",
         datafile_mtime="999",
-        albumtitle="Young Forever (花樣年華)",
+        releasetitle="Young Forever (花樣年華)",
         releasetype="album",
         year=2016,
         new=False,
         disctotal=2,
         genres=["K-Pop"],
         labels=["BIGHIT"],
-        albumartists=ArtistMapping(main=[Artist("BTS")]),
+        releaseartists=ArtistMapping(main=[Artist("BTS")]),
         metahash="0",
     )
 

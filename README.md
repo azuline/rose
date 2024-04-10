@@ -138,23 +138,23 @@ The rules engine allows you to pattern match tracks in your music library and
 apply tag changes to them. For example:
 
 ```bash
-$ rose rules run 'trackartist,albumartist:^CHUU$' 'replace:Chuu'
+$ rose rules run 'trackartist,releaseartist:^CHUU$' 'replace:Chuu'
 
 CHUU - 2023. Howl/01. Howl.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      albumartist[main]: ['CHUU'] -> ['Chuu']
+      releaseartist[main]: ['CHUU'] -> ['Chuu']
 CHUU - 2023. Howl/02. Underwater.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      albumartist[main]: ['CHUU'] -> ['Chuu']
+      releaseartist[main]: ['CHUU'] -> ['Chuu']
 CHUU - 2023. Howl/03. My Palace.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      albumartist[main]: ['CHUU'] -> ['Chuu']
+      releaseartist[main]: ['CHUU'] -> ['Chuu']
 CHUU - 2023. Howl/04. Aliens.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      albumartist[main]: ['CHUU'] -> ['Chuu']
+      releaseartist[main]: ['CHUU'] -> ['Chuu']
 CHUU - 2023. Howl/05. Hitchhiker.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      albumartist[main]: ['CHUU'] -> ['Chuu']
+      releaseartist[main]: ['CHUU'] -> ['Chuu']
 ```
 
 _Demo Video TODO_

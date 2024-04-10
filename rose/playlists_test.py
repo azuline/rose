@@ -154,13 +154,13 @@ def test_dump_playlist(config: Config) -> None:
                 },
                 "added_at": "0000-01-01T00:00:00+00:00",
                 "release_id": "r1",
-                "albumtitle": "Release 1",
+                "releasetitle": "Release 1",
                 "releasetype": "album",
                 "year": 2023,
                 "new": False,
                 "genres": ["Techno", "Deep House"],
                 "labels": ["Silk Music"],
-                "albumartists": {
+                "releaseartists": {
                     "main": [
                         {"name": "Techno Man", "alias": False},
                         {"name": "Bass Man", "alias": False},
@@ -192,13 +192,13 @@ def test_dump_playlist(config: Config) -> None:
                 },
                 "added_at": "0000-01-01T00:00:00+00:00",
                 "release_id": "r2",
-                "albumtitle": "Release 2",
+                "releasetitle": "Release 2",
                 "releasetype": "album",
                 "year": 2021,
                 "new": False,
                 "genres": ["Classical"],
                 "labels": ["Native State"],
-                "albumartists": {
+                "releaseartists": {
                     "main": [{"name": "Violin Woman", "alias": False}],
                     "guest": [{"name": "Conductor Woman", "alias": False}],
                     "remixer": [],
@@ -242,13 +242,13 @@ def test_dump_playlists(config: Config) -> None:
                     },
                     "added_at": "0000-01-01T00:00:00+00:00",
                     "release_id": "r1",
-                    "albumtitle": "Release 1",
+                    "releasetitle": "Release 1",
                     "releasetype": "album",
                     "year": 2023,
                     "new": False,
                     "genres": ["Techno", "Deep House"],
                     "labels": ["Silk Music"],
-                    "albumartists": {
+                    "releaseartists": {
                         "main": [
                             {"name": "Techno Man", "alias": False},
                             {"name": "Bass Man", "alias": False},
@@ -280,13 +280,13 @@ def test_dump_playlists(config: Config) -> None:
                     },
                     "added_at": "0000-01-01T00:00:00+00:00",
                     "release_id": "r2",
-                    "albumtitle": "Release 2",
+                    "releasetitle": "Release 2",
                     "releasetype": "album",
                     "year": 2021,
                     "new": False,
                     "genres": ["Classical"],
                     "labels": ["Native State"],
-                    "albumartists": {
+                    "releaseartists": {
                         "main": [{"name": "Violin Woman", "alias": False}],
                         "guest": [{"name": "Conductor Woman", "alias": False}],
                         "remixer": [],

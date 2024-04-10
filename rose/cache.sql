@@ -157,12 +157,12 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
   , tracktotal
   , discnumber
   , disctotal
-  , albumtitle
+  , releasetitle
   , year
   , releasetype
   , genre
   , label
-  , albumartist
+  , releaseartist
   , trackartist
   -- Use standard unicode tokenizer; do not remove diacritics; treat everything we know as token.
   -- Except for the ¬, which is our "separator." We use that separator to produce single-character
@@ -200,7 +200,7 @@ CREATE VIEW releases_view AS
       , r.cover_image_path
       , r.added_at
       , r.datafile_mtime
-      , r.title AS albumtitle
+      , r.title AS releasetitle
       , r.releasetype
       , r.year
       , r.disctotal
@@ -208,8 +208,8 @@ CREATE VIEW releases_view AS
       , r.metahash
       , COALESCE(g.genres, '') AS genres
       , COALESCE(l.labels, '') AS labels
-      , COALESCE(a.names, '') AS albumartist_names
-      , COALESCE(a.roles, '') AS albumartist_roles
+      , COALESCE(a.names, '') AS releaseartist_names
+      , COALESCE(a.roles, '') AS releaseartist_roles
     FROM releases r
     LEFT JOIN genres g ON g.release_id = r.id
     LEFT JOIN labels l ON l.release_id = r.id

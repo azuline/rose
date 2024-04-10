@@ -100,9 +100,9 @@ def delete_release(c: Config, release_id: str) -> None:
     with lock(c, release_lock_name(release_id)):
         send2trash(release.source_path)
     release_logtext = calculate_release_logtext(
-        title=release.albumtitle,
+        title=release.releasetitle,
         year=release.year,
-        artists=release.albumartists,
+        artists=release.releaseartists,
     )
     logger.info(f"Trashed release {release_logtext}")
     update_cache_evict_nonexistent_releases(c)
@@ -117,9 +117,9 @@ def toggle_release_new(c: Config, release_id: str) -> None:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
     release_logtext = calculate_release_logtext(
-        title=release.albumtitle,
+        title=release.releasetitle,
         year=release.year,
-        artists=release.albumartists,
+        artists=release.releaseartists,
     )
 
     for f in release.source_path.iterdir():
@@ -159,9 +159,9 @@ def set_release_cover_art(
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
     release_logtext = calculate_release_logtext(
-        title=release.albumtitle,
+        title=release.releasetitle,
         year=release.year,
-        artists=release.albumartists,
+        artists=release.releaseartists,
     )
 
     for f in release.source_path.iterdir():
@@ -180,9 +180,9 @@ def delete_release_cover_art(c: Config, release_id: str) -> None:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
     release_logtext = calculate_release_logtext(
-        title=release.albumtitle,
+        title=release.releasetitle,
         year=release.year,
-        artists=release.albumartists,
+        artists=release.releaseartists,
     )
 
     found = False
@@ -247,13 +247,13 @@ class MetadataRelease:
     @classmethod
     def from_cache(cls, release: CachedRelease, tracks: list[CachedTrack]) -> MetadataRelease:
         return MetadataRelease(
-            title=release.albumtitle,
+            title=release.releasetitle,
             new=release.new,
             releasetype=release.releasetype,
             year=release.year,
             genres=release.genres,
             labels=release.labels,
-            artists=MetadataArtist.from_mapping(release.albumartists),
+            artists=MetadataArtist.from_mapping(release.releaseartists),
             tracks={
                 t.id: MetadataTrack(
                     discnumber=t.discnumber,
@@ -370,10 +370,10 @@ def edit_release(
                     logger.debug(f"Modified tag detected for {t.source_path}: artists")
 
                 # Album tags.
-                if tags.album != release_meta.title:
-                    tags.album = release_meta.title
+                if tags.release != release_meta.title:
+                    tags.release = release_meta.title
                     dirty = True
-                    logger.debug(f"Modified tag detected for {t.source_path}: album")
+                    logger.debug(f"Modified tag detected for {t.source_path}: release")
                 if tags.releasetype != release_meta.releasetype:
                     tags.releasetype = release_meta.releasetype.lower()
                     dirty = True
@@ -391,10 +391,10 @@ def edit_release(
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: label")
                 aart = MetadataArtist.to_mapping(release_meta.artists)
-                if tags.albumartists != aart:
-                    tags.albumartists = aart
+                if tags.releaseartists != aart:
+                    tags.releaseartists = aart
                     dirty = True
-                    logger.debug(f"Modified tag detected for {t.source_path}: album_artists")
+                    logger.debug(f"Modified tag detected for {t.source_path}: release_artists")
 
                 if dirty:
                     logger.info(
@@ -478,9 +478,9 @@ def create_single_release(c: Config, track_path: Path) -> None:
             break
     # Step 3. Update the tags of the new track. Clear the Rose IDs too: this is a brand new track.
     af = AudioTags.from_file(new_track_path)
-    af.album = title
+    af.release = title
     af.releasetype = "single"
-    af.albumartists = af.trackartists
+    af.releaseartists = af.trackartists
     af.tracknumber = "1"
     af.discnumber = "1"
     af.release_id = None

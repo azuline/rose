@@ -316,9 +316,9 @@ single release.
 The new single release's tags are modified from the original track, like so:
 
 ```
-albumtitle = $tracktitle
+releasetitle = $tracktitle
 releasetype = "single"
-albumartists = $trackartists
+releaseartists = $trackartists
 tracknumber = 1
 discnumber = 1
 ```

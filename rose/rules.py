@@ -230,22 +230,22 @@ def filter_track_false_positives_using_tags(
             match = match or (field == "tracktotal" and matches_pattern(matcher.pattern, tags.tracktotal))
             match = match or (field == "discnumber" and matches_pattern(matcher.pattern, tags.discnumber))
             match = match or (field == "disctotal" and matches_pattern(matcher.pattern, tags.disctotal))
-            match = match or (field == "albumtitle" and matches_pattern(matcher.pattern, tags.album))
+            match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, tags.release))
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, tags.releasetype))
             match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in tags.genre))
             match = match or (field == "label" and any(matches_pattern(matcher.pattern, x) for x in tags.label))
-            match = match or (field == "trackartist[main]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.main))
-            match = match or (field == "trackartist[guest]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.guest))
-            match = match or (field == "trackartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.remixer))
-            match = match or (field == "trackartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.producer))
-            match = match or (field == "trackartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.composer))
-            match = match or (field == "trackartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.djmixer))
-            match = match or (field == "albumartist[main]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.main))
-            match = match or (field == "albumartist[guest]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.guest))
-            match = match or (field == "albumartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.remixer))
-            match = match or (field == "albumartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.producer))
-            match = match or (field == "albumartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.composer))
-            match = match or (field == "albumartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.albumartists.djmixer))
+            match = match or (field == "trackartist[main]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.main))
+            match = match or (field == "trackartist[guest]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.guest))
+            match = match or (field == "trackartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.remixer))
+            match = match or (field == "trackartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.producer))
+            match = match or (field == "trackartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.composer))
+            match = match or (field == "trackartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.djmixer))
+            match = match or (field == "releaseartist[main]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.main))
+            match = match or (field == "releaseartist[guest]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.guest))
+            match = match or (field == "releaseartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.remixer))
+            match = match or (field == "releaseartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.producer))
+            match = match or (field == "releaseartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.composer))
+            match = match or (field == "releaseartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.djmixer))
             # fmt: on
 
             # If there is a match, check to see if the track is matched by one of the ignore values.
@@ -260,22 +260,22 @@ def filter_track_false_positives_using_tags(
                     skip = skip or (field == "tracktotal" and matches_pattern(i.pattern, tags.tracktotal))
                     skip = skip or (field == "discnumber" and matches_pattern(i.pattern, tags.discnumber))
                     skip = skip or (field == "disctotal" and matches_pattern(i.pattern, tags.disctotal))
-                    skip = skip or (field == "albumtitle" and matches_pattern(i.pattern, tags.album))
+                    skip = skip or (field == "releasetitle" and matches_pattern(i.pattern, tags.release))
                     skip = skip or (field == "releasetype" and matches_pattern(i.pattern, tags.releasetype))
                     skip = skip or (field == "genre" and any(matches_pattern(i.pattern, x) for x in tags.genre))
                     skip = skip or (field == "label" and any(matches_pattern(i.pattern, x) for x in tags.label))
-                    skip = skip or (field == "trackartist[main]" and any(matches_pattern(i.pattern, x.name) for x in tags.albumartists.main))
-                    skip = skip or (field == "trackartist[guest]" and any(matches_pattern(i.pattern, x.name) for x in tags.albumartists.guest))
-                    skip = skip or (field == "trackartist[remixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.albumartists.remixer))
-                    skip = skip or (field == "trackartist[producer]" and any(matches_pattern(i.pattern, x.name) for x in tags.albumartists.producer))
-                    skip = skip or (field == "trackartist[composer]" and any(matches_pattern(i.pattern, x.name) for x in tags.albumartists.composer))
-                    skip = skip or (field == "trackartist[djmixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.albumartists.djmixer))
-                    skip = skip or (field == "albumartist[main]" and any(matches_pattern(i.pattern, x.name) for x in tags.albumartists.main))
-                    skip = skip or (field == "albumartist[guest]" and any(matches_pattern(i.pattern, x.name) for x in tags.albumartists.guest))
-                    skip = skip or (field == "albumartist[remixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.albumartists.remixer))
-                    skip = skip or (field == "albumartist[producer]" and any(matches_pattern(i.pattern, x.name) for x in tags.albumartists.producer))
-                    skip = skip or (field == "albumartist[composer]" and any(matches_pattern(i.pattern, x.name) for x in tags.albumartists.composer))
-                    skip = skip or (field == "albumartist[djmixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.albumartists.djmixer))
+                    skip = skip or (field == "trackartist[main]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.main))
+                    skip = skip or (field == "trackartist[guest]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.guest))
+                    skip = skip or (field == "trackartist[remixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.remixer))
+                    skip = skip or (field == "trackartist[producer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.producer))
+                    skip = skip or (field == "trackartist[composer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.composer))
+                    skip = skip or (field == "trackartist[djmixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.djmixer))
+                    skip = skip or (field == "releaseartist[main]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.main))
+                    skip = skip or (field == "releaseartist[guest]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.guest))
+                    skip = skip or (field == "releaseartist[remixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.remixer))
+                    skip = skip or (field == "releaseartist[producer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.producer))
+                    skip = skip or (field == "releaseartist[composer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.composer))
+                    skip = skip or (field == "releaseartist[djmixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.djmixer))
                     # fmt: on
                     if skip:
                         break
@@ -344,9 +344,9 @@ def execute_metadata_actions(
                 elif field == "discnumber":
                     tags.discnumber = execute_single_action(act, tags.discnumber)
                     potential_changes.append(("discnumber", origtags.discnumber, tags.discnumber))
-                elif field == "albumtitle":
-                    tags.album = execute_single_action(act, tags.album)
-                    potential_changes.append(("album", origtags.album, tags.album))
+                elif field == "releasetitle":
+                    tags.release = execute_single_action(act, tags.release)
+                    potential_changes.append(("release", origtags.release, tags.release))
                 elif field == "releasetype":
                     tags.releasetype = execute_single_action(act, tags.releasetype) or "unknown"
                     potential_changes.append(("releasetype", origtags.releasetype, tags.releasetype))
@@ -374,24 +374,24 @@ def execute_metadata_actions(
                 elif field == "trackartist[djmixer]":
                     tags.trackartists.djmixer = artists(execute_multi_value_action(act, names(tags.trackartists.djmixer)))
                     potential_changes.append(("trackartist[djmixer]", names(origtags.trackartists.djmixer), names(tags.trackartists.djmixer)))
-                elif field == "albumartist[main]":
-                    tags.albumartists.main = artists(execute_multi_value_action(act, names(tags.albumartists.main)))
-                    potential_changes.append(("albumartist[main]", names(origtags.albumartists.main), names(tags.albumartists.main)))
-                elif field == "albumartist[guest]":
-                    tags.albumartists.guest = artists(execute_multi_value_action(act, names(tags.albumartists.guest)))
-                    potential_changes.append(("albumartist[guest]", names(origtags.albumartists.guest), names(tags.albumartists.guest)))
-                elif field == "albumartist[remixer]":
-                    tags.albumartists.remixer = artists(execute_multi_value_action(act, names(tags.albumartists.remixer)))
-                    potential_changes.append(("albumartist[remixer]", names(origtags.albumartists.remixer), names(tags.albumartists.remixer)))
-                elif field == "albumartist[producer]":
-                    tags.albumartists.producer = artists(execute_multi_value_action(act, names(tags.albumartists.producer)) )
-                    potential_changes.append(("albumartist[producer]", names(origtags.albumartists.producer), names(tags.albumartists.producer)))
-                elif field == "albumartist[composer]":
-                    tags.albumartists.composer = artists(execute_multi_value_action(act, names(tags.albumartists.composer)) )
-                    potential_changes.append(("albumartist[composer]", names(origtags.albumartists.composer), names(tags.albumartists.composer)))
-                elif field == "albumartist[djmixer]":
-                    tags.albumartists.djmixer = artists(execute_multi_value_action(act, names(tags.albumartists.djmixer)))
-                    potential_changes.append(("albumartist[djmixer]", names(origtags.albumartists.djmixer), names(tags.albumartists.djmixer)))
+                elif field == "releaseartist[main]":
+                    tags.releaseartists.main = artists(execute_multi_value_action(act, names(tags.releaseartists.main)))
+                    potential_changes.append(("releaseartist[main]", names(origtags.releaseartists.main), names(tags.releaseartists.main)))
+                elif field == "releaseartist[guest]":
+                    tags.releaseartists.guest = artists(execute_multi_value_action(act, names(tags.releaseartists.guest)))
+                    potential_changes.append(("releaseartist[guest]", names(origtags.releaseartists.guest), names(tags.releaseartists.guest)))
+                elif field == "releaseartist[remixer]":
+                    tags.releaseartists.remixer = artists(execute_multi_value_action(act, names(tags.releaseartists.remixer)))
+                    potential_changes.append(("releaseartist[remixer]", names(origtags.releaseartists.remixer), names(tags.releaseartists.remixer)))
+                elif field == "releaseartist[producer]":
+                    tags.releaseartists.producer = artists(execute_multi_value_action(act, names(tags.releaseartists.producer)) )
+                    potential_changes.append(("releaseartist[producer]", names(origtags.releaseartists.producer), names(tags.releaseartists.producer)))
+                elif field == "releaseartist[composer]":
+                    tags.releaseartists.composer = artists(execute_multi_value_action(act, names(tags.releaseartists.composer)) )
+                    potential_changes.append(("releaseartist[composer]", names(origtags.releaseartists.composer), names(tags.releaseartists.composer)))
+                elif field == "releaseartist[djmixer]":
+                    tags.releaseartists.djmixer = artists(execute_multi_value_action(act, names(tags.releaseartists.djmixer)))
+                    potential_changes.append(("releaseartist[djmixer]", names(origtags.releaseartists.djmixer), names(tags.releaseartists.djmixer)))
                 # fmt: on
 
         # Compute real changes by diffing the tags, and then store.
@@ -576,9 +576,9 @@ def fast_search_for_matching_releases(
     """Basically the same thing as fast_search_for_matching_tracks but with releases."""
     time_start = time.time()
     if track_tags := [t for t in matcher.tags if t not in RELEASE_TAGS]:
-        # But allow an exception if both trackartist and albumartist are defined: means a shorthand
+        # But allow an exception if both trackartist and releaseartist are defined: means a shorthand
         # was used. Just ignore trackartist.
-        if any(t.startswith("albumartist") for t in matcher.tags):
+        if any(t.startswith("releaseartist") for t in matcher.tags):
             track_tags = [t for t in track_tags if not t.startswith("trackartist")]
         else:
             raise TrackTagNotAllowedError(
@@ -624,7 +624,7 @@ def filter_track_false_positives_using_read_cache(
             match = match or (field == "tracktotal" and matches_pattern(matcher.pattern, t.tracktotal))
             match = match or (field == "discnumber" and matches_pattern(matcher.pattern, t.discnumber))
             match = match or (field == "disctotal" and matches_pattern(matcher.pattern, t.disctotal))
-            match = match or (field == "albumtitle" and matches_pattern(matcher.pattern, t.release.albumtitle))
+            match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, t.release.releasetitle))
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, t.release.releasetype))
             match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in t.release.genres))
             match = match or (field == "label" and any(matches_pattern(matcher.pattern, x) for x in t.release.labels))
@@ -634,12 +634,12 @@ def filter_track_false_positives_using_read_cache(
             match = match or (field == "trackartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.trackartists.producer))
             match = match or (field == "trackartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.trackartists.composer))
             match = match or (field == "trackartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.trackartists.djmixer))
-            match = match or (field == "albumartist[main]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.albumartists.main))
-            match = match or (field == "albumartist[guest]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.albumartists.guest))
-            match = match or (field == "albumartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.albumartists.remixer))
-            match = match or (field == "albumartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.albumartists.producer))
-            match = match or (field == "albumartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.albumartists.composer))
-            match = match or (field == "albumartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.albumartists.djmixer))
+            match = match or (field == "releaseartist[main]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.releaseartists.main))
+            match = match or (field == "releaseartist[guest]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.releaseartists.guest))
+            match = match or (field == "releaseartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.releaseartists.remixer))
+            match = match or (field == "releaseartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.releaseartists.producer))
+            match = match or (field == "releaseartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.releaseartists.composer))
+            match = match or (field == "releaseartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.releaseartists.djmixer))
             # fmt: on
             if match:
                 rval.append(t)
@@ -662,16 +662,16 @@ def filter_release_false_positives_using_read_cache(
             # Only attempt to match the release tags; ignore track tags.
             # fmt: off
             match = match or (field == "year" and matches_pattern(matcher.pattern, r.year))
-            match = match or (field == "albumtitle" and matches_pattern(matcher.pattern, r.albumtitle))
+            match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, r.releasetitle))
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, r.releasetype))
             match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in r.genres))
             match = match or (field == "label" and any(matches_pattern(matcher.pattern, x) for x in r.labels))
-            match = match or (field == "albumartist[main]" and any(matches_pattern(matcher.pattern, x.name) for x in r.albumartists.main))
-            match = match or (field == "albumartist[guest]" and any(matches_pattern(matcher.pattern, x.name) for x in r.albumartists.guest))
-            match = match or (field == "albumartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in r.albumartists.remixer))
-            match = match or (field == "albumartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in r.albumartists.producer))
-            match = match or (field == "albumartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in r.albumartists.composer))
-            match = match or (field == "albumartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in r.albumartists.djmixer))
+            match = match or (field == "releaseartist[main]" and any(matches_pattern(matcher.pattern, x.name) for x in r.releaseartists.main))
+            match = match or (field == "releaseartist[guest]" and any(matches_pattern(matcher.pattern, x.name) for x in r.releaseartists.guest))
+            match = match or (field == "releaseartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in r.releaseartists.remixer))
+            match = match or (field == "releaseartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in r.releaseartists.producer))
+            match = match or (field == "releaseartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in r.releaseartists.composer))
+            match = match or (field == "releaseartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in r.releaseartists.djmixer))
             # fmt: on
             if match:
                 rval.append(r)

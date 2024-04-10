@@ -33,13 +33,13 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
     assert af.discnumber == "1"
     assert af.disctotal == 1
 
-    assert af.album == "A Cool Album"
+    assert af.release == "A Cool Album"
     assert af.releasetype == "album"
     assert af.year == 1990
     assert af.genre == ["Electronic", "House"]
     assert af.label == ["A Cool Label"]
 
-    assert af.albumartists.main == [Artist("Artist A"), Artist("Artist B")]
+    assert af.releaseartists.main == [Artist("Artist A"), Artist("Artist B")]
     assert af.trackartists == ArtistMapping(
         main=[Artist("Artist GH"), Artist("Artist HI")],
         guest=[Artist("Artist C"), Artist("Artist A")],
@@ -75,14 +75,14 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     assert af.tracknumber == track_num
     assert af.title == f"Track {track_num}"
 
-    assert af.album == "A Cool Album"
+    assert af.release == "A Cool Album"
     assert af.releasetype == "album"
     assert af.year == 1990
     assert af.discnumber == "1"
     assert af.genre == ["Electronic", "House"]
     assert af.label == ["A Cool Label"]
 
-    assert af.albumartists.main == [Artist("Artist A"), Artist("Artist B")]
+    assert af.releaseartists.main == [Artist("Artist A"), Artist("Artist B")]
     assert af.trackartists == ArtistMapping(
         main=[Artist("Artist GH"), Artist("Artist HI")],
         guest=[Artist("Artist C"), Artist("Artist A")],

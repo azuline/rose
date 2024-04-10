@@ -10,7 +10,7 @@ Rosé manages the following tags:
 
 - Release Tags:
   - Title
-  - Album Artists
+  - Release Artists
   - Release Year
   - Release Type (e.g. Album, EP, Single)
   - Genre
@@ -35,7 +35,7 @@ frames for a single tag (where each value gets one frame) due to inconsistent
 support by other useful programs.
 
 When reading tags, Rosé is more relaxed in the delimiters it accepts. For the
-Genre, Label, Artists, and Album Artists tags, Rosé will attempt to split a
+Genre, Label, Artists, and Release Artists tags, Rosé will attempt to split a
 single tag into multiple tags by the following delimiters:
 <code>&nbsp;\\\\&nbsp;</code>, <code>&nbsp;/&nbsp;</code>, <code>;</code>, and
 <code>&nbsp;vs.&nbsp;</code>.
@@ -67,7 +67,7 @@ Rosé supports the following artist roles:
 - `conductor`
 - `djmixer`
 
-Rosé writes a single tag value into the _Track Artists_ and _Album Artists_
+Rosé writes a single tag value into the _Track Artists_ and _Release Artists_
 tags. Though some conventions exist for writing each role into its own tag,
 Rosé does not follow them, due to inconsistent (mainly nonexistent) support by
 other useful programs.
@@ -109,7 +109,7 @@ from additional fields.
 | Tag             | Field Name           | Will Ingest These Fields                                                                                               |
 | --------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Release Title   | `TALB`               |                                                                                                                        |
-| Album Artists   | `TPE2`               |                                                                                                                        |
+| Release Artists | `TPE2`               |                                                                                                                        |
 | Release Year    | `TDRC`               | `TYER`                                                                                                                 |
 | Release Type    | `TXXX:RELEASETYPE`   |                                                                                                                        |
 | Genre           | `TCON`               |                                                                                                                        |
@@ -126,7 +126,7 @@ from additional fields.
 | Tag             | Field Name                           | Will Ingest These Fields                                                                                                                                                                               |
 | --------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Release Title   | `\xa9alb`                            |                                                                                                                                                                                                        |
-| Album Artists   | `aART`                               |                                                                                                                                                                                                        |
+| Release Artists | `aART`                               |                                                                                                                                                                                                        |
 | Release Year    | `\xa9day`                            |                                                                                                                                                                                                        |
 | Release Type    | `----:com.apple.iTunes:RELEASETYPE`  |                                                                                                                                                                                                        |
 | Genre           | `\xa9gen`                            |                                                                                                                                                                                                        |
@@ -142,8 +142,8 @@ from additional fields.
 
 | Tag             | Field Name      | Will Ingest These Fields                                                                                        |
 | --------------- | --------------- | --------------------------------------------------------------------------------------------------------------- |
-| Release Title   | `album`         |                                                                                                                 |
-| Album Artists   | `albumartist`   |                                                                                                                 |
+| Release Title   | `release`       |                                                                                                                 |
+| Release Artists | `albumartist`   |                                                                                                                 |
 | Release Year    | `date`          | `year`                                                                                                          |
 | Release Type    | `releasetype`   |                                                                                                                 |
 | Genre           | `genre`         |                                                                                                                 |

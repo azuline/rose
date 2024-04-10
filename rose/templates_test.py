@@ -20,14 +20,14 @@ EMPTY_CACHED_RELEASE = CachedRelease(
     cover_image_path=None,
     added_at="0000-01-01T00:00:00Z",
     datafile_mtime="999",
-    albumtitle="",
+    releasetitle="",
     releasetype="unknown",
     year=None,
     new=False,
     disctotal=1,
     genres=[],
     labels=[],
-    albumartists=ArtistMapping(),
+    releaseartists=ArtistMapping(),
     metahash="0",
 )
 
@@ -51,9 +51,9 @@ def test_default_templates() -> None:
     templates = PathTemplateConfig.with_defaults()
 
     release = deepcopy(EMPTY_CACHED_RELEASE)
-    release.albumtitle = "Title"
+    release.releasetitle = "Title"
     release.year = 2023
-    release.albumartists = ArtistMapping(
+    release.releaseartists = ArtistMapping(
         main=[Artist("A1"), Artist("A2"), Artist("A3")],
         guest=[Artist("BB")],
         producer=[Artist("PP")],
@@ -69,7 +69,7 @@ def test_default_templates() -> None:
     )
 
     release = deepcopy(EMPTY_CACHED_RELEASE)
-    release.albumtitle = "Title"
+    release.releasetitle = "Title"
     assert eval_release_template(templates.source.release, release) == "Unknown Artists - Title"
     assert (
         eval_release_template(templates.collages.release, release, "4")
