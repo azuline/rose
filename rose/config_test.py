@@ -174,7 +174,9 @@ def test_config_full() -> None:
                             pattern=MatcherPattern("haha"),
                         ),
                     ],
-                    ignore=[MetadataMatcher(tags=["releasetitle"], pattern=MatcherPattern("blabla"))],
+                    ignore=[
+                        MetadataMatcher(tags=["releasetitle"], pattern=MatcherPattern("blabla"))
+                    ],
                 ),
             ],
         )

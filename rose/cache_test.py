@@ -177,7 +177,7 @@ def test_update_cache_releases(config: Config) -> None:
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
-        assert row["releasetype"] == "release"
+        assert row["releasetype"] == "album"
         assert row["year"] == 1990
         assert row["new"]
 
@@ -309,7 +309,7 @@ def test_update_cache_releases_already_fully_cached(config: Config) -> None:
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
-        assert row["releasetype"] == "release"
+        assert row["releasetype"] == "album"
         assert row["year"] == 1990
         assert row["new"]
 
@@ -334,7 +334,7 @@ def test_update_cache_releases_disk_update_to_previously_cached(config: Config) 
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
-        assert row["releasetype"] == "release"
+        assert row["releasetype"] == "album"
         assert row["year"] == 1990
         assert row["new"]
 
@@ -394,7 +394,7 @@ def test_update_cache_releases_source_path_renamed(config: Config) -> None:
         row = cursor.fetchone()
         assert row["source_path"] == str(moved_release_dir)
         assert row["title"] == "I Love Blackpink"
-        assert row["releasetype"] == "release"
+        assert row["releasetype"] == "album"
         assert row["year"] == 1990
         assert row["new"]
 

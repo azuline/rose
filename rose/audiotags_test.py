@@ -34,7 +34,7 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
     assert af.disctotal == 1
 
     assert af.release == "A Cool Album"
-    assert af.releasetype == "release"
+    assert af.releasetype == "album"
     assert af.year == 1990
     assert af.genre == ["Electronic", "House"]
     assert af.label == ["A Cool Label"]
@@ -76,7 +76,7 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     assert af.title == f"Track {track_num}"
 
     assert af.release == "A Cool Album"
-    assert af.releasetype == "release"
+    assert af.releasetype == "album"
     assert af.year == 1990
     assert af.discnumber == "1"
     assert af.genre == ["Electronic", "House"]
@@ -130,7 +130,7 @@ def test_releasetype_normalization(isolated_dir: Path, filename: str) -> None:
 
     # Check that release type is read correctly.
     af = AudioTags.from_file(fpath)
-    assert af.releasetype == "release"
+    assert af.releasetype == "album"
     # Assert that attempting to flush a stupid value fails.
     af.releasetype = "lalala"
     with pytest.raises(UnsupportedTagValueTypeError):
@@ -144,7 +144,7 @@ def test_releasetype_normalization(isolated_dir: Path, filename: str) -> None:
     af.releasetype = "ALBUM"
     af.flush(validate=False)
     af = AudioTags.from_file(fpath)
-    assert af.releasetype == "release"
+    assert af.releasetype == "album"
 
 
 def test_split_tag() -> None:

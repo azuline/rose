@@ -142,7 +142,7 @@ from additional fields.
 
 | Tag             | Field Name      | Will Ingest These Fields                                                                                        |
 | --------------- | --------------- | --------------------------------------------------------------------------------------------------------------- |
-| Release Title   | `release`         |                                                                                                                 |
+| Release Title   | `release`       |                                                                                                                 |
 | Release Artists | `albumartist`   |                                                                                                                 |
 | Release Year    | `date`          | `year`                                                                                                          |
 | Release Type    | `releasetype`   |                                                                                                                 |

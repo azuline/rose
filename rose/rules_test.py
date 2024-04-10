@@ -104,7 +104,7 @@ def test_rules_fields_match_year(config: Config, source_dir: Path) -> None:
 
 
 def test_rules_fields_match_releasetype(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule.parse("releasetype:release", ["replace:live"])
+    rule = MetadataRule.parse("releasetype:album", ["replace:live"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.releasetype == "live"
