@@ -374,3 +374,10 @@ def test_filter_track_false_positives_with_read_cache(config: Config) -> None:
     assert len(tracks) == 3
     filteredresults = filter_track_false_positives_using_read_cache(matcher, tracks)
     assert not filteredresults
+
+
+def test_ignore_values(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule.parse("tracktitle:rack", ["replace:lalala"], ["tracktitle:^Track 1$"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.title == "Track 1"

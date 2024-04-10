@@ -531,16 +531,17 @@ def rules() -> None:
 @click.argument("actions", type=str, nargs=-1)
 @click.option("--dry-run", "-d", is_flag=True, help="Display intended changes without applying them.") 
 @click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
+@click.option("--ignore", "-i", type=str, multiple=True, help="Ignore tracks matching this matcher.")
 # fmt: on
 @click.pass_obj
-def run(ctx: Context, matcher: str, actions: list[str], dry_run: bool, yes: bool) -> None:
+def run(ctx: Context, matcher: str, actions: list[str], dry_run: bool, yes: bool, ignore: list[str],) -> None:
     """Run an ad hoc rule."""
     from rose.rule_parser import MetadataRule
     from rose.rules import execute_metadata_rule
     if not actions:
         logger.info("No-Op: No actions passed")
         return
-    rule = MetadataRule.parse(matcher, actions)
+    rule = MetadataRule.parse(matcher, actions, ignore)
     execute_metadata_rule(ctx.config, rule, dry_run=dry_run, confirm_yes=not yes)
 
 

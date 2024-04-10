@@ -620,6 +620,7 @@ class MetadataAction:
 class MetadataRule:
     matcher: MetadataMatcher
     actions: list[MetadataAction]
+    ignore: list[MetadataMatcher]
 
     def __str__(self) -> str:
         rval: list[str] = []
@@ -629,11 +630,17 @@ class MetadataRule:
         return " ".join(rval)
 
     @classmethod
-    def parse(cls, matcher: str, actions: list[str]) -> MetadataRule:
+    def parse(
+        cls,
+        matcher: str,
+        actions: list[str],
+        ignore: list[str] | None = None,
+    ) -> MetadataRule:
         parsed_matcher = MetadataMatcher.parse(matcher)
         return MetadataRule(
             matcher=parsed_matcher,
             actions=[MetadataAction.parse(a, i + 1, parsed_matcher) for i, a in enumerate(actions)],
+            ignore=[MetadataMatcher.parse(v) for v in (ignore or [])],
         )
 
 

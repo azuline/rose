@@ -450,6 +450,28 @@ The formal syntax is defined by the following grammar:
 <delete-action>  ::= 'delete'
 ```
 
+## Ignoring Tracks
+
+Tracks can be excluded from a specific rule by specifying an ignore matcher. Tracks which match an
+ignore matcher are excluded from the rule even if they match the track matcher.
+
+On the command line, ignore matchers may be specified via the `--ignore/-i` option:
+
+```bash
+$ rose rules run 'artist: & ' 'split: & ' --ignore 'artist:^Eli & Fur$'
+# Multiple matchers may be specified by passing multiple --ignore/-i arguments.
+$ rose rules run 'artist: & ' 'split: & ' --ignore 'artist:^Eli & Fur$' --ignore 'artist:^Above & Beyond$'
+```
+
+And in stored rules, ignore matchers may be specified with the `ignore` key:
+
+```toml
+[[stored_metadata_rules]]
+matcher = "artist: & "
+actions = ["split: & "]
+ignore = ["artist:^Eli & Fur$"]
+```
+
 ## Examples
 
 _TODO_
