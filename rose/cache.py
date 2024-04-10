@@ -206,14 +206,14 @@ class CachedRelease:
     cover_image_path: Path | None
     added_at: str  # ISO8601 timestamp
     datafile_mtime: str
-    albumtitle: str
+    releasetitle: str
     releasetype: str
     year: int | None
     new: bool
     disctotal: int
     genres: list[str]
     labels: list[str]
-    albumartists: ArtistMapping
+    releaseartists: ArtistMapping
     metahash: str
 
     @classmethod
@@ -224,15 +224,15 @@ class CachedRelease:
             cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
             added_at=row["added_at"],
             datafile_mtime=row["datafile_mtime"],
-            albumtitle=row["albumtitle"],
+            releasetitle=row["releasetitle"],
             releasetype=row["releasetype"],
             year=row["year"],
             disctotal=row["disctotal"],
             new=bool(row["new"]),
             genres=_split(row["genres"]) if row["genres"] else [],
             labels=_split(row["labels"]) if row["labels"] else [],
-            albumartists=_unpack_artists(
-                c, row["albumartist_names"], row["albumartist_roles"], aliases=aliases
+            releaseartists=_unpack_artists(
+                c, row["releaseartist_names"], row["releaseartist_roles"], aliases=aliases
             ),
             metahash=row["metahash"],
         )
@@ -245,14 +245,14 @@ class CachedRelease:
             if self.cover_image_path
             else None,
             "added_at": self.added_at,
-            "albumtitle": self.albumtitle,
+            "releasetitle": self.releasetitle,
             "releasetype": self.releasetype,
             "year": self.year,
             "new": self.new,
             "disctotal": self.disctotal,
             "genres": self.genres,
             "labels": self.labels,
-            "albumartists": self.albumartists.dump(),
+            "releaseartists": self.releaseartists.dump(),
         }
 
 
@@ -314,13 +314,13 @@ class CachedTrack:
                 {
                     "release_id": self.release.id,
                     "added_at": self.release.added_at,
-                    "albumtitle": self.release.albumtitle,
+                    "releasetitle": self.release.releasetitle,
                     "releasetype": self.release.releasetype,
                     "year": self.release.year,
                     "new": self.release.new,
                     "genres": self.release.genres,
                     "labels": self.release.labels,
-                    "albumartists": self.release.albumartists.dump(),
+                    "releaseartists": self.release.releaseartists.dump(),
                 }
             )
         return r
@@ -609,14 +609,14 @@ def _update_cache_for_releases_executor(
                 datafile_mtime="",
                 cover_image_path=None,
                 added_at="",
-                albumtitle="",
+                releasetitle="",
                 releasetype="",
                 year=None,
                 new=True,
                 disctotal=0,
                 genres=[],
                 labels=[],
-                albumartists=ArtistMapping(),
+                releaseartists=ArtistMapping(),
                 metahash="",
             )
             cached_tracks = {}
@@ -764,10 +764,10 @@ def _update_cache_for_releases_executor(
             # formatted artist string.
             if not pulled_release_tags:
                 pulled_release_tags = True
-                release_title = tags.album or "Unknown Release"
-                if release_title != release.albumtitle:
+                release_title = tags.release or "Unknown Release"
+                if release_title != release.releasetitle:
                     logger.debug(f"Release title change detected for {source_path}, updating")
-                    release.albumtitle = release_title
+                    release.releasetitle = release_title
                     release_dirty = True
 
                 releasetype = tags.releasetype
@@ -791,9 +791,9 @@ def _update_cache_for_releases_executor(
                     release.labels = uniq(tags.label)
                     release_dirty = True
 
-                if tags.albumartists != release.albumartists:
+                if tags.releaseartists != release.releaseartists:
                     logger.debug(f"Release artists change detected for {source_path}, updating")
-                    release.albumartists = tags.albumartists
+                    release.releaseartists = tags.releaseartists
                     release_dirty = True
 
             # Here we compute the track ID. We store the track ID on the audio file in order to
@@ -951,7 +951,7 @@ def _update_cache_for_releases_executor(
                     str(release.cover_image_path) if release.cover_image_path else None,
                     release.added_at,
                     release.datafile_mtime,
-                    release.albumtitle,
+                    release.releasetitle,
                     release.releasetype,
                     release.year,
                     release.disctotal,
@@ -969,7 +969,7 @@ def _update_cache_for_releases_executor(
                     [release.id, label, sanitize_dirname(label, False), pos]
                 )
             pos = 0
-            for role, artists in release.albumartists.items():
+            for role, artists in release.releaseartists.items():
                 for art in artists:
                     upd_release_artist_args.append(
                         [release.id, art.name, sanitize_dirname(art.name, False), role, pos]
@@ -1153,12 +1153,12 @@ def _update_cache_for_releases_executor(
                   , tracktotal
                   , discnumber
                   , disctotal
-                  , albumtitle
+                  , releasetitle
                   , year
                   , releasetype
                   , genre
                   , label
-                  , albumartist
+                  , releaseartist
                   , trackartist
                 )
                 SELECT
@@ -1168,12 +1168,12 @@ def _update_cache_for_releases_executor(
                   , process_string_for_fts(t.tracktotal) AS tracknumber
                   , process_string_for_fts(t.discnumber) AS discnumber
                   , process_string_for_fts(t.disctotal) AS discnumber
-                  , process_string_for_fts(r.title) AS albumtitle
+                  , process_string_for_fts(r.title) AS releasetitle
                   , process_string_for_fts(r.year) AS year
                   , process_string_for_fts(r.releasetype) AS releasetype
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, ' '), '')) AS genre
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, ' '), '')) AS label
-                  , process_string_for_fts(COALESCE(GROUP_CONCAT(ra.artist, ' '), '')) AS albumartist
+                  , process_string_for_fts(COALESCE(GROUP_CONCAT(ra.artist, ' '), '')) AS releaseartist
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(ta.artist, ' '), '')) AS trackartist
                 FROM tracks t
                 JOIN releases r ON r.id = t.release_id
@@ -1345,17 +1345,17 @@ def update_cache_for_collages(
                 desc_map: dict[str, str] = {}
                 cursor = conn.execute(
                     f"""
-                    SELECT id, albumtitle, year, albumartist_names, albumartist_roles FROM releases_view
+                    SELECT id, releasetitle, year, releaseartist_names, releaseartist_roles FROM releases_view
                     WHERE id IN ({','.join(['?']*len(releases))})
                     """,
                     cached_collage.release_ids,
                 )
                 for row in cursor:
                     desc_map[row["id"]] = calculate_release_logtext(
-                        title=row["albumtitle"],
+                        title=row["releasetitle"],
                         year=row["year"],
                         artists=_unpack_artists(
-                            c, row["albumartist_names"], row["albumartist_roles"]
+                            c, row["releaseartist_names"], row["releaseartist_roles"]
                         ),
                     )
                 for i, rls in enumerate(releases):
@@ -1735,16 +1735,16 @@ def get_release_logtext(c: Config, release_id: str) -> str | None:
     """Get a human-readable identifier for a release suitable for logging."""
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT albumtitle, year, albumartist_names, albumartist_roles FROM releases_view WHERE id = ?",
+            "SELECT releasetitle, year, releaseartist_names, releaseartist_roles FROM releases_view WHERE id = ?",
             (release_id,),
         )
         row = cursor.fetchone()
         if not row:
             return None
         return calculate_release_logtext(
-            title=row["albumtitle"],
+            title=row["releasetitle"],
             year=row["year"],
-            artists=_unpack_artists(c, row["albumartist_names"], row["albumartist_roles"]),
+            artists=_unpack_artists(c, row["releaseartist_names"], row["releaseartist_roles"]),
         )
 
 

@@ -18,7 +18,7 @@ The configuration parameters, with examples, are:
 # towards the organization of this directory.
 #
 # All releases must be immediate child directories of the music_source_dir. And
-# Rosé expects that all tracks belong to a "release" (meaning an album, single,
+# Rosé expects that all tracks belong to a "release" (meaning an release, single,
 # EP, etc.). Therefore, loose audio files at the top-level of the source
 # directory will be ignored.
 #

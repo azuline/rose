@@ -40,9 +40,9 @@ other unset templates (except playlist). Otherwise the templates default to:
 ```jinja2
 {# "Default Default" Release Template #}
 
-{{ albumartists | artistsfmt }} -
+{{ releaseartists | artistsfmt }} -
 {% if year %}{{ year }}.{% endif %}
-{{ albumtitle }}
+{{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 {% if new %}[NEW]{% endif %}
 
@@ -66,9 +66,9 @@ so:
 ```toml
 [path_templates]
 default.release = """
-  {{ albumartists | artistsfmt }} -
+  {{ releaseartists | artistsfmt }} -
   {% if year %}{{ year }}.{% endif %}         {# Hi! This is a comment! #}
-  {{ albumtitle }}
+  {{ releasetitle }}
   {% if new %}[NEW]{% endif %}
 """
 ```
@@ -77,20 +77,20 @@ Rosé provides the following template variables for releases:
 
 ```python
 added_at: str                        # ISO8601 timestamp of when the release was added to the library.
-albumtitle: str
+releasetitle: str
 releasetype: str                     # Type of the release (e.g. single, ep, etc). One of the enums as defined in TAGGING_CONVENTIONS.md.
 year: int | None
 new: bool                            # The "new"-ness of the release. See RELEASES.md for documentation on this feature.
 disctotal: int                       # The number of discs in the release.
 genres: list[str]
 labels: list[str]
-albumartists: ArtistMapping          # All release artists: an object with 6 properties, each corresponding to one role.
-albumartists.main: list[Artist]      # The Artist object has a `name` property with the artist name.
-albumartists.guest: list[Artist]
-albumartists.remixer: list[Artist]
-albumartists.producer: list[Artist]
-albumartists.composer: list[Artist]
-albumartists.djmixer: list[Artist]
+releaseartists: ArtistMapping          # All release artists: an object with 6 properties, each corresponding to one role.
+releaseartists.main: list[Artist]      # The Artist object has a `name` property with the artist name.
+releaseartists.guest: list[Artist]
+releaseartists.remixer: list[Artist]
+releaseartists.producer: list[Artist]
+releaseartists.composer: list[Artist]
+releaseartists.djmixer: list[Artist]
 position: str                        # If in a collage context, the zero-padded position of the release in the collage.
 ```
 
@@ -111,19 +111,19 @@ trackartists.remixer: list[Artist]
 trackartists.producer: list[Artist]
 trackartists.composer: list[Artist]
 trackartists.djmixer: list[Artist]
-albumtitle: str
+releasetitle: str
 releasetype: str                     # Type of the track's release (e.g. single, ep, etc).
 year: int | None
 new: bool                            # The "new"-ness of the track's release.
 genres: list[str]
 labels: list[str]
-albumartists: ArtistMapping          # All release artists: an object with 6 properties, each corresponding to one role.
-albumartists.main: list[Artist]      # The Artist object has a `name` property with the artist name.
-albumartists.guest: list[Artist]
-albumartists.remixer: list[Artist]
-albumartists.producer: list[Artist]
-albumartists.composer: list[Artist]
-albumartists.djmixer: list[Artist]
+releaseartists: ArtistMapping          # All release artists: an object with 6 properties, each corresponding to one role.
+releaseartists.main: list[Artist]      # The Artist object has a `name` property with the artist name.
+releaseartists.guest: list[Artist]
+releaseartists.remixer: list[Artist]
+releaseartists.producer: list[Artist]
+releaseartists.composer: list[Artist]
+releaseartists.djmixer: list[Artist]
 position: str                        # If in a playlist context, the zero-padded position of the track in the playlist.
 ```
 

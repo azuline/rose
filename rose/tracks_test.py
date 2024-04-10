@@ -43,13 +43,13 @@ def test_dump_tracks(config: Config) -> None:
             "tracktotal": 2,
             "added_at": "0000-01-01T00:00:00+00:00",
             "release_id": "r1",
-            "albumtitle": "Release 1",
-            "releasetype": "album",
+            "releasetitle": "Release 1",
+            "releasetype": "release",
             "year": 2023,
             "new": False,
             "genres": ["Techno", "Deep House"],
             "labels": ["Silk Music"],
-            "albumartists": {
+            "releaseartists": {
                 "main": [
                     {"name": "Techno Man", "alias": False},
                     {"name": "Bass Man", "alias": False},
@@ -83,13 +83,13 @@ def test_dump_tracks(config: Config) -> None:
             "tracktotal": 2,
             "added_at": "0000-01-01T00:00:00+00:00",
             "release_id": "r1",
-            "albumtitle": "Release 1",
-            "releasetype": "album",
+            "releasetitle": "Release 1",
+            "releasetype": "release",
             "year": 2023,
             "new": False,
             "genres": ["Techno", "Deep House"],
             "labels": ["Silk Music"],
-            "albumartists": {
+            "releaseartists": {
                 "main": [
                     {"name": "Techno Man", "alias": False},
                     {"name": "Bass Man", "alias": False},
@@ -120,13 +120,13 @@ def test_dump_tracks(config: Config) -> None:
             "tracktotal": 1,
             "added_at": "0000-01-01T00:00:00+00:00",
             "release_id": "r2",
-            "albumtitle": "Release 2",
-            "releasetype": "album",
+            "releasetitle": "Release 2",
+            "releasetype": "release",
             "year": 2021,
             "new": False,
             "genres": ["Classical"],
             "labels": ["Native State"],
-            "albumartists": {
+            "releaseartists": {
                 "main": [{"name": "Violin Woman", "alias": False}],
                 "guest": [{"name": "Conductor Woman", "alias": False}],
                 "remixer": [],
@@ -154,13 +154,13 @@ def test_dump_tracks(config: Config) -> None:
             "tracktotal": 1,
             "added_at": "0000-01-01T00:00:00+00:00",
             "release_id": "r3",
-            "albumtitle": "Release 3",
-            "releasetype": "album",
+            "releasetitle": "Release 3",
+            "releasetype": "release",
             "year": 2021,
             "new": True,
             "genres": [],
             "labels": [],
-            "albumartists": {
+            "releaseartists": {
                 "main": [],
                 "guest": [],
                 "remixer": [],
@@ -198,13 +198,13 @@ def test_dump_tracks_with_matcher(config: Config) -> None:
             "tracktotal": 2,
             "added_at": "0000-01-01T00:00:00+00:00",
             "release_id": "r1",
-            "albumtitle": "Release 1",
-            "releasetype": "album",
+            "releasetitle": "Release 1",
+            "releasetype": "release",
             "year": 2023,
             "new": False,
             "genres": ["Techno", "Deep House"],
             "labels": ["Silk Music"],
-            "albumartists": {
+            "releaseartists": {
                 "main": [
                     {"name": "Techno Man", "alias": False},
                     {"name": "Bass Man", "alias": False},
@@ -238,13 +238,13 @@ def test_dump_tracks_with_matcher(config: Config) -> None:
             "tracktotal": 2,
             "added_at": "0000-01-01T00:00:00+00:00",
             "release_id": "r1",
-            "albumtitle": "Release 1",
-            "releasetype": "album",
+            "releasetitle": "Release 1",
+            "releasetype": "release",
             "year": 2023,
             "new": False,
             "genres": ["Techno", "Deep House"],
             "labels": ["Silk Music"],
-            "albumartists": {
+            "releaseartists": {
                 "main": [
                     {"name": "Techno Man", "alias": False},
                     {"name": "Bass Man", "alias": False},
@@ -283,13 +283,13 @@ def test_dump_track(config: Config) -> None:
         "tracktotal": 2,
         "added_at": "0000-01-01T00:00:00+00:00",
         "release_id": "r1",
-        "albumtitle": "Release 1",
-        "releasetype": "album",
+        "releasetitle": "Release 1",
+        "releasetype": "release",
         "year": 2023,
         "new": False,
         "genres": ["Techno", "Deep House"],
         "labels": ["Silk Music"],
-        "albumartists": {
+        "releaseartists": {
             "main": [
                 {"name": "Techno Man", "alias": False},
                 {"name": "Bass Man", "alias": False},

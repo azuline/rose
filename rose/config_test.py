@@ -62,7 +62,7 @@ def test_config_full() -> None:
                 [[stored_metadata_rules]]
                 matcher = "trackartist[main]:haha"
                 actions = ["replace:bibi", "split: "]
-                ignore = ["albumtitle:blabla"]
+                ignore = ["releasetitle:blabla"]
 
                 [path_templates]
                 default.release = "{{{{ title }}}}"
@@ -174,7 +174,7 @@ def test_config_full() -> None:
                             pattern=MatcherPattern("haha"),
                         ),
                     ],
-                    ignore=[MetadataMatcher(tags=["albumtitle"], pattern=MatcherPattern("blabla"))],
+                    ignore=[MetadataMatcher(tags=["releasetitle"], pattern=MatcherPattern("blabla"))],
                 ),
             ],
         )

@@ -104,7 +104,7 @@ def test_rules_fields_match_year(config: Config, source_dir: Path) -> None:
 
 
 def test_rules_fields_match_releasetype(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule.parse("releasetype:album", ["replace:live"])
+    rule = MetadataRule.parse("releasetype:release", ["replace:live"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.releasetype == "live"
@@ -138,11 +138,11 @@ def test_rules_fields_match_disctotal(config: Config, source_dir: Path) -> None:
     assert af.title == "8"
 
 
-def test_rules_fields_match_albumtitle(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule.parse("albumtitle:Love Blackpink", ["replace:8"])
+def test_rules_fields_match_releasetitle(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule.parse("releasetitle:Love Blackpink", ["replace:8"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.album == "8"
+    assert af.release == "8"
 
 
 def test_rules_fields_match_genre(config: Config, source_dir: Path) -> None:
@@ -159,11 +159,11 @@ def test_rules_fields_match_label(config: Config, source_dir: Path) -> None:
     assert af.label == ["8"]
 
 
-def test_rules_fields_match_albumartist(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule.parse("albumartist:BLACKPINK", ["replace:8"])
+def test_rules_fields_match_releaseartist(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule.parse("releaseartist:BLACKPINK", ["replace:8"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.albumartists.main == [Artist("8")]
+    assert af.releaseartists.main == [Artist("8")]
 
 
 def test_rules_fields_match_trackartist(config: Config, source_dir: Path) -> None:
@@ -339,7 +339,7 @@ def test_run_stored_rules(config: Config, source_dir: Path) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_fast_search_for_matching_releases(config: Config) -> None:
     results = fast_search_for_matching_releases(
-        config, MetadataMatcher.parse("albumartist:Techno Man")
+        config, MetadataMatcher.parse("releaseartist:Techno Man")
     )
     assert results == [FastSearchResult(id="r1", path=config.music_source_dir / "r1")]
 
@@ -356,7 +356,7 @@ def test_fast_search_for_matching_releases_invalid_tag(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_filter_release_false_positives_with_read_cache(config: Config) -> None:
-    matcher = MetadataMatcher.parse("albumartist:^Man")
+    matcher = MetadataMatcher.parse("releaseartist:^Man")
     fsresults = fast_search_for_matching_releases(config, matcher)
     assert len(fsresults) == 2
     cacheresults = list_releases(config, [r.id for r in fsresults])

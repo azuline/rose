@@ -141,23 +141,23 @@ $ rose rules run 'artist:^CHUU$' 'replace:Chuu'
 
 CHUU - 2023. Howl/01. Howl.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      albumartist[main]: ['CHUU'] -> ['Chuu']
+      releaseartist[main]: ['CHUU'] -> ['Chuu']
 CHUU - 2023. Howl/02. Underwater.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      albumartist[main]: ['CHUU'] -> ['Chuu']
+      releaseartist[main]: ['CHUU'] -> ['Chuu']
 CHUU - 2023. Howl/03. My Palace.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      albumartist[main]: ['CHUU'] -> ['Chuu']
+      releaseartist[main]: ['CHUU'] -> ['Chuu']
 CHUU - 2023. Howl/04. Aliens.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      albumartist[main]: ['CHUU'] -> ['Chuu']
+      releaseartist[main]: ['CHUU'] -> ['Chuu']
 CHUU - 2023. Howl/05. Hitchhiker.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      albumartist[main]: ['CHUU'] -> ['Chuu']
+      releaseartist[main]: ['CHUU'] -> ['Chuu']
 
 Write changes to 5 tracks?  [Y/n] y
 
-[01:10:58] INFO: Writing tag changes for rule matcher=trackartist,albumartist:CHUU action=matched:CHUU::replace:Chuu
+[01:10:58] INFO: Writing tag changes for rule matcher=trackartist,releaseartist:CHUU action=matched:CHUU::replace:Chuu
 [01:10:58] INFO: Wrote tag changes to CHUU - 2023. Howl/01. Howl.opus
 [01:10:58] INFO: Wrote tag changes to CHUU - 2023. Howl/02. Underwater.opus
 [01:10:58] INFO: Wrote tag changes to CHUU - 2023. Howl/03. My Palace.opus
@@ -171,10 +171,10 @@ And we now have only one Chuu in our library!
 
 Let's go through one more example. I want all of Chuu's releases to have the
 K-Pop genre. The following rule expresses that: for all releases with the
-albumartist `Chuu`, add the `K-Pop` genre tag.
+releaseartist `Chuu`, add the `K-Pop` genre tag.
 
 ```bash
-$ rose rules run 'albumartist:^Chuu$' 'genre::add:K-Pop'
+$ rose rules run 'releaseartist:^Chuu$' 'genre::add:K-Pop'
 
 CHUU - 2023. Howl/01. Howl.opus
       genre: [] -> ['K-Pop']
@@ -257,7 +257,7 @@ add the following text to my configuration file:
 matcher = "artist:^CHUU$"
 actions = ["replace:Chuu"]
 [[stored_metadata_rules]]
-matcher = "albumartist:^Chuu$"
+matcher = "releaseartist:^Chuu$"
 actions = ["genre::add:K-Pop"]
 [[stored_metadata_rules]]
 matcher = "genre:^Kpop$"
@@ -292,19 +292,19 @@ The rules engine supports matching and acting on the following tags:
 - `tracktotal` (match only, actions not supported)
 - `discnumber`
 - `disctotal` (match only, actions not supported)
-- `albumtitle`
-- `albumartist[main]`
-- `albumartist[guest]`
-- `albumartist[remixer]`
-- `albumartist[producer]`
-- `albumartist[composer]`
-- `albumartist[djmixer]`
+- `releasetitle`
+- `releaseartist[main]`
+- `releaseartist[guest]`
+- `releaseartist[remixer]`
+- `releaseartist[producer]`
+- `releaseartist[composer]`
+- `releaseartist[djmixer]`
 - `releasetype`
 - `year`
 - `genre`
 - `label`
 
-The `trackartist[*]`, `albumartist[*]`, `genre`, and `label` tags are
+The `trackartist[*]`, `releaseartist[*]`, `genre`, and `label` tags are
 _multi-value_ tags, which have a slightly different behavior from single-value
 tags for some of the actions. We'll explore this difference in the
 [Actions](#actions) section.
@@ -314,8 +314,8 @@ place of the above tags, which expand to multiple tags when matching. The
 supported aliases are:
 
 - `trackartist`: Expands to all the `trackartist[*]` tags.
-- `albumartist`: Expands to all the `albumartist[*]` tags.
-- `artist`: Expands to all `trackartist[*]` and `albumartist[*]` tags.
+- `releaseartist`: Expands to all the `releaseartist[*]` tags.
+- `artist`: Expands to all `trackartist[*]` and `releaseartist[*]` tags.
 
 The specific `artist[role]`-style tags are only needed when you want to match
 on a specific role. The aliases provide a more convenient shorthand for most
@@ -410,7 +410,7 @@ Matchers are specified as `tags:pattern`. `tags` is a comma-delimited array of
 tags, and `pattern` is a string. For example:
 
 - `tracktitle:Hello`
-- `tracktitle,albumtitle:^Hello`
+- `tracktitle,releasetitle:^Hello`
 - `tracktitle:Hello:i`
 
 Actions are specified as `tags:pattern::kind:{kind_args}`. `tags` and `pattern`
@@ -481,7 +481,7 @@ _TODO_
 You can preview a rule's changes with the `--dry-run` flag. For example:
 
 ```bash
-$ rose rules run --dry-run 'albumartist:^Chuu$' 'genre::add:K-Pop'
+$ rose rules run --dry-run 'releaseartist:^Chuu$' 'genre::add:K-Pop'
 
 CHUU - 2023. Howl/01. Howl.opus
       genre: [] -> ['K-Pop']

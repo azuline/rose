@@ -76,7 +76,7 @@ other useful programs.
 
 Rosé supports tagging the release _type_. The supported values are:
 
-- `album`
+- `release`
 - `single`
 - `ep`
 - `compilation`
@@ -142,8 +142,8 @@ from additional fields.
 
 | Tag             | Field Name      | Will Ingest These Fields                                                                                        |
 | --------------- | --------------- | --------------------------------------------------------------------------------------------------------------- |
-| Release Title   | `album`         |                                                                                                                 |
-| Album Artists   | `albumartist`   |                                                                                                                 |
+| Release Title   | `release`         |                                                                                                                 |
+| Album Artists   | `releaseartist`   |                                                                                                                 |
 | Release Year    | `date`          | `year`                                                                                                          |
 | Release Type    | `releasetype`   |                                                                                                                 |
 | Genre           | `genre`         |                                                                                                                 |

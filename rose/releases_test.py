@@ -176,14 +176,14 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         cover_image_path=None,
         added_at=release.added_at,
         datafile_mtime=release.datafile_mtime,
-        albumtitle="I Really Love Blackpink",
+        releasetitle="I Really Love Blackpink",
         releasetype="single",
         year=2222,
         new=False,
         disctotal=1,
         genres=["J-Pop", "Pop-Rap"],
         labels=["YG Entertainment"],
-        albumartists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
+        releaseartists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
         metahash=release.metahash,
     )
     tracks = get_tracks_associated_with_release(config, release)
@@ -327,14 +327,14 @@ def test_edit_release_failure_and_resume(
         cover_image_path=None,
         added_at=release.added_at,
         datafile_mtime=release.datafile_mtime,
-        albumtitle="I Really Love Blackpink",
+        releasetitle="I Really Love Blackpink",
         releasetype="single",
         year=2222,
         new=False,
         disctotal=1,
         genres=["J-Pop", "Pop-Rap"],
         labels=["YG Entertainment"],
-        albumartists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
+        releaseartists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
         metahash=release.metahash,
     )
     tracks = get_tracks_associated_with_release(config, release)
@@ -385,11 +385,11 @@ def test_extract_single_release(config: Config) -> None:
     assert (source_path / "01. Track 2.m4a").is_file()
     assert (source_path / "cover.jpg").is_file()
     af = AudioTags.from_file(source_path / "01. Track 2.m4a")
-    assert af.album == "Track 2"
+    assert af.release == "Track 2"
     assert af.tracknumber == "1"
     assert af.discnumber == "1"
     assert af.releasetype == "single"
-    assert af.albumartists == af.trackartists
+    assert af.releaseartists == af.trackartists
 
 
 def test_extract_single_release_with_trailing_space(config: Config) -> None:
@@ -413,14 +413,14 @@ def test_dump_release(config: Config) -> None:
         "source_path": f"{config.music_source_dir}/r1",
         "cover_image_path": None,
         "added_at": "0000-01-01T00:00:00+00:00",
-        "albumtitle": "Release 1",
-        "releasetype": "album",
+        "releasetitle": "Release 1",
+        "releasetype": "release",
         "year": 2023,
         "new": False,
         "disctotal": 1,
         "genres": ["Techno", "Deep House"],
         "labels": ["Silk Music"],
-        "albumartists": {
+        "releaseartists": {
             "main": [
                 {"name": "Techno Man", "alias": False},
                 {"name": "Bass Man", "alias": False},
@@ -486,14 +486,14 @@ def test_dump_releases(config: Config) -> None:
             "source_path": f"{config.music_source_dir}/r1",
             "cover_image_path": None,
             "added_at": "0000-01-01T00:00:00+00:00",
-            "albumtitle": "Release 1",
-            "releasetype": "album",
+            "releasetitle": "Release 1",
+            "releasetype": "release",
             "year": 2023,
             "new": False,
             "disctotal": 1,
             "genres": ["Techno", "Deep House"],
             "labels": ["Silk Music"],
-            "albumartists": {
+            "releaseartists": {
                 "main": [
                     {"name": "Techno Man", "alias": False},
                     {"name": "Bass Man", "alias": False},
@@ -554,14 +554,14 @@ def test_dump_releases(config: Config) -> None:
             "source_path": f"{config.music_source_dir}/r2",
             "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
             "added_at": "0000-01-01T00:00:00+00:00",
-            "albumtitle": "Release 2",
-            "releasetype": "album",
+            "releasetitle": "Release 2",
+            "releasetype": "release",
             "year": 2021,
             "new": False,
             "disctotal": 1,
             "genres": ["Classical"],
             "labels": ["Native State"],
-            "albumartists": {
+            "releaseartists": {
                 "main": [{"name": "Violin Woman", "alias": False}],
                 "guest": [{"name": "Conductor Woman", "alias": False}],
                 "remixer": [],
@@ -595,14 +595,14 @@ def test_dump_releases(config: Config) -> None:
             "source_path": f"{config.music_source_dir}/r3",
             "cover_image_path": None,
             "added_at": "0000-01-01T00:00:00+00:00",
-            "albumtitle": "Release 3",
-            "releasetype": "album",
+            "releasetitle": "Release 3",
+            "releasetype": "release",
             "year": 2021,
             "new": True,
             "disctotal": 1,
             "genres": [],
             "labels": [],
-            "albumartists": {
+            "releaseartists": {
                 "main": [],
                 "guest": [],
                 "remixer": [],
@@ -636,21 +636,21 @@ def test_dump_releases(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_dump_releases_matcher(config: Config) -> None:
-    matcher = MetadataMatcher.parse("albumtitle:2$")
+    matcher = MetadataMatcher.parse("releasetitle:2$")
     assert json.loads(dump_releases(config, matcher)) == [
         {
             "id": "r2",
             "source_path": f"{config.music_source_dir}/r2",
             "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
             "added_at": "0000-01-01T00:00:00+00:00",
-            "albumtitle": "Release 2",
-            "releasetype": "album",
+            "releasetitle": "Release 2",
+            "releasetype": "release",
             "year": 2021,
             "new": False,
             "disctotal": 1,
             "genres": ["Classical"],
             "labels": ["Native State"],
-            "albumartists": {
+            "releaseartists": {
                 "main": [{"name": "Violin Woman", "alias": False}],
                 "guest": [{"name": "Conductor Woman", "alias": False}],
                 "remixer": [],

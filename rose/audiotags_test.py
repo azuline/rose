@@ -33,13 +33,13 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
     assert af.discnumber == "1"
     assert af.disctotal == 1
 
-    assert af.album == "A Cool Album"
-    assert af.releasetype == "album"
+    assert af.release == "A Cool Album"
+    assert af.releasetype == "release"
     assert af.year == 1990
     assert af.genre == ["Electronic", "House"]
     assert af.label == ["A Cool Label"]
 
-    assert af.albumartists.main == [Artist("Artist A"), Artist("Artist B")]
+    assert af.releaseartists.main == [Artist("Artist A"), Artist("Artist B")]
     assert af.trackartists == ArtistMapping(
         main=[Artist("Artist GH"), Artist("Artist HI")],
         guest=[Artist("Artist C"), Artist("Artist A")],
@@ -75,14 +75,14 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     assert af.tracknumber == track_num
     assert af.title == f"Track {track_num}"
 
-    assert af.album == "A Cool Album"
-    assert af.releasetype == "album"
+    assert af.release == "A Cool Album"
+    assert af.releasetype == "release"
     assert af.year == 1990
     assert af.discnumber == "1"
     assert af.genre == ["Electronic", "House"]
     assert af.label == ["A Cool Label"]
 
-    assert af.albumartists.main == [Artist("Artist A"), Artist("Artist B")]
+    assert af.releaseartists.main == [Artist("Artist A"), Artist("Artist B")]
     assert af.trackartists == ArtistMapping(
         main=[Artist("Artist GH"), Artist("Artist HI")],
         guest=[Artist("Artist C"), Artist("Artist A")],
@@ -130,7 +130,7 @@ def test_releasetype_normalization(isolated_dir: Path, filename: str) -> None:
 
     # Check that release type is read correctly.
     af = AudioTags.from_file(fpath)
-    assert af.releasetype == "album"
+    assert af.releasetype == "release"
     # Assert that attempting to flush a stupid value fails.
     af.releasetype = "lalala"
     with pytest.raises(UnsupportedTagValueTypeError):
@@ -144,7 +144,7 @@ def test_releasetype_normalization(isolated_dir: Path, filename: str) -> None:
     af.releasetype = "ALBUM"
     af.flush(validate=False)
     af = AudioTags.from_file(fpath)
-    assert af.releasetype == "album"
+    assert af.releasetype == "release"
 
 
 def test_split_tag() -> None:
