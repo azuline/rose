@@ -150,6 +150,7 @@ def test_config_full() -> None:
                             pattern=MatcherPattern("lala"),
                         )
                     ],
+                    ignore=[],
                 )
             ],
         )
