@@ -228,7 +228,6 @@ def test_dump_collages(config: Config) -> None:
                         "guest": [{"name": "Conductor Woman", "alias": False}],
                         "remixer": [],
                         "conductor": [],
-                        "conductor": [],
                         "producer": [],
                         "composer": [],
                         "djmixer": [],
