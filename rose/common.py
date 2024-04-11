@@ -44,12 +44,19 @@ class ArtistMapping:
     remixer: list[Artist] = dataclasses.field(default_factory=list)
     producer: list[Artist] = dataclasses.field(default_factory=list)
     composer: list[Artist] = dataclasses.field(default_factory=list)
+    conductor: list[Artist] = dataclasses.field(default_factory=list)
     djmixer: list[Artist] = dataclasses.field(default_factory=list)
 
     @property
     def all(self) -> list[Artist]:
         return uniq(
-            self.main + self.guest + self.remixer + self.producer + self.composer + self.djmixer
+            self.main
+            + self.guest
+            + self.remixer
+            + self.producer
+            + self.composer
+            + self.conductor
+            + self.djmixer
         )
 
     def dump(self) -> dict[str, Any]:
@@ -61,6 +68,7 @@ class ArtistMapping:
         yield "remixer", self.remixer
         yield "producer", self.producer
         yield "composer", self.composer
+        yield "conductor", self.conductor
         yield "djmixer", self.djmixer
 
 

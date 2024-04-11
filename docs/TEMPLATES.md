@@ -90,6 +90,7 @@ releaseartists.guest: list[Artist]
 releaseartists.remixer: list[Artist]
 releaseartists.producer: list[Artist]
 releaseartists.composer: list[Artist]
+releaseartists.conductor: list[Artist]
 releaseartists.djmixer: list[Artist]
 position: str                        # If in a collage context, the zero-padded position of the release in the collage.
 ```
@@ -110,6 +111,7 @@ trackartists.guest: list[Artist]
 trackartists.remixer: list[Artist]
 trackartists.producer: list[Artist]
 trackartists.composer: list[Artist]
+trackartists.conductor: list[Artist]
 trackartists.djmixer: list[Artist]
 releasetitle: str
 releasetype: str                     # Type of the track's release (e.g. single, ep, etc).
@@ -123,6 +125,7 @@ releaseartists.guest: list[Artist]
 releaseartists.remixer: list[Artist]
 releaseartists.producer: list[Artist]
 releaseartists.composer: list[Artist]
+releaseartists.conductor: list[Artist]
 releaseartists.djmixer: list[Artist]
 position: str                        # If in a playlist context, the zero-padded position of the track in the playlist.
 ```

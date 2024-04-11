@@ -47,6 +47,7 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
         producer=[Artist("Artist CD"), Artist("Artist DE")],
         composer=[Artist("Artist EF"), Artist("Artist FG")],
         djmixer=[Artist("Artist IJ"), Artist("Artist JK")],
+        conductor=[Artist("Artist AA"), Artist("Artist BB")],
     )
     assert af.duration_sec == duration
 
@@ -89,6 +90,7 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
         remixer=[Artist("Artist AB"), Artist("Artist BC")],
         producer=[Artist("Artist CD"), Artist("Artist DE")],
         composer=[Artist("Artist EF"), Artist("Artist FG")],
+        conductor=[Artist("Artist AA"), Artist("Artist BB")],
         djmixer=[Artist("New")],
     )
     assert af.duration_sec == duration

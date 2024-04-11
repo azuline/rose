@@ -459,7 +459,8 @@ def parse_artist_string(
     def _split_tag(t: str | None) -> list[str]:
         return TAG_SPLITTER_REGEX.split(t) if t else []
 
-    li_main = _split_tag(conductor)
+    li_main = []
+    li_conductor = _split_tag(conductor)
     li_guests = []
     li_remixer = _split_tag(remixer)
     li_composer = _split_tag(composer)
@@ -471,6 +472,9 @@ def parse_artist_string(
     if main and "remixed by " in main:
         main, remixer = re.split(r" ?remixed by ", main, maxsplit=1)
         li_remixer.extend(_split_tag(remixer))
+    if main and "under. " in main:
+        main, conductor = re.split(r" ?under. ", main, maxsplit=1)
+        li_conductor.extend(_split_tag(conductor))
     if main and "feat. " in main:
         main, guests = re.split(r" ?feat. ", main, maxsplit=1)
         li_guests.extend(_split_tag(guests))
@@ -491,6 +495,7 @@ def parse_artist_string(
         guest=to_artist(uniq(li_guests)),
         remixer=to_artist(uniq(li_remixer)),
         composer=to_artist(uniq(li_composer)),
+        conductor=to_artist(uniq(li_conductor)),
         producer=to_artist(uniq(li_producer)),
         djmixer=to_artist(uniq(li_dj)),
     )
@@ -509,6 +514,8 @@ def format_artist_string(mapping: ArtistMapping) -> str:
         r = format_role(mapping.composer) + " performed by " + r
     if mapping.djmixer:
         r = format_role(mapping.djmixer) + " pres. " + r
+    if mapping.conductor:
+        r += " under. " + format_role(mapping.conductor)
     if mapping.guest:
         r += " feat. " + format_role(mapping.guest)
     if mapping.remixer:
