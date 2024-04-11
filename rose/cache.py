@@ -1850,6 +1850,53 @@ def get_tracks_associated_with_releases(
     return rval
 
 
+def get_path_of_track_in_release(
+    c: Config,
+    track_id: str,
+    release_id: str,
+) -> Path | None:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            """
+            SELECT source_path
+            FROM tracks
+            WHERE id = ? AND release_id = ?
+            """,
+            (
+                track_id,
+                release_id,
+            ),
+        )
+        row = cursor.fetchone()
+        if row:
+            return Path(row["source_path"])
+        return None
+
+
+def get_path_of_track_in_playlist(
+    c: Config,
+    track_id: str,
+    playlist_name: str,
+) -> Path | None:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            """
+            SELECT t.source_path
+            FROM tracks t
+            JOIN playlists_tracks pt ON pt.track_id = t.id AND pt.playlist_name = ?
+            WHERE t.id = ?
+            """,
+            (
+                playlist_name,
+                track_id,
+            ),
+        )
+        row = cursor.fetchone()
+        if row:
+            return Path(row["source_path"])
+        return None
+
+
 def get_track_logtext(c: Config, track_id: str) -> str | None:
     """Get a human-readable identifier for a track suitable for logging."""
     with connect(c) as conn:
@@ -1947,6 +1994,27 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
     return playlist, tracks
 
 
+def playlist_exists(c: Config, playlist_name: str) -> bool:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT EXISTS(SELECT * FROM playlists WHERE name = ?)",
+            (playlist_name,),
+        )
+        return bool(cursor.fetchone()[0])
+
+
+def get_playlist_cover_path(c: Config, playlist_name: str) -> Path | None:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT cover_path FROM playlists WHERE name = ?",
+            (playlist_name,),
+        )
+        row = cursor.fetchone()
+        if row and row["cover_path"]:
+            return Path(row["cover_path"])
+        return None
+
+
 def list_collages(c: Config) -> list[str]:
     with connect(c) as conn:
         cursor = conn.execute("SELECT DISTINCT name FROM collages")
@@ -1984,6 +2052,15 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
             releases.append(CachedRelease.from_view(c, row))
 
     return (collage, releases)
+
+
+def collage_exists(c: Config, collage_name: str) -> bool:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT EXISTS(SELECT * FROM collages WHERE name = ?)",
+            (collage_name,),
+        )
+        return bool(cursor.fetchone()[0])
 
 
 def list_artists(c: Config) -> list[tuple[str, str]]:

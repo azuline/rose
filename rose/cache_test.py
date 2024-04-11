@@ -18,10 +18,14 @@ from rose.cache import (
     CachedTrack,
     _unpack,
     artist_exists,
+    collage_exists,
     connect,
     genre_exists,
     get_collage,
+    get_path_of_track_in_playlist,
+    get_path_of_track_in_release,
     get_playlist,
+    get_playlist_cover_path,
     get_release,
     get_release_logtext,
     get_track,
@@ -38,6 +42,7 @@ from rose.cache import (
     list_tracks,
     lock,
     maybe_invalidate_cache_database,
+    playlist_exists,
     update_cache,
     update_cache_evict_nonexistent_releases,
     update_cache_for_releases,
@@ -1328,6 +1333,28 @@ def test_get_track(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
+def test_get_path_of_track_in_release(config: Config) -> None:
+    assert (
+        get_path_of_track_in_release(config, "t1", "r1")
+        == config.music_source_dir / "r1" / "01.m4a"
+    )
+    assert get_path_of_track_in_release(config, "t3", "r1") is None
+    assert get_path_of_track_in_release(config, "lalala", "r1") is None
+    assert get_path_of_track_in_release(config, "t1", "lalala") is None
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_get_path_of_track_in_playlist(config: Config) -> None:
+    assert (
+        get_path_of_track_in_playlist(config, "t1", "Lala Lisa")
+        == config.music_source_dir / "r1" / "01.m4a"
+    )
+    assert get_path_of_track_in_playlist(config, "t2", "Lala Lisa") is None
+    assert get_path_of_track_in_playlist(config, "lalala", "Lala Lisa") is None
+    assert get_path_of_track_in_playlist(config, "t1", "lalala") is None
+
+
+@pytest.mark.usefixtures("seeded_cache")
 def test_get_track_logtext(config: Config) -> None:
     assert get_track_logtext(config, "t1") == "Techno Man & Bass Man - Track 1 [2023].m4a"
 
@@ -1424,6 +1451,12 @@ def test_get_collage(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
+def test_collage_exists(config: Config) -> None:
+    assert collage_exists(config, "Rose Gold")
+    assert not collage_exists(config, "lalala")
+
+
+@pytest.mark.usefixtures("seeded_cache")
 def test_list_playlists(config: Config) -> None:
     playlists = list_playlists(config)
     assert set(playlists) == {"Lala Lisa", "Turtle Rabbit"}
@@ -1504,6 +1537,21 @@ def test_get_playlist(config: Config) -> None:
             ),
         ),
     ]
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_playlist_exists(config: Config) -> None:
+    assert playlist_exists(config, "Lala Lisa")
+    assert not playlist_exists(config, "lalala")
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_get_playlist_cover_path(config: Config) -> None:
+    assert (
+        get_playlist_cover_path(config, "Lala Lisa")
+        == config.music_source_dir / "!playlists" / "Lala Lisa.jpg"
+    )
+    assert get_playlist_cover_path(config, "lalala") is None
 
 
 @pytest.mark.usefixtures("seeded_cache")

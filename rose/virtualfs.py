@@ -60,9 +60,12 @@ from rose.cache import (
     artist_exists,
     calculate_release_logtext,
     calculate_track_logtext,
+    collage_exists,
     genre_exists,
     get_collage,
+    get_path_of_track_in_playlist,
     get_playlist,
+    get_playlist_cover_path,
     get_release,
     get_track,
     get_tracks_associated_with_release,
@@ -73,6 +76,7 @@ from rose.cache import (
     list_labels,
     list_playlists,
     list_releases_delete_this,
+    playlist_exists,
     update_cache_for_releases,
 )
 from rose.collages import (
@@ -689,82 +693,85 @@ class RoseLogicalCore:
 
         return attrs
 
+    def _get_track_id(self, p: VirtualPath) -> str:
+        """Common logic that gets called for each track."""
+        track_id = self.vnames.lookup_track(p)
+        if not track_id:
+            logger.debug(
+                f"LOGICAL: Invoking readdir before retrying file virtual name resolution on {p}"
+            )
+            # Performant way to consume an iterator completely.
+            collections.deque(self.readdir(p.track_parent), maxlen=0)
+            logger.debug(
+                f"LOGICAL: Finished readdir call: retrying file virtual name resolution on {p}"
+            )
+            track_id = self.vnames.lookup_track(p)
+            if not track_id:
+                raise llfuse.FUSEError(errno.ENOENT)
+
+        return track_id
+
+    def _getattr_release(self, p: VirtualPath) -> dict[str, Any]:
+        """Common logic that gets called for each release."""
+        release_id = self.vnames.lookup_release(p)
+        if not release_id:
+            logger.debug(
+                f"LOGICAL: Invoking readdir before retrying release virtual name resolution on {p}"
+            )
+            # Performant way to consume an iterator completely.
+            collections.deque(self.readdir(p.release_parent), maxlen=0)
+            logger.debug(
+                f"LOGICAL: Finished readdir call: retrying release virtual name resolution on {p}"
+            )
+            release_id = self.vnames.lookup_release(p)
+            if not release_id:
+                raise llfuse.FUSEError(errno.ENOENT)
+
+        release = get_release(self.config, release_id)
+        # Handle a potential release deletion here.
+        if release is None:
+            logger.debug("LOGICAL: Resolved release_id does not exist in cache")
+            raise llfuse.FUSEError(errno.ENOENT)
+
+        # If no file, return stat for the release dir.
+        if not p.file:
+            return self.stat("dir", release.source_path)
+        # Look for files:
+        if release.cover_image_path and p.file == f"cover{release.cover_image_path.suffix}":
+            return self.stat("file", release.cover_image_path)
+        if p.file == f".rose.{release.id}.toml":
+            return self.stat("file")
+        track_id = self._get_track_id(p)
+        tracks = get_tracks_associated_with_release(self.config, release)
+        for t in tracks:
+            if t.id == track_id:
+                return self.stat("file", t.source_path)
+        logger.debug("LOGICAL: Resolved track_id not found in the given tracklist")
+        raise llfuse.FUSEError(errno.ENOENT)
+
     def getattr(self, p: VirtualPath) -> dict[str, Any]:
         logger.debug(f"LOGICAL: Received getattr for {p=}")
 
-        # Common logic that gets called for each track.
-        def getattr_track(tracks: list[CachedTrack]) -> dict[str, Any]:
-            track_id = self.vnames.lookup_track(p)
-            if not track_id:
-                logger.debug(
-                    f"LOGICAL: Invoking readdir before retrying file virtual name resolution on {p}"
-                )
-                # Performant way to consume an iterator completely.
-                collections.deque(self.readdir(p.track_parent), maxlen=0)
-                logger.debug(
-                    f"LOGICAL: Finished readdir call: retrying file virtual name resolution on {p}"
-                )
-                track_id = self.vnames.lookup_track(p)
-                if not track_id:
-                    raise llfuse.FUSEError(errno.ENOENT)
-
-            for t in tracks:
-                if t.id == track_id:
-                    return self.stat("file", t.source_path)
-            logger.debug("LOGICAL: Resolved track_id not found in the given tracklist")
-            raise llfuse.FUSEError(errno.ENOENT)
-
-        # Common logic that gets called for each release.
-        def getattr_release() -> dict[str, Any]:
-            release_id = self.vnames.lookup_release(p)
-            if not release_id:
-                logger.debug(
-                    f"LOGICAL: Invoking readdir before retrying release virtual name resolution on {p}"
-                )
-                # Performant way to consume an iterator completely.
-                collections.deque(self.readdir(p.release_parent), maxlen=0)
-                logger.debug(
-                    f"LOGICAL: Finished readdir call: retrying release virtual name resolution on {p}"
-                )
-                release_id = self.vnames.lookup_release(p)
-                if not release_id:
-                    raise llfuse.FUSEError(errno.ENOENT)
-
-            release = get_release(self.config, release_id)
-            # Handle a potential release deletion here.
-            if release is None:
-                logger.debug("LOGICAL: Resolved release_id does not exist in cache")
-                raise llfuse.FUSEError(errno.ENOENT)
-
-            # If no file, return stat for the release dir.
-            if not p.file:
-                return self.stat("dir", release.source_path)
-            # Look for files:
-            if release.cover_image_path and p.file == f"cover{release.cover_image_path.suffix}":
-                return self.stat("file", release.cover_image_path)
-            if p.file == f".rose.{release.id}.toml":
-                return self.stat("file")
-            tracks = get_tracks_associated_with_release(self.config, release)
-            return getattr_track(tracks)
-
         # 8. Playlists
         if p.playlist:
-            try:
-                playlist, tracks = get_playlist(self.config, p.playlist)  # type: ignore
-            except TypeError as e:
-                raise llfuse.FUSEError(errno.ENOENT) from e
+            if not playlist_exists(self.config, p.playlist):
+                raise llfuse.FUSEError(errno.ENOENT)
             if p.file:
-                if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
-                    return self.stat("file", playlist.cover_path)
-                return getattr_track(tracks)
+                cover_path = get_playlist_cover_path(self.config, p.playlist)
+                if cover_path and f"cover{cover_path.suffix}" == p.file:
+                    return self.stat("file", cover_path)
+                track_id = self._get_track_id(p)
+                if source_path := get_path_of_track_in_playlist(self.config, track_id, p.playlist):
+                    return self.stat("file", source_path)
+                raise llfuse.FUSEError(errno.ENOENT)
             return self.stat("dir")
 
         # 7. Collages
         if p.collage:
-            if not get_collage(self.config, p.collage):
+            if not collage_exists(self.config, p.collage):
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
-                return getattr_release()
+                return self._getattr_release(p)
             return self.stat("dir")
 
         # 6. Labels
@@ -772,7 +779,7 @@ class RoseLogicalCore:
             if not label_exists(self.config, p.label) or not self.can_show.label(p.label):
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
-                return getattr_release()
+                return self._getattr_release(p)
             return self.stat("dir")
 
         # 5. Genres
@@ -780,7 +787,7 @@ class RoseLogicalCore:
             if not genre_exists(self.config, p.genre) or not self.can_show.genre(p.genre):
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
-                return getattr_release()
+                return self._getattr_release(p)
             return self.stat("dir")
 
         # 4. Artists
@@ -788,12 +795,12 @@ class RoseLogicalCore:
             if not artist_exists(self.config, p.artist) or not self.can_show.artist(p.artist):
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
-                return getattr_release()
+                return self._getattr_release(p)
             return self.stat("dir")
 
         # {1,2,3}. Releases
         if p.release:
-            return getattr_release()
+            return self._getattr_release(p)
 
         # 0. Root
         elif p.view:
