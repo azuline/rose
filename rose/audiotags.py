@@ -472,9 +472,6 @@ def parse_artist_string(
     if main and "remixed by " in main:
         main, remixer = re.split(r" ?remixed by ", main, maxsplit=1)
         li_remixer.extend(_split_tag(remixer))
-    if main and "under. " in main:
-        main, conductor = re.split(r" ?under. ", main, maxsplit=1)
-        li_conductor.extend(_split_tag(conductor))
     if main and "feat. " in main:
         main, guests = re.split(r" ?feat. ", main, maxsplit=1)
         li_guests.extend(_split_tag(guests))
@@ -484,6 +481,9 @@ def parse_artist_string(
     if main and "performed by " in main:
         composer, main = re.split(r" ?performed by ", main, maxsplit=1)
         li_composer.extend(_split_tag(composer))
+    if main and "under. " in main:
+        main, conductor = re.split(r" ?under. ", main, maxsplit=1)
+        li_conductor.extend(_split_tag(conductor))
     if main:
         li_main.extend(_split_tag(main))
 
