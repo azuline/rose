@@ -41,11 +41,12 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
 
     assert af.releaseartists.main == [Artist("Artist A"), Artist("Artist B")]
     assert af.trackartists == ArtistMapping(
-        main=[Artist("Artist GH"), Artist("Artist HI")],
-        guest=[Artist("Artist C"), Artist("Artist A")],
+        main=[Artist("Artist A"), Artist("Artist B")],
+        guest=[Artist("Artist C"), Artist("Artist D")],
         remixer=[Artist("Artist AB"), Artist("Artist BC")],
         producer=[Artist("Artist CD"), Artist("Artist DE")],
         composer=[Artist("Artist EF"), Artist("Artist FG")],
+        conductor=[Artist("Artist GH"), Artist("Artist HI")],
         djmixer=[Artist("Artist IJ"), Artist("Artist JK")],
     )
     assert af.duration_sec == duration
@@ -84,11 +85,12 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
 
     assert af.releaseartists.main == [Artist("Artist A"), Artist("Artist B")]
     assert af.trackartists == ArtistMapping(
-        main=[Artist("Artist GH"), Artist("Artist HI")],
-        guest=[Artist("Artist C"), Artist("Artist A")],
+        main=[Artist("Artist A"), Artist("Artist B")],
+        guest=[Artist("Artist C"), Artist("Artist D")],
         remixer=[Artist("Artist AB"), Artist("Artist BC")],
         producer=[Artist("Artist CD"), Artist("Artist DE")],
         composer=[Artist("Artist EF"), Artist("Artist FG")],
+        conductor=[Artist("Artist GH"), Artist("Artist HI")],
         djmixer=[Artist("New")],
     )
     assert af.duration_sec == duration

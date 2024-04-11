@@ -239,12 +239,14 @@ def filter_track_false_positives_using_tags(
             match = match or (field == "trackartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.remixer))
             match = match or (field == "trackartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.producer))
             match = match or (field == "trackartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.composer))
+            match = match or (field == "trackartist[conductor]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.conductor))
             match = match or (field == "trackartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.djmixer))
             match = match or (field == "releaseartist[main]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.main))
             match = match or (field == "releaseartist[guest]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.guest))
             match = match or (field == "releaseartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.remixer))
             match = match or (field == "releaseartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.producer))
             match = match or (field == "releaseartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.composer))
+            match = match or (field == "releaseartist[conductor]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.conductor))
             match = match or (field == "releaseartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.djmixer))
             # fmt: on
 
@@ -269,12 +271,14 @@ def filter_track_false_positives_using_tags(
                     skip = skip or (field == "trackartist[remixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.remixer))
                     skip = skip or (field == "trackartist[producer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.producer))
                     skip = skip or (field == "trackartist[composer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.composer))
+                    skip = skip or (field == "trackartist[conductor]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.conductor))
                     skip = skip or (field == "trackartist[djmixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.djmixer))
                     skip = skip or (field == "releaseartist[main]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.main))
                     skip = skip or (field == "releaseartist[guest]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.guest))
                     skip = skip or (field == "releaseartist[remixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.remixer))
                     skip = skip or (field == "releaseartist[producer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.producer))
                     skip = skip or (field == "releaseartist[composer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.composer))
+                    skip = skip or (field == "releaseartist[conductor]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.conductor))
                     skip = skip or (field == "releaseartist[djmixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.djmixer))
                     # fmt: on
                     if skip:
@@ -371,6 +375,9 @@ def execute_metadata_actions(
                 elif field == "trackartist[composer]":
                     tags.trackartists.composer = artists(execute_multi_value_action(act, names(tags.trackartists.composer)))
                     potential_changes.append(("trackartist[composer]", names(origtags.trackartists.composer), names(tags.trackartists.composer)))
+                elif field == "trackartist[conductor]":
+                    tags.trackartists.conductor = artists(execute_multi_value_action(act, names(tags.trackartists.conductor)))
+                    potential_changes.append(("trackartist[conductor]", names(origtags.trackartists.conductor), names(tags.trackartists.conductor)))
                 elif field == "trackartist[djmixer]":
                     tags.trackartists.djmixer = artists(execute_multi_value_action(act, names(tags.trackartists.djmixer)))
                     potential_changes.append(("trackartist[djmixer]", names(origtags.trackartists.djmixer), names(tags.trackartists.djmixer)))
@@ -389,6 +396,9 @@ def execute_metadata_actions(
                 elif field == "releaseartist[composer]":
                     tags.releaseartists.composer = artists(execute_multi_value_action(act, names(tags.releaseartists.composer)) )
                     potential_changes.append(("releaseartist[composer]", names(origtags.releaseartists.composer), names(tags.releaseartists.composer)))
+                elif field == "releaseartist[conductor]":
+                    tags.releaseartists.conductor = artists(execute_multi_value_action(act, names(tags.releaseartists.conductor)))
+                    potential_changes.append(("releaseartist[conductor]", names(origtags.releaseartists.conductor), names(tags.releaseartists.conductor)))
                 elif field == "releaseartist[djmixer]":
                     tags.releaseartists.djmixer = artists(execute_multi_value_action(act, names(tags.releaseartists.djmixer)))
                     potential_changes.append(("releaseartist[djmixer]", names(origtags.releaseartists.djmixer), names(tags.releaseartists.djmixer)))
@@ -633,12 +643,14 @@ def filter_track_false_positives_using_read_cache(
             match = match or (field == "trackartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.trackartists.remixer))
             match = match or (field == "trackartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.trackartists.producer))
             match = match or (field == "trackartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.trackartists.composer))
+            match = match or (field == "trackartist[conductor]" and any(matches_pattern(matcher.pattern, x.name) for x in t.trackartists.conductor))
             match = match or (field == "trackartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.trackartists.djmixer))
             match = match or (field == "releaseartist[main]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.releaseartists.main))
             match = match or (field == "releaseartist[guest]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.releaseartists.guest))
             match = match or (field == "releaseartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.releaseartists.remixer))
             match = match or (field == "releaseartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.releaseartists.producer))
             match = match or (field == "releaseartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.releaseartists.composer))
+            match = match or (field == "releaseartist[conductor]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.releaseartists.conductor))
             match = match or (field == "releaseartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in t.release.releaseartists.djmixer))
             # fmt: on
             if match:
@@ -669,6 +681,7 @@ def filter_release_false_positives_using_read_cache(
             match = match or (field == "releaseartist[main]" and any(matches_pattern(matcher.pattern, x.name) for x in r.releaseartists.main))
             match = match or (field == "releaseartist[guest]" and any(matches_pattern(matcher.pattern, x.name) for x in r.releaseartists.guest))
             match = match or (field == "releaseartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in r.releaseartists.remixer))
+            match = match or (field == "releaseartist[conductor]" and any(matches_pattern(matcher.pattern, x.name) for x in r.releaseartists.conductor))
             match = match or (field == "releaseartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in r.releaseartists.producer))
             match = match or (field == "releaseartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in r.releaseartists.composer))
             match = match or (field == "releaseartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in r.releaseartists.djmixer))

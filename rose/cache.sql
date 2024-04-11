@@ -80,6 +80,7 @@ INSERT INTO artist_role_enum (value) VALUES
     ('remixer'),
     ('producer'),
     ('composer'),
+    ('conductor'),
     ('djmixer');
 
 CREATE TABLE releases_artists (

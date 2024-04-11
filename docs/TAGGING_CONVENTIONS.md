@@ -48,10 +48,11 @@ delimiters. An example artist tag is: `Pyotr Ilyich Tchaikovsky performed by And
 The artist tag is described by the following grammar:
 
 ```
-<artist-tag> ::= <composer> <djmixer> <main> <guest> <remixer> <producer>
+<artist-tag> ::= [<composer>] [<djmixer>] <main> [<conductor>] [<guest>] [<remixer>] [<producer>]
 <composer>   ::= <name> ' performed by '
 <djmixer>    ::= <name> ' pres. '
 <main>       ::= <name>
+<conductor>  ::= ' under. ' <name>
 <guest>      ::= ' feat. ' <name>
 <remixer>    ::= ' remixed by ' <name>
 <producer>   ::= ' produced by ' <name>
@@ -65,6 +66,7 @@ Rosé supports the following artist roles:
 - `producer`
 - `composer`
 - `conductor`
+- `remixer`
 - `djmixer`
 
 Rosé writes a single tag value into the _Track Artists_ and _Release Artists_

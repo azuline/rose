@@ -65,6 +65,8 @@ def artistsfmt(a: ArtistMapping) -> str:
         r = artistsarrayfmt(a.djmixer) + " pres. " + r
     elif a.composer:
         r = artistsarrayfmt(a.composer) + " performed by " + r
+    if a.conductor:
+        r += " under " + artistsarrayfmt(a.conductor)
     if a.guest:
         r += " (feat. " + artistsarrayfmt(a.guest) + ")"
     if a.producer:

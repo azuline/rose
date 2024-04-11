@@ -287,6 +287,7 @@ The rules engine supports matching and acting on the following tags:
 - `trackartist[remixer]`
 - `trackartist[producer]`
 - `trackartist[composer]`
+- `trackartist[conductor]`
 - `trackartist[djmixer]`
 - `tracknumber`
 - `tracktotal` (match only, actions not supported)
@@ -298,6 +299,7 @@ The rules engine supports matching and acting on the following tags:
 - `releaseartist[remixer]`
 - `releaseartist[producer]`
 - `releaseartist[composer]`
+- `releaseartist[conductor]`
 - `releaseartist[djmixer]`
 - `releasetype`
 - `year`
