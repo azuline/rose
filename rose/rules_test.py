@@ -82,6 +82,25 @@ def test_rules_execution_match_superstrict(config: Config, source_dir: Path) -> 
     assert af.title == "lalala"
 
 
+def test_rules_execution_match_escaped_superstrict(config: Config, source_dir: Path) -> None:
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    af.title = "hi^Test$bye"
+    af.flush()
+    update_cache(config)
+
+    # No match
+    rule = MetadataRule.parse("tracktitle:^Test$", ["replace:lalala"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.title != "lalala"
+
+    # Match
+    rule = MetadataRule.parse(r"tracktitle:\^Test\$", ["replace:lalala"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.title == "lalala"
+
+
 def test_rules_execution_match_case_insensitive(config: Config, source_dir: Path) -> None:
     rule = MetadataRule.parse("tracktitle:tRaCk:i", ["replace:lalala"])
     execute_metadata_rule(config, rule, confirm_yes=False)

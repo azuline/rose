@@ -200,9 +200,11 @@ def _convert_matcher_to_fts_query(pattern: MatcherPattern) -> str:
     # assert that all the characters are within a substring equivalent to the length of the query,
     # which should filter out most false positives.
     needle = pattern.pattern
-    if needle.startswith("^"):
+    if needle.startswith("^") or needle.startswith(r"\^"):
         needle = needle[1:]
-    if needle.endswith("$"):
+    if needle.endswith(r"\$"):
+        needle = needle[:-2] + "$"
+    elif needle.endswith("$"):
         needle = needle[:-1]
     # Construct the SQL string for the matcher. Escape quotes in the match string.
     matchsql = "¬".join(needle).replace("'", "''").replace('"', '""')
@@ -504,14 +506,25 @@ def matches_pattern(pattern: MatcherPattern, value: str | int | None) -> bool:
         needle = needle.lower()
         haystack = haystack.lower()
 
-    strictstart = needle.startswith("^")
-    strictend = needle.endswith("$")
+    strictstart = strictend = False
+    if needle.startswith("^"):
+        strictstart = True
+        needle = needle[1:]
+    elif needle.startswith(r"\^"):
+        needle = needle[1:]
+
+    if needle.endswith(r"\$"):
+        needle = needle[:-2] + "$"
+    elif needle.endswith(r"$"):
+        needle = needle[:-1]
+        strictend = True
+
     if strictstart and strictend:
-        return haystack == needle[1:-1]
+        return haystack == needle
     if strictstart:
-        return haystack.startswith(needle[1:])
+        return haystack.startswith(needle)
     if strictend:
-        return haystack.endswith(needle[:-1])
+        return haystack.endswith(needle)
     return needle in haystack
 
 
