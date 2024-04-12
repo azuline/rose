@@ -152,7 +152,7 @@ CHUU - 2023. Howl/05. Hitchhiker.opus
 
 Write changes to 5 tracks?  [Y/n] y
 
-[01:10:58] INFO: Writing tag changes for rule matcher=trackartist,releaseartist:CHUU action=matched:CHUU::replace:Chuu
+[01:10:58] INFO: Writing tag changes for rule matcher=trackartist,releaseartist:CHUU action=matched:CHUU/replace:Chuu
 [01:10:58] INFO: Wrote tag changes to CHUU - 2023. Howl/01. Howl.opus
 [01:10:58] INFO: Wrote tag changes to CHUU - 2023. Howl/02. Underwater.opus
 [01:10:58] INFO: Wrote tag changes to CHUU - 2023. Howl/03. My Palace.opus
@@ -169,7 +169,7 @@ following rule expresses that: for all releases with the releaseartist `Chuu`, a
 tag.
 
 ```bash
-$ rose rules run 'releaseartist:^Chuu$' 'genre::add:K-Pop'
+$ rose rules run 'releaseartist:^Chuu$' 'genre/add:K-Pop'
 
 CHUU - 2023. Howl/01. Howl.opus
       genre: [] -> ['K-Pop']
@@ -188,7 +188,7 @@ LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
 
 Write changes to 7 tracks? [Y/n] y
 
-[01:14:57] INFO: Writing tag changes for rule matcher=artist:Chuu action=genre::replace-all:K-Pop
+[01:14:57] INFO: Writing tag changes for rule matcher=artist:Chuu action=genre/replace-all:K-Pop
 [01:14:57] INFO: Wrote tag changes to CHUU - 2023. Howl/01. Howl.opus
 [01:14:57] INFO: Wrote tag changes to CHUU - 2023. Howl/02. Underwater.opus
 [01:14:57] INFO: Wrote tag changes to CHUU - 2023. Howl/03. My Palace.opus
@@ -227,7 +227,7 @@ LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
 
 Write changes to 9 tracks? [Y/n] y
 
-[14:47:26] INFO: Writing tag changes for rule matcher=genre:Kpop action=matched:Kpop::replace:K-Pop
+[14:47:26] INFO: Writing tag changes for rule matcher=genre:Kpop action=matched:Kpop/replace:K-Pop
 [14:47:26] INFO: Wrote tag changes to G‐Dragon - 2012. ONE OF A KIND/01. One Of A Kind.opus
 [14:47:26] INFO: Wrote tag changes to G‐Dragon - 2012. ONE OF A KIND/02. 크레용 (Crayon).opus
 [14:47:26] INFO: Wrote tag changes to G‐Dragon - 2012. ONE OF A KIND/03. 결국.opus
@@ -252,7 +252,7 @@ matcher = "artist:^CHUU$"
 actions = ["replace:Chuu"]
 [[stored_metadata_rules]]
 matcher = "releaseartist:^Chuu$"
-actions = ["genre::add:K-Pop"]
+actions = ["genre/add:K-Pop"]
 [[stored_metadata_rules]]
 matcher = "genre:^Kpop$"
 actions = ["replace:K-Pop"]
@@ -370,12 +370,12 @@ sed the value, or delete the value.
 
 Multi-valued tags are more complicated. In multi-value tags, only values matching the pattern are
 acted upon. So, for example, given the genre tags `[K-Pop, Dance-Pop, Contemporary R&B]` and the
-action `genre:Pop::sed:p:b`, the result will be `[K-Pob, Dance-Pob, Contemporary R&B]`
+action `genre:Pop/sed:p:b`, the result will be `[K-Pob, Dance-Pob, Contemporary R&B]`
 (`Contemporary R&B` is left untouched).
 
 In order to act on all the values, the pattern can be set to null. Then the action will run over all
 values in the tag. This can be used to, for example, fully replace a tag. For example, given the
-above three genre tags, the action `genre:::replace:Hi;High` will result in `[Hi, High]`.
+above three genre tags, the action `genre:/replace:Hi;High` will result in `[Hi, High]`.
 
 There are three additional mechanics affecting multi-value tags:
 
@@ -384,8 +384,8 @@ There are three additional mechanics affecting multi-value tags:
   (e.g. `[Hi, High]`!).
 - If the new value is an empty string, it is removed from the result. This can be used, for example,
   in the `sed` action to remove values based on a regex pattern.
-- The values in the tag are deduplicated. If this were not the case, we would have gotten `[Hi,
-  High, Hi, High, Hi, High]` in the previous example. Instead, we got `[Hi, High]`.
+- The values in the tag are deduplicated. If this were not the case, we would have gotten
+  `[Hi, High, Hi, High, Hi, High]` in the previous example. Instead, we got `[Hi, High]`.
 
 ## Rule Language
 
@@ -399,7 +399,7 @@ is a string. For example:
 - `tracktitle,releasetitle:^Hello`
 - `tracktitle:Hello:i`
 
-Actions are specified as `tags:pattern::kind:{kind_args}`. `tags` and `pattern` are optional, as
+Actions are specified as `tags:pattern/kind:{kind_args}`. `tags` and `pattern` are optional, as
 they default to the matcher's `tags` and `pattern`. `kind` is one of the five supported action
 kinds. And `kind_args` are colon-delimited arguments for the specific kind of action. For example:
 
@@ -408,13 +408,17 @@ kinds. And `kind_args` are colon-delimited arguments for the specific kind of ac
 - `split: / `
 - `add:Loony`
 - `delete`
-- `genre::replace:K-Pop;Dance-Pop` _(pattern is optional)_
-- `matched:new-pattern::replace:Hi` _(but tags must be specified if pattern is specified)_
-- `matched:new-pattern:i::replace:Hi`
-- `label:::delete` _(null pattern)_
+- `genre/replace:K-Pop;Dance-Pop` _(pattern is optional)_
+- `matched:new-pattern/replace:Hi` _(but tags must be specified if pattern is specified)_
+- `matched:new-pattern:i/replace:Hi`
+- `label:/delete` _(null pattern)_
 
-Any colon characters that are not delimiters must be escaped with a backslash. For example:
-`sed:\::not-colon` replaces the `:` character with `not-colon`. Backslashes must also be escaped.
+Any colon and slash characters that are not delimiters must be escaped. Colons and slashes can be
+escaped by doubling them. For example: `sed:::://` replaces the `:` character with `/`.
+
+> [!NOTE]
+> When writing sed rules in the Shell and in TOML, carefully escape your backslashes. You may need
+> to double-escape them, once for the shell/TOML, and another time for Rosé's sed.
 
 The formal syntax is defined by the following grammar:
 
@@ -465,7 +469,7 @@ _TODO_
 You can preview a rule's changes with the `--dry-run` flag. For example:
 
 ```bash
-$ rose rules run --dry-run 'releaseartist:^Chuu$' 'genre::add:K-Pop'
+$ rose rules run --dry-run 'releaseartist:^Chuu$' 'genre/add:K-Pop'
 
 CHUU - 2023. Howl/01. Howl.opus
       genre: [] -> ['K-Pop']
