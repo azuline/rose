@@ -1,15 +1,15 @@
 # Directory and Filename Templates
 
-Rosé supports user-defined templates for configuring the directory and file
-names for each view of the virtual filesystem and for the source directory.
+Rosé supports user-defined templates for configuring the directory and file names for each view of
+the virtual filesystem and for the source directory.
 
 > [!NOTE]
-> The source directory templates are only applied to the source directory if
-> the `rename_source_files` configuration option is true. See
-> [Configuration](./CONFIGURATION.md) for more details.
+> The source directory templates are only applied to the source directory if the
+> `rename_source_files` configuration option is true. See [Configuration](./CONFIGURATION.md) for
+> more details.
 
-To customize the templates, define them in your configuration file. The
-configuration keys for templates are:
+To customize the templates, define them in your configuration file. The configuration keys for
+templates are:
 
 ```toml
 [path_templates]
@@ -34,8 +34,8 @@ collages.track = "..."
 playlists = "..."
 ```
 
-If set, the `default.xxx` templates are used as the default values for all
-other unset templates (except playlist). Otherwise the templates default to:
+If set, the `default.xxx` templates are used as the default values for all other unset templates
+(except playlist). Otherwise the templates default to:
 
 ```jinja2
 {# "Default Default" Release Template #}
@@ -58,10 +58,9 @@ other unset templates (except playlist). Otherwise the templates default to:
 Rosé uses the Jinja templating language. See [Jinja's Template Designer
 Documentation](https://jinja.palletsprojects.com/en/3.1.x/templates/).
 
-After evaluating the template, Rosé replaces all adjacent whitespace characters
-(e.g. space, tab, newline, return, etc.) with a single space. This allows you
-to freely use multiple lines and comments when defining your templates, like
-so:
+After evaluating the template, Rosé replaces all adjacent whitespace characters (e.g. space, tab,
+newline, return, etc.) with a single space. This allows you to freely use multiple lines and
+comments when defining your templates, like so:
 
 ```toml
 [path_templates]
@@ -145,8 +144,8 @@ _TODO_
 
 # Previewing Templates
 
-You can preview your templates with the following command. It will evaluate all
-your templates with sample data.
+You can preview your templates with the following command. It will evaluate all your templates with
+sample data.
 
 ```bash
 $ rose config preview-templates

@@ -1,8 +1,8 @@
 # Tagging Conventions
 
-This document describes how Rosé reads and writes tags from files. Rosé applies
-fairly rigid conventions in the tags it writes, and applies a relaxed version
-of those conventions when ingesting tags from audio files.
+This document describes how Rosé reads and writes tags from files. Rosé applies fairly rigid
+conventions in the tags it writes, and applies a relaxed version of those conventions when ingesting
+tags from audio files.
 
 # Managed Tags
 
@@ -23,27 +23,26 @@ Rosé manages the following tags:
 
 Rosé does not care about any other tags and does not do anything with them.
 
-For documentation on the specific field names that Rosé uses for each tag
-container format, please see [Tag Field Mappings](#tag-field-mappings).
+For documentation on the specific field names that Rosé uses for each tag container format, please
+see [Tag Field Mappings](#tag-field-mappings).
 
 # Multi-Valued Tags
 
-Rosé supports multiple values for the artists, genres, and labels tags. Rosé
-writes a single tag field and with fields concatenated together with a `;`
-delimiter. For example, `genre=Deep House;Techno`. Rosé does not write multiple
-frames for a single tag (where each value gets one frame) due to inconsistent
-support by other useful programs.
+Rosé supports multiple values for the artists, genres, and labels tags. Rosé writes a single tag
+field and with fields concatenated together with a `;` delimiter. For example, `genre=Deep
+House;Techno`. Rosé does not write multiple frames for a single tag (where each value gets one
+frame) due to inconsistent support by other useful programs.
 
-When reading tags, Rosé is more relaxed in the delimiters it accepts. For the
-Genre, Label, Artists, and Release Artists tags, Rosé will attempt to split a
-single tag into multiple tags by the following delimiters:
-<code>&nbsp;\\\\&nbsp;</code>, <code>&nbsp;/&nbsp;</code>, <code>;</code>, and
+When reading tags, Rosé is more relaxed in the delimiters it accepts. For the Genre, Label, Artists,
+and Release Artists tags, Rosé will attempt to split a single tag into multiple tags by the
+following delimiters: <code>&nbsp;\\\\&nbsp;</code>, <code>&nbsp;/&nbsp;</code>, <code>;</code>, and
 <code>&nbsp;vs.&nbsp;</code>.
 
 # Artist Tags
 
-Rosé preserves the artists' role in the artist tag by using specialized
-delimiters. An example artist tag is: `Pyotr Ilyich Tchaikovsky performed by André Previn;London Symphony Orchestra feat. Barack Obama`.
+Rosé preserves the artists' role in the artist tag by using specialized delimiters. An example
+artist tag is: `Pyotr Ilyich Tchaikovsky performed by André Previn;London Symphony Orchestra feat.
+Barack Obama`.
 
 The artist tag is described by the following grammar:
 
@@ -69,10 +68,9 @@ Rosé supports the following artist roles:
 - `remixer`
 - `djmixer`
 
-Rosé writes a single tag value into the _Track Artists_ and _Release Artists_
-tags. Though some conventions exist for writing each role into its own tag,
-Rosé does not follow them, due to inconsistent (mainly nonexistent) support by
-other useful programs.
+Rosé writes a single tag value into the _Track Artists_ and _Release Artists_ tags. Though some
+conventions exist for writing each role into its own tag, Rosé does not follow them, due to
+inconsistent (mainly nonexistent) support by other useful programs.
 
 # Release Type Tags
 
@@ -101,10 +99,9 @@ Rosé supports three tag container formats:
 - MP4: `.m4a` files
 - Vorbis: `.ogg`, `.opus`, and `.flac` files
 
-In this section, we list out the per-container field names that we read/write.
-Rosé will only write to a single field for each tag; however, for tags with
-multiple conventions out in the rest of the world, Rosé will support reading
-from additional fields.
+In this section, we list out the per-container field names that we read/write. Rosé will only write
+to a single field for each tag; however, for tags with multiple conventions out in the rest of the
+world, Rosé will support reading from additional fields.
 
 ## MP3
 

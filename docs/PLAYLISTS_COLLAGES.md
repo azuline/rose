@@ -1,17 +1,15 @@
 # Managing Playlists & Collages
 
-Rosé supports the creation and management of collages (lists of releases) and
-playlists (lists of tracks).
+Rosé supports the creation and management of collages (lists of releases) and playlists (lists of
+tracks).
 
-As Rosé implements playlists and collages in almost the same way, except that
-one tracks releases and the other tracks tracks, we discuss both collages and
-playlists together.
+As Rosé implements playlists and collages in almost the same way, except that one tracks releases
+and the other tracks tracks, we discuss both collages and playlists together.
 
 # Storage Format
 
-Collages and playlists are stored on-disk in the source directory, in the
-`!collages` and `!playlists` directories, respectively. Each collage and
-playlist is a single `.toml` file.
+Collages and playlists are stored on-disk in the source directory, in the `!collages` and
+`!playlists` directories, respectively. Each collage and playlist is a single `.toml` file.
 
 For example:
 
@@ -48,37 +46,32 @@ uuid = "018b6514-72e7-7321-832d-1a524dbf1a3b"
 description_meta = "BLACKPINK - PLAYING WITH FIRE.opus"
 ```
 
-These files contain the UUIDs assigned to each release/track by Rosé. Since
-UUIDs are not meaningful, the files also contain a `description_meta` field.
-The `description_meta` field is set to the virtual directory/file name. The
-`description_meta` field is updated to the latest values during Rosé's cache
-update, so that they remain meaningful.
+These files contain the UUIDs assigned to each release/track by Rosé. Since UUIDs are not
+meaningful, the files also contain a `description_meta` field. The `description_meta` field is set
+to the virtual directory/file name. The `description_meta` field is updated to the latest values
+during Rosé's cache update, so that they remain meaningful.
 
-The ordering of the releases/tracks is meaningful: they represent the
-ordering of releases/tracks in the collage/playlist.
+The ordering of the releases/tracks is meaningful: they represent the ordering of releases/tracks in
+the collage/playlist.
 
-Playlists can also have custom cover art. These are stored as
-`{playlist_name}.{image_ext}`. So for example, `Shower.toml`'s cover art would
-be located at `Shower.jpg` (or `.png`). The extensions to treat as images are
-configurable. See [Configuration](./CONFIGURATION.md).
+Playlists can also have custom cover art. These are stored as `{playlist_name}.{image_ext}`. So for
+example, `Shower.toml`'s cover art would be located at `Shower.jpg` (or `.png`). The extensions to
+treat as images are configurable. See [Configuration](./CONFIGURATION.md).
 
 > [!NOTE]
-> When a release or track is deleted from the source directory, Rosé does not
-> autoremove that release/track from the collages and playlists that it belongs
-> to. Rosé instead flags the release/track as "missing," which prevents it from
-> appearing in the virtual filesystem. If the release/track is re-added to the
-> source directory, Rosé will remove the missing flag, and the release/track
-> will "regain" its lost position in the collage/playlist.
+> When a release or track is deleted from the source directory, Rosé does not autoremove that
+> release/track from the collages and playlists that it belongs to. Rosé instead flags the
+> release/track as "missing," which prevents it from appearing in the virtual filesystem. If the
+> release/track is re-added to the source directory, Rosé will remove the missing flag, and the
+> release/track will "regain" its lost position in the collage/playlist.
 >
-> We do this because we do not know if a missing release or a missing track is
-> transient or not. For example, a file may be deleted by a tool like syncthing
-> only to be readded later.
+> We do this because we do not know if a missing release or a missing track is transient or not. For
+> example, a file may be deleted by a tool like syncthing only to be readded later.
 
 # Printing Metadata
 
-Rosé supports printing collage and playlist metadata from the command line in
-JSON format, which can be used in scripts and to compose your own commands.
-Rosé provides four commands:
+Rosé supports printing collage and playlist metadata from the command line in JSON format, which can
+be used in scripts and to compose your own commands. Rosé provides four commands:
 
 ```
 $ rose collages print 'Collage Name'
@@ -87,16 +80,14 @@ $ rose playlists print 'Playlist Name'
 $ rose playlists print-all
 ```
 
-The `print` commands print a single JSON object representing one
-playlist/collage. The `print-all` commands print an array of JSON objects, one
-per collage/playlist tracked by Rosé.
+The `print` commands print a single JSON object representing one playlist/collage. The `print-all`
+commands print an array of JSON objects, one per collage/playlist tracked by Rosé.
 
 # Operations
 
-However, working with this file directly is quite annoying, so Rosé allows you
-to manage collages and playlists via the command line and the virtual
-filesystem. In the rest of this document, we'll demonstrate the supported
-operations.
+However, working with this file directly is quite annoying, so Rosé allows you to manage collages
+and playlists via the command line and the virtual filesystem. In the rest of this document, we'll
+demonstrate the supported operations.
 
 Note: Rosé supports passing playlists and collages by both their name and their path. The path of
 their source `.toml` file and the path of their virtual directory are both supported. All views in
@@ -140,8 +131,8 @@ $ tree "8. Playlists/"
 
 Command line:
 
-_Releases and tracks can be added by UUID or path. Rosé accepts both source
-directory paths and virtual filesystem paths._
+_Releases and tracks can be added by UUID or path. Rosé accepts both source directory paths and
+virtual filesystem paths._
 
 ```bash
 $ cd $fuse_mount_dir
@@ -186,8 +177,8 @@ $ tree "8. Playlists/Evening/"
 
 Command line:
 
-_Releases and tracks can be removed by UUID or path. Rosé accepts both source
-directory paths and virtual filesystem paths._
+_Releases and tracks can be removed by UUID or path. Rosé accepts both source directory paths and
+virtual filesystem paths._
 
 ```bash
 $ cd $fuse_mount_dir
@@ -230,8 +221,8 @@ $ tree "8. Playlists/Evening/"
 
 Reordering releases/tracks is only supported via the command line.
 
-_Releases and tracks can also be removed from the collage or playlist by
-deleting their line entry from the text file._
+_Releases and tracks can also be removed from the collage or playlist by deleting their line entry
+from the text file._
 
 ```bash
 $ rose collages edit "Road Trip"
@@ -271,9 +262,9 @@ $ tree "8. Playlists/Shower/"
 
 ## Deleting a Collage/Playlist
 
-_Deletion will move the collage/playlist into the trashbin, following the
-[freedesktop spec](https://freedesktop.org/wiki/Specifications/trash-spec/).
-The collage/playlist can be restored later if the deletion was accidental._
+_Deletion will move the collage/playlist into the trashbin, following the [freedesktop
+spec](https://freedesktop.org/wiki/Specifications/trash-spec/). The collage/playlist can be restored
+later if the deletion was accidental._
 
 Command line:
 
@@ -307,10 +298,9 @@ $ tree "8. Playlists/"
 
 ## Renaming a Collage/Playlist
 
-_Renaming a collage/playlist will also rename "adjacent" files (including
-playlist cover art). Adjacent files are files with the same stem as the
-collage/playlist, but a different file extension. For example, `Shower.toml`
-and `Shower.jpg`._
+_Renaming a collage/playlist will also rename "adjacent" files (including playlist cover art).
+Adjacent files are files with the same stem as the collage/playlist, but a different file extension.
+For example, `Shower.toml` and `Shower.jpg`._
 
 Command line:
 
@@ -356,8 +346,8 @@ $ tree "8. Playlists/"
 
 _This operation is playlist-only, as collages do not have their own cover art._
 
-_The filename of the cover art in the virtual filesystem will always appear as
-`cover.{ext}`, regardless of the cover art name in the source directory._
+_The filename of the cover art in the virtual filesystem will always appear as `cover.{ext}`,
+regardless of the cover art name in the source directory._
 
 Command line:
 
@@ -377,9 +367,9 @@ $ tree "8. Playlists/Shower/"
 
 Virtual filesystem:
 
-_The filename of the created file in the release directory must be one of the
-valid cover art filenames. The valid cover art filenames are controlled by and
-documented in [Configuration](./CONFIGURATION.md)._
+_The filename of the created file in the release directory must be one of the valid cover art
+filenames. The valid cover art filenames are controlled by and documented in
+[Configuration](./CONFIGURATION.md)._
 
 ```bash
 $ cd $fuse_mount_dir

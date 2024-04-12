@@ -1,16 +1,14 @@
 # Rosé
 
 > [!IMPORTANT]
-> Rosé is under active development. Not all listed features exist yet. See
-> [Milestone v0.4.0](https://github.com/azuline/rose/milestone/1) for progress
-> updates.
+> Rosé is under active development. Not all listed features exist yet. See [Milestone
+> v0.4.0](https://github.com/azuline/rose/milestone/1) for progress updates.
 
-Rosé is a music manager for Unix-based systems. Rosé provides a virtual FUSE
-filesystem for managing your music library and various functions for editing
-and improving your music library's metadata and tags.
+Rosé is a music manager for Unix-based systems. Rosé provides a virtual FUSE filesystem for managing
+your music library and various functions for editing and improving your music library's metadata and
+tags.
 
-Rosé manages a _source directory_ of music releases. Given the following source
-directory:
+Rosé manages a _source directory_ of music releases. Given the following source directory:
 
 ```
 source/
@@ -43,8 +41,7 @@ source/
     └── cover.jpg
 ```
 
-Rosé produces the following virtual filesystem (duplicate information has been
-omitted).
+Rosé produces the following virtual filesystem (duplicate information has been omitted).
 
 ```
 virtual/
@@ -115,27 +112,24 @@ virtual/
         └── 4. Kim Lip - Eclipse.opus
 ```
 
-In addition to a flat directory of all releases, Rosé creates directories based
-on Date Added, Artist, Genre, and Label. Rosé also provides a few other
-concepts for organizing your music library:
+In addition to a flat directory of all releases, Rosé creates directories based on Date Added,
+Artist, Genre, and Label. Rosé also provides a few other concepts for organizing your music library:
 
 - **Collages:** Collections of releases.
 - **Playlists:** Collections of tracks.
 - **New release tracking:** Track new unlistened additions to the library.
 
-Rosé's virtual filesystem organizes your music library by the metadata in the
-music tags. The quality of the virtual filesystem depends on the quality of the
-tags.
+Rosé's virtual filesystem organizes your music library by the metadata in the music tags. The
+quality of the virtual filesystem depends on the quality of the tags.
 
-Thus, Rosé also provides the following functions to improve the tags of your
-music library:
+Thus, Rosé also provides the following functions to improve the tags of your music library:
 
 1. A text-based interface for manually modifying metadata,
 2. A rules engine for bulk updating metadata,
 3. And metadata importing from third-party sources.
 
-The rules engine allows you to pattern match tracks in your music library and
-apply tag changes to them. For example:
+The rules engine allows you to pattern match tracks in your music library and apply tag changes to
+them. For example:
 
 ```bash
 $ rose rules run 'trackartist,releaseartist:^CHUU$' 'replace:Chuu'
@@ -161,9 +155,8 @@ _Demo Video TODO_
 
 # Features
 
-Rosé allows you to interact with and script against your music library through
-a virtual filesystem and through a CLI. A concise list of the features provided
-by the two interfaces is:
+Rosé allows you to interact with and script against your music library through a virtual filesystem
+and through a CLI. A concise list of the features provided by the two interfaces is:
 
 - Filter your music by artist, genre, label, and "new"-ness
 - Create collages of releases and playlists of tracks
@@ -179,34 +172,32 @@ by the two interfaces is:
 - Support for `.mp3`, `.m4a`, `.ogg` (vorbis), `.opus`, and `.flac` files
 
 > [!NOTE]
-> Rosé modifies the managed audio files, even on first scan. If you do not want
-> to modify your audio files, for example because they are seeding in a
-> bittorrent client, you should not use Rosé.
+> Rosé modifies the managed audio files, even on first scan. If you do not want to modify your audio
+> files, for example because they are seeding in a bittorrent client, you should not use Rosé.
 
 # Is Rosé For You?
 
-Rosé expects users to be comfortable with the shell. Rosé's documentation and
-user interface assumes that the reader is familiar with software.
+Rosé expects users to be comfortable with the shell. Rosé's documentation and user interface assumes
+that the reader is familiar with software.
 
-Rosé does not provide a complete music system. The user is expected to
-compose their own system, with Rosé as one of the pieces.
+Rosé does not provide a complete music system. The user is expected to compose their own system,
+with Rosé as one of the pieces.
 
-Rosé is designed for large music libraries. Smaller libraries do not require
-the power that Rosé offers.
+Rosé is designed for large music libraries. Smaller libraries do not require the power that Rosé
+offers.
 
-Rosé expects all tracks to be part of a release. Rosé also expects that each
-release is an immediate subdirectory of the source directory. Rosé will not
-work with libraries that are collections of unorganized tracks.
+Rosé expects all tracks to be part of a release. Rosé also expects that each release is an immediate
+subdirectory of the source directory. Rosé will not work with libraries that are collections of
+unorganized tracks.
 
-Rosé modifies the files that it manages, as early as the first scan (where it
-writes `roseid` tags). Rosé does not maintain a separate database; all changes
-are directly applied to the managed files. This is incompatible with files
-seeded as torrents.
+Rosé modifies the files that it manages, as early as the first scan (where it writes `roseid` tags).
+Rosé does not maintain a separate database; all changes are directly applied to the managed files.
+This is incompatible with files seeded as torrents.
 
 # Installation
 
-Install Rosé with Nix Flakes. If you do not have Nix Flakes, you can install
-Nix Flakes with [this installer](https://github.com/DeterminateSystems/nix-installer).
+Install Rosé with Nix Flakes. If you do not have Nix Flakes, you can install Nix Flakes with [this
+installer](https://github.com/DeterminateSystems/nix-installer).
 
 Then, to install the latest release of Rosé, run:
 
@@ -215,20 +206,19 @@ $ nix profile install github:azuline/rose/release
 ```
 
 > [!NOTE]
-> The master branch tracks the unstable release, whose documentation may be
-> more up-to-date than the latest release's documentation. You can view the
-> latest release's documentation [here](https://github.com/azuline/rose/blob/release/README.md).
+> The master branch tracks the unstable release, whose documentation may be more up-to-date than the
+> latest release's documentation. You can view the latest release's documentation
+> [here](https://github.com/azuline/rose/blob/release/README.md).
 
-Most users should install the latest release version of Rosé. However, if you
-wish to install the latest unstable version of Rosé, you can do so with the
-command `nix profile install github:azuline/rose/master`.
+Most users should install the latest release version of Rosé. However, if you wish to install the
+latest unstable version of Rosé, you can do so with the command `nix profile install
+github:azuline/rose/master`.
 
 # Quickstart
 
 Let's now get Rosé up and running!
 
-Once Rosé is installed, let's first confirm that `rose` exists and is
-accessible:
+Once Rosé is installed, let's first confirm that `rose` exists and is accessible:
 
 ```bash
 $ rose
@@ -254,17 +244,14 @@ Commands:
 ```
 
 > [!NOTE]
-> This quickstart assumes you have a local "source directory" of music releases
-> for Rosé to manage. Each music release must be an immediate child
-> subdirectory of the "source directory."
+> This quickstart assumes you have a local "source directory" of music releases for Rosé to manage.
+> Each music release must be an immediate child subdirectory of the "source directory."
 
-Great! Next, we'll (1) configure Rosé, (2) mount the virtual filesystem, and
-finally (3) play music!
+Great! Next, we'll (1) configure Rosé, (2) mount the virtual filesystem, and finally (3) play music!
 
-1. Rosé requires a configuration file. On Linux, the configuration file is
-   located at `$XDG_CONFIG_HOME/rose/config.toml`, which is typically
-   `~/.config/rose/.config.toml`. On MacOS, the configuration file is located
-   at `~/Library/Preferences/rose/config.toml`.
+1. Rosé requires a configuration file. On Linux, the configuration file is located at
+   `$XDG_CONFIG_HOME/rose/config.toml`, which is typically `~/.config/rose/.config.toml`. On MacOS,
+   the configuration file is located at `~/Library/Preferences/rose/config.toml`.
 
    Only two configuration options are required:
 
@@ -276,8 +263,7 @@ finally (3) play music!
    fuse_mount_dir = "~/music"
    ```
 
-   The full configuration specification is documented in
-   [Configuration](./docs/CONFIGURATION.md).
+   The full configuration specification is documented in [Configuration](./docs/CONFIGURATION.md).
 
 2. Now let's mount the virtual filesystem:
 
@@ -292,19 +278,18 @@ finally (3) play music!
    [15:41:13] INFO: Updating cache for playlist Shower
    ```
 
-   Rosé emits log lines whenever something significant is occurring. This is
-   expected! The log lines above come from the `rose fs mount` command indexing
-   the `music_source_dir` at startup, in order to populate the read cache.
+   Rosé emits log lines whenever something significant is occurring. This is expected! The log lines
+   above come from the `rose fs mount` command indexing the `music_source_dir` at startup, in order
+   to populate the read cache.
 
-   The virtual filesystem uses the read cache to determine the available music
-   and its metadata. It's possible for the cache to get out of sync from the
-   source music files. If that happens, the `rose cache update` is guaranteed to
-   resynchronize them. See [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md)
-   for additional documentation on cache updates and synchronization.
+   The virtual filesystem uses the read cache to determine the available music and its metadata.
+   It's possible for the cache to get out of sync from the source music files. If that happens, the
+   `rose cache update` is guaranteed to resynchronize them. See [Maintaining the
+   Cache](./docs/CACHE_MAINTENANCE.md) for additional documentation on cache updates and
+   synchronization.
 
-   Now that the virtual filesystem is mounted, let's go take a look! Navigate
-   to the configured `fuse_mount_dir`, and you should see your music available
-   in the virtual filesystem!
+   Now that the virtual filesystem is mounted, let's go take a look! Navigate to the configured
+   `fuse_mount_dir`, and you should see your music available in the virtual filesystem!
 
    ```bash
    $ cd $fuse_mount_dir
@@ -327,8 +312,7 @@ finally (3) play music!
    'NewJeans - 2022. Ditto - Single'
    ```
 
-3. Let's play some music! You should be able to open a music file in your music
-   player of choice.
+3. Let's play some music! You should be able to open a music file in your music player of choice.
 
    Mine is `mpv`:
 
@@ -346,14 +330,13 @@ finally (3) play music!
    AO: [pipewire] 48000Hz stereo 2ch floatp
    ```
 
-And that's it! If desired, you can unmount the virtual filesystem with the
-`rose fs unmount` command.
+And that's it! If desired, you can unmount the virtual filesystem with the `rose fs unmount`
+command.
 
 # Recommended Usage
 
-Rosé alone is not a full-featured music system, and _that's the point_. You
-should compose Rosé with other great tools to create the music system that
-works best for you.
+Rosé alone is not a full-featured music system, and _that's the point_. You should compose Rosé with
+other great tools to create the music system that works best for you.
 
 We recommend pairing Rosé with:
 
@@ -361,16 +344,15 @@ We recommend pairing Rosé with:
    [mc](https://midnight-commander.org/), or [ranger](https://github.com/ranger/ranger).
 2. A media player, such as [mpv](https://mpv.io/).
 
-You also need not use the complete feature set of Rosé. Everything will
-continue to work if you only use the virtual filesystem and ignore the
-metatdata tooling, and vice versa.
+You also need not use the complete feature set of Rosé. Everything will continue to work if you only
+use the virtual filesystem and ignore the metatdata tooling, and vice versa.
 
-Rosé's CLI is also designed to make scripting against your library easy.
-Operations such as "edit release" and "jump to artist" can be expressed as a
-bash one-liner and integrated into your file manager.
+Rosé's CLI is also designed to make scripting against your library easy. Operations such as "edit
+release" and "jump to artist" can be expressed as a bash one-liner and integrated into your file
+manager.
 
-See [Shell Scripting](./docs/SHELL_SCRIPTING.md) for additional documentation
-on scripting with Rosé.
+See [Shell Scripting](./docs/SHELL_SCRIPTING.md) for additional documentation on scripting with
+Rosé.
 
 # Learn More
 
@@ -410,9 +392,9 @@ limitations under the License.
 
 Bug fixes are happily accepted!
 
-However, please do not open a pull request for a new feature without prior
-discussion. Rosé is a pet project that I developed for personal use. Rosé is
-designed to match my specific needs and constraints, and is never destined to
-be widely adopted. Therefore, the feature set will remain focused and small.
+However, please do not open a pull request for a new feature without prior discussion. Rosé is a pet
+project that I developed for personal use. Rosé is designed to match my specific needs and
+constraints, and is never destined to be widely adopted. Therefore, the feature set will remain
+focused and small.
 
 Rosé is provided as-is, really!

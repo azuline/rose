@@ -2,10 +2,9 @@
 
 Rosé is configured by a TOML file.
 
-The configuration, by default, is located at `${XDG_CONFIG_HOME:-$HOME/.config}/rose/config.toml`
-on Linux and `~/Library/Preferences/rose/config.toml` on MacOS. The
-`--config/-c` flag can be specified to load a configuration file from a
-different location.
+The configuration, by default, is located at `${XDG_CONFIG_HOME:-$HOME/.config}/rose/config.toml` on
+Linux and `~/Library/Preferences/rose/config.toml` on MacOS. The `--config/-c` flag can be specified
+to load a configuration file from a different location.
 
 The configuration parameters, with examples, are:
 
@@ -143,14 +142,14 @@ actions = ["replace:K-Pop"]
 
 # Reloading
 
-After changing the configuration file, you may need to restart the active Rosé
-processes. If you have a running Virtual Filesystem or Cache Watcher, they will
-not use the new configuration file until they are restarted.
+After changing the configuration file, you may need to restart the active Rosé processes. If you
+have a running Virtual Filesystem or Cache Watcher, they will not use the new configuration file
+until they are restarted.
 
 # Shell Completion
 
-Rosé supports optional shell completion for the `bash`, `zsh`, and `fish`
-shells. The following commands enable shell completion:
+Rosé supports optional shell completion for the `bash`, `zsh`, and `fish` shells. The following
+commands enable shell completion:
 
 ```bash
 # Bash
@@ -167,12 +166,11 @@ $ rose config generate-completion fish > ~/.config/fish/completions/rose.fish
 
 # Systemd
 
-By default, the `rose fs mount` and `rose cache watch` commands spawn daemons
-that run in the background.
+By default, the `rose fs mount` and `rose cache watch` commands spawn daemons that run in the
+background.
 
-However, these daemons do not recover from failure or start on boot. If you
-would like them to, you can manage Rosé's processes with a service manager such
-as systemd.
+However, these daemons do not recover from failure or start on boot. If you would like them to, you
+can manage Rosé's processes with a service manager such as systemd.
 
 Some sample systemd service files for managing Rosé are:
 

@@ -2,21 +2,20 @@
 
 # Release & Track Identifiers
 
-Rosé assigns a UUID to each release and track in order to identify them across
-cache updates. The UUIDs are also used to track membership in collages and
-playlists.
+Rosé assigns a UUID to each release and track in order to identify them across cache updates. The
+UUIDs are also used to track membership in collages and playlists.
 
 These UUIDs are persisted to the source files on first scan:
 
-- A `.rose.{uuid}.toml` file is created in each release directory. This file
-  also stores release state. The release UUID is also written to the
-  nonstandard `rosereleaseid` audio tag in each track.
+- A `.rose.{uuid}.toml` file is created in each release directory. This file also stores release
+  state. The release UUID is also written to the nonstandard `rosereleaseid` audio tag in each
+  track.
 - The track UUID is written to each track's nonstandard `roseid` audio tag.
 
 # Storage Format
 
-The `.rose.{uuid}.toml` file stores release state that is not suitable to be
-written to the audio tags. The format of this file is:
+The `.rose.{uuid}.toml` file stores release state that is not suitable to be written to the audio
+tags. The format of this file is:
 
 ```toml
 # Release "new"-ness.
@@ -27,27 +26,24 @@ new = false
 added_at = 2018-10-01 00:00:00-04:00
 ```
 
-The release directories and track files in `$music_source_dir` can be renamed
-with the `rename_source_files` configuration variable. See
-[Configuration](./CONFIGURATION.md) for more details.
+The release directories and track files in `$music_source_dir` can be renamed with the
+`rename_source_files` configuration variable. See [Configuration](./CONFIGURATION.md) for more
+details.
 
 # "New" Releases
 
-Rosé supports flagging releases as "new." "New"-ness has no effects besides
-suffixing the release's virtual filesystem name with `[NEW]` (with the default
-release template) and adding the release to the `2. Releases - New` top-level
-directory.
+Rosé supports flagging releases as "new." "New"-ness has no effects besides suffixing the release's
+virtual filesystem name with `[NEW]` (with the default release template) and adding the release to
+the `2. Releases - New` top-level directory.
 
-On first import, releases are flagged as new by default. "New"-ness can be
-toggled manually afterwards. This feature is designed to allow you to
-distinguish between music you've listened to and music you're planning on
-listening to.
+On first import, releases are flagged as new by default. "New"-ness can be toggled manually
+afterwards. This feature is designed to allow you to distinguish between music you've listened to
+and music you're planning on listening to.
 
 # Printing Metadata
 
-Rosé supports printing release and track metadata from the command line in
-JSON format, which can be used in scripts and to compose your own commands.
-Rosé provides four commands:
+Rosé supports printing release and track metadata from the command line in JSON format, which can be
+used in scripts and to compose your own commands. Rosé provides four commands:
 
 ```
 $ rose releases print 'UUID/Path'
@@ -56,25 +52,23 @@ $ rose tracks print 'UUID/Path'
 $ rose tracks print-all [matcher?]
 ```
 
-The `print` commands print a single JSON object representing one release/track.
-The release objects contain the tracks that are part of the release. The
-`print-all` commands print an array of JSON objects, one per release/track.
+The `print` commands print a single JSON object representing one release/track. The release objects
+contain the tracks that are part of the release. The `print-all` commands print an array of JSON
+objects, one per release/track.
 
-The `print-all` commands accept an optional matcher in the language used for
-the Rules Engine (see [Improving Your Music Metadata](./METADATA_TOOLS.md).
-If provided, only releases/tracks matching the matcher will be printed. Note
-that in the `releases print-all` command, only release-scoped tags may be used
-in the matcher (i.e. no tracktitle, tracknumber, etc.).
+The `print-all` commands accept an optional matcher in the language used for the Rules Engine (see
+[Improving Your Music Metadata](./METADATA_TOOLS.md). If provided, only releases/tracks matching the
+matcher will be printed. Note that in the `releases print-all` command, only release-scoped tags may
+be used in the matcher (i.e. no tracktitle, tracknumber, etc.).
 
 # Operations
 
-Rosé allows you to manage releases via the command line and the virtual
-filesystem. In the rest of this document, we'll demonstrate the supported
-operations.
+Rosé allows you to manage releases via the command line and the virtual filesystem. In the rest of
+this document, we'll demonstrate the supported operations.
 
-Note: Rosé supports passing releases and tracks by both their UUIDs and by
-path. Paths in the source directory and paths in the virtual directory are both
-supported. All views in the virtual directory are supported as well.
+Note: Rosé supports passing releases and tracks by both their UUIDs and by path. Paths in the source
+directory and paths in the virtual directory are both supported. All views in the virtual directory
+are supported as well.
 
 ## Toggle Release "new"-ness
 
@@ -129,9 +123,9 @@ $ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/"
 
 Virtual filesystem:
 
-_The filename of the created file in the release directory must be one of the
-valid cover art filenames. The valid cover art filenames are controlled by and
-documented in [Configuration](./CONFIGURATION.md)._
+_The filename of the created file in the release directory must be one of the valid cover art
+filenames. The valid cover art filenames are controlled by and documented in
+[Configuration](./CONFIGURATION.md)._
 
 ```bash
 $ cd $fuse_mount_dir
@@ -170,9 +164,9 @@ $ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/"
 
 ## Delete a Release
 
-_Deletion will move the release into the trashbin, following the
-[freedesktop spec](https://freedesktop.org/wiki/Specifications/trash-spec/).
-The release can be restored later if the deletion was accidental._
+_Deletion will move the release into the trashbin, following the [freedesktop
+spec](https://freedesktop.org/wiki/Specifications/trash-spec/). The release can be restored later if
+the deletion was accidental._
 
 Command line:
 
@@ -215,12 +209,10 @@ See the "Text-Based Release Editing" section in [Improving Your Music Metadata](
 
 ## Run Rule Engine Action on Release
 
-Rosé allows you to run an action from the rule engine on all tracks in a
-release. With this command, you do not need to specify a matcher; this command
-auto-matches all tracks in the release.
+Rosé allows you to run an action from the rule engine on all tracks in a release. With this command,
+you do not need to specify a matcher; this command auto-matches all tracks in the release.
 
-See [Improving Your Music Metadata](./METADATA_TOOLS.md) for documentation on
-the rules engine.
+See [Improving Your Music Metadata](./METADATA_TOOLS.md) for documentation on the rules engine.
 
 ```bash
 $ rose releases run-rule 'The Strokes - 2001. Is This It' 'genre::add:Indie Rock'
@@ -267,8 +259,8 @@ Applied tag changes to 11 tracks!
 
 ## Run Rule Engine Action on Track
 
-Similar to how you can run a rule engine action on a release, Rosé also allows
-you to run an action on a single track.
+Similar to how you can run a rule engine action on a release, Rosé also allows you to run an action
+on a single track.
 
 ```bash
 $ rose tracks run-rule '018b6514-6fb7-7cc6-9d23-8eaf0b1beee8' 'tracktitle::replace:Certified Banger'
@@ -285,11 +277,11 @@ Applied tag changes to 11 tracks!
 
 ## Create "Phony" Single Release
 
-Let's say that you did not enjoy a release, and want to delete it from your
-library, but you did enjoy one standout track and wish to keep only that track.
+Let's say that you did not enjoy a release, and want to delete it from your library, but you did
+enjoy one standout track and wish to keep only that track.
 
-Rosé allows you to create a new, "phony," single release for that track alone,
-so that you can get rid of the release while keeping the track(s) you liked.
+Rosé allows you to create a new, "phony," single release for that track alone, so that you can get
+rid of the release while keeping the track(s) you liked.
 
 To demonstrate:
 
@@ -308,10 +300,9 @@ $ tree "1. Releases/ITZY - 2022. SNEAKERS - Single/"
 └── cover.jpg
 ```
 
-The original track is unmodified by the command: the new release contains a
-copy of the previous track with some modified tags. If cover art is present in
-the directory of the given track, that cover art is also copied to the new
-single release.
+The original track is unmodified by the command: the new release contains a copy of the previous
+track with some modified tags. If cover art is present in the directory of the given track, that
+cover art is also copied to the new single release.
 
 The new single release's tags are modified from the original track, like so:
 
