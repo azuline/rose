@@ -98,6 +98,10 @@ to manage collages and playlists via the command line and the virtual
 filesystem. In the rest of this document, we'll demonstrate the supported
 operations.
 
+Note: Rosé supports passing playlists and collages by both their name and their path. The path of
+their source `.toml` file and the path of their virtual directory are both supported. All views in
+the virtual directory are supported as well.
+
 ## Creating a Collage/Playlist
 
 Command line:

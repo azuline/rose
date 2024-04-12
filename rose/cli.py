@@ -642,6 +642,32 @@ Track arguments must be one of:
     )
 
 
+def parse_collage_argument(c: str) -> str:
+    """Takes in a collage argument and normalizes it to the collage ID."""
+    path = Path(c).resolve()
+    # Handle the case where the argument is a path to a directory.
+    if path.exists() and path.is_dir():
+        return path.name
+    # Then handle the case where the argument is a path to the TOML file.
+    if path.exists() and path.is_file() and path.parent.name == "!collages":
+        return path.stem
+    # Then handle the case where the argument is a collage name (aka everything else).
+    return c
+
+
+def parse_playlist_argument(p: str) -> str:
+    """Takes in a collage argument and normalizes it to the collage ID."""
+    path = Path(p).resolve()
+    # Handle the case where the argument is a path to a directory.
+    if path.exists() and path.is_dir():
+        return path.name
+    # Then handle the case where the argument is a path to the TOML file.
+    if path.exists() and path.is_file() and path.parent.name == "!playlists":
+        return path.stem
+    # Then handle the case where the argument is a collage name (aka everything else).
+    return p
+
+
 def daemonize(pid_path: Path | None = None) -> None:
     """Forks into a background daemon and exits the foreground process."""
     if pid_path and pid_path.exists():

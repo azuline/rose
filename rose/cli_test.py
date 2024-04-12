@@ -11,6 +11,8 @@ from rose.cli import (
     Context,
     InvalidReleaseArgError,
     InvalidTrackArgError,
+    parse_collage_argument,
+    parse_playlist_argument,
     parse_release_argument,
     parse_track_argument,
     unwatch,
@@ -69,6 +71,30 @@ def test_parse_track_id_from_path(config: Config, source_dir: Path) -> None:
         (source_dir / "hi.m4a").mkdir()
         with pytest.raises(InvalidTrackArgError):
             assert parse_track_argument(str(source_dir / "hi.m4a"))
+
+
+def test_parse_collage_name_from_path(config: Config, source_dir: Path) -> None:
+    with start_virtual_fs(config):
+        # Directory path is resolved.
+        path = str(config.fuse_mount_dir / "7. Collages" / "Rose Gold")
+        assert parse_collage_argument(path) == "Rose Gold"
+        # File path is resolved.
+        path = str(source_dir / "!collages" / "Rose Gold.toml")
+        assert parse_collage_argument(path) == "Rose Gold"
+        # Name is no-opped.
+        assert parse_collage_argument("Rose Gold") == "Rose Gold"
+
+
+def test_parse_playlist_name_from_path(config: Config, source_dir: Path) -> None:
+    with start_virtual_fs(config):
+        # Directory path is resolved.
+        path = str(config.fuse_mount_dir / "8. Playlists" / "Lala Lisa")
+        assert parse_playlist_argument(path) == "Lala Lisa"
+        # File path is resolved.
+        path = str(source_dir / "!playlists" / "Lala Lisa.toml")
+        assert parse_playlist_argument(path) == "Lala Lisa"
+        # Name is no-opped.
+        assert parse_playlist_argument("Lala Lisa") == "Lala Lisa"
 
 
 def test_cache_watch_unwatch(monkeypatch: Any, config: Config) -> None:
