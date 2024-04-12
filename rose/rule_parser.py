@@ -21,10 +21,6 @@ from rose.common import RoseError, RoseExpectedError
 logger = logging.getLogger(__name__)
 
 
-class InvalidControlCharacter(RoseError):
-    pass
-
-
 class InvalidRuleError(RoseExpectedError):
     pass
 
@@ -301,14 +297,14 @@ class MetadataMatcher:
                 break
 
         # Then parse the pattern.
-        pattern, fwd = take(raw[idx:], SPECIAL_COLON, including=False)
+        pattern, fwd = take(raw[idx:], ":", consume_until=False)
         idx += fwd
 
         # If more input is remaining, it should be optional single-character flags.
         case_insensitive = False
-        if idx < len(raw) and take(raw[idx:], SPECIAL_COLON) == (SPECIAL_COLON, 1):
+        if idx < len(raw) and take(raw[idx:], ":") == ("", 1):
             idx += 1
-            flags, fwd = take(raw[idx:], SPECIAL_COLON)
+            flags, fwd = take(raw[idx:], ":")
             if not flags:
                 raise RuleSyntaxError(
                     **err,
@@ -462,23 +458,23 @@ class MetadataAction:
             # explicitly empty pattern, after which we reach the end of the tags+pattern section.
             pattern = None
             case_insensitive = False
-            if take(raw[idx:], SPECIAL_SLASH) == (SPECIAL_SLASH, 1):
+            if take(raw[idx:], "/") == ("", 1):
                 idx += 2
             # Otherwise, if we hit a lone `:`, we've hit the end of the tags+pattern section, but
             # the pattern is not specified. In this case, default to the matcher's pattern, if we
             # have a matcher.
             # hit the end of the matcher, and we should proceed to the action.
-            elif take(raw[idx:], SPECIAL_COLON) == (SPECIAL_COLON, 1):
+            elif take(raw[idx:], ":") == ("", 1):
                 idx += 1
                 if matcher and tags == matcher.tags:
                     pattern = matcher.pattern.pattern
             # And otherwise, parse the pattern!
             else:
                 has_flags = True
-                pattern, fwd = take(raw[idx:], SPECIAL_COLON)
+                pattern, fwd = take(raw[idx:], ":")
                 if fwd == 0:
                     has_flags = False
-                    pattern, fwd = take(raw[idx:], SPECIAL_SLASH)
+                    pattern, fwd = take(raw[idx:], "/")
                 idx += fwd
                 # Set an empty pattern to null.
                 pattern = pattern or None
@@ -486,7 +482,7 @@ class MetadataAction:
                 # If we don't see the second colon here, that means we are looking at
                 # single-character flags. Only check this if pattern is not null though.
                 if has_flags:
-                    flags, fwd = take(raw[idx:], SPECIAL_SLASH)
+                    flags, fwd = take(raw[idx:], "/")
                     if not flags:
                         raise RuleSyntaxError(
                             **err,
@@ -505,7 +501,7 @@ class MetadataAction:
                     idx += fwd
 
         # Then let's start parsing the action!
-        action_kind, fwd = take(raw[idx:], SPECIAL_COLON)
+        action_kind, fwd = take(raw[idx:], ":")
         valid_actions = [
             "replace",
             "sed",
@@ -532,7 +528,7 @@ class MetadataAction:
         # And then parse each action kind separately.
         behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction
         if action_kind == "replace":
-            replacement, fwd = take(raw[idx:], SPECIAL_COLON, including=False)
+            replacement, fwd = take(raw[idx:], ":", consume_until=False)
             idx += fwd
             if replacement == "":
                 raise RuleSyntaxError(
@@ -548,7 +544,7 @@ class MetadataAction:
                 )
             behavior = ReplaceAction(replacement=replacement)
         elif action_kind == "sed":
-            src_str, fwd = take(raw[idx:], SPECIAL_COLON, including=False)
+            src_str, fwd = take(raw[idx:], ":", consume_until=False)
             if src_str == "":
                 raise RuleSyntaxError(
                     **err,
@@ -573,7 +569,7 @@ class MetadataAction:
                 )
             idx += 1
 
-            dst, fwd = take(raw[idx:], SPECIAL_COLON, including=False)
+            dst, fwd = take(raw[idx:], ":", consume_until=False)
             idx += fwd
             if raw[idx:]:
                 raise RuleSyntaxError(
@@ -583,12 +579,10 @@ class MetadataAction:
                 )
             behavior = SedAction(src=src, dst=dst)
         elif action_kind == "split":
-            delimiter, fwd = take(raw[idx:], SPECIAL_COLON, including=False)
+            delimiter, fwd = take(raw[idx:], ":", consume_until=False)
             idx += fwd
             if delimiter == "":
                 feedback = "Delimiter not found: must specify a non-empty delimiter to split on."
-                if len(raw) > idx and raw[idx] == ":":
-                    feedback += " Perhaps you meant to escape this colon?"
                 raise RuleSyntaxError(**err, index=idx, feedback=feedback)
             if raw[idx:]:
                 raise RuleSyntaxError(
@@ -598,12 +592,10 @@ class MetadataAction:
                 )
             behavior = SplitAction(delimiter=delimiter)
         elif action_kind == "add":
-            value, fwd = take(raw[idx:], ":", including=False)
+            value, fwd = take(raw[idx:], ":", consume_until=False)
             idx += fwd
             if value == "":
                 feedback = "Value not found: must specify a non-empty value to add."
-                if len(raw) > idx and raw[idx] == ":":
-                    feedback += " Perhaps you meant to escape this colon?"
                 raise RuleSyntaxError(**err, index=idx, feedback=feedback)
             if raw[idx:]:
                 raise RuleSyntaxError(
@@ -662,41 +654,48 @@ class MetadataRule:
         )
 
 
-# We want to make the special delimiter characters basically be "symbols," in order to avoid
-# conflict with escaped `:` (`::`) and `/` (`//`). However, Python does not have support for
-# symbols. So we do something that is not technically correct all the time, but is rare enough to
-# work 99.999% of the time. These are device control unicode characters, which should not appear in
-# normal usage.
-SPECIAL_COLON: str = "\x11"
-SPECIAL_SLASH: str = "\x12"
+def take(x: str, until: Literal[":", "/"], consume_until: bool = True) -> tuple[str, int]:
+    """Take until the next unescaped special character."""
+    # Loop until we find an unescaped colon.
+    match = ""
+    fwd = 0
+    while True:
+        match_, fwd_ = _take_escaped(x, until, consume_until)
+        match += match_
+        fwd += fwd_
+
+        next_idx = fwd + (0 if consume_until else 1)
+        escaped_special_char = x[next_idx:].startswith(until)
+        if not escaped_special_char:
+            break
+        match += until
+        fwd = next_idx
+        x = x[next_idx:]
+
+    return match, fwd
 
 
-def take(x: str, until: str, including: bool = True) -> tuple[str, int]:
-    """
-    Reads until the next unescaped `until` or end of string is found. Returns the read string and
-    the number of characters consumed from the input. `until` is counted as consumed if `including`
-    is true.
-
-    Take unescapes the string, turning `::` into `:` and `//` into `/`. Single `:` and `/` become
-    the SPECIAL_COLON and SPECIAL_SLASH characters.
-    """
-    if SPECIAL_COLON or SPECIAL_SLASH in x:
-        raise InvalidControlCharacter(
-            "\\x11 an \\x12 are used as reserved characters and are not supported in rules."
-        )
+def _take_escaped(x: str, until: str, consume_until: bool = True) -> tuple[str, int]:
+    """DO NOT USE THIS FUNCTION DIRECTLY. USE take."""
     r = io.StringIO()
     escaped: Literal[":", "/", None] = None
     seen_idx = 0
     for i, c in enumerate(x):
-        if c == ":" and not escaped:
-            escaped = ":"
-            seen_idx += 1
-            continue
-        if x[i : i + len(until)] == until and not escaped:
-            if including:
+        if x[i : i + len(until)] == until:
+            if consume_until:
                 seen_idx += len(until)
             break
-        escaped = False
+        # We have a potential escape here. Store the escaped character to verify it in the next
+        # iteration.
+        if (c == ":" or c == "/") and not escaped:
+            escaped = c  # type: ignore
+            seen_idx += 1
+            continue
+        # If this is true, then nothing was actually escaped. Write the first character and the
+        # second character to the output.
+        if escaped and c != escaped:
+            r.write(escaped)
+            escaped = None
         r.write(c)
         seen_idx += 1
 
