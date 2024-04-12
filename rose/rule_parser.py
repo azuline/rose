@@ -21,6 +21,10 @@ from rose.common import RoseError, RoseExpectedError
 logger = logging.getLogger(__name__)
 
 
+class InvalidControlCharacter(RoseError):
+    pass
+
+
 class InvalidRuleError(RoseExpectedError):
     pass
 
@@ -241,7 +245,7 @@ class MatcherPattern:
     case_insensitive: bool = False
 
     def __str__(self) -> str:
-        r = self.pattern.replace(":", r"\:")
+        r = escape(self.pattern)
         if self.case_insensitive:
             r += ":i"
         return r
@@ -257,7 +261,7 @@ class MetadataMatcher:
 
     def __str__(self) -> str:
         r = stringify_tags(self.tags)
-        r += ":"
+        r += "/"
         r += str(self.pattern)
         return r
 
@@ -297,14 +301,14 @@ class MetadataMatcher:
                 break
 
         # Then parse the pattern.
-        pattern, fwd = take(raw[idx:], ":", including=False)
+        pattern, fwd = take(raw[idx:], SPECIAL_COLON, including=False)
         idx += fwd
 
         # If more input is remaining, it should be optional single-character flags.
         case_insensitive = False
-        if idx < len(raw) and raw[idx] == ":":
+        if idx < len(raw) and take(raw[idx:], SPECIAL_COLON) == (SPECIAL_COLON, 1):
             idx += 1
-            flags, fwd = take(raw[idx:], ":")
+            flags, fwd = take(raw[idx:], SPECIAL_COLON)
             if not flags:
                 raise RuleSyntaxError(
                     **err,
@@ -353,7 +357,7 @@ class MetadataAction:
         if self.pattern:
             r += ":" + str(self.pattern)
         if r:
-            r += "::"
+            r += "/"
 
         if isinstance(self.behavior, ReplaceAction):
             r += "replace"
@@ -369,9 +373,9 @@ class MetadataAction:
         if isinstance(self.behavior, ReplaceAction):
             r += ":" + self.behavior.replacement
         elif isinstance(self.behavior, SedAction):
-            r += ":" + str(self.behavior.src.pattern).replace(":", r"\:")
+            r += ":" + escape(str(self.behavior.src.pattern))
             r += ":"
-            r += self.behavior.dst.replace(":", r"\:")
+            r += escape(self.behavior.dst)
         elif isinstance(self.behavior, SplitAction):
             r += ":" + self.behavior.delimiter
         return r
@@ -391,8 +395,8 @@ class MetadataAction:
             err["rule_name"] += f" {action_number}"
 
         # First, determine whether we have a matcher section or not. The matcher section is optional,
-        # but present if there is an unescaped `::`.
-        _, action_idx = take(raw, "::")
+        # but present if there is an unescaped `/`.
+        _, action_idx = take(raw, "/")
         has_tags_pattern_section = action_idx != len(raw)
 
         # Parse the (optional) tags+pattern section.
@@ -403,7 +407,7 @@ class MetadataAction:
                     index=idx,
                     feedback="Tags/pattern section not found. "
                     "Must specify tags to modify, since there is no matcher to default to. "
-                    "Make sure you are formatting your action like {tags}:{pattern}::{kind}:{args} (where `:{pattern}` is optional)",
+                    "Make sure you are formatting your action like {tags}:{pattern}/{kind}:{args} (where `:{pattern}` is optional)",
                 )
             tags: list[Tag] = [x for x in matcher.tags if x in MODIFIABLE_TAGS]
             pattern = matcher.pattern.pattern
@@ -454,31 +458,35 @@ class MetadataAction:
                     if found_colon:
                         break
 
-            # And now parse the optional pattern. If the next character is a `::`, then we have an
+            # And now parse the optional pattern. If the next character is a `/`, then we have an
             # explicitly empty pattern, after which we reach the end of the tags+pattern section.
             pattern = None
             case_insensitive = False
-            if raw[idx : idx + 2] == "::":
+            if take(raw[idx:], SPECIAL_SLASH) == (SPECIAL_SLASH, 1):
                 idx += 2
             # Otherwise, if we hit a lone `:`, we've hit the end of the tags+pattern section, but
             # the pattern is not specified. In this case, default to the matcher's pattern, if we
             # have a matcher.
             # hit the end of the matcher, and we should proceed to the action.
-            elif raw[idx] == ":":
+            elif take(raw[idx:], SPECIAL_COLON) == (SPECIAL_COLON, 1):
                 idx += 1
                 if matcher and tags == matcher.tags:
                     pattern = matcher.pattern.pattern
             # And otherwise, parse the pattern!
             else:
-                pattern, fwd = take(raw[idx:], ":")
+                has_flags = True
+                pattern, fwd = take(raw[idx:], SPECIAL_COLON)
+                if fwd == 0:
+                    has_flags = False
+                    pattern, fwd = take(raw[idx:], SPECIAL_SLASH)
                 idx += fwd
                 # Set an empty pattern to null.
                 pattern = pattern or None
 
                 # If we don't see the second colon here, that means we are looking at
                 # single-character flags. Only check this if pattern is not null though.
-                if pattern and raw[idx : idx + 1] != ":":
-                    flags, fwd = take(raw[idx:], ":")
+                if has_flags:
+                    flags, fwd = take(raw[idx:], SPECIAL_SLASH)
                     if not flags:
                         raise RuleSyntaxError(
                             **err,
@@ -495,11 +503,9 @@ class MetadataAction:
                             feedback="Unrecognized flag: Either you forgot a colon here (to end the matcher), or this is an invalid matcher flag. The only supported flag is `i` (case insensitive).",
                         )
                     idx += fwd
-                # Skip the second colon. Now we're at the start of the action.
-                idx += 1
 
         # Then let's start parsing the action!
-        action_kind, fwd = take(raw[idx:], ":")
+        action_kind, fwd = take(raw[idx:], SPECIAL_COLON)
         valid_actions = [
             "replace",
             "sed",
@@ -508,10 +514,11 @@ class MetadataAction:
             "delete",
         ]
         if action_kind not in valid_actions:
-            feedback = f"Invalid action kind: must be one of {{{', '.join(valid_actions)}}}."
-            if idx == 0 and ":" in raw:
-                feedback += " If this is pointing at your pattern, you forgot to put :: (double colons) between the matcher section and the action section."
-            raise RuleSyntaxError(**err, index=idx, feedback=feedback)
+            raise RuleSyntaxError(
+                **err,
+                index=idx,
+                feedback=f"Invalid action kind: must be one of {{{', '.join(valid_actions)}}}.",
+            )
         idx += fwd
 
         # Validate that the action type is supported for the given tags.
@@ -525,7 +532,7 @@ class MetadataAction:
         # And then parse each action kind separately.
         behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction
         if action_kind == "replace":
-            replacement, fwd = take(raw[idx:], ":", including=False)
+            replacement, fwd = take(raw[idx:], SPECIAL_COLON, including=False)
             idx += fwd
             if replacement == "":
                 raise RuleSyntaxError(
@@ -541,7 +548,7 @@ class MetadataAction:
                 )
             behavior = ReplaceAction(replacement=replacement)
         elif action_kind == "sed":
-            src_str, fwd = take(raw[idx:], ":", including=False)
+            src_str, fwd = take(raw[idx:], SPECIAL_COLON, including=False)
             if src_str == "":
                 raise RuleSyntaxError(
                     **err,
@@ -566,7 +573,7 @@ class MetadataAction:
                 )
             idx += 1
 
-            dst, fwd = take(raw[idx:], ":", including=False)
+            dst, fwd = take(raw[idx:], SPECIAL_COLON, including=False)
             idx += fwd
             if raw[idx:]:
                 raise RuleSyntaxError(
@@ -576,7 +583,7 @@ class MetadataAction:
                 )
             behavior = SedAction(src=src, dst=dst)
         elif action_kind == "split":
-            delimiter, fwd = take(raw[idx:], ":", including=False)
+            delimiter, fwd = take(raw[idx:], SPECIAL_COLON, including=False)
             idx += fwd
             if delimiter == "":
                 feedback = "Delimiter not found: must specify a non-empty delimiter to split on."
@@ -655,18 +662,34 @@ class MetadataRule:
         )
 
 
+# We want to make the special delimiter characters basically be "symbols," in order to avoid
+# conflict with escaped `:` (`::`) and `/` (`//`). However, Python does not have support for
+# symbols. So we do something that is not technically correct all the time, but is rare enough to
+# work 99.999% of the time. These are device control unicode characters, which should not appear in
+# normal usage.
+SPECIAL_COLON: str = "\x11"
+SPECIAL_SLASH: str = "\x12"
+
+
 def take(x: str, until: str, including: bool = True) -> tuple[str, int]:
     """
     Reads until the next unescaped `until` or end of string is found. Returns the read string and
     the number of characters consumed from the input. `until` is counted as consumed if `including`
     is true.
+
+    Take unescapes the string, turning `::` into `:` and `//` into `/`. Single `:` and `/` become
+    the SPECIAL_COLON and SPECIAL_SLASH characters.
     """
+    if SPECIAL_COLON or SPECIAL_SLASH in x:
+        raise InvalidControlCharacter(
+            "\\x11 an \\x12 are used as reserved characters and are not supported in rules."
+        )
     r = io.StringIO()
-    escaped = False
+    escaped: Literal[":", "/", None] = None
     seen_idx = 0
     for i, c in enumerate(x):
-        if c == "\\" and not escaped:
-            escaped = True
+        if c == ":" and not escaped:
+            escaped = ":"
             seen_idx += 1
             continue
         if x[i : i + len(until)] == until and not escaped:
@@ -680,6 +703,11 @@ def take(x: str, until: str, including: bool = True) -> tuple[str, int]:
     result = r.getvalue()
     r.close()
     return result, seen_idx
+
+
+def escape(x: str) -> str:
+    """Escape the special characters in a string."""
+    return x.replace(":", "::").replace("/", "//")
 
 
 def stringify_tags(tags_input: list[Tag]) -> str:
