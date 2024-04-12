@@ -695,7 +695,7 @@ def test_dump_releases_matcher(config: Config) -> None:
 
 
 def test_run_action_on_release(config: Config, source_dir: Path) -> None:
-    action = MetadataAction.parse("tracktitle::replace:Bop")
+    action = MetadataAction.parse("tracktitle/replace:Bop")
     run_actions_on_release(config, "ilovecarly", [action])
     af = AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a")
     assert af.title == "Bop"

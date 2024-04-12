@@ -257,15 +257,15 @@ class MetadataMatcher:
 
     def __str__(self) -> str:
         r = stringify_tags(self.tags)
-        r += "/"
+        r += ":"
         r += str(self.pattern)
         return r
 
     @classmethod
-    def parse(cls, raw: str) -> MetadataMatcher:
+    def parse(cls, raw: str, *, rule_name: str = "matcher") -> MetadataMatcher:
         idx = 0
         # Common arguments to feed into Syntax Error.
-        err = {"rule_name": "matcher", "rule": raw}
+        err = {"rule_name": rule_name, "rule": raw}
 
         # First, parse the tags.
         tags: list[Tag] = []
@@ -424,12 +424,12 @@ class MetadataAction:
                 case_insensitive = matcher.pattern.case_insensitive
             else:
                 tags = []
-                found_colon = False
+                found_end = False
                 while True:
                     for t, resolved in ALL_TAGS.items():
                         if not raw[idx:].startswith(t):
                             continue
-                        if raw[idx:][len(t)] not in [":", ","]:
+                        if raw[idx:][len(t)] not in [":", ",", "/"]:
                             continue
                         for resolvedtag in resolved:
                             if resolvedtag not in MODIFIABLE_TAGS:
@@ -440,7 +440,7 @@ class MetadataAction:
                                 )
                             tags.append(resolvedtag)
                         idx += len(t) + 1
-                        found_colon = raw[idx - 1] == ":"
+                        found_end = raw[idx - 1] == ":" or raw[idx - 1] == "/"
                         break
                     else:
                         tags_to_print: list[str] = []
@@ -451,30 +451,33 @@ class MetadataAction:
                         if matcher:
                             feedback = f"Invalid tag: must be one of matched, {{{', '.join(tags_to_print)}}}. (And if the value is matched, it must be alone.) The next character after a tag must be ':' or ','."
                         raise RuleSyntaxError(**err, index=idx, feedback=feedback)
-                    if found_colon:
+                    if found_end:
                         break
 
             # And now parse the optional pattern. If the next character is a `/`, then we have an
             # explicitly empty pattern, after which we reach the end of the tags+pattern section.
             pattern = None
             case_insensitive = False
-            if take(raw[idx:], "/") == ("", 1):
-                idx += 2
-            # Otherwise, if we hit a lone `:`, we've hit the end of the tags+pattern section, but
-            # the pattern is not specified. In this case, default to the matcher's pattern, if we
-            # have a matcher.
-            # hit the end of the matcher, and we should proceed to the action.
-            elif take(raw[idx:], ":") == ("", 1):
-                idx += 1
+            # It's possible for us to have both `tracktitle:/` (explicitly empty pattern) or
+            # `tracktitle/` (inherit pattern), which we handle in the following two cases:
+            if take(raw[idx - 1 :], "/") == ("", 1):
                 if matcher and tags == matcher.tags:
                     pattern = matcher.pattern.pattern
+            elif take(raw[idx:], "/") == ("", 1):
+                idx += 1
             # And otherwise, parse the pattern!
             else:
-                has_flags = True
-                pattern, fwd = take(raw[idx:], ":")
-                if fwd == 0:
+                # Take the earliest of a colon or slash.
+                colon_pattern, colon_fwd = take(raw[idx:], ":")
+                slash_pattern, slash_fwd = take(raw[idx:], "/")
+                if colon_fwd < slash_fwd:
+                    pattern = colon_pattern
+                    fwd = colon_fwd
+                    has_flags = True
+                else:
+                    pattern = slash_pattern
+                    fwd = slash_fwd
                     has_flags = False
-                    pattern, fwd = take(raw[idx:], "/")
                 idx += fwd
                 # Set an empty pattern to null.
                 pattern = pattern or None
@@ -501,7 +504,6 @@ class MetadataAction:
                     idx += fwd
 
         # Then let's start parsing the action!
-        action_kind, fwd = take(raw[idx:], ":")
         valid_actions = [
             "replace",
             "sed",
@@ -509,13 +511,20 @@ class MetadataAction:
             "add",
             "delete",
         ]
-        if action_kind not in valid_actions:
-            raise RuleSyntaxError(
-                **err,
-                index=idx,
-                feedback=f"Invalid action kind: must be one of {{{', '.join(valid_actions)}}}.",
-            )
-        idx += fwd
+        for va in valid_actions:
+            if raw[idx:].startswith(va + ":"):
+                action_kind = va
+                idx += len(va) + 1
+                break
+            if raw[idx:] == va:
+                action_kind = va
+                idx += len(va)
+                break
+        else:
+            feedback = f"Invalid action kind: must be one of {{{', '.join(valid_actions)}}}."
+            if idx == 0 and ":" in raw:
+                feedback += " If this is pointing at your pattern, you forgot to put a `/` between the matcher section and the action section."
+            raise RuleSyntaxError(**err, index=idx, feedback=feedback)
 
         # Validate that the action type is supported for the given tags.
         if action_kind == "split" or action_kind == "add":
@@ -650,27 +659,36 @@ class MetadataRule:
         return MetadataRule(
             matcher=parsed_matcher,
             actions=[MetadataAction.parse(a, i + 1, parsed_matcher) for i, a in enumerate(actions)],
-            ignore=[MetadataMatcher.parse(v) for v in (ignore or [])],
+            ignore=[MetadataMatcher.parse(v, rule_name="ignore") for v in (ignore or [])],
         )
 
 
 def take(x: str, until: Literal[":", "/"], consume_until: bool = True) -> tuple[str, int]:
-    """Take until the next unescaped special character."""
+    """
+    Reads until the next unescaped `until` or end of string is found. Returns the read string and
+    the number of characters consumed from the input. `until` is counted (in the returned int) as
+    consumed if `consume_until` is true, though it is never included in the returned string.
+
+    The returned string is unescaped; that is, `//` become `/` and `::` become `:`.
+    """
     # Loop until we find an unescaped colon.
     match = ""
     fwd = 0
     while True:
-        match_, fwd_ = _take_escaped(x, until, consume_until)
-        match += match_
+        match_, fwd_ = _take_escaped(x[fwd:], until, consume_until)
+        match += match_.replace("::", ":").replace("//", "/")
         fwd += fwd_
 
         next_idx = fwd + (0 if consume_until else 1)
+        print(f"{next_idx=}")
         escaped_special_char = x[next_idx:].startswith(until)
+        print(f"{escaped_special_char=}")
         if not escaped_special_char:
             break
         match += until
-        fwd = next_idx
-        x = x[next_idx:]
+        print(f"{match=} {until=}")
+        fwd = next_idx + 1
+        print(f"{fwd=} {next_idx=}")
 
     return match, fwd
 

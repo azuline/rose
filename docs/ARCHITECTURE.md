@@ -40,7 +40,6 @@ This has some nice consequences:
   tags _are_ the state. Regardless of how the cache drifts from source files, that drift can always
   be automatically resolved simply by rebuilding the cache.
 
-
 # Release & Track Identifiers
 
 Rosé assigns a stable UUID to each release and track in order to identify them. The UUIDs are also

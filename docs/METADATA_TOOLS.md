@@ -385,7 +385,7 @@ There are three additional mechanics affecting multi-value tags:
 - If the new value is an empty string, it is removed from the result. This can be used, for example,
   in the `sed` action to remove values based on a regex pattern.
 - The values in the tag are deduplicated. If this were not the case, we would have gotten `[Hi,
-  High, Hi, High, Hi, High]` in the previous example. Instead, we got `[Hi, High]`.
+High, Hi, High, Hi, High]` in the previous example. Instead, we got `[Hi, High]`.
 
 ## Rule Language
 

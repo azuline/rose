@@ -523,7 +523,7 @@ Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'ma
         assert (
             click.unstyle(str(excinfo.value))
             == f"""\
-Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'matcher': 'tracktitle:hi', 'actions': ['delete'], 'ignore': ['tracktitle:bye:']}}: Failed to parse matcher, invalid syntax:
+Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'matcher': 'tracktitle:hi', 'actions': ['delete'], 'ignore': ['tracktitle:bye:']}}: Failed to parse ignore, invalid syntax:
 
     tracktitle:bye:
                    ^

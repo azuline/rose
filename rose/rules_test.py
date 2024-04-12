@@ -118,7 +118,7 @@ def test_rules_fields_match_tracknumber(config: Config, source_dir: Path) -> Non
 
 
 def test_rules_fields_match_tracktotal(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule.parse("tracktotal:2", ["tracktitle::replace:8"])
+    rule = MetadataRule.parse("tracktotal:2", ["tracktitle/replace:8"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title == "8"
@@ -132,7 +132,7 @@ def test_rules_fields_match_discnumber(config: Config, source_dir: Path) -> None
 
 
 def test_rules_fields_match_disctotal(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule.parse("disctotal:1", ["tracktitle::replace:8"])
+    rule = MetadataRule.parse("disctotal:1", ["tracktitle/replace:8"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title == "8"
@@ -179,7 +179,7 @@ def test_match_backslash(config: Config, source_dir: Path) -> None:
     af.flush()
     update_cache(config)
 
-    rule = MetadataRule.parse(r"tracktitle: \\\\ ", [r"sed: \\\\\\\\ : / "])
+    rule = MetadataRule.parse(r"tracktitle: \\ ", [r"sed: \\\\ : // "])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.title == "X / Y"
@@ -193,7 +193,7 @@ def test_action_replace_with_delimiter(config: Config, source_dir: Path) -> None
 
 
 def test_action_replace_with_delimiters_empty_str(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule.parse("genre:K-Pop", ["matched:::replace:Hip-Hop;;;;"])
+    rule = MetadataRule.parse("genre:K-Pop", ["matched:/replace:Hip-Hop;;;;"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.genre == ["Hip-Hop"]
@@ -207,7 +207,7 @@ def test_sed_action(config: Config, source_dir: Path) -> None:
 
 
 def test_sed_no_pattern(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule.parse("genre:P", [r"matched:::sed:^(.*)$:i\\1"])
+    rule = MetadataRule.parse("genre:P", [r"matched:/sed:^(.*)$:i\1"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.genre == ["iK-Pop", "iPop"]
@@ -221,7 +221,7 @@ def test_split_action(config: Config, source_dir: Path) -> None:
 
 
 def test_split_action_no_pattern(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule.parse("genre:K-Pop", ["matched:::split:P"])
+    rule = MetadataRule.parse("genre:K-Pop", ["matched:/split:P"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.genre == ["K-", "op"]
@@ -242,7 +242,7 @@ def test_delete_action(config: Config, source_dir: Path) -> None:
 
 
 def test_delete_action_no_pattern(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule.parse("genre:^Pop$", ["matched:::delete"])
+    rule = MetadataRule.parse("genre:^Pop$", ["matched:/delete"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.genre == []
@@ -256,14 +256,14 @@ def test_preserves_unmatched_multitags(config: Config, source_dir: Path) -> None
 
 
 def test_action_on_different_tag(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule.parse("label:A Cool Label", ["genre::replace:hi"])
+    rule = MetadataRule.parse("label:A Cool Label", ["genre/replace:hi"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.genre == ["hi"]
 
 
 def test_action_no_pattern(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule.parse("genre:K-Pop", ["matched:::sed:P:B"])
+    rule = MetadataRule.parse("genre:K-Pop", ["matched:/sed:P:B"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.genre == ["K-Bop", "Bop"]
@@ -274,9 +274,9 @@ def test_chained_action(config: Config, source_dir: Path) -> None:
         "label:A Cool Label",
         [
             "replace:Jennie",
-            "label:^Jennie$::replace:Jisoo",
-            "label:nomatch::replace:Rose",
-            "genre::replace:haha",
+            "label:^Jennie$/replace:Jisoo",
+            "label:nomatch/replace:Rose",
+            "genre/replace:haha",
         ],
     )
     execute_metadata_rule(config, rule, confirm_yes=False)
