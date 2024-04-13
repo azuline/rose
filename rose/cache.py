@@ -265,8 +265,6 @@ class CachedTrack:
     tracknumber: str
     tracktotal: int
     discnumber: str
-    # TODO: Remove, it's also on release.
-    disctotal: int
     duration_seconds: int
     trackartists: ArtistMapping
     metahash: str
@@ -275,7 +273,11 @@ class CachedTrack:
 
     @classmethod
     def from_view(
-        cls, c: Config, row: dict[str, Any], release: CachedRelease, aliases: bool = True
+        cls,
+        c: Config,
+        row: dict[str, Any],
+        release: CachedRelease,
+        aliases: bool = True,
     ) -> CachedTrack:
         return CachedTrack(
             id=row["id"],
@@ -285,7 +287,6 @@ class CachedTrack:
             tracknumber=row["tracknumber"],
             tracktotal=row["tracktotal"],
             discnumber=row["discnumber"],
-            disctotal=row["disctotal"],
             duration_seconds=row["duration_seconds"],
             trackartists=_unpack_artists(
                 c,
@@ -305,7 +306,6 @@ class CachedTrack:
             "tracknumber": self.tracknumber,
             "tracktotal": self.tracktotal,
             "discnumber": self.discnumber,
-            "disctotal": self.disctotal,
             "duration_seconds": self.duration_seconds,
             "trackartists": self.trackartists.dump(),
         }
@@ -316,6 +316,7 @@ class CachedTrack:
                     "added_at": self.release.added_at,
                     "releasetitle": self.release.releasetitle,
                     "releasetype": self.release.releasetype,
+                    "disctotal": self.release.disctotal,
                     "year": self.release.year,
                     "new": self.release.new,
                     "genres": self.release.genres,
@@ -837,7 +838,6 @@ def _update_cache_for_releases_executor(
                 tracknumber=(tags.tracknumber or "1").replace(".", ""),
                 tracktotal=tags.tracktotal or 1,
                 discnumber=(tags.discnumber or "1").replace(".", ""),
-                disctotal=tags.disctotal or 1,
                 # This is calculated with the virtual filename.
                 duration_seconds=tags.duration_sec,
                 trackartists=tags.trackartists,
@@ -855,10 +855,6 @@ def _update_cache_for_releases_executor(
             release_dirty = True
             release.disctotal = disctotal
         for track in tracks:
-            if disctotal != track.disctotal:
-                logger.debug(f"Track disctotal change detected for {track.source_path}, updating")
-                track.disctotal = disctotal
-                track_ids_to_insert.add(track.id)
             tracktotal = totals_ctr[track.discnumber]
             assert tracktotal != 0, "This track isn't in the counter, impossible!"
             if tracktotal != track.tracktotal:
@@ -991,7 +987,6 @@ def _update_cache_for_releases_executor(
                         track.tracknumber,
                         track.tracktotal,
                         track.discnumber,
-                        track.disctotal,
                         track.duration_seconds,
                         sha256_dataclass(track),
                     ]
@@ -1100,11 +1095,10 @@ def _update_cache_for_releases_executor(
                   , tracknumber
                   , tracktotal
                   , discnumber
-                  , disctotal
                   , duration_seconds
                   , metahash
                 )
-                VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
+                VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
                 """,
                 _flatten(upd_track_args),
             )
@@ -1167,7 +1161,7 @@ def _update_cache_for_releases_executor(
                   , process_string_for_fts(t.tracknumber) AS tracknumber
                   , process_string_for_fts(t.tracktotal) AS tracknumber
                   , process_string_for_fts(t.discnumber) AS discnumber
-                  , process_string_for_fts(t.disctotal) AS discnumber
+                  , process_string_for_fts(r.disctotal) AS discnumber
                   , process_string_for_fts(r.title) AS releasetitle
                   , process_string_for_fts(r.year) AS year
                   , process_string_for_fts(r.releasetype) AS releasetype

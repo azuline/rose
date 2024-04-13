@@ -129,11 +129,11 @@ VALUES ('r1'      , 'Silk Music'  , 'Silk Music'   , 1)
      , ('r2'      , 'Native State', 'Native State' , 1);
 
 INSERT INTO tracks
-       (id  , source_path      , source_mtime, title    , release_id, tracknumber, tracktotal, discnumber, disctotal, duration_seconds, metahash)
-VALUES ('t1', '{musicpaths[0]}', '999'       , 'Track 1', 'r1'      , '01'       , 2         , '01'      , 1        , 120             , '1')
-     , ('t2', '{musicpaths[1]}', '999'       , 'Track 2', 'r1'      , '02'       , 2         , '01'      , 1        , 240             , '2')
-     , ('t3', '{musicpaths[2]}', '999'       , 'Track 1', 'r2'      , '01'       , 1         , '01'      , 1        , 120             , '3')
-     , ('t4', '{musicpaths[3]}', '999'       , 'Track 1', 'r3'      , '01'       , 1         , '01'      , 1        , 120             , '4');
+       (id  , source_path      , source_mtime, title    , release_id, tracknumber, tracktotal, discnumber, duration_seconds, metahash)
+VALUES ('t1', '{musicpaths[0]}', '999'       , 'Track 1', 'r1'      , '01'       , 2         , '01'      , 120             , '1')
+     , ('t2', '{musicpaths[1]}', '999'       , 'Track 2', 'r1'      , '02'       , 2         , '01'      , 240             , '2')
+     , ('t3', '{musicpaths[2]}', '999'       , 'Track 1', 'r2'      , '01'       , 1         , '01'      , 120             , '3')
+     , ('t4', '{musicpaths[3]}', '999'       , 'Track 1', 'r3'      , '01'       , 1         , '01'      , 120             , '4');
 
 INSERT INTO releases_artists
        (release_id, artist           , artist_sanitized , role   , position)

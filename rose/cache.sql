@@ -15,7 +15,6 @@ CREATE TABLE releases (
     title TEXT NOT NULL,
     releasetype TEXT NOT NULL,
     year INTEGER,
-    -- Disctotal is also denormalized on the track.
     disctotal INTEGER NOT NULL,
     -- A sha256() of the release object, which can be used as a performant cache
     -- key.
@@ -59,8 +58,6 @@ CREATE TABLE tracks (
     -- Per-disc track total.
     tracktotal INTEGER NOT NULL,
     discnumber TEXT NOT NULL,
-    -- Disctotal is also denormalized on the release.
-    disctotal INTEGER NOT NULL,
     duration_seconds INTEGER NOT NULL,
     -- A sha256 of the release object, which can be used as a performant cache
     -- key.
@@ -234,7 +231,6 @@ CREATE VIEW tracks_view AS
       , t.tracknumber
       , t.tracktotal
       , t.discnumber
-      , t.disctotal
       , t.duration_seconds
       , t.metahash
       , COALESCE(a.names, '') AS trackartist_names

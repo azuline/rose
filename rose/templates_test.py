@@ -39,7 +39,6 @@ EMPTY_CACHED_TRACK = CachedTrack(
     tracknumber="",
     tracktotal=1,
     discnumber="",
-    disctotal=1,
     duration_seconds=0,
     trackartists=ArtistMapping(),
     metahash="0",
@@ -83,7 +82,7 @@ def test_default_templates() -> None:
     assert eval_track_template(templates.playlists, track, "4") == "4. Unknown Artists - Trick.m4a"
 
     track = deepcopy(EMPTY_CACHED_TRACK)
-    track.disctotal = 2
+    track.release.disctotal = 2
     track.discnumber = "4"
     track.tracknumber = "2"
     track.tracktitle = "Trick"

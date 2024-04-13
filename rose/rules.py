@@ -646,7 +646,7 @@ def filter_track_false_positives_using_read_cache(
             match = match or (field == "tracknumber" and matches_pattern(matcher.pattern, t.tracknumber))
             match = match or (field == "tracktotal" and matches_pattern(matcher.pattern, t.tracktotal))
             match = match or (field == "discnumber" and matches_pattern(matcher.pattern, t.discnumber))
-            match = match or (field == "disctotal" and matches_pattern(matcher.pattern, t.disctotal))
+            match = match or (field == "disctotal" and matches_pattern(matcher.pattern, t.release.disctotal))
             match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, t.release.releasetitle))
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, t.release.releasetype))
             match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in t.release.genres))
