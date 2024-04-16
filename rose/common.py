@@ -7,7 +7,6 @@ import dataclasses
 import hashlib
 import os.path
 import re
-import uuid
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, TypeVar
@@ -70,14 +69,6 @@ class ArtistMapping:
         yield "composer", self.composer
         yield "conductor", self.conductor
         yield "djmixer", self.djmixer
-
-
-def valid_uuid(x: str) -> bool:
-    try:
-        uuid.UUID(x)
-        return True
-    except ValueError:
-        return False
 
 
 def uniq(xs: list[T]) -> list[T]:

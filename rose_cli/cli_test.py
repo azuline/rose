@@ -7,7 +7,8 @@ import pytest
 from click.testing import CliRunner
 
 from rose.audiotags import AudioTags
-from rose.cli import (
+from rose.config import Config
+from rose_cli.cli import (
     Context,
     InvalidReleaseArgError,
     InvalidTrackArgError,
@@ -18,8 +19,7 @@ from rose.cli import (
     unwatch,
     watch,
 )
-from rose.config import Config
-from rose.virtualfs_test import start_virtual_fs
+from rose_vfs.virtualfs_test import start_virtual_fs
 
 
 @pytest.mark.usefixtures("seeded_cache")

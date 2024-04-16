@@ -10,7 +10,7 @@ setuptools.setup(
     author="blissful",
     author_email="blissful@sunsetglow.net",
     license="Apache-2.0",
-    entry_points={"console_scripts": ["rose = rose.__main__:main"]},
+    entry_points={"console_scripts": ["rose = rose_cli.__main__:main"]},
     packages=setuptools.find_namespace_packages(where="."),
     package_data={"rose": ["*.sql", ".version"]},
     install_requires=[

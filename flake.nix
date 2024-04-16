@@ -47,7 +47,7 @@
       ];
       dev-cli = pkgs.writeShellScriptBin "rose" ''
         cd $ROSE_ROOT
-        python -m rose "$@"
+        python -m rose_cli "$@"
       '';
     in
     {
