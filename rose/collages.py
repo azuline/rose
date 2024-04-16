@@ -154,7 +154,7 @@ def dump_collage(c: Config, collage_name: str) -> str:
     return json.dumps({"name": collage_name, "releases": releases})
 
 
-def dump_collages(c: Config) -> str:
+def dump_all_collages(c: Config) -> str:
     out: list[dict[str, Any]] = []
     for name in list_collages(c):
         cdata = get_collage(c, name)

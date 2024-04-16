@@ -6,7 +6,7 @@ import pytest
 from rose.audiotags import AudioTags
 from rose.config import Config
 from rose.rule_parser import MetadataAction, MetadataMatcher
-from rose.tracks import dump_track, dump_tracks, run_actions_on_track
+from rose.tracks import dump_all_tracks, dump_track, run_actions_on_track
 
 
 def test_run_action_on_track(config: Config, source_dir: Path) -> None:
@@ -20,7 +20,7 @@ def test_run_action_on_track(config: Config, source_dir: Path) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_dump_tracks(config: Config) -> None:
-    assert json.loads(dump_tracks(config)) == [
+    assert json.loads(dump_all_tracks(config)) == [
         {
             "trackartists": {
                 "composer": [],
@@ -183,7 +183,7 @@ def test_dump_tracks(config: Config) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_dump_tracks_with_matcher(config: Config) -> None:
     matcher = MetadataMatcher.parse("artist:Techno Man")
-    assert json.loads(dump_tracks(config, matcher)) == [
+    assert json.loads(dump_all_tracks(config, matcher)) == [
         {
             "trackartists": {
                 "composer": [],

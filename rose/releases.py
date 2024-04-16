@@ -77,7 +77,7 @@ def dump_release(c: Config, release_id: str) -> str:
     )
 
 
-def dump_releases(c: Config, matcher: MetadataMatcher | None = None) -> str:
+def dump_all_releases(c: Config, matcher: MetadataMatcher | None = None) -> str:
     release_ids = None
     if matcher:
         release_ids = [x.id for x in fast_search_for_matching_releases(c, matcher)]

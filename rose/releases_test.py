@@ -24,8 +24,8 @@ from rose.releases import (
     create_single_release,
     delete_release,
     delete_release_cover_art,
+    dump_all_releases,
     dump_release,
-    dump_releases,
     edit_release,
     run_actions_on_release,
     set_release_cover_art,
@@ -477,7 +477,7 @@ def test_dump_release(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_dump_releases(config: Config) -> None:
-    assert json.loads(dump_releases(config)) == [
+    assert json.loads(dump_all_releases(config)) == [
         {
             "id": "r1",
             "source_path": f"{config.music_source_dir}/r1",
@@ -637,7 +637,7 @@ def test_dump_releases(config: Config) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_dump_releases_matcher(config: Config) -> None:
     matcher = MetadataMatcher.parse("releasetitle:2$")
-    assert json.loads(dump_releases(config, matcher)) == [
+    assert json.loads(dump_all_releases(config, matcher)) == [
         {
             "id": "r2",
             "source_path": f"{config.music_source_dir}/r2",

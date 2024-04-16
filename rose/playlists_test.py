@@ -14,8 +14,8 @@ from rose.playlists import (
     create_playlist,
     delete_playlist,
     delete_playlist_cover_art,
+    dump_all_playlists,
     dump_playlist,
-    dump_playlists,
     edit_playlist_in_editor,
     remove_track_from_playlist,
     rename_playlist,
@@ -217,7 +217,7 @@ def test_dump_playlist(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_dump_playlists(config: Config) -> None:
-    out = dump_playlists(config)
+    out = dump_all_playlists(config)
     assert json.loads(out) == [
         {
             "name": "Lala Lisa",

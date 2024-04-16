@@ -35,7 +35,7 @@ def dump_track(c: Config, track_id: str) -> str:
     return json.dumps(track.dump())
 
 
-def dump_tracks(c: Config, matcher: MetadataMatcher | None = None) -> str:
+def dump_all_tracks(c: Config, matcher: MetadataMatcher | None = None) -> str:
     track_ids = None
     if matcher:
         track_ids = [t.id for t in fast_search_for_matching_tracks(c, matcher)]

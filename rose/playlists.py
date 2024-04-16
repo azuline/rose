@@ -167,7 +167,7 @@ def dump_playlist(c: Config, playlist_name: str) -> str:
     )
 
 
-def dump_playlists(c: Config) -> str:
+def dump_all_playlists(c: Config) -> str:
     out: list[dict[str, Any]] = []
     for name in list_playlists(c):
         pdata = get_playlist(c, name)

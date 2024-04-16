@@ -10,8 +10,8 @@ from rose.collages import (
     add_release_to_collage,
     create_collage,
     delete_collage,
+    dump_all_collages,
     dump_collage,
-    dump_collages,
     edit_collage_in_editor,
     remove_release_from_collage,
     rename_collage,
@@ -179,7 +179,7 @@ def test_dump_collage(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_dump_collages(config: Config) -> None:
-    out = dump_collages(config)
+    out = dump_all_collages(config)
     assert json.loads(out) == [
         {
             "name": "Rose Gold",

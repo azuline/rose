@@ -171,7 +171,7 @@ def releases() -> None:
 @releases.command(name="print")
 @click.argument("release", type=click.Path(), nargs=1)
 @click.pass_obj
-def print1(ctx: Context, release: str) -> None:
+def print_release(ctx: Context, release: str) -> None:
     """Print a single release (in JSON). Accepts a release's UUID/path."""
     from rose.releases import dump_release
 
@@ -182,20 +182,20 @@ def print1(ctx: Context, release: str) -> None:
 @releases.command(name="print-all")
 @click.argument("matcher", type=str, nargs=1, required=False)
 @click.pass_obj
-def print_all(ctx: Context, matcher: str | None) -> None:
+def print_all_releases(ctx: Context, matcher: str | None) -> None:
     """Print all releases (in JSON). Accepts an optional rules matcher to filter the releases."""
-    from rose.releases import dump_releases
+    from rose.releases import dump_all_releases
     from rose.rule_parser import MetadataMatcher
 
     parsed_matcher = MetadataMatcher.parse(matcher) if matcher else None
-    click.echo(dump_releases(ctx.config, parsed_matcher))
+    click.echo(dump_all_releases(ctx.config, parsed_matcher))
 
 
 @releases.command(name="edit")
 @click.argument("release", type=click.Path(), nargs=1)
 @click.option("--resume", "-r", type=click.Path(path_type=Path), nargs=1, help="Resume a failed release edit.")  # fmt: skip
 @click.pass_obj
-def edit2(ctx: Context, release: str, resume: Path | None) -> None:
+def edit_release(ctx: Context, release: str, resume: Path | None) -> None:
     """Edit a release's metadata in $EDITOR. Accepts a release's UUID/path."""
     from rose.releases import edit_release
 
@@ -217,7 +217,7 @@ def toggle_new(ctx: Context, release: str) -> None:
 @releases.command(name="delete")
 @click.argument("release", type=click.Path(), nargs=1)
 @click.pass_obj
-def delete3(ctx: Context, release: str) -> None:
+def delete_release(ctx: Context, release: str) -> None:
     """
     Delete a release from the library. The release is moved to the trash bin, following the
     freedesktop spec. Accepts a release's UUID/path.
@@ -232,7 +232,7 @@ def delete3(ctx: Context, release: str) -> None:
 @click.argument("release", type=click.Path(), nargs=1)
 @click.argument("cover", type=click.Path(path_type=Path), nargs=1)
 @click.pass_obj
-def set_cover(ctx: Context, release: str, cover: Path) -> None:
+def set_cover_release(ctx: Context, release: str, cover: Path) -> None:
     """Set/replace the cover art of a release. Accepts a release's UUID/path."""
     from rose.releases import set_release_cover_art
 
@@ -243,7 +243,7 @@ def set_cover(ctx: Context, release: str, cover: Path) -> None:
 @releases.command()
 @click.argument("release", type=click.Path(), nargs=1)
 @click.pass_obj
-def delete_cover(ctx: Context, release: str) -> None:
+def delete_cover_release(ctx: Context, release: str) -> None:
     """Delete the cover art of a release."""
     from rose.releases import delete_release_cover_art
 
@@ -294,7 +294,7 @@ def tracks() -> None:
 @tracks.command(name="print")
 @click.argument("track", type=click.Path(), nargs=1)
 @click.pass_obj
-def print4(ctx: Context, track: str) -> None:
+def print_track(ctx: Context, track: str) -> None:
     """Print a single track (in JSON). Accepts a tracks's UUID/path."""
     from rose.tracks import dump_track
 
@@ -305,13 +305,13 @@ def print4(ctx: Context, track: str) -> None:
 @tracks.command(name="print-all")
 @click.argument("matcher", type=str, nargs=1, required=False)
 @click.pass_obj
-def print_all3(ctx: Context, matcher: str | None = None) -> None:
+def print_all_track(ctx: Context, matcher: str | None = None) -> None:
     """Print all tracks (in JSON). Accepts an optional rules matcher to filter the tracks."""
     from rose.rule_parser import MetadataMatcher
-    from rose.tracks import dump_tracks
+    from rose.tracks import dump_all_tracks
 
     parsed_matcher = MetadataMatcher.parse(matcher) if matcher else None
-    click.echo(dump_tracks(ctx.config, parsed_matcher))
+    click.echo(dump_all_tracks(ctx.config, parsed_matcher))
 
 
 @tracks.command(name="run-rule")
@@ -320,7 +320,7 @@ def print_all3(ctx: Context, matcher: str | None = None) -> None:
 @click.option("--dry-run", "-d", is_flag=True, help="Display intended changes without applying them.")  # fmt: skip
 @click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompts.")
 @click.pass_obj
-def run_rule2(ctx: Context, track: str, actions: list[str], dry_run: bool, yes: bool) -> None:
+def run_rule_track(ctx: Context, track: str, actions: list[str], dry_run: bool, yes: bool) -> None:
     """Run rule engine actions on a single track. Accepts a track's UUID/path."""
     from rose.rule_parser import MetadataAction
     from rose.tracks import run_actions_on_track
@@ -409,7 +409,7 @@ def edit(ctx: Context, collage: str) -> None:
 @collages.command(name="print")
 @click.argument("collage", type=str, nargs=1)
 @click.pass_obj
-def print2(ctx: Context, collage: str) -> None:
+def print_collage(ctx: Context, collage: str) -> None:
     """Print a collage (in JSON). Accepts a collage's name."""
     from rose.collages import dump_collage
 
@@ -418,11 +418,11 @@ def print2(ctx: Context, collage: str) -> None:
 
 @collages.command(name="print-all")
 @click.pass_obj
-def print_all1(ctx: Context) -> None:
+def print_all_collages(ctx: Context) -> None:
     """Print all collages (in JSON)."""
-    from rose.collages import dump_collages
+    from rose.collages import dump_all_collages
 
-    click.echo(dump_collages(ctx.config))
+    click.echo(dump_all_collages(ctx.config))
 
 
 @cli.group()
@@ -433,7 +433,7 @@ def playlists() -> None:
 @playlists.command(name="create")
 @click.argument("name", type=str, nargs=1)
 @click.pass_obj
-def create2(ctx: Context, name: str) -> None:
+def create_playlist(ctx: Context, name: str) -> None:
     """Create a new playlist."""
     from rose.playlists import create_playlist
 
@@ -444,7 +444,7 @@ def create2(ctx: Context, name: str) -> None:
 @click.argument("old_name", type=str, nargs=1)
 @click.argument("new_name", type=str, nargs=1)
 @click.pass_obj
-def rename2(ctx: Context, old_name: str, new_name: str) -> None:
+def rename_playlist(ctx: Context, old_name: str, new_name: str) -> None:
     """Rename a playlist. Accepts a playlist's name."""
     from rose.playlists import rename_playlist
 
@@ -454,7 +454,7 @@ def rename2(ctx: Context, old_name: str, new_name: str) -> None:
 @playlists.command(name="delete")
 @click.argument("playlist", type=str, nargs=1)
 @click.pass_obj
-def delete2(ctx: Context, playlist: str) -> None:
+def delete_playlist(ctx: Context, playlist: str) -> None:
     """Delete a playlist. Accepts a playlist's name."""
     from rose.playlists import delete_playlist
 
@@ -488,7 +488,7 @@ def remove_track(ctx: Context, playlist: str, track: str) -> None:
 @playlists.command(name="edit")
 @click.argument("playlist", type=str, nargs=1)
 @click.pass_obj
-def edit3(ctx: Context, playlist: str) -> None:
+def edit_playlist(ctx: Context, playlist: str) -> None:
     """
     Edit a playlist in $EDITOR. Reorder lines to update the ordering of tracks. Delete lines to
     delete tracks from the playlist.
@@ -501,7 +501,7 @@ def edit3(ctx: Context, playlist: str) -> None:
 @playlists.command(name="print")
 @click.argument("playlist", type=str, nargs=1)
 @click.pass_obj
-def print3(ctx: Context, playlist: str) -> None:
+def print_playlist(ctx: Context, playlist: str) -> None:
     """Print a playlist (in JSON). Accepts a playlist's name."""
     from rose.playlists import dump_playlist
 
@@ -510,18 +510,18 @@ def print3(ctx: Context, playlist: str) -> None:
 
 @playlists.command(name="print-all")
 @click.pass_obj
-def print_all2(ctx: Context) -> None:
+def print_all_playlists(ctx: Context) -> None:
     """Print all playlists (in JSON)."""
-    from rose.playlists import dump_playlists
+    from rose.playlists import dump_all_playlists
 
-    click.echo(dump_playlists(ctx.config))
+    click.echo(dump_all_playlists(ctx.config))
 
 
 @playlists.command(name="set-cover")
 @click.argument("playlist", type=str, nargs=1)
 @click.argument("cover", type=click.Path(path_type=Path), nargs=1)
 @click.pass_obj
-def set_cover2(ctx: Context, playlist: str, cover: Path) -> None:
+def set_cover_playlist(ctx: Context, playlist: str, cover: Path) -> None:
     """
     Set the cover art of a playlist. Accepts a playlist name and a path to an image.
     """
@@ -533,7 +533,7 @@ def set_cover2(ctx: Context, playlist: str, cover: Path) -> None:
 @playlists.command(name="delete-cover")
 @click.argument("playlist", type=str, nargs=1)
 @click.pass_obj
-def delete_cover2(ctx: Context, playlist: str) -> None:
+def delete_cover_playlist(ctx: Context, playlist: str) -> None:
     """Delete the cover art of a playlist. Accepts a playlist name."""
     from rose.playlists import delete_playlist_cover_art
 
