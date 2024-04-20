@@ -136,10 +136,12 @@ position: str                        # If in a playlist context, the zero-padded
 Rosé also provides the following custom filters:
 
 ```python
-arrayfmt: (list[str]) -> str               # Formats an array of strings as x, y & z.
-artistsarrayfmt: (list[Artist]) -> str     # Formats an array of Artist objects as x, y & z.
-artistsfmt: ArtistMapping -> str           # Formats an ArtistMapping; puts guests in (feat. x) and producers in (prod. x).
-releasetypefmt: str -> str                 # Correctly capitalizes the all-lowercase release type enum value.
+arrayfmt: (list[str]) -> str            # Formats an array of strings as x, y & z.
+artistsarrayfmt: (list[Artist]) -> str  # Formats an array of Artist objects as x, y & z.
+artistsfmt: ArtistMapping -> str        # Formats an ArtistMapping; puts guests in (feat. x) and producers in (prod. x).
+releasetypefmt: str -> str              # Correctly capitalizes the all-lowercase release type enum value.
+sortorder: str -> str                   # Formats an artist name as Lastname, Firstname.
+lastname: str -> str                    # Formats an artist name as Lastname.
 ```
 
 # Examples

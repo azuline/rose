@@ -8,7 +8,9 @@ from rose.cache import CachedRelease, CachedTrack
 from rose.common import Artist, ArtistMapping
 from rose.config import Config
 from rose.templates import (
+    PathTemplate,
     PathTemplateConfig,
+    _get_preview_releases,
     eval_release_template,
     eval_track_template,
     preview_path_templates,
@@ -189,4 +191,25 @@ Source Directory - Track:
   Sample 2: 2. BTS - House of Cards.opus
   Sample 3: 3. Claude Debussy performed by Cleveland Orchestra under Pierre Boulez - Gigues: Modéré.opus.opus
 """
+    )
+
+
+def test_classical(config: Config) -> None:
+    """Test a complicated classical template."""
+
+    template = PathTemplate(
+        """
+        {% if new %}{{ '{N}' }}{% endif %}
+        {{ releaseartists.composer | map(attribute='name') | map('sortorder') | arrayfmt }} -
+        {% if compositionyear %}{{ compositionyear }}.{% endif %}
+        {{ releasetitle }}
+        performed by {{ releaseartists | artistsfmt(omit=["composer"]) }}
+        {% if releaseyear %}({{ releaseyear }}){% endif %}
+        """
+    )
+
+    _, _, debussy = _get_preview_releases(config)
+    assert (
+        eval_release_template(template, debussy)
+        == "Debussy, Claude - 1907. Images performed by Cleveland Orchestra under Pierre Boulez (1992)"
     )

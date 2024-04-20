@@ -9,6 +9,7 @@ from __future__ import annotations
 import dataclasses
 import re
 import typing
+from collections.abc import Iterable
 from copy import deepcopy
 from functools import cached_property
 from typing import Any
@@ -43,8 +44,9 @@ def releasetypefmt(x: str) -> str:
     return RELEASE_TYPE_FORMATTER.get(x, x.title())
 
 
-def arrayfmt(xs: list[str]) -> str:
+def arrayfmt(xs: Iterable[str]) -> str:
     """Format an array as x, y & z."""
+    xs = list(xs)
     if len(xs) == 0:
         return ""
     if len(xs) == 1:
@@ -52,28 +54,45 @@ def arrayfmt(xs: list[str]) -> str:
     return ", ".join(xs[:-1]) + " & " + xs[-1]
 
 
-def artistsarrayfmt(xs: list[Artist]) -> str:
+def artistsarrayfmt(xs: Iterable[Artist]) -> str:
     """Format an array of Artists."""
     return arrayfmt([x.name for x in xs if not x.alias])
 
 
-def artistsfmt(a: ArtistMapping) -> str:
+def artistsfmt(a: ArtistMapping, *, omit: list[str] | None = None) -> str:
     """Format a mapping of artists."""
+    omit = omit or []
 
     r = artistsarrayfmt(a.main)
-    if a.djmixer:
+    if a.djmixer and "djmixer" not in omit:
         r = artistsarrayfmt(a.djmixer) + " pres. " + r
-    elif a.composer:
+    elif a.composer and "composer" not in omit:
         r = artistsarrayfmt(a.composer) + " performed by " + r
-    if a.conductor:
+    if a.conductor and "conductor" not in omit:
         r += " under " + artistsarrayfmt(a.conductor)
-    if a.guest:
+    if a.guest and "guest" not in omit:
         r += " (feat. " + artistsarrayfmt(a.guest) + ")"
-    if a.producer:
+    if a.producer and "producer" not in omit:
         r += " (prod. " + artistsarrayfmt(a.producer) + ")"
     if r == "":
         return "Unknown Artists"
     return r
+
+
+def sortorder(x: str) -> str:
+    try:
+        first, last = x.rsplit(" ", 1)
+        return f"{last}, {first}"
+    except ValueError:
+        return x
+
+
+def lastname(x: str) -> str:
+    try:
+        _, last = x.rsplit(" ", 1)
+        return last
+    except ValueError:
+        return x
 
 
 ENVIRONMENT = jinja2.Environment()
@@ -81,6 +100,8 @@ ENVIRONMENT.filters["arrayfmt"] = arrayfmt
 ENVIRONMENT.filters["artistsarrayfmt"] = artistsarrayfmt
 ENVIRONMENT.filters["artistsfmt"] = artistsfmt
 ENVIRONMENT.filters["releasetypefmt"] = releasetypefmt
+ENVIRONMENT.filters["sortorder"] = sortorder
+ENVIRONMENT.filters["lastname"] = lastname
 
 
 class InvalidPathTemplateError(RoseExpectedError):
