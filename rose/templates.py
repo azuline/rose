@@ -123,7 +123,7 @@ class PathTemplatePair:
 DEFAULT_RELEASE_TEMPLATE = PathTemplate(
     """
 {{ releaseartists | artistsfmt }} -
-{% if year %}{{ year }}.{% endif %}
+{% if releaseyear %}{{ releaseyear }}.{% endif %}
 {{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 {% if new %}[NEW]{% endif %}
@@ -254,7 +254,7 @@ def _calc_release_variables(release: CachedRelease, position: str | None) -> dic
         "added_at": release.added_at,
         "releasetitle": release.releasetitle,
         "releasetype": release.releasetype,
-        "year": release.year,
+        "releaseyear": release.releaseyear,
         "new": release.new,
         "disctotal": release.disctotal,
         "genres": release.genres,
@@ -276,7 +276,7 @@ def _calc_track_variables(track: CachedTrack, position: str | None) -> dict[str,
         "trackartists": track.trackartists,
         "releasetitle": track.release.releasetitle,
         "releasetype": track.release.releasetype,
-        "year": track.release.year,
+        "releaseyear": track.release.releaseyear,
         "new": track.release.new,
         "genres": track.release.genres,
         "labels": track.release.labels,
@@ -334,7 +334,7 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease]:
         datafile_mtime="999",
         releasetitle="Kim Lip",
         releasetype="single",
-        year=2017,
+        releaseyear=2017,
         new=True,
         disctotal=1,
         genres=["K-Pop", "Dance-Pop", "Contemporary R&B"],
@@ -351,7 +351,7 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease]:
         datafile_mtime="999",
         releasetitle="Young Forever (花樣年華)",
         releasetype="album",
-        year=2016,
+        releaseyear=2016,
         new=False,
         disctotal=2,
         genres=["K-Pop"],

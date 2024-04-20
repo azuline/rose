@@ -227,7 +227,7 @@ def filter_track_false_positives_using_tags(
             match = False
             # fmt: off
             match = match or (field == "tracktitle" and matches_pattern(matcher.pattern, tags.title))
-            match = match or (field == "year" and matches_pattern(matcher.pattern, tags.year))
+            match = match or (field == "releaseyear" and matches_pattern(matcher.pattern, tags.releaseyear))
             match = match or (field == "tracknumber" and matches_pattern(matcher.pattern, tags.tracknumber))
             match = match or (field == "tracktotal" and matches_pattern(matcher.pattern, tags.tracktotal))
             match = match or (field == "discnumber" and matches_pattern(matcher.pattern, tags.discnumber))
@@ -259,7 +259,7 @@ def filter_track_false_positives_using_tags(
                 for i in ignore:
                     # fmt: off
                     skip = skip or (field == "tracktitle" and matches_pattern(i.pattern, tags.title))
-                    skip = skip or (field == "year" and matches_pattern(i.pattern, tags.year))
+                    skip = skip or (field == "releaseyear" and matches_pattern(i.pattern, tags.releaseyear))
                     skip = skip or (field == "tracknumber" and matches_pattern(i.pattern, tags.tracknumber))
                     skip = skip or (field == "tracktotal" and matches_pattern(i.pattern, tags.tracktotal))
                     skip = skip or (field == "discnumber" and matches_pattern(i.pattern, tags.discnumber))
@@ -335,15 +335,15 @@ def execute_metadata_actions(
                 if field == "tracktitle":
                     tags.title = execute_single_action(act, tags.title)
                     potential_changes.append(("title", origtags.title, tags.title))
-                elif field == "year":
-                    v = execute_single_action(act, tags.year)
+                elif field == "releaseyear":
+                    v = execute_single_action(act, tags.releaseyear)
                     try:
-                        tags.year = int(v) if v else None
+                        tags.releaseyear = int(v) if v else None
                     except ValueError as e:
                         raise InvalidReplacementValueError(
-                            f"Failed to assign new value {v} to year: value must be integer"
+                            f"Failed to assign new value {v} to releaseyear: value must be integer"
                         ) from e
-                    potential_changes.append(("year", origtags.year, tags.year))
+                    potential_changes.append(("releaseyear", origtags.releaseyear, tags.releaseyear))
                 elif field == "tracknumber":
                     tags.tracknumber = execute_single_action(act, tags.tracknumber)
                     potential_changes.append(("tracknumber", origtags.tracknumber, tags.tracknumber))
@@ -642,7 +642,7 @@ def filter_track_false_positives_using_read_cache(
             match = False
             # fmt: off
             match = match or (field == "tracktitle" and matches_pattern(matcher.pattern, t.tracktitle))
-            match = match or (field == "year" and matches_pattern(matcher.pattern, t.release.year))
+            match = match or (field == "releaseyear" and matches_pattern(matcher.pattern, t.release.releaseyear))
             match = match or (field == "tracknumber" and matches_pattern(matcher.pattern, t.tracknumber))
             match = match or (field == "tracktotal" and matches_pattern(matcher.pattern, t.tracktotal))
             match = match or (field == "discnumber" and matches_pattern(matcher.pattern, t.discnumber))
@@ -686,7 +686,7 @@ def filter_release_false_positives_using_read_cache(
             match = False
             # Only attempt to match the release tags; ignore track tags.
             # fmt: off
-            match = match or (field == "year" and matches_pattern(matcher.pattern, r.year))
+            match = match or (field == "releaseyear" and matches_pattern(matcher.pattern, r.releaseyear))
             match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, r.releasetitle))
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, r.releasetype))
             match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in r.genres))

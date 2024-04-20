@@ -39,7 +39,7 @@ An example of the release's TOML representation:
 title = "Mix & Match"
 new = false
 releasetype = "ep"
-year = 2017
+releaseyear = 2017
 genres = [
     "Dance-Pop",
     "Future Bass",
@@ -294,7 +294,7 @@ The rules engine supports matching and acting on the following tags:
 - `releaseartist[conductor]`
 - `releaseartist[djmixer]`
 - `releasetype`
-- `year`
+- `releaseyear`
 - `genre`
 - `label`
 

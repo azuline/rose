@@ -22,7 +22,7 @@ EMPTY_CACHED_RELEASE = CachedRelease(
     datafile_mtime="999",
     releasetitle="",
     releasetype="unknown",
-    year=None,
+    releaseyear=None,
     new=False,
     disctotal=1,
     genres=[],
@@ -51,7 +51,7 @@ def test_default_templates() -> None:
 
     release = deepcopy(EMPTY_CACHED_RELEASE)
     release.releasetitle = "Title"
-    release.year = 2023
+    release.releaseyear = 2023
     release.releaseartists = ArtistMapping(
         main=[Artist("A1"), Artist("A2"), Artist("A3")],
         guest=[Artist("BB")],

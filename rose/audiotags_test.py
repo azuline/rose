@@ -35,7 +35,7 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
 
     assert af.release == "A Cool Album"
     assert af.releasetype == "album"
-    assert af.year == 1990
+    assert af.releaseyear == 1990
     assert af.genre == ["Electronic", "House"]
     assert af.label == ["A Cool Label"]
 
@@ -78,7 +78,7 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
 
     assert af.release == "A Cool Album"
     assert af.releasetype == "album"
-    assert af.year == 1990
+    assert af.releaseyear == 1990
     assert af.discnumber == "1"
     assert af.genre == ["Electronic", "House"]
     assert af.label == ["A Cool Label"]

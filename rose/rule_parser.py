@@ -65,7 +65,7 @@ Tag = Literal[
     "releaseartist[conductor]",
     "releaseartist[djmixer]",
     "releasetype",
-    "year",
+    "releaseyear",
     "genre",
     "label",
 ]
@@ -112,7 +112,7 @@ ALL_TAGS: dict[str, list[Tag]] = {
     "releaseartist[conductor]": ["releaseartist[conductor]"],
     "releaseartist[djmixer]": ["releaseartist[djmixer]"],
     "releasetype": ["releasetype"],
-    "year": ["year"],
+    "releaseyear": ["releaseyear"],
     "genre": ["genre"],
     "label": ["label"],
     "artist": [
@@ -153,7 +153,7 @@ MODIFIABLE_TAGS: list[Tag] = [
     "releaseartist[conductor]",
     "releaseartist[djmixer]",
     "releasetype",
-    "year",
+    "releaseyear",
     "genre",
     "label",
 ]
@@ -166,7 +166,7 @@ SINGLE_VALUE_TAGS: list[Tag] = [
     "disctotal",
     "releasetitle",
     "releasetype",
-    "year",
+    "releaseyear",
 ]
 
 RELEASE_TAGS: list[Tag] = [
@@ -180,7 +180,7 @@ RELEASE_TAGS: list[Tag] = [
     "releaseartist[djmixer]",
     "releasetype",
     "releasetype",
-    "year",
+    "releaseyear",
     "genre",
     "label",
     "disctotal",

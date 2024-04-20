@@ -101,7 +101,7 @@ def delete_release(c: Config, release_id: str) -> None:
         send2trash(release.source_path)
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        year=release.year,
+        releaseyear=release.releaseyear,
         artists=release.releaseartists,
     )
     logger.info(f"Trashed release {release_logtext}")
@@ -118,7 +118,7 @@ def toggle_release_new(c: Config, release_id: str) -> None:
 
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        year=release.year,
+        releaseyear=release.releaseyear,
         artists=release.releaseartists,
     )
 
@@ -160,7 +160,7 @@ def set_release_cover_art(
 
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        year=release.year,
+        releaseyear=release.releaseyear,
         artists=release.releaseartists,
     )
 
@@ -181,7 +181,7 @@ def delete_release_cover_art(c: Config, release_id: str) -> None:
 
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        year=release.year,
+        releaseyear=release.releaseyear,
         artists=release.releaseartists,
     )
 
@@ -238,7 +238,7 @@ class MetadataRelease:
     title: str
     new: bool
     releasetype: str
-    year: int | None
+    releaseyear: int | None
     genres: list[str]
     labels: list[str]
     artists: list[MetadataArtist]
@@ -250,7 +250,7 @@ class MetadataRelease:
             title=release.releasetitle,
             new=release.new,
             releasetype=release.releasetype,
-            year=release.year,
+            releaseyear=release.releaseyear,
             genres=release.genres,
             labels=release.labels,
             artists=MetadataArtist.from_mapping(release.releaseartists),
@@ -269,7 +269,7 @@ class MetadataRelease:
         # LOL TOML DOESN'T HAVE A NULL TYPE. Use -9999 as sentinel. If your music is legitimately
         # released in -9999, you should probably lay off the shrooms.
         data = asdict(self)
-        data["year"] = self.year or -9999
+        data["releaseyear"] = self.releaseyear or -9999
         return tomli_w.dumps(data)
 
     @classmethod
@@ -279,7 +279,7 @@ class MetadataRelease:
             title=d["title"],
             new=d["new"],
             releasetype=d["releasetype"],
-            year=d["year"] if d["year"] != -9999 else None,
+            releaseyear=d["releaseyear"] if d["releaseyear"] != -9999 else None,
             genres=d["genres"],
             labels=d["labels"],
             artists=[MetadataArtist(name=a["name"], role=a["role"]) for a in d["artists"]],
@@ -378,10 +378,10 @@ def edit_release(
                     tags.releasetype = release_meta.releasetype.lower()
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: releasetype")
-                if tags.year != release_meta.year:
-                    tags.year = release_meta.year
+                if tags.releaseyear != release_meta.releaseyear:
+                    tags.releaseyear = release_meta.releaseyear
                     dirty = True
-                    logger.debug(f"Modified tag detected for {t.source_path}: year")
+                    logger.debug(f"Modified tag detected for {t.source_path}: releaseyear")
                 if tags.genre != release_meta.genres:
                     tags.genre = release_meta.genres
                     dirty = True
@@ -455,8 +455,8 @@ def create_single_release(c: Config, track_path: Path) -> None:
     title = (af.title or "Unknown Title").strip()
 
     dirname = f"{artistsfmt(af.trackartists)} - "
-    if af.year:
-        dirname += f"{af.year}. "
+    if af.releaseyear:
+        dirname += f"{af.releaseyear}. "
     dirname += title
     # Handle directory name collisions.
     collision_no = 2

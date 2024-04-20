@@ -41,7 +41,7 @@ If set, the `default.xxx` templates are used as the default values for all other
 {# "Default Default" Release Template #}
 
 {{ releaseartists | artistsfmt }} -
-{% if year %}{{ year }}.{% endif %}
+{% if releaseyear %}{{ releaseyear }}.{% endif %}
 {{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 {% if new %}[NEW]{% endif %}
@@ -66,7 +66,7 @@ comments when defining your templates, like so:
 [path_templates]
 default.release = """
   {{ releaseartists | artistsfmt }} -
-  {% if year %}{{ year }}.{% endif %}         {# Hi! This is a comment! #}
+  {% if releaseyear %}{{ releaseyear }}.{% endif %}         {# Hi! This is a comment! #}
   {{ releasetitle }}
   {% if new %}[NEW]{% endif %}
 """
@@ -78,7 +78,7 @@ Rosé provides the following template variables for releases:
 added_at: str                        # ISO8601 timestamp of when the release was added to the library.
 releasetitle: str
 releasetype: str                     # Type of the release (e.g. single, ep, etc). One of the enums as defined in TAGGING_CONVENTIONS.md.
-year: int | None
+releaseyear: int | None
 new: bool                            # The "new"-ness of the release. See RELEASES.md for documentation on this feature.
 disctotal: int                       # The number of discs in the release.
 genres: list[str]
@@ -114,7 +114,7 @@ trackartists.conductor: list[Artist]
 trackartists.djmixer: list[Artist]
 releasetitle: str
 releasetype: str                     # Type of the track's release (e.g. single, ep, etc).
-year: int | None
+releaseyear: int | None
 new: bool                            # The "new"-ness of the track's release.
 genres: list[str]
 labels: list[str]

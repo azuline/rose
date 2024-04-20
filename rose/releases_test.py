@@ -136,7 +136,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         title = "I Really Love Blackpink"
         new = false
         releasetype = "single"
-        year = 2222
+        releaseyear = 2222
         genres = [
             "J-Pop",
             "Pop-Rap",
@@ -178,7 +178,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         datafile_mtime=release.datafile_mtime,
         releasetitle="I Really Love Blackpink",
         releasetype="single",
-        year=2222,
+        releaseyear=2222,
         new=False,
         disctotal=1,
         genres=["J-Pop", "Pop-Rap"],
@@ -235,7 +235,7 @@ def test_edit_release_failure_and_resume(
         title = "I Really Love Blackpink"
         new = false
         releasetype = "bullshit"
-        year = 2222
+        releaseyear = 2222
         genres = [
             "J-Pop",
             "Pop-Rap",
@@ -277,7 +277,7 @@ def test_edit_release_failure_and_resume(
         title = "I Really Love Blackpink"
         new = false
         releasetype = "single"
-        year = 2222
+        releaseyear = 2222
         genres = [
             "J-Pop",
             "Pop-Rap",
@@ -327,7 +327,7 @@ def test_edit_release_failure_and_resume(
         datafile_mtime=release.datafile_mtime,
         releasetitle="I Really Love Blackpink",
         releasetype="single",
-        year=2222,
+        releaseyear=2222,
         new=False,
         disctotal=1,
         genres=["J-Pop", "Pop-Rap"],
@@ -411,7 +411,7 @@ def test_dump_release(config: Config) -> None:
         "added_at": "0000-01-01T00:00:00+00:00",
         "releasetitle": "Release 1",
         "releasetype": "album",
-        "year": 2023,
+        "releaseyear": 2023,
         "new": False,
         "disctotal": 1,
         "genres": ["Techno", "Deep House"],
@@ -485,7 +485,7 @@ def test_dump_releases(config: Config) -> None:
             "added_at": "0000-01-01T00:00:00+00:00",
             "releasetitle": "Release 1",
             "releasetype": "album",
-            "year": 2023,
+            "releaseyear": 2023,
             "new": False,
             "disctotal": 1,
             "genres": ["Techno", "Deep House"],
@@ -554,7 +554,7 @@ def test_dump_releases(config: Config) -> None:
             "added_at": "0000-01-01T00:00:00+00:00",
             "releasetitle": "Release 2",
             "releasetype": "album",
-            "year": 2021,
+            "releaseyear": 2021,
             "new": False,
             "disctotal": 1,
             "genres": ["Classical"],
@@ -596,7 +596,7 @@ def test_dump_releases(config: Config) -> None:
             "added_at": "0000-01-01T00:00:00+00:00",
             "releasetitle": "Release 3",
             "releasetype": "album",
-            "year": 2021,
+            "releaseyear": 2021,
             "new": True,
             "disctotal": 1,
             "genres": [],
@@ -645,7 +645,7 @@ def test_dump_releases_matcher(config: Config) -> None:
             "added_at": "0000-01-01T00:00:00+00:00",
             "releasetitle": "Release 2",
             "releasetype": "album",
-            "year": 2021,
+            "releaseyear": 2021,
             "new": False,
             "disctotal": 1,
             "genres": ["Classical"],

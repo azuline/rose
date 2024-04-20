@@ -123,7 +123,7 @@ max_proc = 4
 [path_templates]
 default.release = """
 {{ artists | artistsfmt }} -
-{% if year %}{{ year }}.{% endif %}
+{% if releaseyear %}{{ releaseyear }}.{% endif %}
 {{ title }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 """

@@ -174,7 +174,7 @@ def test_update_cache_releases(config: Config) -> None:
     with connect(config) as conn:
         cursor = conn.execute(
             """
-            SELECT id, source_path, title, releasetype, year, new
+            SELECT id, source_path, title, releasetype, releaseyear, new
             FROM releases WHERE id = ?
             """,
             (release_id,),
@@ -183,7 +183,7 @@ def test_update_cache_releases(config: Config) -> None:
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["year"] == 1990
+        assert row["releaseyear"] == 1990
         assert row["new"]
 
         cursor = conn.execute(
@@ -309,13 +309,13 @@ def test_update_cache_releases_already_fully_cached(config: Config) -> None:
     # Assert that the release metadata was read correctly.
     with connect(config) as conn:
         cursor = conn.execute(
-            "SELECT id, source_path, title, releasetype, year, new FROM releases",
+            "SELECT id, source_path, title, releasetype, releaseyear, new FROM releases",
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["year"] == 1990
+        assert row["releaseyear"] == 1990
         assert row["new"]
 
 
@@ -334,13 +334,13 @@ def test_update_cache_releases_disk_update_to_previously_cached(config: Config) 
     # Assert that the release metadata was re-read and updated correctly.
     with connect(config) as conn:
         cursor = conn.execute(
-            "SELECT id, source_path, title, releasetype, year, new FROM releases",
+            "SELECT id, source_path, title, releasetype, releaseyear, new FROM releases",
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["year"] == 1990
+        assert row["releaseyear"] == 1990
         assert row["new"]
 
 
@@ -394,13 +394,13 @@ def test_update_cache_releases_source_path_renamed(config: Config) -> None:
     # Assert that the release metadata was re-read and updated correctly.
     with connect(config) as conn:
         cursor = conn.execute(
-            "SELECT id, source_path, title, releasetype, year, new FROM releases",
+            "SELECT id, source_path, title, releasetype, releaseyear, new FROM releases",
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(moved_release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["year"] == 1990
+        assert row["releaseyear"] == 1990
         assert row["new"]
 
 
@@ -1042,7 +1042,7 @@ def test_list_releases(config: Config) -> None:
             added_at="0000-01-01T00:00:00+00:00",
             releasetitle="Release 1",
             releasetype="album",
-            year=2023,
+            releaseyear=2023,
             disctotal=1,
             new=False,
             genres=["Techno", "Deep House"],
@@ -1058,7 +1058,7 @@ def test_list_releases(config: Config) -> None:
             added_at="0000-01-01T00:00:00+00:00",
             releasetitle="Release 2",
             releasetype="album",
-            year=2021,
+            releaseyear=2021,
             disctotal=1,
             new=False,
             genres=["Classical"],
@@ -1076,7 +1076,7 @@ def test_list_releases(config: Config) -> None:
             added_at="0000-01-01T00:00:00+00:00",
             releasetitle="Release 3",
             releasetype="album",
-            year=2021,
+            releaseyear=2021,
             disctotal=1,
             new=True,
             genres=[],
@@ -1102,7 +1102,7 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
         added_at="0000-01-01T00:00:00+00:00",
         releasetitle="Release 1",
         releasetype="album",
-        year=2023,
+        releaseyear=2023,
         disctotal=1,
         new=False,
         genres=["Techno", "Deep House"],
@@ -1190,7 +1190,7 @@ def test_list_tracks(config: Config) -> None:
                 added_at="0000-01-01T00:00:00+00:00",
                 releasetitle="Release 1",
                 releasetype="album",
-                year=2023,
+                releaseyear=2023,
                 disctotal=1,
                 new=False,
                 genres=["Techno", "Deep House"],
@@ -1218,7 +1218,7 @@ def test_list_tracks(config: Config) -> None:
                 added_at="0000-01-01T00:00:00+00:00",
                 releasetitle="Release 1",
                 releasetype="album",
-                year=2023,
+                releaseyear=2023,
                 disctotal=1,
                 new=False,
                 genres=["Techno", "Deep House"],
@@ -1248,7 +1248,7 @@ def test_list_tracks(config: Config) -> None:
                 datafile_mtime="999",
                 releasetitle="Release 2",
                 releasetype="album",
-                year=2021,
+                releaseyear=2021,
                 new=False,
                 disctotal=1,
                 genres=["Classical"],
@@ -1278,7 +1278,7 @@ def test_list_tracks(config: Config) -> None:
                 datafile_mtime="999",
                 releasetitle="Release 3",
                 releasetype="album",
-                year=2021,
+                releaseyear=2021,
                 new=True,
                 disctotal=1,
                 genres=[],
@@ -1314,7 +1314,7 @@ def test_get_track(config: Config) -> None:
             added_at="0000-01-01T00:00:00+00:00",
             releasetitle="Release 1",
             releasetype="album",
-            year=2023,
+            releaseyear=2023,
             disctotal=1,
             new=False,
             genres=["Techno", "Deep House"],
@@ -1404,7 +1404,7 @@ def test_get_collage(config: Config) -> None:
             datafile_mtime="999",
             releasetitle="Release 1",
             releasetype="album",
-            year=2023,
+            releaseyear=2023,
             new=False,
             disctotal=1,
             genres=["Techno", "Deep House"],
@@ -1420,7 +1420,7 @@ def test_get_collage(config: Config) -> None:
             datafile_mtime="999",
             releasetitle="Release 2",
             releasetype="album",
-            year=2021,
+            releaseyear=2021,
             new=False,
             disctotal=1,
             genres=["Classical"],
@@ -1486,7 +1486,7 @@ def test_get_playlist(config: Config) -> None:
                 added_at="0000-01-01T00:00:00+00:00",
                 releasetitle="Release 1",
                 releasetype="album",
-                year=2023,
+                releaseyear=2023,
                 disctotal=1,
                 new=False,
                 genres=["Techno", "Deep House"],
@@ -1516,7 +1516,7 @@ def test_get_playlist(config: Config) -> None:
                 datafile_mtime="999",
                 releasetitle="Release 2",
                 releasetype="album",
-                year=2021,
+                releaseyear=2021,
                 new=False,
                 disctotal=1,
                 genres=["Classical"],

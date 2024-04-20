@@ -208,7 +208,7 @@ class CachedRelease:
     datafile_mtime: str
     releasetitle: str
     releasetype: str
-    year: int | None
+    releaseyear: int | None
     new: bool
     disctotal: int
     genres: list[str]
@@ -226,7 +226,7 @@ class CachedRelease:
             datafile_mtime=row["datafile_mtime"],
             releasetitle=row["releasetitle"],
             releasetype=row["releasetype"],
-            year=row["year"],
+            releaseyear=row["releaseyear"],
             disctotal=row["disctotal"],
             new=bool(row["new"]),
             genres=_split(row["genres"]) if row["genres"] else [],
@@ -247,7 +247,7 @@ class CachedRelease:
             "added_at": self.added_at,
             "releasetitle": self.releasetitle,
             "releasetype": self.releasetype,
-            "year": self.year,
+            "releaseyear": self.releaseyear,
             "new": self.new,
             "disctotal": self.disctotal,
             "genres": self.genres,
@@ -317,7 +317,7 @@ class CachedTrack:
                     "releasetitle": self.release.releasetitle,
                     "releasetype": self.release.releasetype,
                     "disctotal": self.release.disctotal,
-                    "year": self.release.year,
+                    "releaseyear": self.release.releaseyear,
                     "new": self.release.new,
                     "genres": self.release.genres,
                     "labels": self.release.labels,
@@ -612,7 +612,7 @@ def _update_cache_for_releases_executor(
                 added_at="",
                 releasetitle="",
                 releasetype="",
-                year=None,
+                releaseyear=None,
                 new=True,
                 disctotal=0,
                 genres=[],
@@ -777,9 +777,9 @@ def _update_cache_for_releases_executor(
                     release.releasetype = releasetype
                     release_dirty = True
 
-                if tags.year != release.year:
+                if tags.releaseyear != release.releaseyear:
                     logger.debug(f"Release year change detected for {source_path}, updating")
-                    release.year = tags.year
+                    release.releaseyear = tags.releaseyear
                     release_dirty = True
 
                 if set(tags.genre) != set(release.genres):
@@ -949,7 +949,7 @@ def _update_cache_for_releases_executor(
                     release.datafile_mtime,
                     release.releasetitle,
                     release.releasetype,
-                    release.year,
+                    release.releaseyear,
                     release.disctotal,
                     release.new,
                     sha256_dataclass(release),
@@ -1030,7 +1030,7 @@ def _update_cache_for_releases_executor(
                   , datafile_mtime
                   , title
                   , releasetype
-                  , year
+                  , releaseyear
                   , disctotal
                   , new
                   , metahash
@@ -1148,7 +1148,7 @@ def _update_cache_for_releases_executor(
                   , discnumber
                   , disctotal
                   , releasetitle
-                  , year
+                  , releaseyear
                   , releasetype
                   , genre
                   , label
@@ -1163,7 +1163,7 @@ def _update_cache_for_releases_executor(
                   , process_string_for_fts(t.discnumber) AS discnumber
                   , process_string_for_fts(r.disctotal) AS discnumber
                   , process_string_for_fts(r.title) AS releasetitle
-                  , process_string_for_fts(r.year) AS year
+                  , process_string_for_fts(r.releaseyear) AS releaseyear
                   , process_string_for_fts(r.releasetype) AS releasetype
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, ' '), '')) AS genre
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, ' '), '')) AS label
@@ -1339,7 +1339,7 @@ def update_cache_for_collages(
                 desc_map: dict[str, str] = {}
                 cursor = conn.execute(
                     f"""
-                    SELECT id, releasetitle, year, releaseartist_names, releaseartist_roles FROM releases_view
+                    SELECT id, releasetitle, releaseyear, releaseartist_names, releaseartist_roles FROM releases_view
                     WHERE id IN ({','.join(['?']*len(releases))})
                     """,
                     cached_collage.release_ids,
@@ -1347,7 +1347,7 @@ def update_cache_for_collages(
                 for row in cursor:
                     desc_map[row["id"]] = calculate_release_logtext(
                         title=row["releasetitle"],
-                        year=row["year"],
+                        releaseyear=row["releaseyear"],
                         artists=_unpack_artists(
                             c, row["releaseartist_names"], row["releaseartist_roles"]
                         ),
@@ -1561,7 +1561,7 @@ def update_cache_for_playlists(
                       , t.source_path
                       , t.trackartist_names
                       , t.trackartist_roles
-                      , r.year
+                      , r.releaseyear
                     FROM tracks_view t
                     JOIN releases_view r ON r.id = t.release_id
                     WHERE t.id IN ({','.join(['?']*len(tracks))})
@@ -1574,7 +1574,7 @@ def update_cache_for_playlists(
                         artists=_unpack_artists(
                             c, row["trackartist_names"], row["trackartist_roles"]
                         ),
-                        year=row["year"],
+                        releaseyear=row["releaseyear"],
                         suffix=Path(row["source_path"]).suffix,
                     )
                 for i, trk in enumerate(tracks):
@@ -1729,7 +1729,7 @@ def get_release_logtext(c: Config, release_id: str) -> str | None:
     """Get a human-readable identifier for a release suitable for logging."""
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT releasetitle, year, releaseartist_names, releaseartist_roles FROM releases_view WHERE id = ?",
+            "SELECT releasetitle, releaseyear, releaseartist_names, releaseartist_roles FROM releases_view WHERE id = ?",
             (release_id,),
         )
         row = cursor.fetchone()
@@ -1737,19 +1737,19 @@ def get_release_logtext(c: Config, release_id: str) -> str | None:
             return None
         return calculate_release_logtext(
             title=row["releasetitle"],
-            year=row["year"],
+            releaseyear=row["releaseyear"],
             artists=_unpack_artists(c, row["releaseartist_names"], row["releaseartist_roles"]),
         )
 
 
 def calculate_release_logtext(
     title: str,
-    year: int | None,
+    releaseyear: int | None,
     artists: ArtistMapping,
 ) -> str:
     logtext = f"{artistsfmt(artists)} - "
-    if year:
-        logtext += f"{year}. "
+    if releaseyear:
+        logtext += f"{releaseyear}. "
     logtext += title
     return logtext
 
@@ -1901,7 +1901,7 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
               , t.source_path
               , t.trackartist_names
               , t.trackartist_roles
-              , r.year
+              , r.releaseyear
             FROM tracks_view t
             JOIN releases_view r ON r.id = t.release_id
             WHERE t.id = ?
@@ -1914,15 +1914,18 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
         return calculate_track_logtext(
             title=row["tracktitle"],
             artists=_unpack_artists(c, row["trackartist_names"], row["trackartist_roles"]),
-            year=row["year"],
+            releaseyear=row["releaseyear"],
             suffix=Path(row["source_path"]).suffix,
         )
 
 
 def calculate_track_logtext(
-    title: str, artists: ArtistMapping, year: int | None, suffix: str
+    title: str,
+    artists: ArtistMapping,
+    releaseyear: int | None,
+    suffix: str,
 ) -> str:
-    return f"{artistsfmt(artists)} - {title or 'Unknown Title'} [{year}]{suffix}"
+    return f"{artistsfmt(artists)} - {title or 'Unknown Title'} [{releaseyear}]{suffix}"
 
 
 def list_playlists(c: Config) -> list[str]:

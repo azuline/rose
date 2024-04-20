@@ -112,10 +112,10 @@ def seeded_cache(config: Config) -> None:
         conn.executescript(
             f"""\
 INSERT INTO releases
-       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype, year, disctotal, new  , metahash)
-VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'    , 2023, 1        , false, '1')
-     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'    , 2021, 1        , false, '2')
-     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , 2021, 1        , true , '3');
+       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype, releaseyear, disctotal, new  , metahash)
+VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'    , 2023       , 1        , false, '1')
+     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'    , 2021       , 1        , false, '2')
+     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , 2021       , 1        , true , '3');
 
 INSERT INTO releases_genres
        (release_id, genre       , genre_sanitized, position)
@@ -183,7 +183,7 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
               , tracknumber
               , discnumber
               , releasetitle
-              , year
+              , releaseyear
               , releasetype
               , genre
               , label
@@ -196,7 +196,7 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
               , process_string_for_fts(t.tracknumber) AS tracknumber
               , process_string_for_fts(t.discnumber) AS discnumber
               , process_string_for_fts(r.title) AS releasetitle
-              , process_string_for_fts(r.year) AS year
+              , process_string_for_fts(r.releaseyear) AS releaseyear
               , process_string_for_fts(r.releasetype) AS releasetype
               , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, ' '), '')) AS genre
               , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, ' '), '')) AS label

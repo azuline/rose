@@ -77,7 +77,7 @@ Failed to parse matcher, invalid syntax:
 
     tracknumber^Track$
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, tracktotal, discnumber, disctotal, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, tracktotal, discnumber, disctotal, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releaseyear, genre, label, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -250,7 +250,7 @@ Failed to parse action 1, invalid syntax:
 
     haha/delete
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releaseyear, genre, label, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -261,7 +261,7 @@ Failed to parse action 1, invalid syntax:
 
     tracktitler/delete
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, year, genre, label, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releaseyear, genre, label, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 

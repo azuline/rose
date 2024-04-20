@@ -86,7 +86,7 @@ class AudioTags:
     id: str | None
     release_id: str | None
     title: str | None
-    year: int | None
+    releaseyear: int | None
     tracknumber: str | None
     tracktotal: int | None
     discnumber: str | None
@@ -143,7 +143,7 @@ class AudioTags:
                 id=_get_tag(m.tags, ["TXXX:ROSEID"]),
                 release_id=_get_tag(m.tags, ["TXXX:ROSERELEASEID"]),
                 title=_get_tag(m.tags, ["TIT2"]),
-                year=_parse_year(_get_tag(m.tags, ["TDRC", "TYER"])),
+                releaseyear=_parse_year(_get_tag(m.tags, ["TDRC", "TYER"])),
                 tracknumber=tracknumber,
                 tracktotal=tracktotal,
                 discnumber=discnumber,
@@ -177,7 +177,7 @@ class AudioTags:
                 id=_get_tag(m.tags, ["----:net.sunsetglow.rose:ID"]),
                 release_id=_get_tag(m.tags, ["----:net.sunsetglow.rose:RELEASEID"]),
                 title=_get_tag(m.tags, ["\xa9nam"]),
-                year=_parse_year(_get_tag(m.tags, ["\xa9day"])),
+                releaseyear=_parse_year(_get_tag(m.tags, ["\xa9day"])),
                 tracknumber=str(tracknumber),
                 tracktotal=tracktotal,
                 discnumber=str(discnumber),
@@ -205,7 +205,7 @@ class AudioTags:
                 id=_get_tag(m.tags, ["roseid"]),
                 release_id=_get_tag(m.tags, ["rosereleaseid"]),
                 title=_get_tag(m.tags, ["title"]),
-                year=_parse_year(_get_tag(m.tags, ["date", "year"])),
+                releaseyear=_parse_year(_get_tag(m.tags, ["date", "year"])),
                 tracknumber=_get_tag(m.tags, ["tracknumber"], first=True),
                 tracktotal=_parse_int(_get_tag(m.tags, ["tracktotal"], first=True)),
                 discnumber=_get_tag(m.tags, ["discnumber"], first=True),
@@ -271,7 +271,7 @@ class AudioTags:
             _write_tag_with_description("TXXX:ROSEID", self.id)
             _write_tag_with_description("TXXX:ROSERELEASEID", self.release_id)
             _write_standard_tag("TIT2", self.title)
-            _write_standard_tag("TDRC", str(self.year).zfill(4))
+            _write_standard_tag("TDRC", str(self.releaseyear).zfill(4))
             _write_standard_tag("TRCK", self.tracknumber)
             _write_standard_tag("TPOS", self.discnumber)
             _write_standard_tag("TALB", self.release)
@@ -296,7 +296,7 @@ class AudioTags:
             m.tags["----:net.sunsetglow.rose:ID"] = (self.id or "").encode()
             m.tags["----:net.sunsetglow.rose:RELEASEID"] = (self.release_id or "").encode()
             m.tags["\xa9nam"] = self.title or ""
-            m.tags["\xa9day"] = str(self.year).zfill(4)
+            m.tags["\xa9day"] = str(self.releaseyear).zfill(4)
             m.tags["\xa9alb"] = self.release or ""
             m.tags["\xa9gen"] = ";".join(self.genre)
             m.tags["----:com.apple.iTunes:LABEL"] = ";".join(self.label).encode()
@@ -350,7 +350,7 @@ class AudioTags:
             m.tags["roseid"] = self.id or ""
             m.tags["rosereleaseid"] = self.release_id or ""
             m.tags["title"] = self.title or ""
-            m.tags["date"] = str(self.year).zfill(4)
+            m.tags["date"] = str(self.releaseyear).zfill(4)
             m.tags["tracknumber"] = self.tracknumber or ""
             m.tags["discnumber"] = self.discnumber or ""
             m.tags["album"] = self.release or ""
