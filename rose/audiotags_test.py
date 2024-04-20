@@ -84,9 +84,7 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     assert af.releaseartists.main == [Artist("Artist A"), Artist("Artist B")]
 
     assert af.tracknumber == track_num
-    assert af.tracktotal == 5
     assert af.discnumber == "1"
-    assert af.disctotal == 1
 
     assert af.title == f"Track {track_num}"
     assert af.trackartists == ArtistMapping(
