@@ -74,6 +74,9 @@ for line in raw_text:
     current_parents.append(genre)
     logger.debug(f"    Finished, updating {current_parents=}")
 
+# Sort genres.
+genres = dict(sorted(genres.items()))
+
 # Genres is now assembled. Let's assemble write our outputs.
 #
 # 1. A mapping from child to all transient parent genres. This is for populating the `parent_genres`
