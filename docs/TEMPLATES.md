@@ -83,10 +83,11 @@ compositionyear: int | None          # The year that the release was composed. M
 new: bool                            # The "new"-ness of the release. See RELEASES.md for documentation on this feature.
 disctotal: int                       # The number of discs in the release.
 genres: list[str]
+parent_genres: list[str]             # The parent genres of `genres`, excluding `genres`.
 labels: list[str]
 catalognumber: str | None
-releaseartists: ArtistMapping          # All release artists: an object with 6 properties, each corresponding to one role.
-releaseartists.main: list[Artist]      # The Artist object has a `name` property with the artist name.
+releaseartists: ArtistMapping        # All release artists: an object with 6 properties, each corresponding to one role.
+releaseartists.main: list[Artist]    # The Artist object has a `name` property with the artist name.
 releaseartists.guest: list[Artist]
 releaseartists.remixer: list[Artist]
 releaseartists.producer: list[Artist]
@@ -120,10 +121,11 @@ releaseyear: int | None
 compositionyear: int | None          # The year that the release was composed. Mainly of interest in classical music.
 new: bool                            # The "new"-ness of the track's release.
 genres: list[str]
+parent_genres: list[str]             # The parent genres of `genres`, excluding `genres`.
 labels: list[str]
 catalognumber: str | None
-releaseartists: ArtistMapping          # All release artists: an object with 6 properties, each corresponding to one role.
-releaseartists.main: list[Artist]      # The Artist object has a `name` property with the artist name.
+releaseartists: ArtistMapping        # All release artists: an object with 6 properties, each corresponding to one role.
+releaseartists.main: list[Artist]    # The Artist object has a `name` property with the artist name.
 releaseartists.guest: list[Artist]
 releaseartists.remixer: list[Artist]
 releaseartists.producer: list[Artist]
