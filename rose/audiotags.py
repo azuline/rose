@@ -146,7 +146,7 @@ class AudioTags:
                 release_id=_get_tag(m.tags, ["TXXX:ROSERELEASEID"]),
                 title=_get_tag(m.tags, ["TIT2"]),
                 releaseyear=_parse_year(_get_tag(m.tags, ["TDRC", "TYER"])),
-                compositionyear=_parse_year(_get_tag(m.tags, ["TXXX:COMPOSITIONYEAR"])),
+                compositionyear=_parse_year(_get_tag(m.tags, ["TXXX:COMPOSITIONDATE"])),
                 tracknumber=tracknumber,
                 tracktotal=tracktotal,
                 discnumber=discnumber,
@@ -183,7 +183,7 @@ class AudioTags:
                 title=_get_tag(m.tags, ["\xa9nam"]),
                 releaseyear=_parse_year(_get_tag(m.tags, ["\xa9day"])),
                 compositionyear=_parse_year(
-                    _get_tag(m.tags, ["----:net.sunsetglow.rose:COMPOSITIONYEAR"])
+                    _get_tag(m.tags, ["----:net.sunsetglow.rose:COMPOSITIONDATE"])
                 ),
                 tracknumber=str(tracknumber),
                 tracktotal=tracktotal,
@@ -282,7 +282,7 @@ class AudioTags:
             _write_tag_with_description("TXXX:ROSERELEASEID", self.release_id)
             _write_standard_tag("TIT2", self.title)
             _write_standard_tag("TDRC", str(self.releaseyear).zfill(4))
-            _write_tag_with_description("TXXX:COMPOSITIONYEAR", self.compositionyear)
+            _write_tag_with_description("TXXX:COMPOSITIONDATE", self.compositionyear)
             _write_standard_tag("TRCK", self.tracknumber)
             _write_standard_tag("TPOS", self.discnumber)
             _write_standard_tag("TALB", self.release)
@@ -309,7 +309,7 @@ class AudioTags:
             m.tags["----:net.sunsetglow.rose:RELEASEID"] = (self.release_id or "").encode()
             m.tags["\xa9nam"] = self.title or ""
             m.tags["\xa9day"] = str(self.releaseyear).zfill(4)
-            m.tags["----:net.sunsetglow.rose:COMPOSITIONYEAR"] = (
+            m.tags["----:net.sunsetglow.rose:COMPOSITIONDATE"] = (
                 str(self.compositionyear).zfill(4).encode()
             )
             m.tags["\xa9alb"] = self.release or ""

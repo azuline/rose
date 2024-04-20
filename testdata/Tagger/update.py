@@ -19,26 +19,26 @@ def write_tag_with_description(f: Any, name: str, value: str | None) -> None:
 
 
 f = mutagen.File("track1.flac")  # type: ignore
-f.tags["compositionyear"] = "1984"
+f.tags["compositiondate"] = "1984"
 f.tags["catalognumber"] = "DN-420"
 f.save()
 
 f = mutagen.File("track2.m4a")  # type: ignore
-f.tags["----:net.sunsetglow.rose:COMPOSITIONYEAR"] = "1984".encode()
+f.tags["----:net.sunsetglow.rose:COMPOSITIONDATE"] = "1984".encode()
 f.tags["----:com.apple.iTunes:CATALOGNUMBER"] = "DN-420".encode()
 f.save()
 
 f = mutagen.File("track3.mp3")  # type: ignore
-write_tag_with_description(f, "TXXX:COMPOSITIONYEAR", "1984")
+write_tag_with_description(f, "TXXX:COMPOSITIONDATE", "1984")
 write_tag_with_description(f, "TXXX:CATALOGNUMBER", "DN-420")
 f.save()
 
 f = mutagen.File("track4.vorbis.ogg")  # type: ignore
-f.tags["compositionyear"] = "1984"
+f.tags["compositiondate"] = "1984"
 f.tags["catalognumber"] = "DN-420"
 f.save()
 
 f = mutagen.File("track5.opus.ogg")  # type: ignore
-f.tags["compositionyear"] = "1984"
+f.tags["compositiondate"] = "1984"
 f.tags["catalognumber"] = "DN-420"
 f.save()
