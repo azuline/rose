@@ -1050,6 +1050,12 @@ def test_list_releases(config: Config) -> None:
             disctotal=1,
             new=False,
             genres=["Techno", "Deep House"],
+            parent_genres=[
+                "Dance",
+                "Electronic",
+                "Electronic Dance Music",
+                "House",
+            ],
             labels=["Silk Music"],
             releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
             metahash="1",
@@ -1068,6 +1074,7 @@ def test_list_releases(config: Config) -> None:
             disctotal=1,
             new=False,
             genres=["Classical"],
+            parent_genres=[],
             labels=["Native State"],
             releaseartists=ArtistMapping(
                 main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]
@@ -1088,6 +1095,7 @@ def test_list_releases(config: Config) -> None:
             disctotal=1,
             new=True,
             genres=[],
+            parent_genres=[],
             labels=[],
             releaseartists=ArtistMapping(),
             metahash="3",
@@ -1116,6 +1124,12 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
         disctotal=1,
         new=False,
         genres=["Techno", "Deep House"],
+        parent_genres=[
+            "Dance",
+            "Electronic",
+            "Electronic Dance Music",
+            "House",
+        ],
         labels=["Silk Music"],
         releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
         metahash="1",
@@ -1206,6 +1220,12 @@ def test_list_tracks(config: Config) -> None:
                 disctotal=1,
                 new=False,
                 genres=["Techno", "Deep House"],
+                parent_genres=[
+                    "Dance",
+                    "Electronic",
+                    "Electronic Dance Music",
+                    "House",
+                ],
                 labels=["Silk Music"],
                 releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
                 metahash="1",
@@ -1236,6 +1256,12 @@ def test_list_tracks(config: Config) -> None:
                 disctotal=1,
                 new=False,
                 genres=["Techno", "Deep House"],
+                parent_genres=[
+                    "Dance",
+                    "Electronic",
+                    "Electronic Dance Music",
+                    "House",
+                ],
                 labels=["Silk Music"],
                 releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
                 metahash="1",
@@ -1268,6 +1294,7 @@ def test_list_tracks(config: Config) -> None:
                 new=False,
                 disctotal=1,
                 genres=["Classical"],
+                parent_genres=[],
                 labels=["Native State"],
                 releaseartists=ArtistMapping(
                     main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]
@@ -1300,6 +1327,7 @@ def test_list_tracks(config: Config) -> None:
                 new=True,
                 disctotal=1,
                 genres=[],
+                parent_genres=[],
                 labels=[],
                 releaseartists=ArtistMapping(),
                 metahash="3",
@@ -1338,6 +1366,12 @@ def test_get_track(config: Config) -> None:
             disctotal=1,
             new=False,
             genres=["Techno", "Deep House"],
+            parent_genres=[
+                "Dance",
+                "Electronic",
+                "Electronic Dance Music",
+                "House",
+            ],
             labels=["Silk Music"],
             releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
             metahash="1",
@@ -1430,6 +1464,12 @@ def test_get_collage(config: Config) -> None:
             new=False,
             disctotal=1,
             genres=["Techno", "Deep House"],
+            parent_genres=[
+                "Dance",
+                "Electronic",
+                "Electronic Dance Music",
+                "House",
+            ],
             labels=["Silk Music"],
             releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
             metahash="1",
@@ -1448,6 +1488,7 @@ def test_get_collage(config: Config) -> None:
             new=False,
             disctotal=1,
             genres=["Classical"],
+            parent_genres=[],
             labels=["Native State"],
             releaseartists=ArtistMapping(
                 main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]
@@ -1516,6 +1557,12 @@ def test_get_playlist(config: Config) -> None:
                 disctotal=1,
                 new=False,
                 genres=["Techno", "Deep House"],
+                parent_genres=[
+                    "Dance",
+                    "Electronic",
+                    "Electronic Dance Music",
+                    "House",
+                ],
                 labels=["Silk Music"],
                 releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
                 metahash="1",
@@ -1548,6 +1595,7 @@ def test_get_playlist(config: Config) -> None:
                 new=False,
                 disctotal=1,
                 genres=["Classical"],
+                parent_genres=[],
                 labels=["Native State"],
                 releaseartists=ArtistMapping(
                     main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]

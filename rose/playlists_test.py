@@ -162,6 +162,12 @@ def test_dump_playlist(config: Config) -> None:
                 "catalognumber": None,
                 "new": False,
                 "genres": ["Techno", "Deep House"],
+                "parent_genres": [
+                    "Dance",
+                    "Electronic",
+                    "Electronic Dance Music",
+                    "House",
+                ],
                 "labels": ["Silk Music"],
                 "releaseartists": {
                     "main": [
@@ -204,6 +210,7 @@ def test_dump_playlist(config: Config) -> None:
                 "catalognumber": "DG-001",
                 "new": False,
                 "genres": ["Classical"],
+                "parent_genres": [],
                 "labels": ["Native State"],
                 "releaseartists": {
                     "main": [{"name": "Violin Woman", "alias": False}],
@@ -258,6 +265,12 @@ def test_dump_playlists(config: Config) -> None:
                     "catalognumber": None,
                     "new": False,
                     "genres": ["Techno", "Deep House"],
+                    "parent_genres": [
+                        "Dance",
+                        "Electronic",
+                        "Electronic Dance Music",
+                        "House",
+                    ],
                     "labels": ["Silk Music"],
                     "releaseartists": {
                         "main": [
@@ -300,6 +313,7 @@ def test_dump_playlists(config: Config) -> None:
                     "catalognumber": "DG-001",
                     "new": False,
                     "genres": ["Classical"],
+                    "parent_genres": [],
                     "labels": ["Native State"],
                     "releaseartists": {
                         "main": [{"name": "Violin Woman", "alias": False}],

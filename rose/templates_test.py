@@ -30,6 +30,7 @@ EMPTY_CACHED_RELEASE = CachedRelease(
     new=False,
     disctotal=1,
     genres=[],
+    parent_genres=[],
     labels=[],
     releaseartists=ArtistMapping(),
     metahash="0",

@@ -365,6 +365,7 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease, Cach
         new=True,
         disctotal=1,
         genres=["K-Pop", "Dance-Pop", "Contemporary R&B"],
+        parent_genres=["Pop", "R&B"],
         labels=["BlockBerryCreative"],
         releaseartists=ArtistMapping(main=[Artist("Kim Lip")]),
         metahash="0",
@@ -384,6 +385,7 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease, Cach
         new=False,
         disctotal=2,
         genres=["K-Pop"],
+        parent_genres=["Pop"],
         labels=["BIGHIT"],
         releaseartists=ArtistMapping(main=[Artist("BTS")]),
         metahash="0",
@@ -404,6 +406,7 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease, Cach
         new=False,
         disctotal=2,
         genres=["Impressionism, Orchestral"],
+        parent_genres=["Classical"],
         labels=["Deustche Grammophon"],
         releaseartists=ArtistMapping(
             main=[Artist("Cleveland Orchestra")],

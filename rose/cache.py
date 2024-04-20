@@ -61,6 +61,7 @@ from rose.common import (
     uniq,
 )
 from rose.config import Config
+from rose.genre_hierarchy import PARENT_GENRES
 from rose.templates import artistsfmt, eval_release_template, eval_track_template
 
 logger = logging.getLogger(__name__)
@@ -214,12 +215,14 @@ class CachedRelease:
     new: bool
     disctotal: int
     genres: list[str]
+    parent_genres: list[str]
     labels: list[str]
     releaseartists: ArtistMapping
     metahash: str
 
     @classmethod
     def from_view(cls, c: Config, row: dict[str, Any], aliases: bool = True) -> CachedRelease:
+        genres = _split(row["genres"]) if row["genres"] else []
         return CachedRelease(
             id=row["id"],
             source_path=Path(row["source_path"]),
@@ -233,7 +236,8 @@ class CachedRelease:
             catalognumber=row["catalognumber"],
             disctotal=row["disctotal"],
             new=bool(row["new"]),
-            genres=_split(row["genres"]) if row["genres"] else [],
+            genres=genres,
+            parent_genres=_get_parent_genres(genres),
             labels=_split(row["labels"]) if row["labels"] else [],
             releaseartists=_unpack_artists(
                 c, row["releaseartist_names"], row["releaseartist_roles"], aliases=aliases
@@ -257,6 +261,7 @@ class CachedRelease:
             "new": self.new,
             "disctotal": self.disctotal,
             "genres": self.genres,
+            "parent_genres": self.parent_genres,
             "labels": self.labels,
             "releaseartists": self.releaseartists.dump(),
         }
@@ -328,6 +333,7 @@ class CachedTrack:
                     "catalognumber": self.release.catalognumber,
                     "new": self.release.new,
                     "genres": self.release.genres,
+                    "parent_genres": self.release.parent_genres,
                     "labels": self.release.labels,
                     "releaseartists": self.release.releaseartists.dump(),
                 }
@@ -626,6 +632,7 @@ def _update_cache_for_releases_executor(
                 new=True,
                 disctotal=0,
                 genres=[],
+                parent_genres=[],
                 labels=[],
                 releaseartists=ArtistMapping(),
                 metahash="",
@@ -1702,6 +1709,7 @@ def list_releases_delete_this(
             """
             args.extend(sanitized_artists)
         if sanitized_genre_filter:
+            # TODO(NOW): Umm.. sanitized to not sanitized?
             query += """
                 AND EXISTS (
                     SELECT * FROM releases_genres
@@ -2170,6 +2178,13 @@ def _unpack_artists(
                     role_artists.append(Artist(name=alias, alias=True))
                     seen.add(alias)
     return mapping
+
+
+def _get_parent_genres(genres: list[str]) -> list[str]:
+    rval: set[str] = set()
+    for g in genres:
+        rval.update(PARENT_GENRES.get(g, []))
+    return sorted(rval)
 
 
 def _flatten(xxs: list[list[T]]) -> list[T]:
