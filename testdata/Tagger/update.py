@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
+from typing import Any
+
 import mutagen
 import mutagen.id3
-from typing import Any
 
 
 def write_tag_with_description(f: Any, name: str, value: str | None) -> None:
@@ -24,8 +25,8 @@ f.tags["catalognumber"] = "DN-420"
 f.save()
 
 f = mutagen.File("track2.m4a")  # type: ignore
-f.tags["----:net.sunsetglow.rose:COMPOSITIONDATE"] = "1984".encode()
-f.tags["----:com.apple.iTunes:CATALOGNUMBER"] = "DN-420".encode()
+f.tags["----:net.sunsetglow.rose:COMPOSITIONDATE"] = b"1984"
+f.tags["----:com.apple.iTunes:CATALOGNUMBER"] = b"DN-420"
 f.save()
 
 f = mutagen.File("track3.mp3")  # type: ignore
