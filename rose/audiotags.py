@@ -307,18 +307,18 @@ class AudioTags:
                 m.tags = mutagen.mp4.MP4Tags()
             m.tags["----:net.sunsetglow.rose:ID"] = (self.id or "").encode()
             m.tags["----:net.sunsetglow.rose:RELEASEID"] = (self.release_id or "").encode()
-            m.tags["\xa9nam"] = (self.title or "").encode()
-            m.tags["\xa9day"] = str(self.releaseyear).zfill(4).encode()
+            m.tags["\xa9nam"] = self.title or ""
+            m.tags["\xa9day"] = str(self.releaseyear).zfill(4)
             m.tags["----:net.sunsetglow.rose:COMPOSITIONYEAR"] = (
                 str(self.compositionyear).zfill(4).encode()
             )
-            m.tags["\xa9alb"] = (self.release or "").encode()
-            m.tags["\xa9gen"] = ";".join(self.genre).encode()
+            m.tags["\xa9alb"] = self.release or ""
+            m.tags["\xa9gen"] = ";".join(self.genre)
             m.tags["----:com.apple.iTunes:LABEL"] = ";".join(self.label).encode()
             m.tags["----:com.apple.iTunes:CATALOGNUMBER"] = (self.catalognumber or "").encode()
             m.tags["----:com.apple.iTunes:RELEASETYPE"] = self.releasetype.encode()
-            m.tags["aART"] = format_artist_string(self.releaseartists).encode()
-            m.tags["\xa9ART"] = format_artist_string(self.trackartists).encode()
+            m.tags["aART"] = format_artist_string(self.releaseartists)
+            m.tags["\xa9ART"] = format_artist_string(self.trackartists)
             # Wipe the alt. role artist tags, since we encode the full artist into the main tag.
             with contextlib.suppress(KeyError):
                 del m.tags["----:com.apple.iTunes:REMIXER"]
@@ -417,8 +417,8 @@ def _get_tag(t: Any, keys: list[str], *, split: bool = False, first: bool = Fals
                         f"Encountered a tag value of type {type(val)}"
                     )
             if first:
-                return values[0] if values else None
-            return r" \\ ".join(values)
+                return (values[0] or None) if values else None
+            return r" \\ ".join(values) or None
         except (KeyError, ValueError):
             pass
     return None

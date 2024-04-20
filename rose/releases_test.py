@@ -182,7 +182,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         releasetype="single",
         releaseyear=2222,
         compositionyear=1800,
-        catalognumber="lalala",
+        catalognumber="Lalala",
         new=False,
         disctotal=1,
         genres=["J-Pop", "Pop-Rap"],

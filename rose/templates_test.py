@@ -115,61 +115,78 @@ def test_preview_templates(config: Config) -> None:
 Source Directory - Release:
   Sample 1: Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: BTS - 2016. Young Forever (花樣年華)
+  Sample 3: Claude Debussy performed by Cleveland Orchestra under Pierre Boulez - 1992. Images
 Source Directory - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
+  Sample 3: 01-01. Gigues: Modéré.opus.opus
 
 1. All Releases - Release:
   Sample 1: Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: BTS - 2016. Young Forever (花樣年華)
+  Sample 3: Claude Debussy performed by Cleveland Orchestra under Pierre Boulez - 1992. Images
 1. All Releases - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
+  Sample 3: 01-01. Gigues: Modéré.opus.opus
 
 2. New Releases - Release:
   Sample 1: Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: BTS - 2016. Young Forever (花樣年華)
+  Sample 3: Claude Debussy performed by Cleveland Orchestra under Pierre Boulez - 1992. Images
 2. New Releases - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
+  Sample 3: 01-01. Gigues: Modéré.opus.opus
 
 3. Recently Added Releases - Release:
   Sample 1: [2023-04-20] Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: [2023-06-09] BTS - 2016. Young Forever (花樣年華)
+  Sample 3: [2023-09-06] Claude Debussy performed by Cleveland Orchestra under Pierre Boulez - 1992. Images
 3. Recently Added Releases - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
+  Sample 3: 01-01. Gigues: Modéré.opus.opus
 
 4. Artists - Release:
   Sample 1: Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: BTS - 2016. Young Forever (花樣年華)
+  Sample 3: Claude Debussy performed by Cleveland Orchestra under Pierre Boulez - 1992. Images
 4. Artists - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
+  Sample 3: 01-01. Gigues: Modéré.opus.opus
 
 5. Genres - Release:
   Sample 1: Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: BTS - 2016. Young Forever (花樣年華)
+  Sample 3: Claude Debussy performed by Cleveland Orchestra under Pierre Boulez - 1992. Images
 5. Genres - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
+  Sample 3: 01-01. Gigues: Modéré.opus.opus
 
 6. Labels - Release:
   Sample 1: Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: BTS - 2016. Young Forever (花樣年華)
+  Sample 3: Claude Debussy performed by Cleveland Orchestra under Pierre Boulez - 1992. Images
 6. Labels - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
+  Sample 3: 01-01. Gigues: Modéré.opus.opus
 
 7. Collages - Release:
   Sample 1: 1. Kim Lip - 2017. Kim Lip - Single [NEW]
   Sample 2: 2. BTS - 2016. Young Forever (花樣年華)
+  Sample 3: 3. Claude Debussy performed by Cleveland Orchestra under Pierre Boulez - 1992. Images
 7. Collages - Track:
   Sample 1: 01. Eclipse.opus
   Sample 2: 02-05. House of Cards.opus
+  Sample 3: 01-01. Gigues: Modéré.opus.opus
 
 8. Playlists - Track:
   Sample 1: 1. Kim Lip - Eclipse.opus
   Sample 2: 2. BTS - House of Cards.opus
+  Sample 3: 3. Claude Debussy performed by Cleveland Orchestra under Pierre Boulez - Gigues: Modéré.opus.opus
 """
     )
