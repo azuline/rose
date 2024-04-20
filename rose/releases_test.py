@@ -137,6 +137,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         new = false
         releasetype = "single"
         releaseyear = 2222
+        compositionyear = 1800
         genres = [
             "J-Pop",
             "Pop-Rap",
@@ -144,6 +145,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         labels = [
             "YG Entertainment",
         ]
+        catalognumber = "Lalala"
         artists = [
             {{ name = "BLACKPINK", role = "main" }},
             {{ name = "JISOO", role = "main" }},
@@ -179,6 +181,8 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         releasetitle="I Really Love Blackpink",
         releasetype="single",
         releaseyear=2222,
+        compositionyear=1800,
+        catalognumber="Lalala",
         new=False,
         disctotal=1,
         genres=["J-Pop", "Pop-Rap"],
@@ -236,6 +240,7 @@ def test_edit_release_failure_and_resume(
         new = false
         releasetype = "bullshit"
         releaseyear = 2222
+        compositionyear = -9999
         genres = [
             "J-Pop",
             "Pop-Rap",
@@ -243,6 +248,7 @@ def test_edit_release_failure_and_resume(
         labels = [
             "YG Entertainment",
         ]
+        catalognumber = ""
         artists = [
             {{ name = "BLACKPINK", role = "main" }},
             {{ name = "JISOO", role = "main" }},
@@ -278,6 +284,7 @@ def test_edit_release_failure_and_resume(
         new = false
         releasetype = "single"
         releaseyear = 2222
+        compositionyear = -9999
         genres = [
             "J-Pop",
             "Pop-Rap",
@@ -285,6 +292,7 @@ def test_edit_release_failure_and_resume(
         labels = [
             "YG Entertainment",
         ]
+        catalognumber = ""
         artists = [
             {{ name = "BLACKPINK", role = "main" }},
             {{ name = "JISOO", role = "main" }},
@@ -328,6 +336,8 @@ def test_edit_release_failure_and_resume(
         releasetitle="I Really Love Blackpink",
         releasetype="single",
         releaseyear=2222,
+        compositionyear=None,
+        catalognumber=None,
         new=False,
         disctotal=1,
         genres=["J-Pop", "Pop-Rap"],
@@ -412,6 +422,8 @@ def test_dump_release(config: Config) -> None:
         "releasetitle": "Release 1",
         "releasetype": "album",
         "releaseyear": 2023,
+        "compositionyear": None,
+        "catalognumber": None,
         "new": False,
         "disctotal": 1,
         "genres": ["Techno", "Deep House"],
@@ -486,6 +498,8 @@ def test_dump_releases(config: Config) -> None:
             "releasetitle": "Release 1",
             "releasetype": "album",
             "releaseyear": 2023,
+            "compositionyear": None,
+            "catalognumber": None,
             "new": False,
             "disctotal": 1,
             "genres": ["Techno", "Deep House"],
@@ -555,6 +569,8 @@ def test_dump_releases(config: Config) -> None:
             "releasetitle": "Release 2",
             "releasetype": "album",
             "releaseyear": 2021,
+            "compositionyear": None,
+            "catalognumber": "DG-001",
             "new": False,
             "disctotal": 1,
             "genres": ["Classical"],
@@ -597,6 +613,8 @@ def test_dump_releases(config: Config) -> None:
             "releasetitle": "Release 3",
             "releasetype": "album",
             "releaseyear": 2021,
+            "compositionyear": 1780,
+            "catalognumber": "DG-002",
             "new": True,
             "disctotal": 1,
             "genres": [],
@@ -646,6 +664,8 @@ def test_dump_releases_matcher(config: Config) -> None:
             "releasetitle": "Release 2",
             "releasetype": "album",
             "releaseyear": 2021,
+            "compositionyear": None,
+            "catalognumber": "DG-001",
             "new": False,
             "disctotal": 1,
             "genres": ["Classical"],

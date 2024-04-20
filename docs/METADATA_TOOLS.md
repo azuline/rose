@@ -40,6 +40,7 @@ title = "Mix & Match"
 new = false
 releasetype = "ep"
 releaseyear = 2017
+compositionyear = -9999
 genres = [
     "Dance-Pop",
     "Future Bass",
@@ -48,6 +49,7 @@ genres = [
 labels = [
     "BlockBerry Creative",
 ]
+catalognumber = "WMED0709"
 artists = [
     { name = "LOOΠΔ ODD EYE CIRCLE", role = "main" },
 ]
@@ -295,8 +297,10 @@ The rules engine supports matching and acting on the following tags:
 - `releaseartist[djmixer]`
 - `releasetype`
 - `releaseyear`
+- `compositionyear`
 - `genre`
 - `label`
+- `catalognumber`
 
 The `trackartist[*]`, `releaseartist[*]`, `genre`, and `label` tags are _multi-value_ tags, which
 have a slightly different behavior from single-value tags for some of the actions. We'll explore

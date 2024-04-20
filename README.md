@@ -351,9 +351,6 @@ Rosé's CLI is also designed to make scripting against your library easy. Operat
 release" and "jump to artist" can be expressed as a bash one-liner and integrated into your file
 manager.
 
-See [Shell Scripting](./docs/SHELL_SCRIPTING.md) for additional documentation on scripting with
-Rosé.
-
 # Learn More
 
 For additional documentation, please refer to the following files:

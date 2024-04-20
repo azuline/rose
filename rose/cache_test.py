@@ -174,7 +174,7 @@ def test_update_cache_releases(config: Config) -> None:
     with connect(config) as conn:
         cursor = conn.execute(
             """
-            SELECT id, source_path, title, releasetype, releaseyear, new
+            SELECT id, source_path, title, releasetype, releaseyear, compositionyear, catalognumber, new
             FROM releases WHERE id = ?
             """,
             (release_id,),
@@ -184,6 +184,8 @@ def test_update_cache_releases(config: Config) -> None:
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
         assert row["releaseyear"] == 1990
+        assert row["compositionyear"] is None
+        assert row["catalognumber"] is None
         assert row["new"]
 
         cursor = conn.execute(
@@ -1042,6 +1044,8 @@ def test_list_releases(config: Config) -> None:
             added_at="0000-01-01T00:00:00+00:00",
             releasetitle="Release 1",
             releasetype="album",
+            compositionyear=None,
+            catalognumber=None,
             releaseyear=2023,
             disctotal=1,
             new=False,
@@ -1059,6 +1063,8 @@ def test_list_releases(config: Config) -> None:
             releasetitle="Release 2",
             releasetype="album",
             releaseyear=2021,
+            compositionyear=None,
+            catalognumber="DG-001",
             disctotal=1,
             new=False,
             genres=["Classical"],
@@ -1077,6 +1083,8 @@ def test_list_releases(config: Config) -> None:
             releasetitle="Release 3",
             releasetype="album",
             releaseyear=2021,
+            compositionyear=1780,
+            catalognumber="DG-002",
             disctotal=1,
             new=True,
             genres=[],
@@ -1103,6 +1111,8 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
         releasetitle="Release 1",
         releasetype="album",
         releaseyear=2023,
+        compositionyear=None,
+        catalognumber=None,
         disctotal=1,
         new=False,
         genres=["Techno", "Deep House"],
@@ -1191,6 +1201,8 @@ def test_list_tracks(config: Config) -> None:
                 releasetitle="Release 1",
                 releasetype="album",
                 releaseyear=2023,
+                compositionyear=None,
+                catalognumber=None,
                 disctotal=1,
                 new=False,
                 genres=["Techno", "Deep House"],
@@ -1219,6 +1231,8 @@ def test_list_tracks(config: Config) -> None:
                 releasetitle="Release 1",
                 releasetype="album",
                 releaseyear=2023,
+                compositionyear=None,
+                catalognumber=None,
                 disctotal=1,
                 new=False,
                 genres=["Techno", "Deep House"],
@@ -1249,6 +1263,8 @@ def test_list_tracks(config: Config) -> None:
                 releasetitle="Release 2",
                 releasetype="album",
                 releaseyear=2021,
+                compositionyear=None,
+                catalognumber="DG-001",
                 new=False,
                 disctotal=1,
                 genres=["Classical"],
@@ -1279,6 +1295,8 @@ def test_list_tracks(config: Config) -> None:
                 releasetitle="Release 3",
                 releasetype="album",
                 releaseyear=2021,
+                compositionyear=1780,
+                catalognumber="DG-002",
                 new=True,
                 disctotal=1,
                 genres=[],
@@ -1315,6 +1333,8 @@ def test_get_track(config: Config) -> None:
             releasetitle="Release 1",
             releasetype="album",
             releaseyear=2023,
+            compositionyear=None,
+            catalognumber=None,
             disctotal=1,
             new=False,
             genres=["Techno", "Deep House"],
@@ -1405,6 +1425,8 @@ def test_get_collage(config: Config) -> None:
             releasetitle="Release 1",
             releasetype="album",
             releaseyear=2023,
+            compositionyear=None,
+            catalognumber=None,
             new=False,
             disctotal=1,
             genres=["Techno", "Deep House"],
@@ -1421,6 +1443,8 @@ def test_get_collage(config: Config) -> None:
             releasetitle="Release 2",
             releasetype="album",
             releaseyear=2021,
+            compositionyear=None,
+            catalognumber="DG-001",
             new=False,
             disctotal=1,
             genres=["Classical"],
@@ -1487,6 +1511,8 @@ def test_get_playlist(config: Config) -> None:
                 releasetitle="Release 1",
                 releasetype="album",
                 releaseyear=2023,
+                compositionyear=None,
+                catalognumber=None,
                 disctotal=1,
                 new=False,
                 genres=["Techno", "Deep House"],
@@ -1517,6 +1543,8 @@ def test_get_playlist(config: Config) -> None:
                 releasetitle="Release 2",
                 releasetype="album",
                 releaseyear=2021,
+                compositionyear=None,
+                catalognumber="DG-001",
                 new=False,
                 disctotal=1,
                 genres=["Classical"],

@@ -77,12 +77,14 @@ Rosé provides the following template variables for releases:
 ```python
 added_at: str                        # ISO8601 timestamp of when the release was added to the library.
 releasetitle: str
-releasetype: str                     # Type of the release (e.g. single, ep, etc). One of the enums as defined in TAGGING_CONVENTIONS.md.
+releasetype: str                     # The type of the release (e.g. single, ep, etc). One of the enums as defined in TAGGING_CONVENTIONS.md.
 releaseyear: int | None
+compositionyear: int | None          # The year that the release was composed. Mainly of interest in classical music.
 new: bool                            # The "new"-ness of the release. See RELEASES.md for documentation on this feature.
 disctotal: int                       # The number of discs in the release.
 genres: list[str]
 labels: list[str]
+catalognumber: str | None
 releaseartists: ArtistMapping          # All release artists: an object with 6 properties, each corresponding to one role.
 releaseartists.main: list[Artist]      # The Artist object has a `name` property with the artist name.
 releaseartists.guest: list[Artist]
@@ -113,11 +115,13 @@ trackartists.composer: list[Artist]
 trackartists.conductor: list[Artist]
 trackartists.djmixer: list[Artist]
 releasetitle: str
-releasetype: str                     # Type of the track's release (e.g. single, ep, etc).
+releasetype: str                     # The type of the track's release (e.g. single, ep, etc).
 releaseyear: int | None
+compositionyear: int | None          # The year that the release was composed. Mainly of interest in classical music.
 new: bool                            # The "new"-ness of the track's release.
 genres: list[str]
 labels: list[str]
+catalognumber: str | None
 releaseartists: ArtistMapping          # All release artists: an object with 6 properties, each corresponding to one role.
 releaseartists.main: list[Artist]      # The Artist object has a `name` property with the artist name.
 releaseartists.guest: list[Artist]
