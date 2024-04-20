@@ -138,6 +138,12 @@ def test_dump_collage(config: Config) -> None:
                 "new": False,
                 "disctotal": 1,
                 "genres": ["Techno", "Deep House"],
+                "parent_genres": [
+                    "Dance",
+                    "Electronic",
+                    "Electronic Dance Music",
+                    "House",
+                ],
                 "labels": ["Silk Music"],
                 "releaseartists": {
                     "main": [
@@ -166,6 +172,7 @@ def test_dump_collage(config: Config) -> None:
                 "new": False,
                 "disctotal": 1,
                 "genres": ["Classical"],
+                "parent_genres": [],
                 "labels": ["Native State"],
                 "releaseartists": {
                     "main": [{"name": "Violin Woman", "alias": False}],
@@ -202,6 +209,12 @@ def test_dump_collages(config: Config) -> None:
                     "new": False,
                     "disctotal": 1,
                     "genres": ["Techno", "Deep House"],
+                    "parent_genres": [
+                        "Dance",
+                        "Electronic",
+                        "Electronic Dance Music",
+                        "House",
+                    ],
                     "labels": ["Silk Music"],
                     "releaseartists": {
                         "main": [
@@ -230,6 +243,7 @@ def test_dump_collages(config: Config) -> None:
                     "new": False,
                     "disctotal": 1,
                     "genres": ["Classical"],
+                    "parent_genres": [],
                     "labels": ["Native State"],
                     "releaseartists": {
                         "main": [{"name": "Violin Woman", "alias": False}],

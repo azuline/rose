@@ -140,7 +140,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         compositionyear = 1800
         genres = [
             "J-Pop",
-            "Pop-Rap",
+            "Pop Rap",
         ]
         labels = [
             "YG Entertainment",
@@ -185,7 +185,8 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         catalognumber="Lalala",
         new=False,
         disctotal=1,
-        genres=["J-Pop", "Pop-Rap"],
+        genres=["J-Pop", "Pop Rap"],
+        parent_genres=["Hip Hop", "Pop"],
         labels=["YG Entertainment"],
         releaseartists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
         metahash=release.metahash,
@@ -243,7 +244,7 @@ def test_edit_release_failure_and_resume(
         compositionyear = -9999
         genres = [
             "J-Pop",
-            "Pop-Rap",
+            "Pop Rap",
         ]
         labels = [
             "YG Entertainment",
@@ -287,7 +288,7 @@ def test_edit_release_failure_and_resume(
         compositionyear = -9999
         genres = [
             "J-Pop",
-            "Pop-Rap",
+            "Pop Rap",
         ]
         labels = [
             "YG Entertainment",
@@ -340,7 +341,8 @@ def test_edit_release_failure_and_resume(
         catalognumber=None,
         new=False,
         disctotal=1,
-        genres=["J-Pop", "Pop-Rap"],
+        genres=["J-Pop", "Pop Rap"],
+        parent_genres=["Hip Hop", "Pop"],
         labels=["YG Entertainment"],
         releaseartists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
         metahash=release.metahash,
@@ -427,6 +429,12 @@ def test_dump_release(config: Config) -> None:
         "new": False,
         "disctotal": 1,
         "genres": ["Techno", "Deep House"],
+        "parent_genres": [
+            "Dance",
+            "Electronic",
+            "Electronic Dance Music",
+            "House",
+        ],
         "labels": ["Silk Music"],
         "releaseartists": {
             "main": [
@@ -503,6 +511,12 @@ def test_dump_releases(config: Config) -> None:
             "new": False,
             "disctotal": 1,
             "genres": ["Techno", "Deep House"],
+            "parent_genres": [
+                "Dance",
+                "Electronic",
+                "Electronic Dance Music",
+                "House",
+            ],
             "labels": ["Silk Music"],
             "releaseartists": {
                 "main": [
@@ -574,6 +588,7 @@ def test_dump_releases(config: Config) -> None:
             "new": False,
             "disctotal": 1,
             "genres": ["Classical"],
+            "parent_genres": [],
             "labels": ["Native State"],
             "releaseartists": {
                 "main": [{"name": "Violin Woman", "alias": False}],
@@ -618,6 +633,7 @@ def test_dump_releases(config: Config) -> None:
             "new": True,
             "disctotal": 1,
             "genres": [],
+            "parent_genres": [],
             "labels": [],
             "releaseartists": {
                 "main": [],
@@ -669,6 +685,7 @@ def test_dump_releases_matcher(config: Config) -> None:
             "new": False,
             "disctotal": 1,
             "genres": ["Classical"],
+            "parent_genres": [],
             "labels": ["Native State"],
             "releaseartists": {
                 "main": [{"name": "Violin Woman", "alias": False}],
