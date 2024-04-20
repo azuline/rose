@@ -255,6 +255,8 @@ def _calc_release_variables(release: CachedRelease, position: str | None) -> dic
         "releasetitle": release.releasetitle,
         "releasetype": release.releasetype,
         "releaseyear": release.releaseyear,
+        "compositionyear": release.compositionyear,
+        "catalognumber": release.catalognumber,
         "new": release.new,
         "disctotal": release.disctotal,
         "genres": release.genres,
@@ -277,6 +279,8 @@ def _calc_track_variables(track: CachedTrack, position: str | None) -> dict[str,
         "releasetitle": track.release.releasetitle,
         "releasetype": track.release.releasetype,
         "releaseyear": track.release.releaseyear,
+        "compositionyear": track.release.compositionyear,
+        "catalognumber": track.release.catalognumber,
         "new": track.release.new,
         "genres": track.release.genres,
         "labels": track.release.labels,
@@ -323,7 +327,7 @@ def preview_path_templates(c: Config) -> None:
     # fmt: on
 
 
-def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease]:
+def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease, CachedRelease]:
     from rose.cache import CachedRelease
 
     kimlip = CachedRelease(
@@ -335,6 +339,8 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease]:
         releasetitle="Kim Lip",
         releasetype="single",
         releaseyear=2017,
+        compositionyear=None,
+        catalognumber="CMCC11088",
         new=True,
         disctotal=1,
         genres=["K-Pop", "Dance-Pop", "Contemporary R&B"],
@@ -352,6 +358,8 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease]:
         releasetitle="Young Forever (花樣年華)",
         releasetype="album",
         releaseyear=2016,
+        compositionyear=None,
+        catalognumber="L200001238",
         new=False,
         disctotal=2,
         genres=["K-Pop"],
@@ -360,24 +368,50 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease]:
         metahash="0",
     )
 
-    return kimlip, youngforever
+    debussy = CachedRelease(
+        id="018b268e-de0c-7cb2-8ffa-bcc2083c94e6",
+        source_path=c.music_source_dir
+        / "Debussy - 1907. Images performed by Cleveland Orchestra under Pierre Boulez (1992)",
+        cover_image_path=None,
+        added_at="2023-09-06:23:45Z",
+        datafile_mtime="999",
+        releasetitle="Images",
+        releasetype="album",
+        releaseyear=1992,
+        compositionyear=1907,
+        catalognumber="435-766 2",
+        new=False,
+        disctotal=2,
+        genres=["Impressionism, Orchestral"],
+        labels=["Deustche Grammophon"],
+        releaseartists=ArtistMapping(
+            main=[Artist("Cleveland Orchestra")],
+            composer=[Artist("Claude Debussy")],
+            conductor=[Artist("Pierre Boulez")],
+        ),
+        metahash="0",
+    )
+
+    return kimlip, youngforever, debussy
 
 
 def _preview_release_template(c: Config, label: str, template: PathTemplate) -> None:
     # Import cycle trick :)
-    kimlip, youngforever = _get_preview_releases(c)
+    kimlip, youngforever, debussy = _get_preview_releases(c)
     click.secho(f"{label}:", dim=True, underline=True)
     click.secho("  Sample 1: ", dim=True, nl=False)
     click.secho(eval_release_template(template, kimlip, "1"))
     click.secho("  Sample 2: ", dim=True, nl=False)
     click.secho(eval_release_template(template, youngforever, "2"))
+    click.secho("  Sample 3: ", dim=True, nl=False)
+    click.secho(eval_release_template(template, debussy, "3"))
 
 
 def _preview_track_template(c: Config, label: str, template: PathTemplate) -> None:
     # Import cycle trick :)
     from rose.cache import CachedTrack
 
-    kimlip, youngforever = _get_preview_releases(c)
+    kimlip, youngforever, debussy = _get_preview_releases(c)
 
     click.secho(f"{label}:", dim=True, underline=True)
 
@@ -402,7 +436,7 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         id="018b6021-f1e5-7d4b-b796-440fbbea3b15",
         source_path=c.music_source_dir
         / "BTS - 2016. Young Forever (花樣年華)"
-        / "House of Cards.opus",
+        / "02-05. House of Cards.opus",
         source_mtime="999",
         tracktitle="House of Cards",
         tracknumber="5",
@@ -414,3 +448,25 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         release=youngforever,
     )
     click.secho(eval_track_template(template, track, "2"))
+
+    click.secho("  Sample 3: ", dim=True, nl=False)
+    track = CachedTrack(
+        id="018b6514-6e65-78cc-94a5-fdb17418f090",
+        source_path=c.music_source_dir
+        / "Debussy - 1907. Images performed by Cleveland Orchestra under Pierre Boulez (1992)"
+        / "01. Gigues: Modéré.opus",
+        source_mtime="999",
+        tracktitle="Gigues: Modéré.opus",
+        tracknumber="1",
+        tracktotal=6,
+        discnumber="1",
+        duration_seconds=444,
+        trackartists=ArtistMapping(
+            main=[Artist("Cleveland Orchestra")],
+            composer=[Artist("Claude Debussy")],
+            conductor=[Artist("Pierre Boulez")],
+        ),
+        metahash="0",
+        release=debussy,
+    )
+    click.secho(eval_track_template(template, track, "3"))

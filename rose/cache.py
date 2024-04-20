@@ -209,6 +209,8 @@ class CachedRelease:
     releasetitle: str
     releasetype: str
     releaseyear: int | None
+    compositionyear: int | None
+    catalognumber: str | None
     new: bool
     disctotal: int
     genres: list[str]
@@ -227,6 +229,8 @@ class CachedRelease:
             releasetitle=row["releasetitle"],
             releasetype=row["releasetype"],
             releaseyear=row["releaseyear"],
+            compositionyear=row["compositionyear"],
+            catalognumber=row["catalognumber"],
             disctotal=row["disctotal"],
             new=bool(row["new"]),
             genres=_split(row["genres"]) if row["genres"] else [],
@@ -248,6 +252,8 @@ class CachedRelease:
             "releasetitle": self.releasetitle,
             "releasetype": self.releasetype,
             "releaseyear": self.releaseyear,
+            "compositionyear": self.compositionyear,
+            "catalognumber": self.catalognumber,
             "new": self.new,
             "disctotal": self.disctotal,
             "genres": self.genres,
@@ -318,6 +324,8 @@ class CachedTrack:
                     "releasetype": self.release.releasetype,
                     "disctotal": self.release.disctotal,
                     "releaseyear": self.release.releaseyear,
+                    "compositionyear": self.release.compositionyear,
+                    "catalognumber": self.release.catalognumber,
                     "new": self.release.new,
                     "genres": self.release.genres,
                     "labels": self.release.labels,
@@ -613,6 +621,8 @@ def _update_cache_for_releases_executor(
                 releasetitle="",
                 releasetype="",
                 releaseyear=None,
+                compositionyear=None,
+                catalognumber=None,
                 new=True,
                 disctotal=0,
                 genres=[],
@@ -780,6 +790,20 @@ def _update_cache_for_releases_executor(
                 if tags.releaseyear != release.releaseyear:
                     logger.debug(f"Release year change detected for {source_path}, updating")
                     release.releaseyear = tags.releaseyear
+                    release_dirty = True
+
+                if tags.compositionyear != release.compositionyear:
+                    logger.debug(
+                        f"Release composition year change detected for {source_path}, updating"
+                    )
+                    release.compositionyear = tags.compositionyear
+                    release_dirty = True
+
+                if tags.catalognumber != release.catalognumber:
+                    logger.debug(
+                        f"Release catalog number change detected for {source_path}, updating"
+                    )
+                    release.catalognumber = tags.catalognumber
                     release_dirty = True
 
                 if set(tags.genre) != set(release.genres):
@@ -950,6 +974,8 @@ def _update_cache_for_releases_executor(
                     release.releasetitle,
                     release.releasetype,
                     release.releaseyear,
+                    release.compositionyear,
+                    release.catalognumber,
                     release.disctotal,
                     release.new,
                     sha256_dataclass(release),
@@ -1031,10 +1057,12 @@ def _update_cache_for_releases_executor(
                   , title
                   , releasetype
                   , releaseyear
+                  , compositionyear
+                  , catalognumber
                   , disctotal
                   , new
                   , metahash
-                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
+                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
                 """,
                 _flatten(upd_release_args),
             )
@@ -1149,6 +1177,8 @@ def _update_cache_for_releases_executor(
                   , disctotal
                   , releasetitle
                   , releaseyear
+                  , compositionyear
+                  , catalognumber
                   , releasetype
                   , genre
                   , label
@@ -1164,6 +1194,8 @@ def _update_cache_for_releases_executor(
                   , process_string_for_fts(r.disctotal) AS discnumber
                   , process_string_for_fts(r.title) AS releasetitle
                   , process_string_for_fts(r.releaseyear) AS releaseyear
+                  , process_string_for_fts(r.compositionyear) AS compositionyear
+                  , process_string_for_fts(r.catalognumber) AS catalognumber
                   , process_string_for_fts(r.releasetype) AS releasetype
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, ' '), '')) AS genre
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, ' '), '')) AS label

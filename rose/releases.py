@@ -239,8 +239,10 @@ class MetadataRelease:
     new: bool
     releasetype: str
     releaseyear: int | None
+    compositionyear: int | None
     genres: list[str]
     labels: list[str]
+    catalognumber: str | None
     artists: list[MetadataArtist]
     tracks: dict[str, MetadataTrack]
 
@@ -251,6 +253,8 @@ class MetadataRelease:
             new=release.new,
             releasetype=release.releasetype,
             releaseyear=release.releaseyear,
+            compositionyear=release.compositionyear,
+            catalognumber=release.catalognumber,
             genres=release.genres,
             labels=release.labels,
             artists=MetadataArtist.from_mapping(release.releaseartists),
@@ -270,6 +274,8 @@ class MetadataRelease:
         # released in -9999, you should probably lay off the shrooms.
         data = asdict(self)
         data["releaseyear"] = self.releaseyear or -9999
+        data["compositionyear"] = self.compositionyear or -9999
+        data["catalognumber"] = self.releaseyear or ""
         return tomli_w.dumps(data)
 
     @classmethod
@@ -280,8 +286,10 @@ class MetadataRelease:
             new=d["new"],
             releasetype=d["releasetype"],
             releaseyear=d["releaseyear"] if d["releaseyear"] != -9999 else None,
+            compositionyear=d["compositionyear"] if d["compositionyear"] != -9999 else None,
             genres=d["genres"],
             labels=d["labels"],
+            catalognumber=d["catalognumber"] or None,
             artists=[MetadataArtist(name=a["name"], role=a["role"]) for a in d["artists"]],
             tracks={
                 tid: MetadataTrack(
@@ -382,6 +390,14 @@ def edit_release(
                     tags.releaseyear = release_meta.releaseyear
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: releaseyear")
+                if tags.compositionyear != release_meta.compositionyear:
+                    tags.compositionyear = release_meta.compositionyear
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: compositionyear")
+                if tags.catalognumber != release_meta.catalognumber:
+                    tags.catalognumber = release_meta.catalognumber
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: catalognumber")
                 if tags.genre != release_meta.genres:
                     tags.genre = release_meta.genres
                     dirty = True

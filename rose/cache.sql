@@ -15,6 +15,8 @@ CREATE TABLE releases (
     title TEXT NOT NULL,
     releasetype TEXT NOT NULL,
     releaseyear INTEGER,
+    compositionyear INTEGER,
+    catalognumber TEXT,
     disctotal INTEGER NOT NULL,
     -- A sha256() of the release object, which can be used as a performant cache
     -- key.
@@ -156,8 +158,10 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
   , discnumber
   , disctotal
   , releasetitle
-  , releaseyear
   , releasetype
+  , releaseyear
+  , compositionyear
+  , catalognumber
   , genre
   , label
   , releaseartist
@@ -201,6 +205,8 @@ CREATE VIEW releases_view AS
       , r.title AS releasetitle
       , r.releasetype
       , r.releaseyear
+      , r.compositionyear
+      , r.catalognumber
       , r.disctotal
       , r.new
       , r.metahash
