@@ -275,7 +275,7 @@ class MetadataRelease:
         data = asdict(self)
         data["releaseyear"] = self.releaseyear or -9999
         data["compositionyear"] = self.compositionyear or -9999
-        data["catalognumber"] = self.releaseyear or ""
+        data["catalognumber"] = self.catalognumber or ""
         return tomli_w.dumps(data)
 
     @classmethod
