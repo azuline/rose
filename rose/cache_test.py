@@ -458,26 +458,26 @@ def test_update_cache_releases_evicts_relations(config: Config) -> None:
     with connect(config) as conn:
         conn.execute(
             """
-            INSERT INTO releases_genres (release_id, genre, genre_sanitized, position)
-            VALUES ('ilovecarly', 'lalala', 'lalala', 2)
+            INSERT INTO releases_genres (release_id, genre, position)
+            VALUES ('ilovecarly', 'lalala', 2)
             """,
         )
         conn.execute(
             """
-            INSERT INTO releases_labels (release_id, label, label_sanitized, position)
-            VALUES ('ilovecarly', 'lalala', 'lalala', 1)
+            INSERT INTO releases_labels (release_id, label, position)
+            VALUES ('ilovecarly', 'lalala', 1)
             """,
         )
         conn.execute(
             """
-            INSERT INTO releases_artists (release_id, artist, artist_sanitized, role, position)
-            VALUES ('ilovecarly', 'lalala', 'lalala', 'main', 1)
+            INSERT INTO releases_artists (release_id, artist, role, position)
+            VALUES ('ilovecarly', 'lalala', 'main', 1)
             """,
         )
         conn.execute(
             """
-            INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role, position)
-            SELECT id, 'lalala', 'lalala', 'main', 1 FROM tracks
+            INSERT INTO tracks_artists (track_id, artist, role, position)
+            SELECT id, 'lalala', 'main', 1 FROM tracks
             """,
         )
     # Second cache refresh.
@@ -1410,10 +1410,10 @@ def test_get_track_logtext(config: Config) -> None:
 def test_list_artists(config: Config) -> None:
     artists = list_artists(config)
     assert set(artists) == {
-        ("Techno Man", "Techno Man"),
-        ("Bass Man", "Bass Man"),
-        ("Violin Woman", "Violin Woman"),
-        ("Conductor Woman", "Conductor Woman"),
+        "Techno Man",
+        "Bass Man",
+        "Violin Woman",
+        "Conductor Woman",
     }
 
 
@@ -1421,16 +1421,16 @@ def test_list_artists(config: Config) -> None:
 def test_list_genres(config: Config) -> None:
     genres = list_genres(config)
     assert set(genres) == {
-        ("Techno", "Techno"),
-        ("Deep House", "Deep House"),
-        ("Classical", "Classical"),
+        "Techno",
+        "Deep House",
+        "Classical",
     }
 
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_labels(config: Config) -> None:
     labels = list_labels(config)
-    assert set(labels) == {("Silk Music", "Silk Music"), ("Native State", "Native State")}
+    assert set(labels) == {"Silk Music", "Native State"}
 
 
 @pytest.mark.usefixtures("seeded_cache")

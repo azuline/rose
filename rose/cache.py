@@ -990,19 +990,13 @@ def _update_cache_for_releases_executor(
             )
             upd_release_ids.append(release.id)
             for pos, genre in enumerate(release.genres):
-                upd_release_genre_args.append(
-                    [release.id, genre, sanitize_dirname(genre, False), pos]
-                )
+                upd_release_genre_args.append([release.id, genre, pos])
             for pos, label in enumerate(release.labels):
-                upd_release_label_args.append(
-                    [release.id, label, sanitize_dirname(label, False), pos]
-                )
+                upd_release_label_args.append([release.id, label, pos])
             pos = 0
             for role, artists in release.releaseartists.items():
                 for art in artists:
-                    upd_release_artist_args.append(
-                        [release.id, art.name, sanitize_dirname(art.name, False), role, pos]
-                    )
+                    upd_release_artist_args.append([release.id, art.name, role, pos])
                     pos += 1
 
         if track_ids_to_insert:
@@ -1028,9 +1022,7 @@ def _update_cache_for_releases_executor(
                 pos = 0
                 for role, artists in track.trackartists.items():
                     for art in artists:
-                        upd_track_artist_args.append(
-                            [track.id, art.name, sanitize_dirname(art.name, False), role, pos]
-                        )
+                        upd_track_artist_args.append([track.id, art.name, role, pos])
                         pos += 1
     logger.debug(f"Release update scheduling loop time {time.time() - loop_start=}")
 
@@ -1083,8 +1075,8 @@ def _update_cache_for_releases_executor(
             )
             conn.execute(
                 f"""
-                INSERT INTO releases_genres (release_id, genre, genre_sanitized, position)
-                VALUES {",".join(["(?,?,?,?)"]*len(upd_release_genre_args))}
+                INSERT INTO releases_genres (release_id, genre, position)
+                VALUES {",".join(["(?,?,?)"]*len(upd_release_genre_args))}
                 """,
                 _flatten(upd_release_genre_args),
             )
@@ -1098,8 +1090,8 @@ def _update_cache_for_releases_executor(
             )
             conn.execute(
                 f"""
-                INSERT INTO releases_labels (release_id, label, label_sanitized, position)
-                VALUES {",".join(["(?,?,?,?)"]*len(upd_release_label_args))}
+                INSERT INTO releases_labels (release_id, label, position)
+                VALUES {",".join(["(?,?,?)"]*len(upd_release_label_args))}
                 """,
                 _flatten(upd_release_label_args),
             )
@@ -1113,8 +1105,8 @@ def _update_cache_for_releases_executor(
             )
             conn.execute(
                 f"""
-                INSERT INTO releases_artists (release_id, artist, artist_sanitized, role, position)
-                VALUES {",".join(["(?,?,?,?,?)"]*len(upd_release_artist_args))}
+                INSERT INTO releases_artists (release_id, artist, role, position)
+                VALUES {",".join(["(?,?,?,?)"]*len(upd_release_artist_args))}
                 """,
                 _flatten(upd_release_artist_args),
             )
@@ -1147,8 +1139,8 @@ def _update_cache_for_releases_executor(
             )
             conn.execute(
                 f"""
-                INSERT INTO tracks_artists (track_id, artist, artist_sanitized, role, position)
-                VALUES {",".join(["(?,?,?,?,?)"]*len(upd_track_artist_args))}
+                INSERT INTO tracks_artists (track_id, artist, role, position)
+                VALUES {",".join(["(?,?,?,?)"]*len(upd_track_artist_args))}
                 """,
                 _flatten(upd_track_artist_args),
             )
@@ -1689,42 +1681,41 @@ def update_cache_evict_nonexistent_playlists(c: Config) -> None:
 
 def list_releases_delete_this(
     c: Config,
-    sanitized_artist_filter: str | None = None,
-    sanitized_genre_filter: str | None = None,
-    sanitized_label_filter: str | None = None,
+    artist_filter: str | None = None,
+    genre_filter: str | None = None,
+    label_filter: str | None = None,
     new: bool | None = None,
 ) -> list[CachedRelease]:
     with connect(c) as conn:
         query = "SELECT * FROM releases_view WHERE 1=1"
         args: list[str | bool] = []
-        if sanitized_artist_filter:
-            sanitized_artists: list[str] = [sanitized_artist_filter]
-            for alias in c.sanitized_artist_aliases_map.get(sanitized_artist_filter, []):
-                sanitized_artists.append(alias)
+        if artist_filter:
+            artists: list[str] = [artist_filter]
+            for alias in c.artist_aliases_map.get(artist_filter, []):
+                artists.append(alias)
             query += f"""
                 AND EXISTS (
                     SELECT * FROM releases_artists
-                    WHERE release_id = id AND artist_sanitized IN ({','.join(['?']*len(sanitized_artists))})
+                    WHERE release_id = id AND artist IN ({','.join(['?']*len(artists))})
                 )
             """
-            args.extend(sanitized_artists)
-        if sanitized_genre_filter:
-            # TODO(NOW): Umm.. sanitized to not sanitized?
+            args.extend(artists)
+        if genre_filter:
             query += """
                 AND EXISTS (
                     SELECT * FROM releases_genres
-                    WHERE release_id = id AND genre_sanitized = ?
+                    WHERE release_id = id AND genre = ?
                 )
             """
-            args.append(sanitized_genre_filter)
-        if sanitized_label_filter:
+            args.append(genre_filter)
+        if label_filter:
             query += """
                 AND EXISTS (
                     SELECT * FROM releases_labels
-                    WHERE release_id = id AND label_sanitized = ?
+                    WHERE release_id = id AND label = ?
                 )
             """
-            args.append(sanitized_label_filter)
+            args.append(label_filter)
         if new is not None:
             query += " AND new = ?"
             args.append(new)
@@ -2100,22 +2091,22 @@ def collage_exists(c: Config, collage_name: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
-def list_artists(c: Config) -> list[tuple[str, str]]:
+def list_artists(c: Config) -> list[str]:
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT artist, artist_sanitized FROM releases_artists")
-        return [(row["artist"], row["artist_sanitized"]) for row in cursor]
+        cursor = conn.execute("SELECT DISTINCT artist  FROM releases_artists")
+        return [row["artist"] for row in cursor]
 
 
-def artist_exists(c: Config, artist_sanitized: str) -> bool:
-    args: list[str] = [artist_sanitized]
-    for alias in c.sanitized_artist_aliases_map.get(artist_sanitized, []):
+def artist_exists(c: Config, artist: str) -> bool:
+    args: list[str] = [artist]
+    for alias in c.artist_aliases_map.get(artist, []):
         args.append(alias)
     with connect(c) as conn:
         cursor = conn.execute(
             f"""
             SELECT EXISTS(
                 SELECT * FROM releases_artists
-                WHERE artist_sanitized IN ({','.join(['?']*len(args))})
+                WHERE artist IN ({','.join(['?']*len(args))})
             )
             """,
             args,
@@ -2123,32 +2114,32 @@ def artist_exists(c: Config, artist_sanitized: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
-def list_genres(c: Config) -> list[tuple[str, str]]:
+def list_genres(c: Config) -> list[str]:
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT genre, genre_sanitized FROM releases_genres")
-        return [(row["genre"], row["genre_sanitized"]) for row in cursor]
+        cursor = conn.execute("SELECT DISTINCT genre  FROM releases_genres")
+        return [row["genre"] for row in cursor]
 
 
-def genre_exists(c: Config, genre_sanitized: str) -> bool:
+def genre_exists(c: Config, genre: str) -> bool:
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT EXISTS(SELECT * FROM releases_genres WHERE genre_sanitized = ?)",
-            (genre_sanitized,),
+            "SELECT EXISTS(SELECT * FROM releases_genres WHERE genre = ?)",
+            (genre,),
         )
         return bool(cursor.fetchone()[0])
 
 
-def list_labels(c: Config) -> list[tuple[str, str]]:
+def list_labels(c: Config) -> list[str]:
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT label, label_sanitized FROM releases_labels")
-        return [(row["label"], row["label_sanitized"]) for row in cursor]
+        cursor = conn.execute("SELECT DISTINCT label, label FROM releases_labels")
+        return [row["label"] for row in cursor]
 
 
-def label_exists(c: Config, label_sanitized: str) -> bool:
+def label_exists(c: Config, label: str) -> bool:
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT EXISTS(SELECT * FROM releases_labels WHERE label_sanitized = ?)",
-            (label_sanitized,),
+            "SELECT EXISTS(SELECT * FROM releases_labels WHERE label = ?)",
+            (label,),
         )
         return bool(cursor.fetchone()[0])
 

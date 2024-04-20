@@ -3,7 +3,7 @@ The virtualfs module renders a virtual filesystem from the read cache. It is wri
 Object-Oriented style, against my typical sensibilities, because that's how the FUSE libraries tend
 to be implemented. But it's OK :)
 
-Since this is a pretty hefty module, we'll cover the organization. This module contains 8 classes:
+Since this is a pretty hefty module, we'll cover the organization. This module contains 9 classes:
 
 1. TTLCache: A wrapper around dict that expires key/value pairs after a given TTL.
 
@@ -13,20 +13,23 @@ Since this is a pretty hefty module, we'll cover the organization. This module c
 3. VirtualNameGenerator: A class that generates virtual directory and filenames given releases and
    tracks, and maintains inverse mappings for resolving release IDs from virtual paths.
 
-4. "CanShow"er: An abstraction that encapsulates the logic of whether an artist, genre, or label
+4. Sanitizer: A class that sanitizes artist/genre/label names and maintains a mapping of
+   sanitized->unsanitized for core library calls.
+
+5. "CanShow"er: An abstraction that encapsulates the logic of whether an artist, genre, or label
    should be shown in their respective virtual views, based on the whitelist/blacklist configuration
    parameters.
 
-5. FileHandleGenerator: A class that keeps generates new file handles. It is a counter that wraps
+6. FileHandleGenerator: A class that keeps generates new file handles. It is a counter that wraps
    back to 5 when the file handles exceed ~10k, as to avoid any overflows.
 
-6. RoseLogicalCore: A logical representation of Rose's filesystem logic, freed from the annoying
+7. RoseLogicalCore: A logical representation of Rose's filesystem logic, freed from the annoying
    implementation details that a low-level library like `llfuse` comes with.
 
-7. INodeMapper: A class that tracks the INode <-> Path mappings. It is used to convert inodes to
+8. INodeMapper: A class that tracks the INode <-> Path mappings. It is used to convert inodes to
    paths in VirtualFS.
 
-8. VirtualFS: The main Virtual Filesystem class, which manages the annoying implementation details
+9. VirtualFS: The main Virtual Filesystem class, which manages the annoying implementation details
    of a low-level virtual filesystem, and delegates logic to the above classes. It uses INodeMapper
    and VirtualPath to translate inodes into semantically useful dataclasses, and then passes them
    into RoseLogicalCore.
@@ -208,6 +211,21 @@ class VirtualPath:
             playlist=self.playlist,
             release=self.release,
         )
+
+    @property
+    def artist_parent(self) -> VirtualPath:
+        """Parent path of an artist: Used as an input to the Sanitizer."""
+        return VirtualPath(view=self.view)
+
+    @property
+    def genre_parent(self) -> VirtualPath:
+        """Parent path of a genre: Used as an input to the Sanitizer."""
+        return VirtualPath(view=self.view)
+
+    @property
+    def label_parent(self) -> VirtualPath:
+        """Parent path of a label: Used as an input to the Sanitizer."""
+        return VirtualPath(view=self.view)
 
     @classmethod
     def parse(cls, path: Path) -> VirtualPath:
@@ -540,6 +558,48 @@ class VirtualNameGenerator:
             return None
 
 
+class Sanitizer:
+    """
+    Sanitizes artist/genre/label names and maintains a mapping of sanitized->unsanitized for core
+    library calls.
+    """
+
+    def __init__(self, rose: RoseLogicalCore) -> None:
+        self._rose = rose
+        self._to_sanitized: dict[str, str] = {}
+        self._to_unsanitized: dict[str, str] = {}
+
+    def sanitize(self, unsanitized: str) -> str:
+        try:
+            return self._to_sanitized[unsanitized]
+        except KeyError:
+            sanitized = sanitize_dirname(unsanitized, enforce_maxlen=True)
+            self._to_sanitized[unsanitized] = sanitized
+            self._to_unsanitized[sanitized] = unsanitized
+            return sanitized
+
+    def unsanitize(self, sanitized: str, parent: VirtualPath) -> str:
+        with contextlib.suppress(KeyError):
+            return self._to_unsanitized[sanitized]
+
+        # This should never happen for a valid path.
+        logger.debug(
+            f"SANITIZER: Failed to find corresponding unsanitized string for '{sanitized}'."
+        )
+        logger.debug(
+            f"SANITIZER: Invoking readdir before retrying unsanitized resolution on {sanitized}"
+        )
+        # Performant way to consume an iterator completely.
+        collections.deque(self._rose.readdir(parent), maxlen=0)
+        logger.debug(
+            f"SANITIZER: Finished readdir call: retrying file virtual name resolution on {sanitized}"
+        )
+        try:
+            return self._to_unsanitized[sanitized]
+        except KeyError as e:
+            raise llfuse.FUSEError(errno.ENOENT) from e
+
+
 class CanShower:
     """
     I'm great at naming things. This is "can show"-er, determining whether we can show an
@@ -637,6 +697,7 @@ class RoseLogicalCore:
         self.config = config
         self.fhandler = fhandler
         self.vnames = VirtualNameGenerator(config)
+        self.sanitizer = Sanitizer(self)
         self.can_show = CanShower(config)
         # This map stores the state for "file creation" operations. We currently have two file
         # creation operations:
@@ -776,7 +837,9 @@ class RoseLogicalCore:
 
         # 6. Labels
         if p.label:
-            if not label_exists(self.config, p.label) or not self.can_show.label(p.label):
+            if not label_exists(
+                self.config, self.sanitizer.unsanitize(p.label, p.label_parent)
+            ) or not self.can_show.label(self.sanitizer.unsanitize(p.label, p.label_parent)):
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 return self._getattr_release(p)
@@ -784,7 +847,9 @@ class RoseLogicalCore:
 
         # 5. Genres
         if p.genre:
-            if not genre_exists(self.config, p.genre) or not self.can_show.genre(p.genre):
+            if not genre_exists(
+                self.config, self.sanitizer.unsanitize(p.genre, p.genre_parent)
+            ) or not self.can_show.genre(self.sanitizer.unsanitize(p.genre, p.genre_parent)):
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 return self._getattr_release(p)
@@ -792,7 +857,9 @@ class RoseLogicalCore:
 
         # 4. Artists
         if p.artist:
-            if not artist_exists(self.config, p.artist) or not self.can_show.artist(p.artist):
+            if not artist_exists(
+                self.config, self.sanitizer.unsanitize(p.artist, p.artist_parent)
+            ) or not self.can_show.artist(self.sanitizer.unsanitize(p.artist, p.artist_parent)):
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 return self._getattr_release(p)
@@ -850,36 +917,38 @@ class RoseLogicalCore:
             raise llfuse.FUSEError(errno.ENOENT)
 
         if p.artist or p.genre or p.label or p.view in ["Releases", "New", "Recently Added"]:
+            # fmt: off
             releases = list_releases_delete_this(
                 self.config,
-                sanitized_artist_filter=p.artist,
-                sanitized_genre_filter=p.genre,
-                sanitized_label_filter=p.label,
+                artist_filter=self.sanitizer.unsanitize(p.artist, p.artist_parent) if p.artist else None,
+                genre_filter=self.sanitizer.unsanitize(p.genre, p.artist_parent) if p.genre else None,
+                label_filter=self.sanitizer.unsanitize(p.label, p.artist_parent) if p.label else None,
                 new=True if p.view == "New" else None,
             )
+            # fmt: on
             for rls, vname in self.vnames.list_release_paths(p, releases):
                 yield vname, self.stat("dir", rls.source_path)
             return
 
         if p.view == "Artists":
-            for artist, sanitized_artist in list_artists(self.config):
+            for artist in list_artists(self.config):
                 if not self.can_show.artist(artist):
                     continue
-                yield sanitized_artist, self.stat("dir")
+                yield self.sanitizer.sanitize(artist), self.stat("dir")
             return
 
         if p.view == "Genres":
-            for genre, sanitized_genre in list_genres(self.config):
+            for genre in list_genres(self.config):
                 if not self.can_show.genre(genre):
                     continue
-                yield sanitized_genre, self.stat("dir")
+                yield self.sanitizer.sanitize(genre), self.stat("dir")
             return
 
         if p.view == "Labels":
-            for label, sanitized_label in list_labels(self.config):
+            for label in list_labels(self.config):
                 if not self.can_show.label(label):
                     continue
-                yield sanitized_label, self.stat("dir")
+                yield self.sanitizer.sanitize(label), self.stat("dir")
             return
 
         if p.view == "Collages" and p.collage:

@@ -29,26 +29,22 @@ CREATE INDEX releases_new ON releases(new);
 CREATE TABLE releases_genres (
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
     genre TEXT,
-    genre_sanitized TEXT NOT NULL,
     position INTEGER NOT NULL,
     PRIMARY KEY (release_id, genre),
     UNIQUE (release_id, position)
 );
 CREATE INDEX releases_genres_release_id_position ON releases_genres(release_id, position);
 CREATE INDEX releases_genres_genre ON releases_genres(genre);
-CREATE INDEX releases_genres_genre_sanitized ON releases_genres(genre_sanitized);
 
 CREATE TABLE releases_labels (
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
     label TEXT,
-    label_sanitized TEXT NOT NULL,
     position INTEGER NOT NULL,
     PRIMARY KEY (release_id, label),
     UNIQUE (release_id, position)
 );
 CREATE INDEX releases_labels_release_id_position ON releases_labels(release_id, position);
 CREATE INDEX releases_labels_label ON releases_labels(label);
-CREATE INDEX releases_labels_label_sanitized ON releases_labels(label_sanitized);
 
 CREATE TABLE tracks (
     id TEXT PRIMARY KEY,
@@ -85,7 +81,6 @@ INSERT INTO artist_role_enum (value) VALUES
 CREATE TABLE releases_artists (
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
     artist TEXT,
-    artist_sanitized TEXT NOT NULL,
     role TEXT REFERENCES artist_role_enum(value) NOT NULL,
     position INTEGER NOT NULL,
     PRIMARY KEY (release_id, artist, role)
@@ -93,12 +88,10 @@ CREATE TABLE releases_artists (
 );
 CREATE INDEX releases_artists_release_id_position ON releases_artists(release_id, position);
 CREATE INDEX releases_artists_artist ON releases_artists(artist);
-CREATE INDEX releases_artists_artist_sanitized ON releases_artists(artist_sanitized);
 
 CREATE TABLE tracks_artists (
     track_id TEXT REFERENCES tracks(id) ON DELETE CASCADE,
     artist TEXT,
-    artist_sanitized TEXT NOT NULL,
     role TEXT REFERENCES artist_role_enum(value) NOT NULL,
     position INTEGER NOT NULL,
     PRIMARY KEY (track_id, artist, role),
@@ -106,7 +99,6 @@ CREATE TABLE tracks_artists (
 );
 CREATE INDEX tracks_artists_track_id_position ON tracks_artists(track_id, position);
 CREATE INDEX tracks_artists_artist ON tracks_artists(artist);
-CREATE INDEX tracks_artists_artist_sanitized ON tracks_artists(artist_sanitized);
 
 CREATE TABLE collages (
     name TEXT PRIMARY KEY,
