@@ -1424,6 +1424,10 @@ def test_list_genres(config: Config) -> None:
         "Techno",
         "Deep House",
         "Classical",
+        "Dance",
+        "Electronic",
+        "Electronic Dance Music",
+        "House",
     }
 
 
@@ -1641,6 +1645,10 @@ def test_artist_exists_with_alias(config: Config) -> None:
 def test_genre_exists(config: Config) -> None:
     assert genre_exists(config, "Deep House")
     assert not genre_exists(config, "lalala")
+    # Parent genre
+    assert genre_exists(config, "Electronic")
+    # Child genre
+    assert not genre_exists(config, "Lo-Fi House")
 
 
 @pytest.mark.usefixtures("seeded_cache")

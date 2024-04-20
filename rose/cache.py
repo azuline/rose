@@ -61,7 +61,7 @@ from rose.common import (
     uniq,
 )
 from rose.config import Config
-from rose.genre_hierarchy import PARENT_GENRES
+from rose.genre_hierarchy import TRANSIENT_CHILD_GENRES, TRANSIENT_PARENT_GENRES
 from rose.templates import artistsfmt, eval_release_template, eval_track_template
 
 logger = logging.getLogger(__name__)
@@ -1701,13 +1701,15 @@ def list_releases_delete_this(
             """
             args.extend(artists)
         if genre_filter:
-            query += """
+            genres = [genre_filter]
+            genres.extend(TRANSIENT_CHILD_GENRES.get(genre_filter, []))
+            query += f"""
                 AND EXISTS (
                     SELECT * FROM releases_genres
-                    WHERE release_id = id AND genre = ?
+                    WHERE release_id = id AND genre IN ({",".join(["?"]*len(genres))})
                 )
             """
-            args.append(genre_filter)
+            args.extend(genres)
         if label_filter:
             query += """
                 AND EXISTS (
@@ -2093,7 +2095,7 @@ def collage_exists(c: Config, collage_name: str) -> bool:
 
 def list_artists(c: Config) -> list[str]:
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT artist  FROM releases_artists")
+        cursor = conn.execute("SELECT DISTINCT artist FROM releases_artists")
         return [row["artist"] for row in cursor]
 
 
@@ -2116,22 +2118,29 @@ def artist_exists(c: Config, artist: str) -> bool:
 
 def list_genres(c: Config) -> list[str]:
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT genre  FROM releases_genres")
-        return [row["genre"] for row in cursor]
+        cursor = conn.execute("SELECT DISTINCT genre FROM releases_genres")
+        rval = set()
+        for row in cursor:
+            genre = row["genre"]
+            rval.add(genre)
+            rval.update(TRANSIENT_PARENT_GENRES.get(genre, []))
+        return list(rval)
 
 
 def genre_exists(c: Config, genre: str) -> bool:
     with connect(c) as conn:
+        args = [genre]
+        args.extend(TRANSIENT_CHILD_GENRES.get(genre, []))
         cursor = conn.execute(
-            "SELECT EXISTS(SELECT * FROM releases_genres WHERE genre = ?)",
-            (genre,),
+            f"SELECT EXISTS(SELECT * FROM releases_genres WHERE genre IN ({','.join(['?']*len(args))}))",
+            args,
         )
         return bool(cursor.fetchone()[0])
 
 
 def list_labels(c: Config) -> list[str]:
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT label, label FROM releases_labels")
+        cursor = conn.execute("SELECT DISTINCT label FROM releases_labels")
         return [row["label"] for row in cursor]
 
 
@@ -2174,7 +2183,7 @@ def _unpack_artists(
 def _get_parent_genres(genres: list[str]) -> list[str]:
     rval: set[str] = set()
     for g in genres:
-        rval.update(PARENT_GENRES.get(g, []))
+        rval.update(TRANSIENT_PARENT_GENRES.get(g, []))
     return sorted(rval)
 
 
