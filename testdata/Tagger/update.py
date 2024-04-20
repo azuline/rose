@@ -12,7 +12,7 @@ def write_tag_with_description(f: Any, name: str, value: str | None) -> None:
     keep_fields = [f for f in f.tags.getall(key) if getattr(f, "desc", None) != desc]
     f.tags.delall(key)
     if value:
-        frame = getattr(mutagen.id3, key)(desc=desc, text=value)
+        frame = getattr(mutagen.id3, key)(desc=desc, text=[value])
         f.tags.add(frame)
     for x in keep_fields:
         f.tags.add(x)

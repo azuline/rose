@@ -142,11 +142,11 @@ class AudioTags:
                 return None
 
             return AudioTags(
-                id=_get_tag(m.tags, ["TXXX:ROSEID"]),
-                release_id=_get_tag(m.tags, ["TXXX:ROSERELEASEID"]),
+                id=_get_tag(m.tags, ["TXXX:ROSEID"], first=True),
+                release_id=_get_tag(m.tags, ["TXXX:ROSERELEASEID"], first=True),
                 title=_get_tag(m.tags, ["TIT2"]),
                 releaseyear=_parse_year(_get_tag(m.tags, ["TDRC", "TYER"])),
-                compositionyear=_parse_year(_get_tag(m.tags, ["TXXX:COMPOSITIONDATE"])),
+                compositionyear=_parse_year(_get_tag(m.tags, ["TXXX:COMPOSITIONDATE"], first=True)),
                 tracknumber=tracknumber,
                 tracktotal=tracktotal,
                 discnumber=discnumber,
@@ -154,7 +154,7 @@ class AudioTags:
                 release=_get_tag(m.tags, ["TALB"]),
                 genre=_split_tag(_get_tag(m.tags, ["TCON"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["TPUB"], split=True)),
-                catalognumber=_get_tag(m.tags, ["TXXX:CATALOGNUMBER"]),
+                catalognumber=_get_tag(m.tags, ["TXXX:CATALOGNUMBER"], first=True),
                 releasetype=_normalize_rtype(_get_tag(m.tags, ["TXXX:RELEASETYPE"], first=True)),
                 releaseartists=parse_artist_string(main=_get_tag(m.tags, ["TPE2"], split=True)),
                 trackartists=parse_artist_string(
@@ -273,7 +273,7 @@ class AudioTags:
                 keep_fields = [f for f in m.tags.getall(key) if getattr(f, "desc", None) != desc]
                 m.tags.delall(key)
                 if value:
-                    frame = getattr(mutagen.id3, key)(desc=desc, text=value)
+                    frame = getattr(mutagen.id3, key)(desc=desc, text=[value])
                     m.tags.add(frame)
                 for f in keep_fields:
                     m.tags.add(f)
