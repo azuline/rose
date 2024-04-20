@@ -51,6 +51,12 @@ def test_dump_tracks(config: Config) -> None:
             "catalognumber": None,
             "new": False,
             "genres": ["Techno", "Deep House"],
+            "parent_genres": [
+                "Dance",
+                "Electronic",
+                "Electronic Dance Music",
+                "House",
+            ],
             "labels": ["Silk Music"],
             "releaseartists": {
                 "main": [
@@ -95,6 +101,12 @@ def test_dump_tracks(config: Config) -> None:
             "catalognumber": None,
             "new": False,
             "genres": ["Techno", "Deep House"],
+            "parent_genres": [
+                "Dance",
+                "Electronic",
+                "Electronic Dance Music",
+                "House",
+            ],
             "labels": ["Silk Music"],
             "releaseartists": {
                 "main": [
@@ -136,6 +148,7 @@ def test_dump_tracks(config: Config) -> None:
             "catalognumber": "DG-001",
             "new": False,
             "genres": ["Classical"],
+            "parent_genres": [],
             "labels": ["Native State"],
             "releaseartists": {
                 "main": [{"name": "Violin Woman", "alias": False}],
@@ -174,6 +187,7 @@ def test_dump_tracks(config: Config) -> None:
             "catalognumber": "DG-002",
             "new": True,
             "genres": [],
+            "parent_genres": [],
             "labels": [],
             "releaseartists": {
                 "main": [],
@@ -222,6 +236,12 @@ def test_dump_tracks_with_matcher(config: Config) -> None:
             "catalognumber": None,
             "new": False,
             "genres": ["Techno", "Deep House"],
+            "parent_genres": [
+                "Dance",
+                "Electronic",
+                "Electronic Dance Music",
+                "House",
+            ],
             "labels": ["Silk Music"],
             "releaseartists": {
                 "main": [
@@ -266,6 +286,12 @@ def test_dump_tracks_with_matcher(config: Config) -> None:
             "catalognumber": None,
             "new": False,
             "genres": ["Techno", "Deep House"],
+            "parent_genres": [
+                "Dance",
+                "Electronic",
+                "Electronic Dance Music",
+                "House",
+            ],
             "labels": ["Silk Music"],
             "releaseartists": {
                 "main": [
@@ -315,6 +341,12 @@ def test_dump_track(config: Config) -> None:
         "catalognumber": None,
         "new": False,
         "genres": ["Techno", "Deep House"],
+        "parent_genres": [
+            "Dance",
+            "Electronic",
+            "Electronic Dance Music",
+            "House",
+        ],
         "labels": ["Silk Music"],
         "releaseartists": {
             "main": [
