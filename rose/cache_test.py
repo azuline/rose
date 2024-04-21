@@ -604,6 +604,31 @@ def test_update_cache_rename_source_files(config: Config) -> None:
         }
 
 
+def test_update_cache_add_cover_art(config: Config) -> None:
+    """
+    Test that adding a cover art (i.e. modifying release w/out modifying tracks) does not affect
+    the tracks.
+    """
+    config = dataclasses.replace(config, rename_source_files=True)
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    update_cache(config)
+    expected_dir = config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]"
+
+    (expected_dir / "cover.jpg").touch()
+    update_cache(config)
+
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT source_path, cover_image_path FROM releases")
+        row = cursor.fetchone()
+        assert Path(row["source_path"]) == expected_dir
+        assert Path(row["cover_image_path"]) == expected_dir / "cover.jpg"
+        cursor = conn.execute("SELECT source_path FROM tracks")
+        assert {Path(r[0]) for r in cursor} == {
+            expected_dir / "01. Track 1.m4a",
+            expected_dir / "02. Track 2.m4a",
+        }
+
+
 def test_update_cache_rename_source_files_nested_file_directories(config: Config) -> None:
     """Test that we properly rename arbitrarily nested files and clean up the empty dirs."""
     config = dataclasses.replace(config, rename_source_files=True)
