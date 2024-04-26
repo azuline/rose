@@ -203,7 +203,7 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
               , edition
               , releasetype
               , genre
-              , secondary_genre
+              , secondarygenre
               , descriptor
               , label
               , releaseartist
@@ -222,7 +222,7 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
               , process_string_for_fts(r.edition) AS edition
               , process_string_for_fts(r.releasetype) AS releasetype
               , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, ' '), '')) AS genre
-              , process_string_for_fts(COALESCE(GROUP_CONCAT(rs.genre, ' '), '')) AS secondary_genre
+              , process_string_for_fts(COALESCE(GROUP_CONCAT(rs.genre, ' '), '')) AS secondarygenre
               , process_string_for_fts(COALESCE(GROUP_CONCAT(rd.descriptor, ' '), '')) AS descriptor
               , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, ' '), '')) AS label
               , process_string_for_fts(COALESCE(GROUP_CONCAT(ra.artist, ' '), '')) AS releaseartist

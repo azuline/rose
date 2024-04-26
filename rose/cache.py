@@ -210,18 +210,24 @@ class CachedRelease:
     releasetitle: str
     releasetype: str
     releaseyear: int | None
+    originalyear: int | None
     compositionyear: int | None
+    edition: str | None
     catalognumber: str | None
     new: bool
     disctotal: int
     genres: list[str]
     parent_genres: list[str]
+    secondary_genres: list[str]
+    parent_secondary_genres: list[str]
+    descriptors: list[str]
     labels: list[str]
     releaseartists: ArtistMapping
     metahash: str
 
     @classmethod
     def from_view(cls, c: Config, row: dict[str, Any], aliases: bool = True) -> CachedRelease:
+        secondary_genres = _split(row["secondary_genres"]) if row["secondary_genres"] else []
         genres = _split(row["genres"]) if row["genres"] else []
         return CachedRelease(
             id=row["id"],
@@ -232,12 +238,17 @@ class CachedRelease:
             releasetitle=row["releasetitle"],
             releasetype=row["releasetype"],
             releaseyear=row["releaseyear"],
+            originalyear=row["originalyear"],
             compositionyear=row["compositionyear"],
             catalognumber=row["catalognumber"],
+            edition=row["edition"],
             disctotal=row["disctotal"],
             new=bool(row["new"]),
             genres=genres,
+            secondary_genres=secondary_genres,
             parent_genres=_get_parent_genres(genres),
+            parent_secondary_genres=_get_parent_genres(secondary_genres),
+            descriptors=_split(row["descriptors"]) if row["descriptors"] else [],
             labels=_split(row["labels"]) if row["labels"] else [],
             releaseartists=_unpack_artists(
                 c, row["releaseartist_names"], row["releaseartist_roles"], aliases=aliases
@@ -256,12 +267,16 @@ class CachedRelease:
             "releasetitle": self.releasetitle,
             "releasetype": self.releasetype,
             "releaseyear": self.releaseyear,
+            "originalyear": self.originalyear,
             "compositionyear": self.compositionyear,
             "catalognumber": self.catalognumber,
+            "edition": self.edition,
             "new": self.new,
             "disctotal": self.disctotal,
             "genres": self.genres,
             "parent_genres": self.parent_genres,
+            "secondary_genres": self.secondary_genres,
+            "parent_secondary_genres": self.parent_secondary_genres,
             "labels": self.labels,
             "releaseartists": self.releaseartists.dump(),
         }
@@ -329,11 +344,15 @@ class CachedTrack:
                     "releasetype": self.release.releasetype,
                     "disctotal": self.release.disctotal,
                     "releaseyear": self.release.releaseyear,
+                    "originalyear": self.release.originalyear,
                     "compositionyear": self.release.compositionyear,
                     "catalognumber": self.release.catalognumber,
+                    "edition": self.release.edition,
                     "new": self.release.new,
                     "genres": self.release.genres,
                     "parent_genres": self.release.parent_genres,
+                    "secondary_genres": self.release.secondary_genres,
+                    "parent_secondary_genres": self.release.parent_secondary_genres,
                     "labels": self.release.labels,
                     "releaseartists": self.release.releaseartists.dump(),
                 }
@@ -583,6 +602,8 @@ def _update_cache_for_releases_executor(
     upd_release_ids: list[str] = []
     upd_release_artist_args: list[list[Any]] = []
     upd_release_genre_args: list[list[Any]] = []
+    upd_release_secondary_genre_args: list[list[Any]] = []
+    upd_release_descriptor_args: list[list[Any]] = []
     upd_release_label_args: list[list[Any]] = []
     upd_unknown_cached_tracks_args: list[tuple[str, list[str]]] = []
     upd_track_args: list[list[Any]] = []
@@ -627,12 +648,17 @@ def _update_cache_for_releases_executor(
                 releasetitle="",
                 releasetype="",
                 releaseyear=None,
+                originalyear=None,
                 compositionyear=None,
                 catalognumber=None,
+                edition=None,
                 new=True,
                 disctotal=0,
                 genres=[],
                 parent_genres=[],
+                secondary_genres=[],
+                parent_secondary_genres=[],
+                descriptors=[],
                 labels=[],
                 releaseartists=ArtistMapping(),
                 metahash="",
@@ -799,11 +825,23 @@ def _update_cache_for_releases_executor(
                     release.releaseyear = tags.releaseyear
                     release_dirty = True
 
+                if tags.originalyear != release.originalyear:
+                    logger.debug(
+                        f"Release original year change detected for {source_path}, updating"
+                    )
+                    release.originalyear = tags.originalyear
+                    release_dirty = True
+
                 if tags.compositionyear != release.compositionyear:
                     logger.debug(
                         f"Release composition year change detected for {source_path}, updating"
                     )
                     release.compositionyear = tags.compositionyear
+                    release_dirty = True
+
+                if tags.edition != release.edition:
+                    logger.debug(f"Release edition change detected for {source_path}, updating")
+                    release.edition = tags.edition
                     release_dirty = True
 
                 if tags.catalognumber != release.catalognumber:
@@ -813,12 +851,19 @@ def _update_cache_for_releases_executor(
                     release.catalognumber = tags.catalognumber
                     release_dirty = True
 
-                if set(tags.genre) != set(release.genres):
+                if tags.genre != release.genres:
                     logger.debug(f"Release genre change detected for {source_path}, updating")
                     release.genres = uniq(tags.genre)
                     release_dirty = True
 
-                if set(tags.label) != set(release.labels):
+                if tags.secondarygenre != release.secondary_genres:
+                    logger.debug(
+                        f"Release secondary genre change detected for {source_path}, updating"
+                    )
+                    release.secondary_genres = uniq(tags.secondarygenre)
+                    release_dirty = True
+
+                if tags.label != release.labels:
                     logger.debug(f"Release label change detected for {source_path}, updating")
                     release.labels = uniq(tags.label)
                     release_dirty = True
@@ -983,7 +1028,9 @@ def _update_cache_for_releases_executor(
                     release.releasetitle,
                     release.releasetype,
                     release.releaseyear,
+                    release.originalyear,
                     release.compositionyear,
+                    release.edition,
                     release.catalognumber,
                     release.disctotal,
                     release.new,
@@ -993,6 +1040,10 @@ def _update_cache_for_releases_executor(
             upd_release_ids.append(release.id)
             for pos, genre in enumerate(release.genres):
                 upd_release_genre_args.append([release.id, genre, pos])
+            for pos, genre in enumerate(release.secondary_genres):
+                upd_release_secondary_genre_args.append([release.id, genre, pos])
+            for pos, desc in enumerate(release.descriptors):
+                upd_release_descriptor_args.append([release.id, desc, pos])
             for pos, label in enumerate(release.labels):
                 upd_release_label_args.append([release.id, label, pos])
             pos = 0
@@ -1059,12 +1110,14 @@ def _update_cache_for_releases_executor(
                   , title
                   , releasetype
                   , releaseyear
+                  , originalyear
                   , compositionyear
+                  , edition
                   , catalognumber
                   , disctotal
                   , new
                   , metahash
-                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
+                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
                 ON CONFLICT (id) DO UPDATE SET
                     source_path      = excluded.source_path
                   , cover_image_path = excluded.cover_image_path
@@ -1073,7 +1126,9 @@ def _update_cache_for_releases_executor(
                   , title            = excluded.title
                   , releasetype      = excluded.releasetype
                   , releaseyear      = excluded.releaseyear
+                  , originalyear     = excluded.originalyear
                   , compositionyear  = excluded.compositionyear
+                  , edition          = excluded.edition
                   , catalognumber    = excluded.catalognumber
                   , disctotal        = excluded.disctotal
                   , new              = excluded.new
@@ -1095,6 +1150,36 @@ def _update_cache_for_releases_executor(
                 VALUES {",".join(["(?,?,?)"]*len(upd_release_genre_args))}
                 """,
                 _flatten(upd_release_genre_args),
+            )
+        if upd_release_secondary_genre_args:
+            conn.execute(
+                f"""
+                DELETE FROM releases_secondary_genres
+                WHERE release_id IN ({",".join(["?"]*len(upd_release_secondary_genre_args))})
+                """,
+                [a[0] for a in upd_release_secondary_genre_args],
+            )
+            conn.execute(
+                f"""
+                INSERT INTO releases_secondary_genres (release_id, genre, position)
+                VALUES {",".join(["(?,?,?)"]*len(upd_release_secondary_genre_args))}
+                """,
+                _flatten(upd_release_secondary_genre_args),
+            )
+        if upd_release_descriptor_args:
+            conn.execute(
+                f"""
+                DELETE FROM releases_descriptors
+                WHERE release_id IN ({",".join(["?"]*len(upd_release_descriptor_args))})
+                """,
+                [a[0] for a in upd_release_descriptor_args],
+            )
+            conn.execute(
+                f"""
+                INSERT INTO releases_descriptors (release_id, descriptor, position)
+                VALUES {",".join(["(?,?,?)"]*len(upd_release_descriptor_args))}
+                """,
+                _flatten(upd_release_descriptor_args),
             )
         if upd_release_label_args:
             conn.execute(
@@ -1203,10 +1288,14 @@ def _update_cache_for_releases_executor(
                   , disctotal
                   , releasetitle
                   , releaseyear
+                  , originalyear
                   , compositionyear
+                  , edition
                   , catalognumber
                   , releasetype
                   , genre
+                  , secondarygenre
+                  , descriptor
                   , label
                   , releaseartist
                   , trackartist
@@ -1220,16 +1309,22 @@ def _update_cache_for_releases_executor(
                   , process_string_for_fts(r.disctotal) AS discnumber
                   , process_string_for_fts(r.title) AS releasetitle
                   , process_string_for_fts(r.releaseyear) AS releaseyear
+                  , process_string_for_fts(r.originalyear) AS originalyear
                   , process_string_for_fts(r.compositionyear) AS compositionyear
+                  , process_string_for_fts(r.edition) AS edition
                   , process_string_for_fts(r.catalognumber) AS catalognumber
                   , process_string_for_fts(r.releasetype) AS releasetype
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, ' '), '')) AS genre
+                  , process_string_for_fts(COALESCE(GROUP_CONCAT(rs.genre, ' '), '')) AS secondarygenre
+                  , process_string_for_fts(COALESCE(GROUP_CONCAT(rd.descriptor, ' '), '')) AS descriptor
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, ' '), '')) AS label
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(ra.artist, ' '), '')) AS releaseartist
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(ta.artist, ' '), '')) AS trackartist
                 FROM tracks t
                 JOIN releases r ON r.id = t.release_id
                 LEFT JOIN releases_genres rg ON rg.release_id = r.id
+                LEFT JOIN releases_secondary_genres rs ON rs.release_id = r.id
+                LEFT JOIN releases_descriptors rd ON rd.release_id = r.id
                 LEFT JOIN releases_labels rl ON rl.release_id = r.id
                 LEFT JOIN releases_artists ra ON ra.release_id = r.id
                 LEFT JOIN tracks_artists ta ON ta.track_id = t.id

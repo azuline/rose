@@ -178,7 +178,7 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
   , edition
   , catalognumber
   , genre
-  , secondary_genre
+  , secondarygenre
   , descriptor
   , label
   , releaseartist
