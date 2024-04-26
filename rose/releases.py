@@ -242,9 +242,9 @@ class MetadataRelease:
     originaldate: RoseDate | None
     compositiondate: RoseDate | None
     artists: list[MetadataArtist]
-    labels: list[str]
     edition: str | None
     catalognumber: str | None
+    labels: list[str]
     genres: list[str]
     secondary_genres: list[str]
     descriptors: list[str]
@@ -259,8 +259,8 @@ class MetadataRelease:
             releasedate=release.releasedate,
             originaldate=release.originaldate,
             compositiondate=release.compositiondate,
-            edition=release.catalognumber,
-            catalognumber=release.edition,
+            edition=release.edition,
+            catalognumber=release.catalognumber,
             labels=release.labels,
             genres=release.genres,
             secondary_genres=release.secondary_genres,
@@ -278,13 +278,12 @@ class MetadataRelease:
         )
 
     def serialize(self) -> str:
-        # LOL TOML DOESN'T HAVE A NULL TYPE. Use -9999 as sentinel. If your music is legitimately
-        # released in -9999, you should probably lay off the shrooms.
+        # TOML does not have a Null Type.
         data = asdict(self)
         data["releasedate"] = str(self.releasedate) if self.releasedate else ""
         data["originaldate"] = str(self.originaldate) if self.originaldate else ""
         data["compositiondate"] = str(self.compositiondate) if self.compositiondate else ""
-        data["edition"] = self.edition or -9999
+        data["edition"] = self.edition or ""
         data["catalognumber"] = self.catalognumber or ""
         return tomli_w.dumps(data)
 
