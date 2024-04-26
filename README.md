@@ -1,9 +1,5 @@
 # Rosé
 
-> [!IMPORTANT]
-> Rosé is under active development. Not all listed features exist yet. See [Milestone
-> v0.4.0](https://github.com/azuline/rose/milestone/1) for progress updates.
-
 Rosé is a music manager for Unix-based systems. Rosé provides a virtual FUSE filesystem for managing
 your music library and various functions for editing and improving your music library's metadata and
 tags.
@@ -122,11 +118,8 @@ Artist, Genre, and Label. Rosé also provides a few other concepts for organizin
 Rosé's virtual filesystem organizes your music library by the metadata in the music tags. The
 quality of the virtual filesystem depends on the quality of the tags.
 
-Thus, Rosé also provides the following functions to improve the tags of your music library:
-
-1. A text-based interface for manually modifying metadata,
-2. A rules engine for bulk updating metadata,
-3. And metadata importing from third-party sources.
+Thus, Rosé also provides a text-based interface for manually modifying metadata and a rules engine
+for bulk updating metadata to improve the tags of your music library.
 
 The rules engine allows you to pattern match tracks in your music library and apply tag changes to
 them. For example:
@@ -151,8 +144,6 @@ CHUU - 2023. Howl/05. Hitchhiker.opus
       releaseartist[main]: ['CHUU'] -> ['Chuu']
 ```
 
-_Demo Video TODO_
-
 # Features
 
 Rosé allows you to interact with and script against your music library through a virtual filesystem
@@ -163,7 +154,6 @@ and through a CLI. A concise list of the features provided by the two interfaces
 - Configure directory and filename templates for releases and tracks
 - Edit release metadata as a text file
 - Run and store rules for (bulk) updating metadata
-- Import metadata and cover art from third-party sources
 - Extract embedded cover art to an external file
 - Flag and unflag release "new"-ness
 - Group artist aliases together under a primary artist

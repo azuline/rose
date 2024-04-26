@@ -4,11 +4,8 @@ Rosé relies on the metadata embedded in your music files to organize your music
 virtual filesystem. This means that the quality of the music tags is important for getting the most
 out of Rosé.
 
-Therefore, Rosé provides the following tools to improve the metadata of your music:
-
-- A text-based interface for manually modifying release metadata,
-- Metadata importing from third-party sources,
-- And a rules engine to bulk update metadata.
+Therefore, Rosé also provides a text-based interface for manually modifying metadata and a rules
+engine for bulk updating metadata to improve the tags of your music library.
 
 > [!NOTE]
 > Rosé has opinionated conventions for how metadata is stored in audio tags. See
@@ -492,9 +489,3 @@ LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
 
 This is a dry run, aborting. 7 tracks would have been modified.
 ```
-
-# Metadata Import & Cover Art Downloading
-
-_In Development_
-
-Sources: Discogs, MusicBrainz, Tidal, Deezer, Apple, Junodownload, Beatport, fanart.tv, and RYM.

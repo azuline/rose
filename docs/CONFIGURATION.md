@@ -172,8 +172,35 @@ background.
 However, these daemons do not recover from failure or start on boot. If you would like them to, you
 can manage Rosé's processes with a service manager such as systemd.
 
-Some sample systemd service files for managing Rosé are:
+A sample systemd service file for managing Rosé is:
 
 ```ini
-TODO
+[Install]
+WantedBy=graphical-session.target
+
+[Service]
+ExecStart=/path/to/rose fs mount --foreground
+Restart=always
+
+[Unit]
+After=graphical-session-pre.target
+PartOf=graphical-session.target
+```
+
+Or, as a Nix Home-Manager configuration:
+
+```nix
+systemd.user.services.rose = {
+  Install = {
+    WantedBy = [ "graphical-session.target" ];
+  };
+  Service = {
+    ExecStart = "${pkgs.rose}/bin/rose fs mount --foreground";
+    Restart = "always";
+  };
+  Unit = {
+    After = "graphical-session-pre.target";
+    PartOf = "graphical-session.target";
+  };
+};
 ```
