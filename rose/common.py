@@ -9,7 +9,7 @@ import os.path
 import re
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
     from rose.config import Config
