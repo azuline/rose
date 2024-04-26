@@ -50,7 +50,7 @@ import tomli_w
 import tomllib
 import uuid6
 
-from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
+from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags, RoseDate
 from rose.common import (
     VERSION,
     Artist,
@@ -209,9 +209,9 @@ class CachedRelease:
     datafile_mtime: str
     releasetitle: str
     releasetype: str
-    releaseyear: int | None
-    originalyear: int | None
-    compositionyear: int | None
+    releasedate: RoseDate | None
+    originaldate: RoseDate | None
+    compositiondate: RoseDate | None
     edition: str | None
     catalognumber: str | None
     new: bool
@@ -237,9 +237,9 @@ class CachedRelease:
             datafile_mtime=row["datafile_mtime"],
             releasetitle=row["releasetitle"],
             releasetype=row["releasetype"],
-            releaseyear=row["releaseyear"],
-            originalyear=row["originalyear"],
-            compositionyear=row["compositionyear"],
+            releasedate=RoseDate.parse(row["releasedate"]),
+            originaldate=RoseDate.parse(row["originaldate"]),
+            compositiondate=RoseDate.parse(row["compositiondate"]),
             catalognumber=row["catalognumber"],
             edition=row["edition"],
             disctotal=row["disctotal"],
@@ -266,9 +266,9 @@ class CachedRelease:
             "added_at": self.added_at,
             "releasetitle": self.releasetitle,
             "releasetype": self.releasetype,
-            "releaseyear": self.releaseyear,
-            "originalyear": self.originalyear,
-            "compositionyear": self.compositionyear,
+            "releasedate": str(self.releasedate) if self.releasedate else None,
+            "originaldate": str(self.originaldate) if self.originaldate else None,
+            "compositiondate": str(self.compositiondate) if self.compositiondate else None,
             "catalognumber": self.catalognumber,
             "edition": self.edition,
             "new": self.new,
@@ -344,9 +344,15 @@ class CachedTrack:
                     "releasetitle": self.release.releasetitle,
                     "releasetype": self.release.releasetype,
                     "disctotal": self.release.disctotal,
-                    "releaseyear": self.release.releaseyear,
-                    "originalyear": self.release.originalyear,
-                    "compositionyear": self.release.compositionyear,
+                    "releasedate": str(self.release.releasedate)
+                    if self.release.releasedate
+                    else None,
+                    "originaldate": str(self.release.originaldate)
+                    if self.release.originaldate
+                    else None,
+                    "compositiondate": str(self.release.compositiondate)
+                    if self.release.compositiondate
+                    else None,
                     "catalognumber": self.release.catalognumber,
                     "edition": self.release.edition,
                     "new": self.release.new,
@@ -649,9 +655,9 @@ def _update_cache_for_releases_executor(
                 added_at="",
                 releasetitle="",
                 releasetype="",
-                releaseyear=None,
-                originalyear=None,
-                compositionyear=None,
+                releasedate=None,
+                originaldate=None,
+                compositiondate=None,
                 catalognumber=None,
                 edition=None,
                 new=True,
@@ -822,23 +828,23 @@ def _update_cache_for_releases_executor(
                     release.releasetype = releasetype
                     release_dirty = True
 
-                if tags.releaseyear != release.releaseyear:
+                if tags.releasedate != release.releasedate:
                     logger.debug(f"Release year change detected for {source_path}, updating")
-                    release.releaseyear = tags.releaseyear
+                    release.releasedate = tags.releasedate
                     release_dirty = True
 
-                if tags.originalyear != release.originalyear:
+                if tags.originaldate != release.originaldate:
                     logger.debug(
                         f"Release original year change detected for {source_path}, updating"
                     )
-                    release.originalyear = tags.originalyear
+                    release.originaldate = tags.originaldate
                     release_dirty = True
 
-                if tags.compositionyear != release.compositionyear:
+                if tags.compositiondate != release.compositiondate:
                     logger.debug(
                         f"Release composition year change detected for {source_path}, updating"
                     )
-                    release.compositionyear = tags.compositionyear
+                    release.compositiondate = tags.compositiondate
                     release_dirty = True
 
                 if tags.edition != release.edition:
@@ -1034,9 +1040,9 @@ def _update_cache_for_releases_executor(
                     release.datafile_mtime,
                     release.releasetitle,
                     release.releasetype,
-                    release.releaseyear,
-                    release.originalyear,
-                    release.compositionyear,
+                    str(release.releasedate) if release.releasedate else None,
+                    str(release.originaldate) if release.originaldate else None,
+                    str(release.compositiondate) if release.compositiondate else None,
                     release.edition,
                     release.catalognumber,
                     release.disctotal,
@@ -1116,9 +1122,9 @@ def _update_cache_for_releases_executor(
                   , datafile_mtime
                   , title
                   , releasetype
-                  , releaseyear
-                  , originalyear
-                  , compositionyear
+                  , releasedate
+                  , originaldate
+                  , compositiondate
                   , edition
                   , catalognumber
                   , disctotal
@@ -1132,9 +1138,9 @@ def _update_cache_for_releases_executor(
                   , datafile_mtime   = excluded.datafile_mtime
                   , title            = excluded.title
                   , releasetype      = excluded.releasetype
-                  , releaseyear      = excluded.releaseyear
-                  , originalyear     = excluded.originalyear
-                  , compositionyear  = excluded.compositionyear
+                  , releasedate      = excluded.releasedate
+                  , originaldate     = excluded.originaldate
+                  , compositiondate  = excluded.compositiondate
                   , edition          = excluded.edition
                   , catalognumber    = excluded.catalognumber
                   , disctotal        = excluded.disctotal
@@ -1294,9 +1300,9 @@ def _update_cache_for_releases_executor(
                   , discnumber
                   , disctotal
                   , releasetitle
-                  , releaseyear
-                  , originalyear
-                  , compositionyear
+                  , releasedate
+                  , originaldate
+                  , compositiondate
                   , edition
                   , catalognumber
                   , releasetype
@@ -1315,9 +1321,9 @@ def _update_cache_for_releases_executor(
                   , process_string_for_fts(t.discnumber) AS discnumber
                   , process_string_for_fts(r.disctotal) AS discnumber
                   , process_string_for_fts(r.title) AS releasetitle
-                  , process_string_for_fts(r.releaseyear) AS releaseyear
-                  , process_string_for_fts(r.originalyear) AS originalyear
-                  , process_string_for_fts(r.compositionyear) AS compositionyear
+                  , process_string_for_fts(r.releasedate) AS releasedate
+                  , process_string_for_fts(r.originaldate) AS originaldate
+                  , process_string_for_fts(r.compositiondate) AS compositiondate
                   , process_string_for_fts(r.edition) AS edition
                   , process_string_for_fts(r.catalognumber) AS catalognumber
                   , process_string_for_fts(r.releasetype) AS releasetype
@@ -1499,7 +1505,7 @@ def update_cache_for_collages(
                 desc_map: dict[str, str] = {}
                 cursor = conn.execute(
                     f"""
-                    SELECT id, releasetitle, releaseyear, releaseartist_names, releaseartist_roles FROM releases_view
+                    SELECT id, releasetitle, releasedate, releaseartist_names, releaseartist_roles FROM releases_view
                     WHERE id IN ({','.join(['?']*len(releases))})
                     """,
                     cached_collage.release_ids,
@@ -1507,7 +1513,7 @@ def update_cache_for_collages(
                 for row in cursor:
                     desc_map[row["id"]] = calculate_release_logtext(
                         title=row["releasetitle"],
-                        releaseyear=row["releaseyear"],
+                        releasedate=RoseDate.parse(row["releasedate"]),
                         artists=_unpack_artists(
                             c, row["releaseartist_names"], row["releaseartist_roles"]
                         ),
@@ -1722,7 +1728,7 @@ def update_cache_for_playlists(
                       , t.source_path
                       , t.trackartist_names
                       , t.trackartist_roles
-                      , r.releaseyear
+                      , r.releasedate
                     FROM tracks_view t
                     JOIN releases_view r ON r.id = t.release_id
                     WHERE t.id IN ({','.join(['?']*len(tracks))})
@@ -1735,7 +1741,7 @@ def update_cache_for_playlists(
                         artists=_unpack_artists(
                             c, row["trackartist_names"], row["trackartist_roles"]
                         ),
-                        releaseyear=row["releaseyear"],
+                        releasedate=RoseDate.parse(row["releasedate"]),
                         suffix=Path(row["source_path"]).suffix,
                     )
                 for i, trk in enumerate(tracks):
@@ -1895,7 +1901,7 @@ def get_release_logtext(c: Config, release_id: str) -> str | None:
     """Get a human-readable identifier for a release suitable for logging."""
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT releasetitle, releaseyear, releaseartist_names, releaseartist_roles FROM releases_view WHERE id = ?",
+            "SELECT releasetitle, releasedate, releaseartist_names, releaseartist_roles FROM releases_view WHERE id = ?",
             (release_id,),
         )
         row = cursor.fetchone()
@@ -1903,19 +1909,19 @@ def get_release_logtext(c: Config, release_id: str) -> str | None:
             return None
         return calculate_release_logtext(
             title=row["releasetitle"],
-            releaseyear=row["releaseyear"],
+            releasedate=RoseDate.parse(row["releasedate"]),
             artists=_unpack_artists(c, row["releaseartist_names"], row["releaseartist_roles"]),
         )
 
 
 def calculate_release_logtext(
     title: str,
-    releaseyear: int | None,
+    releasedate: RoseDate | None,
     artists: ArtistMapping,
 ) -> str:
     logtext = f"{artistsfmt(artists)} - "
-    if releaseyear:
-        logtext += f"{releaseyear}. "
+    if releasedate:
+        logtext += f"{releasedate.year}. "
     logtext += title
     return logtext
 
@@ -2067,7 +2073,7 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
               , t.source_path
               , t.trackartist_names
               , t.trackartist_roles
-              , r.releaseyear
+              , r.releasedate
             FROM tracks_view t
             JOIN releases_view r ON r.id = t.release_id
             WHERE t.id = ?
@@ -2080,7 +2086,7 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
         return calculate_track_logtext(
             title=row["tracktitle"],
             artists=_unpack_artists(c, row["trackartist_names"], row["trackartist_roles"]),
-            releaseyear=row["releaseyear"],
+            releasedate=RoseDate.parse(row["releasedate"]),
             suffix=Path(row["source_path"]).suffix,
         )
 
@@ -2088,10 +2094,14 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
 def calculate_track_logtext(
     title: str,
     artists: ArtistMapping,
-    releaseyear: int | None,
+    releasedate: RoseDate | None,
     suffix: str,
 ) -> str:
-    return f"{artistsfmt(artists)} - {title or 'Unknown Title'} [{releaseyear}]{suffix}"
+    rval = f"{artistsfmt(artists)} - {title or 'Unknown Title'}"
+    if releasedate:
+        rval += f" [{releasedate.year}]"
+    rval += suffix
+    return rval
 
 
 def list_playlists(c: Config) -> list[str]:

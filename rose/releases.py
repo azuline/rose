@@ -17,7 +17,7 @@ import tomli_w
 import tomllib
 from send2trash import send2trash
 
-from rose.audiotags import AudioTags
+from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
     STORED_DATA_FILE_REGEX,
     CachedRelease,
@@ -101,7 +101,7 @@ def delete_release(c: Config, release_id: str) -> None:
         send2trash(release.source_path)
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        releaseyear=release.releaseyear,
+        releasedate=release.releasedate,
         artists=release.releaseartists,
     )
     logger.info(f"Trashed release {release_logtext}")
@@ -118,7 +118,7 @@ def toggle_release_new(c: Config, release_id: str) -> None:
 
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        releaseyear=release.releaseyear,
+        releasedate=release.releasedate,
         artists=release.releaseartists,
     )
 
@@ -160,7 +160,7 @@ def set_release_cover_art(
 
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        releaseyear=release.releaseyear,
+        releasedate=release.releasedate,
         artists=release.releaseartists,
     )
 
@@ -181,7 +181,7 @@ def delete_release_cover_art(c: Config, release_id: str) -> None:
 
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        releaseyear=release.releaseyear,
+        releasedate=release.releasedate,
         artists=release.releaseartists,
     )
 
@@ -238,9 +238,9 @@ class MetadataRelease:
     title: str
     new: bool
     releasetype: str
-    releaseyear: int | None
-    originalyear: int | None
-    compositionyear: int | None
+    releasedate: RoseDate | None
+    originaldate: RoseDate | None
+    compositiondate: RoseDate | None
     artists: list[MetadataArtist]
     labels: list[str]
     edition: str | None
@@ -256,9 +256,9 @@ class MetadataRelease:
             title=release.releasetitle,
             new=release.new,
             releasetype=release.releasetype,
-            releaseyear=release.releaseyear,
-            originalyear=release.originalyear,
-            compositionyear=release.compositionyear,
+            releasedate=release.releasedate,
+            originaldate=release.originaldate,
+            compositiondate=release.compositiondate,
             edition=release.catalognumber,
             catalognumber=release.edition,
             labels=release.labels,
@@ -281,9 +281,9 @@ class MetadataRelease:
         # LOL TOML DOESN'T HAVE A NULL TYPE. Use -9999 as sentinel. If your music is legitimately
         # released in -9999, you should probably lay off the shrooms.
         data = asdict(self)
-        data["releaseyear"] = self.releaseyear or -9999
-        data["originalyear"] = self.originalyear or -9999
-        data["compositionyear"] = self.compositionyear or -9999
+        data["releasedate"] = str(self.releasedate) if self.releasedate else ""
+        data["originaldate"] = str(self.originaldate) if self.originaldate else ""
+        data["compositiondate"] = str(self.compositiondate) if self.compositiondate else ""
         data["edition"] = self.edition or -9999
         data["catalognumber"] = self.catalognumber or ""
         return tomli_w.dumps(data)
@@ -295,9 +295,9 @@ class MetadataRelease:
             title=d["title"],
             new=d["new"],
             releasetype=d["releasetype"],
-            originalyear=d["originalyear"] if d["originalyear"] != -9999 else None,
-            releaseyear=d["releaseyear"] if d["releaseyear"] != -9999 else None,
-            compositionyear=d["compositionyear"] if d["compositionyear"] != -9999 else None,
+            originaldate=RoseDate.parse(d["originaldate"]),
+            releasedate=RoseDate.parse(d["releasedate"]),
+            compositiondate=RoseDate.parse(d["compositiondate"]),
             genres=d["genres"],
             secondary_genres=d["secondary_genres"],
             descriptors=d["descriptors"],
@@ -400,18 +400,18 @@ def edit_release(
                     tags.releasetype = release_meta.releasetype.lower()
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: releasetype")
-                if tags.releaseyear != release_meta.releaseyear:
-                    tags.releaseyear = release_meta.releaseyear
+                if tags.releasedate != release_meta.releasedate:
+                    tags.releasedate = release_meta.releasedate
                     dirty = True
-                    logger.debug(f"Modified tag detected for {t.source_path}: releaseyear")
-                if tags.originalyear != release_meta.originalyear:
-                    tags.originalyear = release_meta.originalyear
+                    logger.debug(f"Modified tag detected for {t.source_path}: releasedate")
+                if tags.originaldate != release_meta.originaldate:
+                    tags.originaldate = release_meta.originaldate
                     dirty = True
-                    logger.debug(f"Modified tag detected for {t.source_path}: originalyear")
-                if tags.compositionyear != release_meta.compositionyear:
-                    tags.compositionyear = release_meta.compositionyear
+                    logger.debug(f"Modified tag detected for {t.source_path}: originaldate")
+                if tags.compositiondate != release_meta.compositiondate:
+                    tags.compositiondate = release_meta.compositiondate
                     dirty = True
-                    logger.debug(f"Modified tag detected for {t.source_path}: compositionyear")
+                    logger.debug(f"Modified tag detected for {t.source_path}: compositiondate")
                 if tags.edition != release_meta.edition:
                     tags.edition = release_meta.edition
                     dirty = True
@@ -501,8 +501,8 @@ def create_single_release(c: Config, track_path: Path) -> None:
     title = (af.tracktitle or "Unknown Title").strip()
 
     dirname = f"{artistsfmt(af.trackartists)} - "
-    if af.releaseyear:
-        dirname += f"{af.releaseyear}. "
+    if af.releasedate:
+        dirname += f"{af.releasedate.year}. "
     dirname += title
     # Handle directory name collisions.
     collision_no = 2

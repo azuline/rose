@@ -4,6 +4,7 @@ from pathlib import Path
 import click
 from click.testing import CliRunner
 
+from rose.audiotags import RoseDate
 from rose.cache import CachedRelease, CachedTrack
 from rose.common import Artist, ArtistMapping
 from rose.config import Config
@@ -24,9 +25,9 @@ EMPTY_CACHED_RELEASE = CachedRelease(
     datafile_mtime="999",
     releasetitle="",
     releasetype="unknown",
-    releaseyear=None,
-    originalyear=None,
-    compositionyear=None,
+    releasedate=None,
+    originaldate=None,
+    compositiondate=None,
     edition=None,
     catalognumber=None,
     new=False,
@@ -61,7 +62,7 @@ def test_default_templates() -> None:
 
     release = deepcopy(EMPTY_CACHED_RELEASE)
     release.releasetitle = "Title"
-    release.releaseyear = 2023
+    release.releasedate = RoseDate(2023)
     release.releaseartists = ArtistMapping(
         main=[Artist("A1"), Artist("A2"), Artist("A3")],
         guest=[Artist("BB")],
@@ -210,10 +211,10 @@ def test_classical(config: Config) -> None:
         """
         {% if new %}{{ '{N}' }}{% endif %}
         {{ releaseartists.composer | map(attribute='name') | map('sortorder') | arrayfmt }} -
-        {% if compositionyear %}{{ compositionyear }}.{% endif %}
+        {% if compositiondate %}{{ compositiondate }}.{% endif %}
         {{ releasetitle }}
         performed by {{ releaseartists | artistsfmt(omit=["composer"]) }}
-        {% if releaseyear %}({{ releaseyear }}){% endif %}
+        {% if releasedate %}({{ releasedate }}){% endif %}
         """
     )
 

@@ -6,6 +6,7 @@ import pytest
 from conftest import TEST_TAGGER
 from rose.audiotags import (
     AudioTags,
+    RoseDate,
     UnsupportedTagValueTypeError,
     _split_tag,
     format_artist_string,
@@ -28,9 +29,9 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
     af = AudioTags.from_file(TEST_TAGGER / filename)
     assert af.releasetitle == "A Cool Album"
     assert af.releasetype == "album"
-    assert af.releaseyear == 1990
-    assert af.originalyear == 1990
-    assert af.compositionyear == 1984
+    assert af.releasedate == RoseDate(1990, 2, 5)
+    assert af.originaldate == RoseDate(1990)
+    assert af.compositiondate == RoseDate(1984)
     assert af.genre == ["Electronic", "House"]
     assert af.secondarygenre == ["Minimal", "Ambient"]
     assert af.descriptor == ["Lush", "Warm"]
@@ -75,14 +76,16 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     # Inject one special case into here: modify the djmixer artist. This checks that we also clear
     # the original djmixer tag, so that the next read does not contain Artist EF and Artist FG.
     af.trackartists.djmixer = [Artist("New")]
+    # Also test date writing.
+    af.originaldate = RoseDate(1990, 4, 20)
     af.flush()
     af = AudioTags.from_file(fpath)
 
     assert af.releasetitle == "A Cool Album"
     assert af.releasetype == "album"
-    assert af.releaseyear == 1990
-    assert af.originalyear == 1990
-    assert af.compositionyear == 1984
+    assert af.releasedate == RoseDate(1990, 2, 5)
+    assert af.originaldate == RoseDate(1990, 4, 20)
+    assert af.compositiondate == RoseDate(1984)
     assert af.genre == ["Electronic", "House"]
     assert af.secondarygenre == ["Minimal", "Ambient"]
     assert af.descriptor == ["Lush", "Warm"]

@@ -417,7 +417,7 @@ class VirtualNameGenerator:
 
             logtext = calculate_release_logtext(
                 title=release.releasetitle,
-                releaseyear=release.releaseyear,
+                releasedate=release.releasedate,
                 artists=release.releaseartists,
             )
 
@@ -521,7 +521,7 @@ class VirtualNameGenerator:
             logtext = calculate_track_logtext(
                 title=track.tracktitle,
                 artists=track.trackartists,
-                releaseyear=track.release.releaseyear,
+                releasedate=track.release.releasedate,
                 suffix=track.source_path.suffix,
             )
 
@@ -1194,7 +1194,7 @@ class RoseLogicalCore:
                 fh = self.fhandler.next()
                 logtext = calculate_release_logtext(
                     title=release.releasetitle,
-                    releaseyear=release.releaseyear,
+                    releasedate=release.releasedate,
                     artists=release.releaseartists,
                 )
                 logger.debug(

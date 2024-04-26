@@ -113,10 +113,10 @@ def seeded_cache(config: Config) -> None:
         conn.executescript(
             f"""\
 INSERT INTO releases
-       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype, releaseyear, originalyear, compositionyear, catalognumber, edition , disctotal, new  , metahash)
-VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'    , 2023       , null        , null           , null         , null    , 1        , false, '1')
-     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'    , 2021       , 2019        , null           , 'DG-001'     , 'Deluxe', 1        , false, '2')
-     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , 2021       , null        , 1780           , 'DG-002'     , null    , 1        , true , '3');
+       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype, releasedate , originaldate, compositiondate, catalognumber, edition , disctotal, new  , metahash)
+VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'    , '2023'      , null        , null           , null         , null    , 1        , false, '1')
+     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'    , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 1        , false, '2')
+     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , true , '3');
 
 INSERT INTO releases_genres
        (release_id, genre       , position)
@@ -196,9 +196,9 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
               , tracknumber
               , discnumber
               , releasetitle
-              , releaseyear
-              , originalyear
-              , compositionyear
+              , releasedate
+              , originaldate
+              , compositiondate
               , catalognumber
               , edition
               , releasetype
@@ -215,9 +215,9 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
               , process_string_for_fts(t.tracknumber) AS tracknumber
               , process_string_for_fts(t.discnumber) AS discnumber
               , process_string_for_fts(r.title) AS releasetitle
-              , process_string_for_fts(r.releaseyear) AS releaseyear
-              , process_string_for_fts(r.originalyear) AS originalyear
-              , process_string_for_fts(r.compositionyear) AS compositionyear
+              , process_string_for_fts(r.releasedate) AS releasedate
+              , process_string_for_fts(r.originaldate) AS originaldate
+              , process_string_for_fts(r.compositiondate) AS compositiondate
               , process_string_for_fts(r.catalognumber) AS catalognumber
               , process_string_for_fts(r.edition) AS edition
               , process_string_for_fts(r.releasetype) AS releasetype

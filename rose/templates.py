@@ -17,6 +17,7 @@ from typing import Any
 import click
 import jinja2
 
+from rose.audiotags import RoseDate
 from rose.common import Artist, ArtistMapping, RoseExpectedError
 
 if typing.TYPE_CHECKING:
@@ -144,7 +145,7 @@ class PathTemplatePair:
 DEFAULT_RELEASE_TEMPLATE = PathTemplate(
     """
 {{ releaseartists | artistsfmt }} -
-{% if releaseyear %}{{ releaseyear }}.{% endif %}
+{% if releasedate %}{{ releasedate.year }}.{% endif %}
 {{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 {% if new %}[NEW]{% endif %}
@@ -290,9 +291,9 @@ def _calc_release_variables(release: CachedRelease, position: str | None) -> dic
         "added_at": release.added_at,
         "releasetitle": release.releasetitle,
         "releasetype": release.releasetype,
-        "releaseyear": release.releaseyear,
-        "originalyear": release.originalyear,
-        "compositionyear": release.compositionyear,
+        "releasedate": release.releasedate,
+        "originaldate": release.originaldate,
+        "compositiondate": release.compositiondate,
         "edition": release.edition,
         "catalognumber": release.catalognumber,
         "new": release.new,
@@ -320,9 +321,9 @@ def _calc_track_variables(track: CachedTrack, position: str | None) -> dict[str,
         "trackartists": track.trackartists,
         "releasetitle": track.release.releasetitle,
         "releasetype": track.release.releasetype,
-        "releaseyear": track.release.releaseyear,
-        "originalyear": track.release.originalyear,
-        "compositionyear": track.release.compositionyear,
+        "releasedate": track.release.releasedate,
+        "originaldate": track.release.originaldate,
+        "compositiondate": track.release.compositiondate,
         "edition": track.release.edition,
         "catalognumber": track.release.catalognumber,
         "new": track.release.new,
@@ -386,9 +387,9 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease, Cach
         datafile_mtime="999",
         releasetitle="Kim Lip",
         releasetype="single",
-        releaseyear=2017,
-        originalyear=2017,
-        compositionyear=None,
+        releasedate=RoseDate(2017, 5, 23),
+        originaldate=RoseDate(2017, 5, 23),
+        compositiondate=None,
         edition=None,
         catalognumber="CMCC11088",
         new=True,
@@ -424,9 +425,9 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease, Cach
         datafile_mtime="999",
         releasetitle="Young Forever (花樣年華)",
         releasetype="album",
-        releaseyear=2016,
-        originalyear=2016,
-        compositionyear=None,
+        releasedate=RoseDate(2016),
+        originaldate=RoseDate(2016),
+        compositiondate=None,
         edition="Deluxe",
         catalognumber="L200001238",
         new=False,
@@ -466,9 +467,9 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease, Cach
         datafile_mtime="999",
         releasetitle="Images",
         releasetype="album",
-        releaseyear=1992,
-        originalyear=1991,
-        compositionyear=1907,
+        releasedate=RoseDate(1992),
+        originaldate=RoseDate(1991),
+        compositiondate=RoseDate(1907),
         edition=None,
         catalognumber="435-766 2",
         new=False,

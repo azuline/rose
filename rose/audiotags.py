@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")
 YEAR_REGEX = re.compile(r"\d{4}$")
-DATE_REGEX = re.compile(r"(\d{4})-\d{2}-\d{2}")
+DATE_REGEX = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
 
 SUPPORTED_AUDIO_EXTENSIONS = [
     ".mp3",
@@ -81,6 +81,29 @@ class UnsupportedTagValueTypeError(RoseExpectedError):
     pass
 
 
+@dataclass(frozen=True)
+class RoseDate:
+    year: int
+    month: int | None = None
+    day: int | None = None
+
+    @classmethod
+    def parse(cls, value: str | None) -> RoseDate | None:
+        if not value:
+            return None
+        with contextlib.suppress(ValueError):
+            return RoseDate(year=int(value), month=None, day=None)
+        # There may be a time value after the date... allow that and other crap.
+        if m := DATE_REGEX.match(value):
+            return RoseDate(year=int(m[1]), month=int(m[2]), day=int(m[3]))
+        return None
+
+    def __str__(self) -> str:
+        if self.month is None and self.day is None:
+            return f"{self.year:04}"
+        return f"{self.year:04}-{self.month or 1:02}-{self.day or 1:02}"
+
+
 @dataclass
 class AudioTags:
     id: str | None
@@ -95,9 +118,9 @@ class AudioTags:
 
     releasetitle: str | None
     releasetype: str
-    releaseyear: int | None
-    originalyear: int | None
-    compositionyear: int | None
+    releasedate: RoseDate | None
+    originaldate: RoseDate | None
+    compositiondate: RoseDate | None
     genre: list[str]
     secondarygenre: list[str]
     descriptor: list[str]
@@ -149,9 +172,11 @@ class AudioTags:
                 id=_get_tag(m.tags, ["TXXX:ROSEID"], first=True),
                 release_id=_get_tag(m.tags, ["TXXX:ROSERELEASEID"], first=True),
                 tracktitle=_get_tag(m.tags, ["TIT2"]),
-                releaseyear=_parse_year(_get_tag(m.tags, ["TDRC", "TYER", "TDAT"])),
-                originalyear=_parse_year(_get_tag(m.tags, ["TDOR", "TORY"])),
-                compositionyear=_parse_year(_get_tag(m.tags, ["TXXX:COMPOSITIONDATE"], first=True)),
+                releasedate=RoseDate.parse(_get_tag(m.tags, ["TDRC", "TYER", "TDAT"])),
+                originaldate=RoseDate.parse(_get_tag(m.tags, ["TDOR", "TORY"])),
+                compositiondate=RoseDate.parse(
+                    _get_tag(m.tags, ["TXXX:COMPOSITIONDATE"], first=True)
+                ),
                 tracknumber=tracknumber,
                 tracktotal=tracktotal,
                 discnumber=discnumber,
@@ -193,8 +218,8 @@ class AudioTags:
                 id=_get_tag(m.tags, ["----:net.sunsetglow.rose:ID"]),
                 release_id=_get_tag(m.tags, ["----:net.sunsetglow.rose:RELEASEID"]),
                 tracktitle=_get_tag(m.tags, ["\xa9nam"]),
-                releaseyear=_parse_year(_get_tag(m.tags, ["\xa9day"])),
-                originalyear=_parse_year(
+                releasedate=RoseDate.parse(_get_tag(m.tags, ["\xa9day"])),
+                originaldate=RoseDate.parse(
                     _get_tag(
                         m.tags,
                         [
@@ -204,7 +229,7 @@ class AudioTags:
                         ],
                     )
                 ),
-                compositionyear=_parse_year(
+                compositiondate=RoseDate.parse(
                     _get_tag(m.tags, ["----:net.sunsetglow.rose:COMPOSITIONDATE"])
                 ),
                 tracknumber=str(tracknumber),
@@ -249,9 +274,9 @@ class AudioTags:
                 id=_get_tag(m.tags, ["roseid"]),
                 release_id=_get_tag(m.tags, ["rosereleaseid"]),
                 tracktitle=_get_tag(m.tags, ["title"]),
-                releaseyear=_parse_year(_get_tag(m.tags, ["date", "year"])),
-                originalyear=_parse_year(_get_tag(m.tags, ["originaldate", "originalyear"])),
-                compositionyear=_parse_year(_get_tag(m.tags, ["compositiondate"])),
+                releasedate=RoseDate.parse(_get_tag(m.tags, ["date", "year"])),
+                originaldate=RoseDate.parse(_get_tag(m.tags, ["originaldate", "originalyear"])),
+                compositiondate=RoseDate.parse(_get_tag(m.tags, ["compositiondate"])),
                 tracknumber=_get_tag(m.tags, ["tracknumber"], first=True),
                 tracktotal=_parse_int(_get_tag(m.tags, ["tracktotal"], first=True)),
                 discnumber=_get_tag(m.tags, ["discnumber"], first=True),
@@ -321,9 +346,9 @@ class AudioTags:
             _write_tag_with_description("TXXX:ROSEID", self.id)
             _write_tag_with_description("TXXX:ROSERELEASEID", self.release_id)
             _write_standard_tag("TIT2", self.tracktitle)
-            _write_standard_tag("TDRC", str(self.releaseyear).zfill(4))
-            _write_standard_tag("TDOR", str(self.originalyear).zfill(4))
-            _write_tag_with_description("TXXX:COMPOSITIONDATE", self.compositionyear)
+            _write_standard_tag("TDRC", str(self.releasedate))
+            _write_standard_tag("TDOR", str(self.originaldate))
+            _write_tag_with_description("TXXX:COMPOSITIONDATE", str(self.compositiondate))
             _write_standard_tag("TRCK", self.tracknumber)
             _write_standard_tag("TPOS", self.discnumber)
             _write_standard_tag("TALB", self.releasetitle)
@@ -352,13 +377,9 @@ class AudioTags:
             m.tags["----:net.sunsetglow.rose:ID"] = (self.id or "").encode()
             m.tags["----:net.sunsetglow.rose:RELEASEID"] = (self.release_id or "").encode()
             m.tags["\xa9nam"] = self.tracktitle or ""
-            m.tags["\xa9day"] = str(self.releaseyear).zfill(4)
-            m.tags["----:net.sunsetglow.rose:ORIGINALDATE"] = (
-                str(self.originalyear).zfill(4).encode()
-            )
-            m.tags["----:net.sunsetglow.rose:COMPOSITIONDATE"] = (
-                str(self.compositionyear).zfill(4).encode()
-            )
+            m.tags["\xa9day"] = str(self.releasedate)
+            m.tags["----:net.sunsetglow.rose:ORIGINALDATE"] = str(self.originaldate).encode()
+            m.tags["----:net.sunsetglow.rose:COMPOSITIONDATE"] = str(self.compositiondate).encode()
             m.tags["\xa9alb"] = self.releasetitle or ""
             m.tags["\xa9gen"] = ";".join(self.genre)
             m.tags["----:net.sunsetglow.rose:SECONDARYGENRE"] = ";".join(
@@ -419,9 +440,9 @@ class AudioTags:
             m.tags["roseid"] = self.id or ""
             m.tags["rosereleaseid"] = self.release_id or ""
             m.tags["title"] = self.tracktitle or ""
-            m.tags["date"] = str(self.releaseyear).zfill(4)
-            m.tags["originaldate"] = str(self.originalyear).zfill(4)
-            m.tags["compositiondate"] = str(self.compositionyear).zfill(4)
+            m.tags["date"] = str(self.releasedate)
+            m.tags["originaldate"] = str(self.originaldate)
+            m.tags["compositiondate"] = str(self.compositiondate)
             m.tags["tracknumber"] = self.tracknumber or ""
             m.tags["discnumber"] = self.discnumber or ""
             m.tags["album"] = self.releasetitle or ""
@@ -506,17 +527,6 @@ def _parse_int(x: str | None) -> int | None:
         return int(x)
     except ValueError:
         return None
-
-
-def _parse_year(value: str | None) -> int | None:
-    if not value:
-        return None
-    if YEAR_REGEX.match(value):
-        return int(value)
-    # There may be a time value after the date... allow that and other crap.
-    if m := DATE_REGEX.match(value):
-        return int(m[1])
-    return None
 
 
 TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")

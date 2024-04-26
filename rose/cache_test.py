@@ -8,7 +8,7 @@ import pytest
 import tomllib
 
 from conftest import TEST_COLLAGE_1, TEST_PLAYLIST_1, TEST_RELEASE_1, TEST_RELEASE_2, TEST_RELEASE_3
-from rose.audiotags import AudioTags
+from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
     CACHE_SCHEMA_PATH,
     STORED_DATA_FILE_REGEX,
@@ -174,7 +174,7 @@ def test_update_cache_releases(config: Config) -> None:
     with connect(config) as conn:
         cursor = conn.execute(
             """
-            SELECT id, source_path, title, releasetype, releaseyear, compositionyear, catalognumber, new
+            SELECT id, source_path, title, releasetype, releasedate, compositiondate, catalognumber, new
             FROM releases WHERE id = ?
             """,
             (release_id,),
@@ -183,8 +183,8 @@ def test_update_cache_releases(config: Config) -> None:
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["releaseyear"] == 1990
-        assert row["compositionyear"] is None
+        assert row["releasedate"] == "1990-02-05"
+        assert row["compositiondate"] is None
         assert row["catalognumber"] is None
         assert row["new"]
 
@@ -311,13 +311,13 @@ def test_update_cache_releases_already_fully_cached(config: Config) -> None:
     # Assert that the release metadata was read correctly.
     with connect(config) as conn:
         cursor = conn.execute(
-            "SELECT id, source_path, title, releasetype, releaseyear, new FROM releases",
+            "SELECT id, source_path, title, releasetype, releasedate, new FROM releases",
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["releaseyear"] == 1990
+        assert row["releasedate"] == "1990-02-05"
         assert row["new"]
 
 
@@ -336,13 +336,13 @@ def test_update_cache_releases_disk_update_to_previously_cached(config: Config) 
     # Assert that the release metadata was re-read and updated correctly.
     with connect(config) as conn:
         cursor = conn.execute(
-            "SELECT id, source_path, title, releasetype, releaseyear, new FROM releases",
+            "SELECT id, source_path, title, releasetype, releasedate, new FROM releases",
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["releaseyear"] == 1990
+        assert row["releasedate"] == "1990-02-05"
         assert row["new"]
 
 
@@ -396,13 +396,13 @@ def test_update_cache_releases_source_path_renamed(config: Config) -> None:
     # Assert that the release metadata was re-read and updated correctly.
     with connect(config) as conn:
         cursor = conn.execute(
-            "SELECT id, source_path, title, releasetype, releaseyear, new FROM releases",
+            "SELECT id, source_path, title, releasetype, releasedate, new FROM releases",
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(moved_release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["releaseyear"] == 1990
+        assert row["releasedate"] == "1990-02-05"
         assert row["new"]
 
 
@@ -1089,9 +1089,9 @@ def test_list_releases(config: Config) -> None:
             added_at="0000-01-01T00:00:00+00:00",
             releasetitle="Release 1",
             releasetype="album",
-            compositionyear=None,
+            compositiondate=None,
             catalognumber=None,
-            releaseyear=2023,
+            releasedate=RoseDate(2023),
             disctotal=1,
             new=False,
             genres=["Techno", "Deep House"],
@@ -1101,7 +1101,7 @@ def test_list_releases(config: Config) -> None:
                 "Electronic Dance Music",
                 "House",
             ],
-            originalyear=None,
+            originaldate=None,
             edition=None,
             secondary_genres=["Rominimal", "Ambient"],
             parent_secondary_genres=[
@@ -1124,15 +1124,15 @@ def test_list_releases(config: Config) -> None:
             added_at="0000-01-01T00:00:00+00:00",
             releasetitle="Release 2",
             releasetype="album",
-            releaseyear=2021,
-            compositionyear=None,
+            releasedate=RoseDate(2021),
+            compositiondate=None,
             catalognumber="DG-001",
             disctotal=1,
             new=False,
             genres=["Classical"],
             parent_genres=[],
             labels=["Native State"],
-            originalyear=2019,
+            originaldate=RoseDate(2019),
             edition="Deluxe",
             secondary_genres=["Orchestral"],
             parent_secondary_genres=[
@@ -1153,15 +1153,15 @@ def test_list_releases(config: Config) -> None:
             added_at="0000-01-01T00:00:00+00:00",
             releasetitle="Release 3",
             releasetype="album",
-            releaseyear=2021,
-            compositionyear=1780,
+            releasedate=RoseDate(2021, 4, 20),
+            compositiondate=RoseDate(1780),
             catalognumber="DG-002",
             disctotal=1,
             new=True,
             genres=[],
             parent_genres=[],
             labels=[],
-            originalyear=None,
+            originaldate=None,
             edition=None,
             secondary_genres=[],
             parent_secondary_genres=[],
@@ -1187,8 +1187,8 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
         added_at="0000-01-01T00:00:00+00:00",
         releasetitle="Release 1",
         releasetype="album",
-        releaseyear=2023,
-        compositionyear=None,
+        releasedate=RoseDate(2023),
+        compositiondate=None,
         catalognumber=None,
         disctotal=1,
         new=False,
@@ -1200,7 +1200,7 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
             "House",
         ],
         labels=["Silk Music"],
-        originalyear=None,
+        originaldate=None,
         edition=None,
         secondary_genres=["Rominimal", "Ambient"],
         parent_secondary_genres=[
@@ -1304,8 +1304,8 @@ def test_list_tracks(config: Config) -> None:
                 added_at="0000-01-01T00:00:00+00:00",
                 releasetitle="Release 1",
                 releasetype="album",
-                releaseyear=2023,
-                compositionyear=None,
+                releasedate=RoseDate(2023),
+                compositiondate=None,
                 catalognumber=None,
                 disctotal=1,
                 new=False,
@@ -1317,7 +1317,7 @@ def test_list_tracks(config: Config) -> None:
                     "House",
                 ],
                 labels=["Silk Music"],
-                originalyear=None,
+                originaldate=None,
                 edition=None,
                 secondary_genres=["Rominimal", "Ambient"],
                 parent_secondary_genres=[
@@ -1351,8 +1351,8 @@ def test_list_tracks(config: Config) -> None:
                 added_at="0000-01-01T00:00:00+00:00",
                 releasetitle="Release 1",
                 releasetype="album",
-                releaseyear=2023,
-                compositionyear=None,
+                releasedate=RoseDate(2023),
+                compositiondate=None,
                 catalognumber=None,
                 disctotal=1,
                 new=False,
@@ -1364,7 +1364,7 @@ def test_list_tracks(config: Config) -> None:
                     "House",
                 ],
                 labels=["Silk Music"],
-                originalyear=None,
+                originaldate=None,
                 edition=None,
                 secondary_genres=["Rominimal", "Ambient"],
                 parent_secondary_genres=[
@@ -1400,15 +1400,15 @@ def test_list_tracks(config: Config) -> None:
                 datafile_mtime="999",
                 releasetitle="Release 2",
                 releasetype="album",
-                releaseyear=2021,
-                compositionyear=None,
+                releasedate=RoseDate(2021),
+                compositiondate=None,
                 catalognumber="DG-001",
                 new=False,
                 disctotal=1,
                 genres=["Classical"],
                 parent_genres=[],
                 labels=["Native State"],
-                originalyear=2019,
+                originaldate=RoseDate(2019),
                 edition="Deluxe",
                 secondary_genres=["Orchestral"],
                 parent_secondary_genres=[
@@ -1441,15 +1441,15 @@ def test_list_tracks(config: Config) -> None:
                 datafile_mtime="999",
                 releasetitle="Release 3",
                 releasetype="album",
-                releaseyear=2021,
-                compositionyear=1780,
+                releasedate=RoseDate(2021, 4, 20),
+                compositiondate=RoseDate(1780),
                 catalognumber="DG-002",
                 new=True,
                 disctotal=1,
                 genres=[],
                 parent_genres=[],
                 labels=[],
-                originalyear=None,
+                originaldate=None,
                 edition=None,
                 secondary_genres=[],
                 parent_secondary_genres=[],
@@ -1485,8 +1485,8 @@ def test_get_track(config: Config) -> None:
             added_at="0000-01-01T00:00:00+00:00",
             releasetitle="Release 1",
             releasetype="album",
-            releaseyear=2023,
-            compositionyear=None,
+            releasedate=RoseDate(2023),
+            compositiondate=None,
             catalognumber=None,
             disctotal=1,
             new=False,
@@ -1498,7 +1498,7 @@ def test_get_track(config: Config) -> None:
                 "House",
             ],
             labels=["Silk Music"],
-            originalyear=None,
+            originaldate=None,
             edition=None,
             secondary_genres=["Rominimal", "Ambient"],
             parent_secondary_genres=[
@@ -1598,8 +1598,8 @@ def test_get_collage(config: Config) -> None:
             datafile_mtime="999",
             releasetitle="Release 1",
             releasetype="album",
-            releaseyear=2023,
-            compositionyear=None,
+            releasedate=RoseDate(2023),
+            compositiondate=None,
             catalognumber=None,
             new=False,
             disctotal=1,
@@ -1611,7 +1611,7 @@ def test_get_collage(config: Config) -> None:
                 "House",
             ],
             labels=["Silk Music"],
-            originalyear=None,
+            originaldate=None,
             edition=None,
             secondary_genres=["Rominimal", "Ambient"],
             parent_secondary_genres=[
@@ -1633,15 +1633,15 @@ def test_get_collage(config: Config) -> None:
             datafile_mtime="999",
             releasetitle="Release 2",
             releasetype="album",
-            releaseyear=2021,
-            compositionyear=None,
+            releasedate=RoseDate(2021),
+            compositiondate=None,
             catalognumber="DG-001",
             new=False,
             disctotal=1,
             genres=["Classical"],
             parent_genres=[],
             labels=["Native State"],
-            originalyear=2019,
+            originaldate=RoseDate(2019),
             edition="Deluxe",
             secondary_genres=["Orchestral"],
             parent_secondary_genres=[
@@ -1710,8 +1710,8 @@ def test_get_playlist(config: Config) -> None:
                 added_at="0000-01-01T00:00:00+00:00",
                 releasetitle="Release 1",
                 releasetype="album",
-                releaseyear=2023,
-                compositionyear=None,
+                releasedate=RoseDate(2023),
+                compositiondate=None,
                 catalognumber=None,
                 disctotal=1,
                 new=False,
@@ -1723,7 +1723,7 @@ def test_get_playlist(config: Config) -> None:
                     "House",
                 ],
                 labels=["Silk Music"],
-                originalyear=None,
+                originaldate=None,
                 edition=None,
                 secondary_genres=["Rominimal", "Ambient"],
                 parent_secondary_genres=[
@@ -1759,15 +1759,15 @@ def test_get_playlist(config: Config) -> None:
                 datafile_mtime="999",
                 releasetitle="Release 2",
                 releasetype="album",
-                releaseyear=2021,
-                compositionyear=None,
+                releasedate=RoseDate(2021),
+                compositiondate=None,
                 catalognumber="DG-001",
                 new=False,
                 disctotal=1,
                 genres=["Classical"],
                 parent_genres=[],
                 labels=["Native State"],
-                originalyear=2019,
+                originaldate=RoseDate(2019),
                 edition="Deluxe",
                 secondary_genres=["Orchestral"],
                 parent_secondary_genres=[

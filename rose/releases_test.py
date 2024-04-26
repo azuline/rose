@@ -8,7 +8,7 @@ import pytest
 import tomllib
 
 from conftest import TEST_RELEASE_1
-from rose.audiotags import AudioTags
+from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
     CachedRelease,
     CachedTrack,
@@ -136,9 +136,9 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         title = "I Really Love Blackpink"
         new = false
         releasetype = "single"
-        releaseyear = 2222
-        originalyear = 2000
-        compositionyear = 1800
+        releasedate = "2222"
+        originaldate = "2000"
+        compositiondate = "1800"
         artists = [
             {{ name = "BLACKPINK", role = "main" }},
             {{ name = "JISOO", role = "main" }},
@@ -189,9 +189,9 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         datafile_mtime=release.datafile_mtime,
         releasetitle="I Really Love Blackpink",
         releasetype="single",
-        releaseyear=2222,
-        originalyear=2000,
-        compositionyear=1800,
+        releasedate=RoseDate(2222),
+        originaldate=RoseDate(2000),
+        compositiondate=RoseDate(1800),
         catalognumber="Lalala",
         edition="Blabla",
         new=False,
@@ -259,9 +259,9 @@ def test_edit_release_failure_and_resume(
         title = "I Really Love Blackpink"
         new = false
         releasetype = "bullshit"
-        releaseyear = 2222
-        originalyear = -9999
-        compositionyear = -9999
+        releasedate = "2222"
+        originaldate = ""
+        compositiondate = ""
         artists = [
             {{ name = "BLACKPINK", role = "main" }},
             {{ name = "JISOO", role = "main" }},
@@ -307,9 +307,9 @@ def test_edit_release_failure_and_resume(
         title = "I Really Love Blackpink"
         new = false
         releasetype = "single"
-        releaseyear = 2222
-        originalyear = -9999
-        compositionyear = -9999
+        releasedate = "2222"
+        originaldate = ""
+        compositiondate = ""
         artists = [
             {{ name = "BLACKPINK", role = "main" }},
             {{ name = "JISOO", role = "main" }},
@@ -363,9 +363,9 @@ def test_edit_release_failure_and_resume(
         datafile_mtime=release.datafile_mtime,
         releasetitle="I Really Love Blackpink",
         releasetype="single",
-        releaseyear=2222,
-        originalyear=None,
-        compositionyear=None,
+        releasedate=RoseDate(2222),
+        originaldate=None,
+        compositiondate=None,
         catalognumber=None,
         edition=None,
         new=False,
@@ -455,8 +455,8 @@ def test_dump_release(config: Config) -> None:
         "added_at": "0000-01-01T00:00:00+00:00",
         "releasetitle": "Release 1",
         "releasetype": "album",
-        "releaseyear": 2023,
-        "compositionyear": None,
+        "releasedate": "2023",
+        "compositiondate": None,
         "catalognumber": None,
         "new": False,
         "disctotal": 1,
@@ -468,7 +468,7 @@ def test_dump_release(config: Config) -> None:
             "House",
         ],
         "labels": ["Silk Music"],
-        "originalyear": None,
+        "originaldate": None,
         "edition": None,
         "secondary_genres": ["Rominimal", "Ambient"],
         "parent_secondary_genres": [
@@ -548,8 +548,8 @@ def test_dump_releases(config: Config) -> None:
             "added_at": "0000-01-01T00:00:00+00:00",
             "releasetitle": "Release 1",
             "releasetype": "album",
-            "releaseyear": 2023,
-            "compositionyear": None,
+            "releasedate": "2023",
+            "compositiondate": None,
             "catalognumber": None,
             "new": False,
             "disctotal": 1,
@@ -561,7 +561,7 @@ def test_dump_releases(config: Config) -> None:
                 "House",
             ],
             "labels": ["Silk Music"],
-            "originalyear": None,
+            "originaldate": None,
             "edition": None,
             "secondary_genres": ["Rominimal", "Ambient"],
             "parent_secondary_genres": [
@@ -636,15 +636,15 @@ def test_dump_releases(config: Config) -> None:
             "added_at": "0000-01-01T00:00:00+00:00",
             "releasetitle": "Release 2",
             "releasetype": "album",
-            "releaseyear": 2021,
-            "compositionyear": None,
+            "releasedate": "2021",
+            "compositiondate": None,
             "catalognumber": "DG-001",
             "new": False,
             "disctotal": 1,
             "genres": ["Classical"],
             "parent_genres": [],
             "labels": ["Native State"],
-            "originalyear": 2019,
+            "originaldate": "2019",
             "edition": "Deluxe",
             "secondary_genres": ["Orchestral"],
             "parent_secondary_genres": [
@@ -689,15 +689,15 @@ def test_dump_releases(config: Config) -> None:
             "added_at": "0000-01-01T00:00:00+00:00",
             "releasetitle": "Release 3",
             "releasetype": "album",
-            "releaseyear": 2021,
-            "compositionyear": 1780,
+            "releasedate": "2021-04-20",
+            "compositiondate": "1780",
             "catalognumber": "DG-002",
             "new": True,
             "disctotal": 1,
             "genres": [],
             "parent_genres": [],
             "labels": [],
-            "originalyear": None,
+            "originaldate": None,
             "edition": None,
             "secondary_genres": [],
             "parent_secondary_genres": [],
@@ -746,15 +746,15 @@ def test_dump_releases_matcher(config: Config) -> None:
             "added_at": "0000-01-01T00:00:00+00:00",
             "releasetitle": "Release 2",
             "releasetype": "album",
-            "releaseyear": 2021,
-            "compositionyear": None,
+            "releasedate": "2021",
+            "compositiondate": None,
             "catalognumber": "DG-001",
             "new": False,
             "disctotal": 1,
             "genres": ["Classical"],
             "parent_genres": [],
             "labels": ["Native State"],
-            "originalyear": 2019,
+            "originaldate": "2019",
             "edition": "Deluxe",
             "secondary_genres": ["Orchestral"],
             "parent_secondary_genres": [

@@ -41,7 +41,7 @@ If set, the `default.xxx` templates are used as the default values for all other
 {# "Default Default" Release Template #}
 
 {{ releaseartists | artistsfmt }} -
-{% if releaseyear %}{{ releaseyear }}.{% endif %}
+{% if releasedate %}{{ releasedate }}.{% endif %}
 {{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 {% if new %}[NEW]{% endif %}
@@ -66,7 +66,7 @@ comments when defining your templates, like so:
 [path_templates]
 default.release = """
   {{ releaseartists | artistsfmt }} -
-  {% if releaseyear %}{{ releaseyear }}.{% endif %}         {# Hi! This is a comment! #}
+  {% if releasedate %}{{ releasedate }}.{% endif %}         {# Hi! This is a comment! #}
   {{ releasetitle }}
   {% if new %}[NEW]{% endif %}
 """
@@ -78,9 +78,9 @@ Rosé provides the following template variables for releases:
 added_at: str                        # ISO8601 timestamp of when the release was added to the library.
 releasetitle: str
 releasetype: str                     # The type of the release (e.g. single, ep, etc). One of the enums as defined in TAGGING_CONVENTIONS.md.
-releaseyear: int | None              # The year of this edition of the release.
-originalyear: int | None             # The year of the first edition of the release.
-compositionyear: int | None          # The year that the release was composed. Mainly of interest in classical music.
+releasedate: int | None              # The year of this edition of the release.
+originaldate: int | None             # The year of the first edition of the release.
+compositiondate: int | None          # The year that the release was composed. Mainly of interest in classical music.
 new: bool                            # The "new"-ness of the release. See RELEASES.md for documentation on this feature.
 disctotal: int                       # The number of discs in the release.
 genres: list[str]
@@ -126,9 +126,9 @@ trackartists.conductor: list[Artist]
 trackartists.djmixer: list[Artist]
 releasetitle: str
 releasetype: str                     # The type of the track's release (e.g. single, ep, etc).
-releaseyear: int | None
-originalyear: int | None             # The year of the first edition of the release.
-compositionyear: int | None          # The year that the release was composed. Mainly of interest in classical music.
+releasedate: int | None
+originaldate: int | None             # The year of the first edition of the release.
+compositiondate: int | None          # The year that the release was composed. Mainly of interest in classical music.
 new: bool                            # The "new"-ness of the track's release.
 genres: list[str]
 parent_genres: list[str]             # The parent genres of `genres`, excluding `genres`.

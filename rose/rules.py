@@ -22,7 +22,7 @@ from pathlib import Path
 
 import click
 
-from rose.audiotags import AudioTags
+from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
     CachedRelease,
     CachedTrack,
@@ -227,9 +227,9 @@ def filter_track_false_positives_using_tags(
             match = False
             # fmt: off
             match = match or (field == "tracktitle" and matches_pattern(matcher.pattern, tags.tracktitle))
-            match = match or (field == "releaseyear" and matches_pattern(matcher.pattern, tags.releaseyear))
-            match = match or (field == "originalyear" and matches_pattern(matcher.pattern, tags.originalyear))
-            match = match or (field == "compositionyear" and matches_pattern(matcher.pattern, tags.compositionyear))
+            match = match or (field == "releasedate" and matches_pattern(matcher.pattern, tags.releasedate))
+            match = match or (field == "originaldate" and matches_pattern(matcher.pattern, tags.originaldate))
+            match = match or (field == "compositiondate" and matches_pattern(matcher.pattern, tags.compositiondate))
             match = match or (field == "edition" and matches_pattern(matcher.pattern, tags.edition))
             match = match or (field == "catalognumber" and matches_pattern(matcher.pattern, tags.catalognumber))
             match = match or (field == "tracknumber" and matches_pattern(matcher.pattern, tags.tracknumber))
@@ -265,9 +265,9 @@ def filter_track_false_positives_using_tags(
                 for i in ignore:
                     # fmt: off
                     skip = skip or (field == "tracktitle" and matches_pattern(i.pattern, tags.tracktitle))
-                    skip = skip or (field == "releaseyear" and matches_pattern(i.pattern, tags.releaseyear))
-                    skip = skip or (field == "originalyear" and matches_pattern(i.pattern, tags.originalyear))
-                    skip = skip or (field == "compositionyear" and matches_pattern(i.pattern, tags.compositionyear))
+                    skip = skip or (field == "releasedate" and matches_pattern(i.pattern, tags.releasedate))
+                    skip = skip or (field == "originaldate" and matches_pattern(i.pattern, tags.originaldate))
+                    skip = skip or (field == "compositiondate" and matches_pattern(i.pattern, tags.compositiondate))
                     skip = skip or (field == "edition" and matches_pattern(i.pattern, tags.edition))
                     skip = skip or (field == "catalognumber" and matches_pattern(i.pattern, tags.catalognumber))
                     skip = skip or (field == "tracknumber" and matches_pattern(i.pattern, tags.tracknumber))
@@ -310,7 +310,9 @@ def filter_track_false_positives_using_tags(
     return rval
 
 
-Changes = tuple[str, str | int | None | list[str], str | int | None | list[str]]
+Changes = tuple[
+    str, str | int | RoseDate | None | list[str], str | int | RoseDate | None | list[str]
+]
 
 
 def execute_metadata_actions(
@@ -347,33 +349,33 @@ def execute_metadata_actions(
                 if field == "tracktitle":
                     tags.tracktitle = execute_single_action(act, tags.tracktitle)
                     potential_changes.append(("title", origtags.tracktitle, tags.tracktitle))
-                elif field == "releaseyear":
-                    v = execute_single_action(act, tags.releaseyear)
+                elif field == "releasedate":
+                    v = execute_single_action(act, tags.releasedate)
                     try:
-                        tags.releaseyear = int(v) if v else None
+                        tags.releasedate = RoseDate.parse(v)
                     except ValueError as e:
                         raise InvalidReplacementValueError(
-                            f"Failed to assign new value {v} to releaseyear: value must be integer"
+                            f"Failed to assign new value {v} to releasedate: value must be date string"
                         ) from e
-                    potential_changes.append(("releaseyear", origtags.releaseyear, tags.releaseyear))
-                elif field == "originalyear":
-                    v = execute_single_action(act, tags.originalyear)
+                    potential_changes.append(("releasedate", origtags.releasedate, tags.releasedate))
+                elif field == "originaldate":
+                    v = execute_single_action(act, tags.originaldate)
                     try:
-                        tags.originalyear = int(v) if v else None
+                        tags.originaldate = RoseDate.parse(v)
                     except ValueError as e:
                         raise InvalidReplacementValueError(
-                            f"Failed to assign new value {v} to originalyear: value must be integer"
+                            f"Failed to assign new value {v} to originaldate: value must be date string"
                         ) from e
-                    potential_changes.append(("originalyear", origtags.originalyear, tags.originalyear))
-                elif field == "compositionyear":
-                    v = execute_single_action(act, tags.compositionyear)
+                    potential_changes.append(("originaldate", origtags.originaldate, tags.originaldate))
+                elif field == "compositiondate":
+                    v = execute_single_action(act, tags.compositiondate)
                     try:
-                        tags.compositionyear = int(v) if v else None
+                        tags.compositiondate = RoseDate.parse(v)
                     except ValueError as e:
                         raise InvalidReplacementValueError(
-                            f"Failed to assign new value {v} to compositionyear: value must be integer"
+                            f"Failed to assign new value {v} to compositiondate: value must be date string"
                         ) from e
-                    potential_changes.append(("compositionyear", origtags.compositionyear, tags.compositionyear))
+                    potential_changes.append(("compositiondate", origtags.compositiondate, tags.compositiondate))
                 elif field == "edition":
                     tags.edition = execute_single_action(act, tags.edition)
                     potential_changes.append(("edition", origtags.edition, tags.edition))
@@ -539,7 +541,7 @@ def execute_metadata_actions(
     update_cache_for_releases(c, source_paths)
 
 
-def matches_pattern(pattern: MatcherPattern, value: str | int | None) -> bool:
+def matches_pattern(pattern: MatcherPattern, value: str | int | RoseDate | None) -> bool:
     value = str(value) if value is not None else ""
 
     needle = pattern.pattern
@@ -571,7 +573,7 @@ def matches_pattern(pattern: MatcherPattern, value: str | int | None) -> bool:
 
 
 # Factor out the logic for executing an action on a single-value tag and a multi-value tag.
-def execute_single_action(action: MetadataAction, value: str | int | None) -> str | None:
+def execute_single_action(action: MetadataAction, value: str | int | RoseDate | None) -> str | None:
     if action.pattern and not matches_pattern(action.pattern, value):
         return str(value)
 
@@ -684,9 +686,9 @@ def filter_track_false_positives_using_read_cache(
             match = False
             # fmt: off
             match = match or (field == "tracktitle" and matches_pattern(matcher.pattern, t.tracktitle))
-            match = match or (field == "releaseyear" and matches_pattern(matcher.pattern, t.release.releaseyear))
-            match = match or (field == "originalyear" and matches_pattern(matcher.pattern, t.release.originalyear))
-            match = match or (field == "compositionyear" and matches_pattern(matcher.pattern, t.release.compositionyear))
+            match = match or (field == "releasedate" and matches_pattern(matcher.pattern, t.release.releasedate))
+            match = match or (field == "originaldate" and matches_pattern(matcher.pattern, t.release.originaldate))
+            match = match or (field == "compositiondate" and matches_pattern(matcher.pattern, t.release.compositiondate))
             match = match or (field == "edition" and matches_pattern(matcher.pattern, t.release.edition))
             match = match or (field == "catalognumber" and matches_pattern(matcher.pattern, t.release.catalognumber))
             match = match or (field == "tracknumber" and matches_pattern(matcher.pattern, t.tracknumber))
@@ -734,9 +736,9 @@ def filter_release_false_positives_using_read_cache(
             match = False
             # Only attempt to match the release tags; ignore track tags.
             # fmt: off
-            match = match or (field == "releaseyear" and matches_pattern(matcher.pattern, r.releaseyear))
-            match = match or (field == "originalyear" and matches_pattern(matcher.pattern, r.originalyear))
-            match = match or (field == "compositionyear" and matches_pattern(matcher.pattern, r.compositionyear))
+            match = match or (field == "releasedate" and matches_pattern(matcher.pattern, r.releasedate))
+            match = match or (field == "originaldate" and matches_pattern(matcher.pattern, r.originaldate))
+            match = match or (field == "compositiondate" and matches_pattern(matcher.pattern, r.compositiondate))
             match = match or (field == "edition" and matches_pattern(matcher.pattern, r.edition))
             match = match or (field == "catalognumber" and matches_pattern(matcher.pattern, r.catalognumber))
             match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, r.releasetitle))
