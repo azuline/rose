@@ -145,7 +145,7 @@ class AudioTags:
                 id=_get_tag(m.tags, ["TXXX:ROSEID"], first=True),
                 release_id=_get_tag(m.tags, ["TXXX:ROSERELEASEID"], first=True),
                 title=_get_tag(m.tags, ["TIT2"]),
-                releaseyear=_parse_year(_get_tag(m.tags, ["TDRC", "TYER"])),
+                releaseyear=_parse_year(_get_tag(m.tags, ["TDRC", "TYER", "TDAT"])),
                 compositionyear=_parse_year(_get_tag(m.tags, ["TXXX:COMPOSITIONDATE"], first=True)),
                 tracknumber=tracknumber,
                 tracktotal=tracktotal,
@@ -155,7 +155,11 @@ class AudioTags:
                 genre=_split_tag(_get_tag(m.tags, ["TCON"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["TPUB"], split=True)),
                 catalognumber=_get_tag(m.tags, ["TXXX:CATALOGNUMBER"], first=True),
-                releasetype=_normalize_rtype(_get_tag(m.tags, ["TXXX:RELEASETYPE"], first=True)),
+                releasetype=_normalize_rtype(
+                    _get_tag(
+                        m.tags, ["TXXX:RELEASETYPE", "TXXX:MusicBrainz Album Type"], first=True
+                    )
+                ),
                 releaseartists=parse_artist_string(main=_get_tag(m.tags, ["TPE2"], split=True)),
                 trackartists=parse_artist_string(
                     main=_get_tag(m.tags, ["TPE1"], split=True),
@@ -194,7 +198,14 @@ class AudioTags:
                 label=_split_tag(_get_tag(m.tags, ["----:com.apple.iTunes:LABEL"], split=True)),
                 catalognumber=_get_tag(m.tags, ["----:com.apple.iTunes:CATALOGNUMBER"]),
                 releasetype=_normalize_rtype(
-                    _get_tag(m.tags, ["----:com.apple.iTunes:RELEASETYPE"], first=True)
+                    _get_tag(
+                        m.tags,
+                        [
+                            "----:com.apple.iTunes:RELEASETYPE",
+                            "----:com.apple.iTunes:MusicBrainz Album Type",
+                        ],
+                        first=True,
+                    )
                 ),
                 releaseartists=parse_artist_string(main=_get_tag(m.tags, ["aART"], split=True)),
                 trackartists=parse_artist_string(
