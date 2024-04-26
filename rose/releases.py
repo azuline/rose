@@ -281,9 +281,9 @@ class MetadataRelease:
         # LOL TOML DOESN'T HAVE A NULL TYPE. Use -9999 as sentinel. If your music is legitimately
         # released in -9999, you should probably lay off the shrooms.
         data = asdict(self)
-        data["releasedate"] = self.releasedate or -9999
-        data["originaldate"] = self.originaldate or -9999
-        data["compositiondate"] = self.compositiondate or -9999
+        data["releasedate"] = str(self.releasedate) if self.releasedate else ""
+        data["originaldate"] = str(self.originaldate) if self.originaldate else ""
+        data["compositiondate"] = str(self.compositiondate) if self.compositiondate else ""
         data["edition"] = self.edition or -9999
         data["catalognumber"] = self.catalognumber or ""
         return tomli_w.dumps(data)
@@ -502,7 +502,7 @@ def create_single_release(c: Config, track_path: Path) -> None:
 
     dirname = f"{artistsfmt(af.trackartists)} - "
     if af.releasedate:
-        dirname += f"{af.releasedate}. "
+        dirname += f"{af.releasedate.year}. "
     dirname += title
     # Handle directory name collisions.
     collision_no = 2

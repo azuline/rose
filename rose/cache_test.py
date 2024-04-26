@@ -183,7 +183,7 @@ def test_update_cache_releases(config: Config) -> None:
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["releasedate"] == 1990
+        assert row["releasedate"] == "1990-02-05"
         assert row["compositiondate"] is None
         assert row["catalognumber"] is None
         assert row["new"]
@@ -317,7 +317,7 @@ def test_update_cache_releases_already_fully_cached(config: Config) -> None:
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["releasedate"] == 1990
+        assert row["releasedate"] == "1990-02-05"
         assert row["new"]
 
 
@@ -342,7 +342,7 @@ def test_update_cache_releases_disk_update_to_previously_cached(config: Config) 
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["releasedate"] == 1990
+        assert row["releasedate"] == "1990-02-05"
         assert row["new"]
 
 
@@ -402,7 +402,7 @@ def test_update_cache_releases_source_path_renamed(config: Config) -> None:
         assert row["source_path"] == str(moved_release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["releasedate"] == 1990
+        assert row["releasedate"] == "1990-02-05"
         assert row["new"]
 
 
@@ -1153,7 +1153,7 @@ def test_list_releases(config: Config) -> None:
             added_at="0000-01-01T00:00:00+00:00",
             releasetitle="Release 3",
             releasetype="album",
-            releasedate=RoseDate(2021),
+            releasedate=RoseDate(2021, 4, 20),
             compositiondate=RoseDate(1780),
             catalognumber="DG-002",
             disctotal=1,
@@ -1441,7 +1441,7 @@ def test_list_tracks(config: Config) -> None:
                 datafile_mtime="999",
                 releasetitle="Release 3",
                 releasetype="album",
-                releasedate=RoseDate(2021),
+                releasedate=RoseDate(2021, 4, 20),
                 compositiondate=RoseDate(1780),
                 catalognumber="DG-002",
                 new=True,

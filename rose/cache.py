@@ -237,9 +237,9 @@ class CachedRelease:
             datafile_mtime=row["datafile_mtime"],
             releasetitle=row["releasetitle"],
             releasetype=row["releasetype"],
-            releasedate=row["releasedate"],
-            originaldate=row["originaldate"],
-            compositiondate=row["compositiondate"],
+            releasedate=RoseDate.parse(row["releasedate"]),
+            originaldate=RoseDate.parse(row["originaldate"]),
+            compositiondate=RoseDate.parse(row["compositiondate"]),
             catalognumber=row["catalognumber"],
             edition=row["edition"],
             disctotal=row["disctotal"],
@@ -266,9 +266,9 @@ class CachedRelease:
             "added_at": self.added_at,
             "releasetitle": self.releasetitle,
             "releasetype": self.releasetype,
-            "releasedate": str(self.releasedate),
-            "originaldate": str(self.originaldate),
-            "compositiondate": str(self.compositiondate),
+            "releasedate": str(self.releasedate) if self.releasedate else None,
+            "originaldate": str(self.originaldate) if self.originaldate else None,
+            "compositiondate": str(self.compositiondate) if self.compositiondate else None,
             "catalognumber": self.catalognumber,
             "edition": self.edition,
             "new": self.new,
@@ -344,9 +344,15 @@ class CachedTrack:
                     "releasetitle": self.release.releasetitle,
                     "releasetype": self.release.releasetype,
                     "disctotal": self.release.disctotal,
-                    "releasedate": str(self.release.releasedate),
-                    "originaldate": str(self.release.originaldate),
-                    "compositiondate": str(self.release.compositiondate),
+                    "releasedate": str(self.release.releasedate)
+                    if self.release.releasedate
+                    else None,
+                    "originaldate": str(self.release.originaldate)
+                    if self.release.originaldate
+                    else None,
+                    "compositiondate": str(self.release.compositiondate)
+                    if self.release.compositiondate
+                    else None,
                     "catalognumber": self.release.catalognumber,
                     "edition": self.release.edition,
                     "new": self.release.new,
@@ -1034,9 +1040,9 @@ def _update_cache_for_releases_executor(
                     release.datafile_mtime,
                     release.releasetitle,
                     release.releasetype,
-                    release.releasedate,
-                    release.originaldate,
-                    release.compositiondate,
+                    str(release.releasedate) if release.releasedate else None,
+                    str(release.originaldate) if release.originaldate else None,
+                    str(release.compositiondate) if release.compositiondate else None,
                     release.edition,
                     release.catalognumber,
                     release.disctotal,
@@ -1507,7 +1513,7 @@ def update_cache_for_collages(
                 for row in cursor:
                     desc_map[row["id"]] = calculate_release_logtext(
                         title=row["releasetitle"],
-                        releasedate=row["releasedate"],
+                        releasedate=RoseDate.parse(row["releasedate"]),
                         artists=_unpack_artists(
                             c, row["releaseartist_names"], row["releaseartist_roles"]
                         ),
@@ -1735,7 +1741,7 @@ def update_cache_for_playlists(
                         artists=_unpack_artists(
                             c, row["trackartist_names"], row["trackartist_roles"]
                         ),
-                        releasedate=row["releasedate"],
+                        releasedate=RoseDate.parse(row["releasedate"]),
                         suffix=Path(row["source_path"]).suffix,
                     )
                 for i, trk in enumerate(tracks):
@@ -1903,7 +1909,7 @@ def get_release_logtext(c: Config, release_id: str) -> str | None:
             return None
         return calculate_release_logtext(
             title=row["releasetitle"],
-            releasedate=row["releasedate"],
+            releasedate=RoseDate.parse(row["releasedate"]),
             artists=_unpack_artists(c, row["releaseartist_names"], row["releaseartist_roles"]),
         )
 
@@ -2080,7 +2086,7 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
         return calculate_track_logtext(
             title=row["tracktitle"],
             artists=_unpack_artists(c, row["trackartist_names"], row["trackartist_roles"]),
-            releasedate=row["releasedate"],
+            releasedate=RoseDate.parse(row["releasedate"]),
             suffix=Path(row["source_path"]).suffix,
         )
 

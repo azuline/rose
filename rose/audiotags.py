@@ -91,7 +91,7 @@ class RoseDate:
     def parse(cls, value: str | None) -> RoseDate | None:
         if not value:
             return None
-        if YEAR_REGEX.match(value):
+        with contextlib.suppress(ValueError):
             return RoseDate(year=int(value), month=None, day=None)
         # There may be a time value after the date... allow that and other crap.
         if m := DATE_REGEX.match(value):

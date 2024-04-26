@@ -145,7 +145,7 @@ class PathTemplatePair:
 DEFAULT_RELEASE_TEMPLATE = PathTemplate(
     """
 {{ releaseartists | artistsfmt }} -
-{% if releasedate %}{{ releasedate }}.{% endif %}
+{% if releasedate %}{{ releasedate.year }}.{% endif %}
 {{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 {% if new %}[NEW]{% endif %}
