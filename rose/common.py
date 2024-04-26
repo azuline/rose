@@ -97,7 +97,7 @@ def sanitize_dirname(c: "Config", name: str, enforce_maxlen: bool) -> str:
     """
     name = ILLEGAL_FS_CHARS_REGEX.sub("_", name)
     if enforce_maxlen:
-        name = name.encode("utf-8")[: c.max_filename_bytes].decode("utf-8", "ignore")
+        name = name.encode("utf-8")[: c.max_filename_bytes].decode("utf-8", "ignore").strip()
     return name
 
 
@@ -111,7 +111,7 @@ def sanitize_filename(c: "Config", name: str, enforce_maxlen: bool) -> str:
         if len(ext.encode()) > 6:
             stem = name
             ext = ""
-        stem = stem.encode("utf-8")[: c.max_filename_bytes].decode("utf-8", "ignore")
+        stem = stem.encode("utf-8")[: c.max_filename_bytes].decode("utf-8", "ignore").strip()
         name = stem + ext
     return name
 

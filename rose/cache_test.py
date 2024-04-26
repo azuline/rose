@@ -421,6 +421,26 @@ def test_update_cache_releases_delete_nonexistent(config: Config) -> None:
         assert cursor.fetchone()[0] == 0
 
 
+def test_update_cache_releases_enforces_max_len(config: Config) -> None:
+    """Test that an directory with no audio files is skipped."""
+    config = dataclasses.replace(config, rename_source_files=True, max_filename_bytes=15)
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "a")
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "b")
+    shutil.copy(TEST_RELEASE_1 / "01.m4a", config.music_source_dir / "b" / "03.m4a")
+    update_cache_for_releases(config)
+    assert set(config.music_source_dir.iterdir()) == {
+        config.music_source_dir / "BLACKPINK - 199",
+        config.music_source_dir / "BLACKPINK - [2]",
+    }
+    # Nondeterministic: Pick the one with the extra file.
+    children_1 = set((config.music_source_dir / "BLACKPINK - 199").iterdir())
+    children_2 = set((config.music_source_dir / "BLACKPINK - [2]").iterdir())
+    files = children_1 if len(children_1) > len(children_2) else children_2
+    release_dir = next(iter(files)).parent
+    assert release_dir / "01. Track 1.m4a" in files
+    assert release_dir / "01. Tra [2].m4a" in files
+
+
 def test_update_cache_releases_skips_empty_directory(config: Config) -> None:
     """Test that an directory with no audio files is skipped."""
     rd = config.music_source_dir / "lalala"

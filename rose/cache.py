@@ -908,7 +908,8 @@ def _update_cache_for_releases_executor(
                     new_source_path = release.source_path.with_name(wanted_dirname)
                     # If there is a collision, bump the collision counter and retry.
                     if new_source_path.exists():
-                        wanted_dirname = f"{original_wanted_dirname} [{collision_no}]"
+                        new_max_len = c.max_filename_bytes - (3 + len(str(collision_no)))
+                        wanted_dirname = f"{original_wanted_dirname[:new_max_len]} [{collision_no}]"
                         collision_no += 1
                         continue
                     # If no collision, rename the directory.
@@ -943,9 +944,10 @@ def _update_cache_for_releases_executor(
                 ) and wanted_filename != relpath:
                     new_source_path = release.source_path / wanted_filename
                     if new_source_path.exists():
-                        wanted_filename = (
-                            f"{original_wanted_stem} [{collision_no}]{original_wanted_suffix}"
+                        new_max_len = c.max_filename_bytes - (
+                            3 + len(str(collision_no)) + len(original_wanted_suffix)
                         )
+                        wanted_filename = f"{original_wanted_stem[:new_max_len]} [{collision_no}]{original_wanted_suffix}"
                         collision_no += 1
                         continue
                     old_source_path = track.source_path
