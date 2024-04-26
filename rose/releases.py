@@ -101,7 +101,7 @@ def delete_release(c: Config, release_id: str) -> None:
         send2trash(release.source_path)
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        releaseyear=release.releaseyear,
+        releaseyear=release.releasedate,
         artists=release.releaseartists,
     )
     logger.info(f"Trashed release {release_logtext}")
@@ -118,7 +118,7 @@ def toggle_release_new(c: Config, release_id: str) -> None:
 
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        releaseyear=release.releaseyear,
+        releaseyear=release.releasedate,
         artists=release.releaseartists,
     )
 
@@ -160,7 +160,7 @@ def set_release_cover_art(
 
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        releaseyear=release.releaseyear,
+        releaseyear=release.releasedate,
         artists=release.releaseartists,
     )
 
@@ -181,7 +181,7 @@ def delete_release_cover_art(c: Config, release_id: str) -> None:
 
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        releaseyear=release.releaseyear,
+        releaseyear=release.releasedate,
         artists=release.releaseartists,
     )
 
@@ -256,9 +256,9 @@ class MetadataRelease:
             title=release.releasetitle,
             new=release.new,
             releasetype=release.releasetype,
-            releaseyear=release.releaseyear,
-            originalyear=release.originalyear,
-            compositionyear=release.compositionyear,
+            releaseyear=release.releasedate,
+            originalyear=release.originaldate,
+            compositionyear=release.compositiondate,
             edition=release.catalognumber,
             catalognumber=release.edition,
             labels=release.labels,
@@ -400,16 +400,16 @@ def edit_release(
                     tags.releasetype = release_meta.releasetype.lower()
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: releasetype")
-                if tags.releaseyear != release_meta.releaseyear:
-                    tags.releaseyear = release_meta.releaseyear
+                if tags.releasedate != release_meta.releaseyear:
+                    tags.releasedate = release_meta.releaseyear
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: releaseyear")
-                if tags.originalyear != release_meta.originalyear:
-                    tags.originalyear = release_meta.originalyear
+                if tags.originaldate != release_meta.originalyear:
+                    tags.originaldate = release_meta.originalyear
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: originalyear")
-                if tags.compositionyear != release_meta.compositionyear:
-                    tags.compositionyear = release_meta.compositionyear
+                if tags.compositiondate != release_meta.compositionyear:
+                    tags.compositiondate = release_meta.compositionyear
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: compositionyear")
                 if tags.edition != release_meta.edition:
@@ -501,8 +501,8 @@ def create_single_release(c: Config, track_path: Path) -> None:
     title = (af.tracktitle or "Unknown Title").strip()
 
     dirname = f"{artistsfmt(af.trackartists)} - "
-    if af.releaseyear:
-        dirname += f"{af.releaseyear}. "
+    if af.releasedate:
+        dirname += f"{af.releasedate}. "
     dirname += title
     # Handle directory name collisions.
     collision_no = 2

@@ -50,7 +50,7 @@ import tomli_w
 import tomllib
 import uuid6
 
-from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
+from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags, RoseDate
 from rose.common import (
     VERSION,
     Artist,
@@ -209,9 +209,9 @@ class CachedRelease:
     datafile_mtime: str
     releasetitle: str
     releasetype: str
-    releaseyear: int | None
-    originalyear: int | None
-    compositionyear: int | None
+    releasedate: RoseDate | None
+    originaldate: RoseDate | None
+    compositiondate: RoseDate | None
     edition: str | None
     catalognumber: str | None
     new: bool
@@ -237,9 +237,9 @@ class CachedRelease:
             datafile_mtime=row["datafile_mtime"],
             releasetitle=row["releasetitle"],
             releasetype=row["releasetype"],
-            releaseyear=row["releaseyear"],
-            originalyear=row["originalyear"],
-            compositionyear=row["compositionyear"],
+            releasedate=row["releaseyear"],
+            originaldate=row["originalyear"],
+            compositiondate=row["compositionyear"],
             catalognumber=row["catalognumber"],
             edition=row["edition"],
             disctotal=row["disctotal"],
@@ -266,9 +266,9 @@ class CachedRelease:
             "added_at": self.added_at,
             "releasetitle": self.releasetitle,
             "releasetype": self.releasetype,
-            "releaseyear": self.releaseyear,
-            "originalyear": self.originalyear,
-            "compositionyear": self.compositionyear,
+            "releaseyear": self.releasedate,
+            "originalyear": self.originaldate,
+            "compositionyear": self.compositiondate,
             "catalognumber": self.catalognumber,
             "edition": self.edition,
             "new": self.new,
@@ -344,9 +344,9 @@ class CachedTrack:
                     "releasetitle": self.release.releasetitle,
                     "releasetype": self.release.releasetype,
                     "disctotal": self.release.disctotal,
-                    "releaseyear": self.release.releaseyear,
-                    "originalyear": self.release.originalyear,
-                    "compositionyear": self.release.compositionyear,
+                    "releaseyear": self.release.releasedate,
+                    "originalyear": self.release.originaldate,
+                    "compositionyear": self.release.compositiondate,
                     "catalognumber": self.release.catalognumber,
                     "edition": self.release.edition,
                     "new": self.release.new,
@@ -649,9 +649,9 @@ def _update_cache_for_releases_executor(
                 added_at="",
                 releasetitle="",
                 releasetype="",
-                releaseyear=None,
-                originalyear=None,
-                compositionyear=None,
+                releasedate=None,
+                originaldate=None,
+                compositiondate=None,
                 catalognumber=None,
                 edition=None,
                 new=True,
@@ -822,23 +822,23 @@ def _update_cache_for_releases_executor(
                     release.releasetype = releasetype
                     release_dirty = True
 
-                if tags.releaseyear != release.releaseyear:
+                if tags.releasedate != release.releasedate:
                     logger.debug(f"Release year change detected for {source_path}, updating")
-                    release.releaseyear = tags.releaseyear
+                    release.releasedate = tags.releasedate
                     release_dirty = True
 
-                if tags.originalyear != release.originalyear:
+                if tags.originaldate != release.originaldate:
                     logger.debug(
                         f"Release original year change detected for {source_path}, updating"
                     )
-                    release.originalyear = tags.originalyear
+                    release.originaldate = tags.originaldate
                     release_dirty = True
 
-                if tags.compositionyear != release.compositionyear:
+                if tags.compositiondate != release.compositiondate:
                     logger.debug(
                         f"Release composition year change detected for {source_path}, updating"
                     )
-                    release.compositionyear = tags.compositionyear
+                    release.compositiondate = tags.compositiondate
                     release_dirty = True
 
                 if tags.edition != release.edition:
@@ -1034,9 +1034,9 @@ def _update_cache_for_releases_executor(
                     release.datafile_mtime,
                     release.releasetitle,
                     release.releasetype,
-                    release.releaseyear,
-                    release.originalyear,
-                    release.compositionyear,
+                    release.releasedate,
+                    release.originaldate,
+                    release.compositiondate,
                     release.edition,
                     release.catalognumber,
                     release.disctotal,
