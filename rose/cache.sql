@@ -15,11 +15,12 @@ CREATE TABLE releases (
     title TEXT NOT NULL,
     releasetype TEXT NOT NULL,
     releaseyear INTEGER,
+    originalyear INTEGER,
     compositionyear INTEGER,
+    edition TEXT,
     catalognumber TEXT,
     disctotal INTEGER NOT NULL,
-    -- A sha256() of the release object, which can be used as a performant cache
-    -- key.
+    -- A sha256 of the release object, which can be used as a performant cache key.
     metahash TEXT NOT NULL UNIQUE,
     new BOOLEAN NOT NULL DEFAULT true
 );
@@ -35,6 +36,26 @@ CREATE TABLE releases_genres (
 );
 CREATE INDEX releases_genres_release_id_position ON releases_genres(release_id, position);
 CREATE INDEX releases_genres_genre ON releases_genres(genre);
+
+CREATE TABLE releases_secondary_genres (
+    release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
+    genre TEXT,
+    position INTEGER NOT NULL,
+    PRIMARY KEY (release_id, genre),
+    UNIQUE (release_id, position)
+);
+CREATE INDEX releases_secondary_genres_release_id_position ON releases_secondary_genres(release_id, position);
+CREATE INDEX releases_secondary_genres_genre ON releases_secondary_genres(genre);
+
+CREATE TABLE releases_descriptors (
+    release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
+    descriptor TEXT,
+    position INTEGER NOT NULL,
+    PRIMARY KEY (release_id, descriptor),
+    UNIQUE (release_id, position)
+);
+CREATE INDEX releases_descriptors_release_id_position ON releases_descriptors(release_id, position);
+CREATE INDEX releases_descriptors_descriptor ON releases_descriptors(descriptor);
 
 CREATE TABLE releases_labels (
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
@@ -152,9 +173,13 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
   , releasetitle
   , releasetype
   , releaseyear
+  , originalyear
   , compositionyear
+  , edition
   , catalognumber
   , genre
+  , secondarygenre
+  , descriptor
   , label
   , releaseartist
   , trackartist
@@ -173,6 +198,18 @@ CREATE VIEW releases_view AS
             release_id
           , GROUP_CONCAT(genre, ' ¬ ') AS genres
         FROM (SELECT * FROM releases_genres ORDER BY position)
+        GROUP BY release_id
+    ), secondary_genres AS (
+        SELECT
+            release_id
+          , GROUP_CONCAT(genre, ' ¬ ') AS genres
+        FROM (SELECT * FROM releases_secondary_genres ORDER BY position)
+        GROUP BY release_id
+    ), descriptors AS (
+        SELECT
+            release_id
+          , GROUP_CONCAT(descriptor, ' ¬ ') AS descriptors
+        FROM (SELECT * FROM releases_descriptors ORDER BY position)
         GROUP BY release_id
     ), labels AS (
         SELECT
@@ -197,17 +234,23 @@ CREATE VIEW releases_view AS
       , r.title AS releasetitle
       , r.releasetype
       , r.releaseyear
+      , r.originalyear
       , r.compositionyear
+      , r.edition
       , r.catalognumber
       , r.disctotal
       , r.new
       , r.metahash
       , COALESCE(g.genres, '') AS genres
+      , COALESCE(s.genres, '') AS secondary_genres
+      , COALESCE(d.descriptors, '') AS descriptors
       , COALESCE(l.labels, '') AS labels
       , COALESCE(a.names, '') AS releaseartist_names
       , COALESCE(a.roles, '') AS releaseartist_roles
     FROM releases r
     LEFT JOIN genres g ON g.release_id = r.id
+    LEFT JOIN secondary_genres s ON s.release_id = r.id
+    LEFT JOIN descriptors d ON d.release_id = r.id
     LEFT JOIN labels l ON l.release_id = r.id
     LEFT JOIN artists a ON a.release_id = r.id;
 

@@ -239,11 +239,15 @@ class MetadataRelease:
     new: bool
     releasetype: str
     releaseyear: int | None
+    originalyear: int | None
     compositionyear: int | None
-    genres: list[str]
-    labels: list[str]
-    catalognumber: str | None
     artists: list[MetadataArtist]
+    labels: list[str]
+    edition: str | None
+    catalognumber: str | None
+    genres: list[str]
+    secondary_genres: list[str]
+    descriptors: list[str]
     tracks: dict[str, MetadataTrack]
 
     @classmethod
@@ -253,10 +257,14 @@ class MetadataRelease:
             new=release.new,
             releasetype=release.releasetype,
             releaseyear=release.releaseyear,
+            originalyear=release.originalyear,
             compositionyear=release.compositionyear,
-            catalognumber=release.catalognumber,
-            genres=release.genres,
+            edition=release.catalognumber,
+            catalognumber=release.edition,
             labels=release.labels,
+            genres=release.genres,
+            secondary_genres=release.secondary_genres,
+            descriptors=release.descriptors,
             artists=MetadataArtist.from_mapping(release.releaseartists),
             tracks={
                 t.id: MetadataTrack(
@@ -274,7 +282,9 @@ class MetadataRelease:
         # released in -9999, you should probably lay off the shrooms.
         data = asdict(self)
         data["releaseyear"] = self.releaseyear or -9999
+        data["originalyear"] = self.originalyear or -9999
         data["compositionyear"] = self.compositionyear or -9999
+        data["edition"] = self.edition or -9999
         data["catalognumber"] = self.catalognumber or ""
         return tomli_w.dumps(data)
 
@@ -285,11 +295,15 @@ class MetadataRelease:
             title=d["title"],
             new=d["new"],
             releasetype=d["releasetype"],
+            originalyear=d["originalyear"] if d["originalyear"] != -9999 else None,
             releaseyear=d["releaseyear"] if d["releaseyear"] != -9999 else None,
             compositionyear=d["compositionyear"] if d["compositionyear"] != -9999 else None,
             genres=d["genres"],
+            secondary_genres=d["secondary_genres"],
+            descriptors=d["descriptors"],
             labels=d["labels"],
             catalognumber=d["catalognumber"] or None,
+            edition=d["edition"] or None,
             artists=[MetadataArtist(name=a["name"], role=a["role"]) for a in d["artists"]],
             tracks={
                 tid: MetadataTrack(
@@ -367,8 +381,8 @@ def edit_release(
                     tags.discnumber = track_meta.discnumber
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: discnumber")
-                if tags.title != track_meta.title:
-                    tags.title = track_meta.title
+                if tags.tracktitle != track_meta.title:
+                    tags.tracktitle = track_meta.title
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: title")
                 tart = MetadataArtist.to_mapping(track_meta.artists)
@@ -378,8 +392,8 @@ def edit_release(
                     logger.debug(f"Modified tag detected for {t.source_path}: artists")
 
                 # Album tags.
-                if tags.release != release_meta.title:
-                    tags.release = release_meta.title
+                if tags.releasetitle != release_meta.title:
+                    tags.releasetitle = release_meta.title
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: release")
                 if tags.releasetype != release_meta.releasetype:
@@ -390,10 +404,18 @@ def edit_release(
                     tags.releaseyear = release_meta.releaseyear
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: releaseyear")
+                if tags.originalyear != release_meta.originalyear:
+                    tags.originalyear = release_meta.originalyear
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: originalyear")
                 if tags.compositionyear != release_meta.compositionyear:
                     tags.compositionyear = release_meta.compositionyear
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: compositionyear")
+                if tags.edition != release_meta.edition:
+                    tags.edition = release_meta.edition
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: edition")
                 if tags.catalognumber != release_meta.catalognumber:
                     tags.catalognumber = release_meta.catalognumber
                     dirty = True
@@ -402,6 +424,14 @@ def edit_release(
                     tags.genre = release_meta.genres
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: genre")
+                if tags.secondarygenre != release_meta.secondary_genres:
+                    tags.secondarygenre = release_meta.secondary_genres
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: secondarygenre")
+                if tags.descriptor != release_meta.descriptors:
+                    tags.descriptor = release_meta.descriptors
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: descriptor")
                 if tags.label != release_meta.labels:
                     tags.label = release_meta.labels
                     dirty = True
@@ -468,7 +498,7 @@ def create_single_release(c: Config, track_path: Path) -> None:
 
     # Step 1. Compute the new directory name for the single.
     af = AudioTags.from_file(track_path)
-    title = (af.title or "Unknown Title").strip()
+    title = (af.tracktitle or "Unknown Title").strip()
 
     dirname = f"{artistsfmt(af.trackartists)} - "
     if af.releaseyear:
@@ -494,7 +524,7 @@ def create_single_release(c: Config, track_path: Path) -> None:
             break
     # Step 3. Update the tags of the new track. Clear the Rose IDs too: this is a brand new track.
     af = AudioTags.from_file(new_track_path)
-    af.release = title
+    af.releasetitle = title
     af.releasetype = "single"
     af.releaseartists = af.trackartists
     af.tracknumber = "1"

@@ -110,15 +110,20 @@ world, Rosé will support reading from additional fields.
 | ---------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Release Title    | `TALB`                  |                                                                                                                        |
 | Release Artists  | `TPE2`                  |                                                                                                                        |
-| Release Year     | `TDRC`                  | `TYER`, `TDAT`                                                                                                         |
 | Release Type     | `TXXX:RELEASETYPE`      | `TXXX:MusicBrainz Album Type`                                                                                          |
+| Release Year     | `TDRC`                  | `TYER`, `TDAT`                                                                                                         |
+| Original Year    | `TDOR`                  | `TORY`                                                                                                                 |
+| Composition Year | `TXXX:COMPOSITIONDATE ` |                                                                                                                        |
 | Genre            | `TCON`                  |                                                                                                                        |
+| Secondary Genre  | `TXXX:SECONDARYGENRE`   |                                                                                                                        |
+| Descriptor       | `TXXX:DESCRIPTOR`       |                                                                                                                        |
 | Label            | `TPUB`                  |                                                                                                                        |
+| Catalog Number   | `TXXX:CATALOGNUMBER`    |                                                                                                                        |
+| Edition          | `TXXX:EDITION`          |                                                                                                                        |
 | Track Title      | `TIT2`                  |                                                                                                                        |
 | Track Artists    | `TPE1`                  | `TPE4` (Remixer), `TCOM` (Composer), `TPE3` (Conductor), `TIPL,IPLS/producer` (producer), `TIPL,IPLS/DJ-mix` (djmixer) |
 | Track Number     | `TRCK`                  |                                                                                                                        |
 | Disc Number      | `TPOS`                  |                                                                                                                        |
-| Composition Year | `TXXX:COMPOSITIONYEAR ` |                                                                                                                        |
 | Rosé ID          | `TXXX:ROSEID`           |                                                                                                                        |
 | Rosé Release ID  | `TXXX:ROSERELEASEID`    |                                                                                                                        |
 
@@ -128,15 +133,20 @@ world, Rosé will support reading from additional fields.
 | ---------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Release Title    | `\xa9alb`                                  |                                                                                                                                                                                                        |
 | Release Artists  | `aART`                                     |                                                                                                                                                                                                        |
-| Release Year     | `\xa9day`                                  |                                                                                                                                                                                                        |
 | Release Type     | `----:com.apple.iTunes:RELEASETYPE`        | `----:com.apple.iTunes:MusicBrainz Album Type`                                                                                                                                                         |
+| Release Year     | `\xa9day`                                  |                                                                                                                                                                                                        |
+| Original Year    | `----:net.sunsetglow.rose:ORIGINALDATE`    | `----:com.apple.iTunes:ORIGINALDATE`, `----:com.apple.iTunes:ORIGINALYEAR`                                                                                                                             |
+| Composition Year | `----:net.sunsetglow.rose:COMPOSITIONDATE` |                                                                                                                                                                                                        |
 | Genre            | `\xa9gen`                                  |                                                                                                                                                                                                        |
+| Secondary Genre  | `----:net.sunsetglow.rose:SECONDARYGENRE`  |                                                                                                                                                                                                        |
+| Descriptor       | `----:net.sunsetglow.rose:DESCRIPTOR`      |                                                                                                                                                                                                        |
 | Label            | `----:com.apple.iTunes:LABEL`              |                                                                                                                                                                                                        |
+| Catalog Number   | `----:com.apple.iTunes:CATALOGNUMBER`      |                                                                                                                                                                                                        |
+| Edition          | `----:net.sunsetglow.rose:EDITION`         |                                                                                                                                                                                                        |
 | Track Title      | `\xa9nam`                                  |                                                                                                                                                                                                        |
 | Track Artists    | `\xa9ART`                                  | `----:com.apple.iTunes:REMIXER` (Remixer), `\xa9wrt` (Composer), `----:com.apple.iTunes:CONDUCTOR` (Conductor), `----:com.apple.iTunes:PRODUCER` (producer), `----:com.apple.iTunes:DJMIXER` (djmixer) |
 | Track Number     | `trkn`                                     |                                                                                                                                                                                                        |
 | Disc Number      | `disk`                                     |                                                                                                                                                                                                        |
-| Composition Year | `----:net.sunsetglow.rose:COMPOSITIONYEAR` |                                                                                                                                                                                                        |
 | Rosé ID          | `----:net.sunsetglow.rose:ID`              |                                                                                                                                                                                                        |
 | Rosé Release ID  | `----:net.sunsetglow.rose:RELEASEID`       |                                                                                                                                                                                                        |
 
@@ -146,14 +156,19 @@ world, Rosé will support reading from additional fields.
 | ---------------- | ----------------- | --------------------------------------------------------------------------------------------------------------- |
 | Release Title    | `release`         |                                                                                                                 |
 | Release Artists  | `albumartist`     |                                                                                                                 |
-| Release Year     | `date`            | `year`                                                                                                          |
 | Release Type     | `releasetype`     |                                                                                                                 |
+| Release Year     | `date`            | `year`                                                                                                          |
+| Original Year    | `originaldate`    | `originalyear`                                                                                                  |
+| Composition Year | `compositiondate` |                                                                                                                 |
 | Genre            | `genre`           |                                                                                                                 |
+| Secondary Genre  | `secondarygenre`  |                                                                                                                 |
+| Descriptor       | `descriptor`      |                                                                                                                 |
 | Label            | `label`           | `organization`, `recordlabel`                                                                                   |
+| Catalog Number   | `catalognumber`   |                                                                                                                 |
+| Edition          | `edition`         |                                                                                                                 |
 | Track Title      | `title`           |                                                                                                                 |
 | Track Artists    | `artist`          | `remixer` (Remixer), `composer` (Composer), `conductor` (Conductor), `producer` (producer), `djmixer` (djmixer) |
 | Track Number     | `tracknumber`     |                                                                                                                 |
 | Disc Number      | `discnumber`      |                                                                                                                 |
-| Composition Year | `compositionyear` |                                                                                                                 |
 | Rosé ID          | `roseid`          |                                                                                                                 |
 | Rosé Release ID  | `rosereleaseid`   |                                                                                                                 |

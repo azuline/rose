@@ -1,9 +1,17 @@
 #!/usr/bin/env python
 
+import os
 from typing import Any
 
 import mutagen
 import mutagen.id3
+
+
+def write_standard_tag(f: Any, key: str, value: str | None) -> None:
+    f.tags.delall(key)
+    if value:
+        frame = getattr(mutagen.id3, key)(text=value)
+        f.tags.add(frame)
 
 
 def write_tag_with_description(f: Any, name: str, value: str | None) -> None:
@@ -19,27 +27,39 @@ def write_tag_with_description(f: Any, name: str, value: str | None) -> None:
         f.tags.add(x)
 
 
+os.chdir(os.environ["ROSE_ROOT"] + "/testdata/Tagger")
+
 f = mutagen.File("track1.flac")  # type: ignore
-f.tags["compositiondate"] = "1984"
-f.tags["catalognumber"] = "DN-420"
+f.tags["originaldate"] = "1990"
+f.tags["secondarygenre"] = "Minimal;Ambient"
+f.tags["descriptor"] = "Lush;Warm"
+f.tags["edition"] = "Japan"
 f.save()
 
 f = mutagen.File("track2.m4a")  # type: ignore
-f.tags["----:net.sunsetglow.rose:COMPOSITIONDATE"] = b"1984"
-f.tags["----:com.apple.iTunes:CATALOGNUMBER"] = b"DN-420"
+f.tags["----:net.sunsetglow.rose:ORIGINALDATE"] = b"1990"
+f.tags["----:net.sunsetglow.rose:SECONDARYGENRE"] = b"Minimal;Ambient"
+f.tags["----:net.sunsetglow.rose:DESCRIPTOR"] = b"Lush;Warm"
+f.tags["----:net.sunsetglow.rose:EDITION"] = b"Japan"
 f.save()
 
 f = mutagen.File("track3.mp3")  # type: ignore
-write_tag_with_description(f, "TXXX:COMPOSITIONDATE", "1984")
-write_tag_with_description(f, "TXXX:CATALOGNUMBER", "DN-420")
+write_standard_tag(f, "TDOR", "1990")
+write_tag_with_description(f, "TXXX:SECONDARYGENRE", "Minimal;Ambient")
+write_tag_with_description(f, "TXXX:DESCRIPTOR", "Lush;Warm")
+write_tag_with_description(f, "TXXX:EDITION", "Japan")
 f.save()
 
 f = mutagen.File("track4.vorbis.ogg")  # type: ignore
-f.tags["compositiondate"] = "1984"
-f.tags["catalognumber"] = "DN-420"
+f.tags["originaldate"] = "1990"
+f.tags["secondarygenre"] = "Minimal;Ambient"
+f.tags["descriptor"] = "Lush;Warm"
+f.tags["edition"] = "Japan"
 f.save()
 
 f = mutagen.File("track5.opus.ogg")  # type: ignore
-f.tags["compositiondate"] = "1984"
-f.tags["catalognumber"] = "DN-420"
+f.tags["originaldate"] = "1990"
+f.tags["secondarygenre"] = "Minimal;Ambient"
+f.tags["descriptor"] = "Lush;Warm"
+f.tags["edition"] = "Japan"
 f.save()

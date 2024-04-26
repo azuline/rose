@@ -78,14 +78,18 @@ Rosé provides the following template variables for releases:
 added_at: str                        # ISO8601 timestamp of when the release was added to the library.
 releasetitle: str
 releasetype: str                     # The type of the release (e.g. single, ep, etc). One of the enums as defined in TAGGING_CONVENTIONS.md.
-releaseyear: int | None
+releaseyear: int | None              # The year of this edition of the release.
+originalyear: int | None             # The year of the first edition of the release.
 compositionyear: int | None          # The year that the release was composed. Mainly of interest in classical music.
 new: bool                            # The "new"-ness of the release. See RELEASES.md for documentation on this feature.
 disctotal: int                       # The number of discs in the release.
 genres: list[str]
 parent_genres: list[str]             # The parent genres of `genres`, excluding `genres`.
+secondary_genres: list[str]          # The secondary/minor genres.
+parent_secondary_genres: list[str]   # The parent genres of `secondary_genres`, excluding `secondary_genres`.
 labels: list[str]
 catalognumber: str | None
+edition: str | None                  # The title of this edition of the release.
 releaseartists: ArtistMapping        # All release artists: an object with 6 properties, each corresponding to one role.
 releaseartists.main: list[Artist]    # The Artist object has a `name` property with the artist name.
 releaseartists.guest: list[Artist]
@@ -118,12 +122,16 @@ trackartists.djmixer: list[Artist]
 releasetitle: str
 releasetype: str                     # The type of the track's release (e.g. single, ep, etc).
 releaseyear: int | None
+originalyear: int | None             # The year of the first edition of the release.
 compositionyear: int | None          # The year that the release was composed. Mainly of interest in classical music.
 new: bool                            # The "new"-ness of the track's release.
 genres: list[str]
 parent_genres: list[str]             # The parent genres of `genres`, excluding `genres`.
+secondary_genres: list[str]          # The secondary/minor genres.
+parent_secondary_genres: list[str]   # The parent genres of `secondary_genres`, excluding `secondary_genres`.
 labels: list[str]
 catalognumber: str | None
+edition: str | None                  # The title of this edition of the release.
 releaseartists: ArtistMapping        # All release artists: an object with 6 properties, each corresponding to one role.
 releaseartists.main: list[Artist]    # The Artist object has a `name` property with the artist name.
 releaseartists.guest: list[Artist]

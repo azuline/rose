@@ -85,24 +85,28 @@ class UnsupportedTagValueTypeError(RoseExpectedError):
 class AudioTags:
     id: str | None
     release_id: str | None
-    title: str | None
-    releaseyear: int | None
-    compositionyear: int | None
+
+    tracktitle: str | None
     tracknumber: str | None
     tracktotal: int | None
     discnumber: str | None
     disctotal: int | None
-    release: str | None
-    genre: list[str]
-    label: list[str]
-    catalognumber: str | None
-    releasetype: str
-
-    releaseartists: ArtistMapping
     trackartists: ArtistMapping
 
-    duration_sec: int
+    releasetitle: str | None
+    releasetype: str
+    releaseyear: int | None
+    originalyear: int | None
+    compositionyear: int | None
+    genre: list[str]
+    secondarygenre: list[str]
+    descriptor: list[str]
+    edition: str | None
+    label: list[str]
+    catalognumber: str | None
+    releaseartists: ArtistMapping
 
+    duration_sec: int
     path: Path
 
     @classmethod
@@ -144,17 +148,21 @@ class AudioTags:
             return AudioTags(
                 id=_get_tag(m.tags, ["TXXX:ROSEID"], first=True),
                 release_id=_get_tag(m.tags, ["TXXX:ROSERELEASEID"], first=True),
-                title=_get_tag(m.tags, ["TIT2"]),
+                tracktitle=_get_tag(m.tags, ["TIT2"]),
                 releaseyear=_parse_year(_get_tag(m.tags, ["TDRC", "TYER", "TDAT"])),
+                originalyear=_parse_year(_get_tag(m.tags, ["TDOR", "TORY"])),
                 compositionyear=_parse_year(_get_tag(m.tags, ["TXXX:COMPOSITIONDATE"], first=True)),
                 tracknumber=tracknumber,
                 tracktotal=tracktotal,
                 discnumber=discnumber,
                 disctotal=disctotal,
-                release=_get_tag(m.tags, ["TALB"]),
+                releasetitle=_get_tag(m.tags, ["TALB"]),
                 genre=_split_tag(_get_tag(m.tags, ["TCON"], split=True)),
+                secondarygenre=_split_tag(_get_tag(m.tags, ["TXXX:SECONDARYGENRE"], split=True)),
+                descriptor=_split_tag(_get_tag(m.tags, ["TXXX:DESCRIPTOR"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["TPUB"], split=True)),
                 catalognumber=_get_tag(m.tags, ["TXXX:CATALOGNUMBER"], first=True),
+                edition=_get_tag(m.tags, ["TXXX:EDITION"], first=True),
                 releasetype=_normalize_rtype(
                     _get_tag(
                         m.tags, ["TXXX:RELEASETYPE", "TXXX:MusicBrainz Album Type"], first=True
@@ -184,8 +192,18 @@ class AudioTags:
             return AudioTags(
                 id=_get_tag(m.tags, ["----:net.sunsetglow.rose:ID"]),
                 release_id=_get_tag(m.tags, ["----:net.sunsetglow.rose:RELEASEID"]),
-                title=_get_tag(m.tags, ["\xa9nam"]),
+                tracktitle=_get_tag(m.tags, ["\xa9nam"]),
                 releaseyear=_parse_year(_get_tag(m.tags, ["\xa9day"])),
+                originalyear=_parse_year(
+                    _get_tag(
+                        m.tags,
+                        [
+                            "----:net.sunsetglow.rose:ORIGINALDATE",
+                            "----:com.apple.iTunes:ORIGINALDATE",
+                            "----:com.apple.iTunes:ORIGINALYEAR",
+                        ],
+                    )
+                ),
                 compositionyear=_parse_year(
                     _get_tag(m.tags, ["----:net.sunsetglow.rose:COMPOSITIONDATE"])
                 ),
@@ -193,10 +211,17 @@ class AudioTags:
                 tracktotal=tracktotal,
                 discnumber=str(discnumber),
                 disctotal=disctotal,
-                release=_get_tag(m.tags, ["\xa9alb"]),
+                releasetitle=_get_tag(m.tags, ["\xa9alb"]),
                 genre=_split_tag(_get_tag(m.tags, ["\xa9gen"], split=True)),
+                secondarygenre=_split_tag(
+                    _get_tag(m.tags, ["----:net.sunsetglow.rose:SECONDARYGENRE"], split=True)
+                ),
+                descriptor=_split_tag(
+                    _get_tag(m.tags, ["----:net.sunsetglow.rose:DESCRIPTOR"], split=True)
+                ),
                 label=_split_tag(_get_tag(m.tags, ["----:com.apple.iTunes:LABEL"], split=True)),
                 catalognumber=_get_tag(m.tags, ["----:com.apple.iTunes:CATALOGNUMBER"]),
+                edition=_get_tag(m.tags, ["----:net.sunsetglow.rose:EDITION"]),
                 releasetype=_normalize_rtype(
                     _get_tag(
                         m.tags,
@@ -223,19 +248,23 @@ class AudioTags:
             return AudioTags(
                 id=_get_tag(m.tags, ["roseid"]),
                 release_id=_get_tag(m.tags, ["rosereleaseid"]),
-                title=_get_tag(m.tags, ["title"]),
+                tracktitle=_get_tag(m.tags, ["title"]),
                 releaseyear=_parse_year(_get_tag(m.tags, ["date", "year"])),
+                originalyear=_parse_year(_get_tag(m.tags, ["originaldate", "originalyear"])),
                 compositionyear=_parse_year(_get_tag(m.tags, ["compositiondate"])),
                 tracknumber=_get_tag(m.tags, ["tracknumber"], first=True),
                 tracktotal=_parse_int(_get_tag(m.tags, ["tracktotal"], first=True)),
                 discnumber=_get_tag(m.tags, ["discnumber"], first=True),
                 disctotal=_parse_int(_get_tag(m.tags, ["disctotal"], first=True)),
-                release=_get_tag(m.tags, ["album"]),
+                releasetitle=_get_tag(m.tags, ["album"]),
                 genre=_split_tag(_get_tag(m.tags, ["genre"], split=True)),
+                secondarygenre=_split_tag(_get_tag(m.tags, ["secondarygenre"], split=True)),
+                descriptor=_split_tag(_get_tag(m.tags, ["descriptor"], split=True)),
                 label=_split_tag(
                     _get_tag(m.tags, ["label", "organization", "recordlabel"], split=True)
                 ),
                 catalognumber=_get_tag(m.tags, ["catalognumber"]),
+                edition=_get_tag(m.tags, ["edition"]),
                 releasetype=_normalize_rtype(_get_tag(m.tags, ["releasetype"], first=True)),
                 releaseartists=parse_artist_string(
                     main=_get_tag(m.tags, ["albumartist"], split=True)
@@ -291,15 +320,19 @@ class AudioTags:
 
             _write_tag_with_description("TXXX:ROSEID", self.id)
             _write_tag_with_description("TXXX:ROSERELEASEID", self.release_id)
-            _write_standard_tag("TIT2", self.title)
+            _write_standard_tag("TIT2", self.tracktitle)
             _write_standard_tag("TDRC", str(self.releaseyear).zfill(4))
+            _write_standard_tag("TDOR", str(self.originalyear).zfill(4))
             _write_tag_with_description("TXXX:COMPOSITIONDATE", self.compositionyear)
             _write_standard_tag("TRCK", self.tracknumber)
             _write_standard_tag("TPOS", self.discnumber)
-            _write_standard_tag("TALB", self.release)
+            _write_standard_tag("TALB", self.releasetitle)
             _write_standard_tag("TCON", ";".join(self.genre))
+            _write_tag_with_description("TXXX:SECONDARYGENRE", ";".join(self.secondarygenre))
+            _write_tag_with_description("TXXX:DESCRIPTOR", ";".join(self.descriptor))
             _write_standard_tag("TPUB", ";".join(self.label))
             _write_tag_with_description("TXXX:CATALOGNUMBER", self.catalognumber)
+            _write_tag_with_description("TXXX:EDITION", self.edition)
             _write_tag_with_description("TXXX:RELEASETYPE", self.releasetype)
             _write_standard_tag("TPE2", format_artist_string(self.releaseartists))
             _write_standard_tag("TPE1", format_artist_string(self.trackartists))
@@ -318,15 +351,24 @@ class AudioTags:
                 m.tags = mutagen.mp4.MP4Tags()
             m.tags["----:net.sunsetglow.rose:ID"] = (self.id or "").encode()
             m.tags["----:net.sunsetglow.rose:RELEASEID"] = (self.release_id or "").encode()
-            m.tags["\xa9nam"] = self.title or ""
+            m.tags["\xa9nam"] = self.tracktitle or ""
             m.tags["\xa9day"] = str(self.releaseyear).zfill(4)
+            m.tags["----:net.sunsetglow.rose:ORIGINALDATE"] = (
+                str(self.originalyear).zfill(4).encode()
+            )
             m.tags["----:net.sunsetglow.rose:COMPOSITIONDATE"] = (
                 str(self.compositionyear).zfill(4).encode()
             )
-            m.tags["\xa9alb"] = self.release or ""
+            m.tags["\xa9alb"] = self.releasetitle or ""
+            m.tags["\xa9gen"] = ";".join(self.genre)
+            m.tags["----:net.sunsetglow.rose:SECONDARYGENRE"] = ";".join(
+                self.secondarygenre
+            ).encode()
+            m.tags["----:net.sunsetglow.rose:DESCRIPTOR"] = ";".join(self.descriptor).encode()
             m.tags["\xa9gen"] = ";".join(self.genre)
             m.tags["----:com.apple.iTunes:LABEL"] = ";".join(self.label).encode()
             m.tags["----:com.apple.iTunes:CATALOGNUMBER"] = (self.catalognumber or "").encode()
+            m.tags["----:net.sunsetglow.rose:EDITION"] = (self.edition or "").encode()
             m.tags["----:com.apple.iTunes:RELEASETYPE"] = self.releasetype.encode()
             m.tags["aART"] = format_artist_string(self.releaseartists)
             m.tags["\xa9ART"] = format_artist_string(self.trackartists)
@@ -376,15 +418,19 @@ class AudioTags:
             assert not isinstance(m.tags, mutagen.flac.MetadataBlock)
             m.tags["roseid"] = self.id or ""
             m.tags["rosereleaseid"] = self.release_id or ""
-            m.tags["title"] = self.title or ""
+            m.tags["title"] = self.tracktitle or ""
             m.tags["date"] = str(self.releaseyear).zfill(4)
+            m.tags["originaldate"] = str(self.originalyear).zfill(4)
             m.tags["compositiondate"] = str(self.compositionyear).zfill(4)
             m.tags["tracknumber"] = self.tracknumber or ""
             m.tags["discnumber"] = self.discnumber or ""
-            m.tags["album"] = self.release or ""
+            m.tags["album"] = self.releasetitle or ""
             m.tags["genre"] = ";".join(self.genre)
+            m.tags["secondarygenre"] = ";".join(self.secondarygenre)
+            m.tags["descriptor"] = ";".join(self.descriptor)
             m.tags["label"] = ";".join(self.label)
             m.tags["catalognumber"] = self.catalognumber or ""
+            m.tags["edition"] = self.edition or ""
             m.tags["releasetype"] = self.releasetype
             m.tags["albumartist"] = format_artist_string(self.releaseartists)
             m.tags["artist"] = format_artist_string(self.trackartists)
