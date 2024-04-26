@@ -8,7 +8,7 @@ import pytest
 import tomllib
 
 from conftest import TEST_RELEASE_1
-from rose.audiotags import AudioTags
+from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
     CachedRelease,
     CachedTrack,
@@ -136,9 +136,9 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         title = "I Really Love Blackpink"
         new = false
         releasetype = "single"
-        releasedate = 2222
-        originaldate = 2000
-        compositiondate = 1800
+        releasedate = "2222"
+        originaldate = "2000"
+        compositiondate = "1800"
         artists = [
             {{ name = "BLACKPINK", role = "main" }},
             {{ name = "JISOO", role = "main" }},
@@ -189,9 +189,9 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         datafile_mtime=release.datafile_mtime,
         releasetitle="I Really Love Blackpink",
         releasetype="single",
-        releasedate=2222,
-        originaldate=2000,
-        compositiondate=1800,
+        releasedate=RoseDate(2222),
+        originaldate=RoseDate(2000),
+        compositiondate=RoseDate(1800),
         catalognumber="Lalala",
         edition="Blabla",
         new=False,
@@ -259,9 +259,9 @@ def test_edit_release_failure_and_resume(
         title = "I Really Love Blackpink"
         new = false
         releasetype = "bullshit"
-        releasedate = 2222
-        originaldate = -9999
-        compositiondate = -9999
+        releasedate = "2222"
+        originaldate = ""
+        compositiondate = ""
         artists = [
             {{ name = "BLACKPINK", role = "main" }},
             {{ name = "JISOO", role = "main" }},
@@ -307,9 +307,9 @@ def test_edit_release_failure_and_resume(
         title = "I Really Love Blackpink"
         new = false
         releasetype = "single"
-        releasedate = 2222
-        originaldate = -9999
-        compositiondate = -9999
+        releasedate = "2222"
+        originaldate = ""
+        compositiondate = ""
         artists = [
             {{ name = "BLACKPINK", role = "main" }},
             {{ name = "JISOO", role = "main" }},
@@ -363,7 +363,7 @@ def test_edit_release_failure_and_resume(
         datafile_mtime=release.datafile_mtime,
         releasetitle="I Really Love Blackpink",
         releasetype="single",
-        releasedate=2222,
+        releasedate=RoseDate(2222),
         originaldate=None,
         compositiondate=None,
         catalognumber=None,

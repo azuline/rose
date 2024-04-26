@@ -22,7 +22,7 @@ from pathlib import Path
 
 import click
 
-from rose.audiotags import AudioTags
+from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
     CachedRelease,
     CachedTrack,
@@ -310,7 +310,9 @@ def filter_track_false_positives_using_tags(
     return rval
 
 
-Changes = tuple[str, str | int | None | list[str], str | int | None | list[str]]
+Changes = tuple[
+    str, str | int | RoseDate | None | list[str], str | int | RoseDate | None | list[str]
+]
 
 
 def execute_metadata_actions(
@@ -350,28 +352,28 @@ def execute_metadata_actions(
                 elif field == "releasedate":
                     v = execute_single_action(act, tags.releasedate)
                     try:
-                        tags.releasedate = int(v) if v else None
+                        tags.releasedate = RoseDate.parse(v)
                     except ValueError as e:
                         raise InvalidReplacementValueError(
-                            f"Failed to assign new value {v} to releasedate: value must be integer"
+                            f"Failed to assign new value {v} to releasedate: value must be date string"
                         ) from e
                     potential_changes.append(("releasedate", origtags.releasedate, tags.releasedate))
                 elif field == "originaldate":
                     v = execute_single_action(act, tags.originaldate)
                     try:
-                        tags.originaldate = int(v) if v else None
+                        tags.originaldate = RoseDate.parse(v)
                     except ValueError as e:
                         raise InvalidReplacementValueError(
-                            f"Failed to assign new value {v} to originaldate: value must be integer"
+                            f"Failed to assign new value {v} to originaldate: value must be date string"
                         ) from e
                     potential_changes.append(("originaldate", origtags.originaldate, tags.originaldate))
                 elif field == "compositiondate":
                     v = execute_single_action(act, tags.compositiondate)
                     try:
-                        tags.compositiondate = int(v) if v else None
+                        tags.compositiondate = RoseDate.parse(v)
                     except ValueError as e:
                         raise InvalidReplacementValueError(
-                            f"Failed to assign new value {v} to compositiondate: value must be integer"
+                            f"Failed to assign new value {v} to compositiondate: value must be date string"
                         ) from e
                     potential_changes.append(("compositiondate", origtags.compositiondate, tags.compositiondate))
                 elif field == "edition":
@@ -539,7 +541,7 @@ def execute_metadata_actions(
     update_cache_for_releases(c, source_paths)
 
 
-def matches_pattern(pattern: MatcherPattern, value: str | int | None) -> bool:
+def matches_pattern(pattern: MatcherPattern, value: str | int | RoseDate | None) -> bool:
     value = str(value) if value is not None else ""
 
     needle = pattern.pattern
@@ -571,7 +573,7 @@ def matches_pattern(pattern: MatcherPattern, value: str | int | None) -> bool:
 
 
 # Factor out the logic for executing an action on a single-value tag and a multi-value tag.
-def execute_single_action(action: MetadataAction, value: str | int | None) -> str | None:
+def execute_single_action(action: MetadataAction, value: str | int | RoseDate | None) -> str | None:
     if action.pattern and not matches_pattern(action.pattern, value):
         return str(value)
 

@@ -87,6 +87,17 @@ class RoseDate:
     month: int | None = None
     day: int | None = None
 
+    @classmethod
+    def parse(cls, value: str | None) -> RoseDate | None:
+        if not value:
+            return None
+        if YEAR_REGEX.match(value):
+            return RoseDate(year=int(value), month=None, day=None)
+        # There may be a time value after the date... allow that and other crap.
+        if m := DATE_REGEX.match(value):
+            return RoseDate(year=int(m[1]), month=int(m[2]), day=int(m[3]))
+        return None
+
     def __str__(self) -> str:
         if self.month is None and self.day is None:
             return f"{self.year:04}"
@@ -161,9 +172,11 @@ class AudioTags:
                 id=_get_tag(m.tags, ["TXXX:ROSEID"], first=True),
                 release_id=_get_tag(m.tags, ["TXXX:ROSERELEASEID"], first=True),
                 tracktitle=_get_tag(m.tags, ["TIT2"]),
-                releasedate=_parse_date(_get_tag(m.tags, ["TDRC", "TYER", "TDAT"])),
-                originaldate=_parse_date(_get_tag(m.tags, ["TDOR", "TORY"])),
-                compositiondate=_parse_date(_get_tag(m.tags, ["TXXX:COMPOSITIONDATE"], first=True)),
+                releasedate=RoseDate.parse(_get_tag(m.tags, ["TDRC", "TYER", "TDAT"])),
+                originaldate=RoseDate.parse(_get_tag(m.tags, ["TDOR", "TORY"])),
+                compositiondate=RoseDate.parse(
+                    _get_tag(m.tags, ["TXXX:COMPOSITIONDATE"], first=True)
+                ),
                 tracknumber=tracknumber,
                 tracktotal=tracktotal,
                 discnumber=discnumber,
@@ -205,8 +218,8 @@ class AudioTags:
                 id=_get_tag(m.tags, ["----:net.sunsetglow.rose:ID"]),
                 release_id=_get_tag(m.tags, ["----:net.sunsetglow.rose:RELEASEID"]),
                 tracktitle=_get_tag(m.tags, ["\xa9nam"]),
-                releasedate=_parse_date(_get_tag(m.tags, ["\xa9day"])),
-                originaldate=_parse_date(
+                releasedate=RoseDate.parse(_get_tag(m.tags, ["\xa9day"])),
+                originaldate=RoseDate.parse(
                     _get_tag(
                         m.tags,
                         [
@@ -216,7 +229,7 @@ class AudioTags:
                         ],
                     )
                 ),
-                compositiondate=_parse_date(
+                compositiondate=RoseDate.parse(
                     _get_tag(m.tags, ["----:net.sunsetglow.rose:COMPOSITIONDATE"])
                 ),
                 tracknumber=str(tracknumber),
@@ -261,9 +274,9 @@ class AudioTags:
                 id=_get_tag(m.tags, ["roseid"]),
                 release_id=_get_tag(m.tags, ["rosereleaseid"]),
                 tracktitle=_get_tag(m.tags, ["title"]),
-                releasedate=_parse_date(_get_tag(m.tags, ["date", "year"])),
-                originaldate=_parse_date(_get_tag(m.tags, ["originaldate", "originalyear"])),
-                compositiondate=_parse_date(_get_tag(m.tags, ["compositiondate"])),
+                releasedate=RoseDate.parse(_get_tag(m.tags, ["date", "year"])),
+                originaldate=RoseDate.parse(_get_tag(m.tags, ["originaldate", "originalyear"])),
+                compositiondate=RoseDate.parse(_get_tag(m.tags, ["compositiondate"])),
                 tracknumber=_get_tag(m.tags, ["tracknumber"], first=True),
                 tracktotal=_parse_int(_get_tag(m.tags, ["tracktotal"], first=True)),
                 discnumber=_get_tag(m.tags, ["discnumber"], first=True),
@@ -514,17 +527,6 @@ def _parse_int(x: str | None) -> int | None:
         return int(x)
     except ValueError:
         return None
-
-
-def _parse_date(value: str | None) -> RoseDate | None:
-    if not value:
-        return None
-    if YEAR_REGEX.match(value):
-        return RoseDate(year=int(value), month=None, day=None)
-    # There may be a time value after the date... allow that and other crap.
-    if m := DATE_REGEX.match(value):
-        return RoseDate(year=int(m[1]), month=int(m[2]), day=int(m[3]))
-    return None
 
 
 TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")

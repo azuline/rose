@@ -17,7 +17,7 @@ import tomli_w
 import tomllib
 from send2trash import send2trash
 
-from rose.audiotags import AudioTags
+from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
     STORED_DATA_FILE_REGEX,
     CachedRelease,
@@ -238,9 +238,9 @@ class MetadataRelease:
     title: str
     new: bool
     releasetype: str
-    releasedate: int | None
-    originaldate: int | None
-    compositiondate: int | None
+    releasedate: RoseDate | None
+    originaldate: RoseDate | None
+    compositiondate: RoseDate | None
     artists: list[MetadataArtist]
     labels: list[str]
     edition: str | None
@@ -295,9 +295,9 @@ class MetadataRelease:
             title=d["title"],
             new=d["new"],
             releasetype=d["releasetype"],
-            originaldate=d["originaldate"] if d["originaldate"] != -9999 else None,
-            releasedate=d["releasedate"] if d["releasedate"] != -9999 else None,
-            compositiondate=d["compositiondate"] if d["compositiondate"] != -9999 else None,
+            originaldate=RoseDate.parse(d["originaldate"]),
+            releasedate=RoseDate.parse(d["releasedate"]),
+            compositiondate=RoseDate.parse(d["compositiondate"]),
             genres=d["genres"],
             secondary_genres=d["secondary_genres"],
             descriptors=d["descriptors"],

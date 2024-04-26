@@ -4,6 +4,7 @@ from pathlib import Path
 import click
 from click.testing import CliRunner
 
+from rose.audiotags import RoseDate
 from rose.cache import CachedRelease, CachedTrack
 from rose.common import Artist, ArtistMapping
 from rose.config import Config
@@ -61,7 +62,7 @@ def test_default_templates() -> None:
 
     release = deepcopy(EMPTY_CACHED_RELEASE)
     release.releasetitle = "Title"
-    release.releasedate = 2023
+    release.releasedate = RoseDate(2023)
     release.releaseartists = ArtistMapping(
         main=[Artist("A1"), Artist("A2"), Artist("A3")],
         guest=[Artist("BB")],

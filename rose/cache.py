@@ -266,9 +266,9 @@ class CachedRelease:
             "added_at": self.added_at,
             "releasetitle": self.releasetitle,
             "releasetype": self.releasetype,
-            "releasedate": self.releasedate,
-            "originaldate": self.originaldate,
-            "compositiondate": self.compositiondate,
+            "releasedate": str(self.releasedate),
+            "originaldate": str(self.originaldate),
+            "compositiondate": str(self.compositiondate),
             "catalognumber": self.catalognumber,
             "edition": self.edition,
             "new": self.new,
@@ -344,9 +344,9 @@ class CachedTrack:
                     "releasetitle": self.release.releasetitle,
                     "releasetype": self.release.releasetype,
                     "disctotal": self.release.disctotal,
-                    "releasedate": self.release.releasedate,
-                    "originaldate": self.release.originaldate,
-                    "compositiondate": self.release.compositiondate,
+                    "releasedate": str(self.release.releasedate),
+                    "originaldate": str(self.release.originaldate),
+                    "compositiondate": str(self.release.compositiondate),
                     "catalognumber": self.release.catalognumber,
                     "edition": self.release.edition,
                     "new": self.release.new,
@@ -1910,12 +1910,12 @@ def get_release_logtext(c: Config, release_id: str) -> str | None:
 
 def calculate_release_logtext(
     title: str,
-    releasedate: int | None,
+    releasedate: RoseDate | None,
     artists: ArtistMapping,
 ) -> str:
     logtext = f"{artistsfmt(artists)} - "
     if releasedate:
-        logtext += f"{releasedate}. "
+        logtext += f"{releasedate.year}. "
     logtext += title
     return logtext
 
@@ -2088,10 +2088,14 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
 def calculate_track_logtext(
     title: str,
     artists: ArtistMapping,
-    releasedate: int | None,
+    releasedate: RoseDate | None,
     suffix: str,
 ) -> str:
-    return f"{artistsfmt(artists)} - {title or 'Unknown Title'} [{releasedate}]{suffix}"
+    rval = f"{artistsfmt(artists)} - {title or 'Unknown Title'}"
+    if releasedate:
+        rval += f" [{releasedate.year}]"
+    rval += suffix
+    return rval
 
 
 def list_playlists(c: Config) -> list[str]:
