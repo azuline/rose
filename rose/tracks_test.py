@@ -177,8 +177,6 @@ def test_dump_tracks(config: Config) -> None:
             "secondary_genres": ["Orchestral"],
             "parent_secondary_genres": [
                 "Classical Music",
-                "Descriptor",
-                "Uncategorised",
                 "Western Classical Music",
             ],
             "descriptors": ["Wet"],

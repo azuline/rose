@@ -1137,8 +1137,6 @@ def test_list_releases(config: Config) -> None:
             secondary_genres=["Orchestral"],
             parent_secondary_genres=[
                 "Classical Music",
-                "Descriptor",
-                "Uncategorised",
                 "Western Classical Music",
             ],
             descriptors=["Wet"],
@@ -1405,8 +1403,6 @@ def test_list_tracks(config: Config) -> None:
                 secondary_genres=["Orchestral"],
                 parent_secondary_genres=[
                     "Classical Music",
-                    "Descriptor",
-                    "Uncategorised",
                     "Western Classical Music",
                 ],
                 descriptors=["Wet"],
@@ -1640,8 +1636,6 @@ def test_get_collage(config: Config) -> None:
             secondary_genres=["Orchestral"],
             parent_secondary_genres=[
                 "Classical Music",
-                "Descriptor",
-                "Uncategorised",
                 "Western Classical Music",
             ],
             descriptors=["Wet"],
@@ -1768,8 +1762,6 @@ def test_get_playlist(config: Config) -> None:
                 secondary_genres=["Orchestral"],
                 parent_secondary_genres=[
                     "Classical Music",
-                    "Descriptor",
-                    "Uncategorised",
                     "Western Classical Music",
                 ],
                 descriptors=["Wet"],

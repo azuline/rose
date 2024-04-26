@@ -89,39 +89,51 @@ genres = dict(sorted(genres.items()))
 # 3. A mapping from parent to immediate child genres. This is for populating the virtual
 #    filesystem's genre sub-directories.
 
-logger.debug("=== BUILDING TRANSIENT PARENT LIST ===")
+logger.debug("=== BUILDING LISTS ===")
+
+BLACKLISTED = {"Uncategorised", "Descriptor"}
 
 TRANSIENT_PARENTS: dict[str, list[str]] = {}
 for g in genres.values():
+    if g.name in BLACKLISTED:
+        continue
     # Do a graph traversal to get all the transient parents.
     parents: set[str] = set()
     unvisited: list[str] = [g.name]
     logger.debug(f"Processing {g=}")
     while unvisited:
         cur = unvisited.pop()
+        if cur in BLACKLISTED:
+            continue
         cur_parents = {x.name for x in genres[cur].parents} - parents
         logger.debug(f"    Found new transient parents {cur_parents=}")
         parents.update(cur_parents)
         unvisited.extend(cur_parents)
-    TRANSIENT_PARENTS[g.name] = sorted(parents)
+    TRANSIENT_PARENTS[g.name] = sorted(parents - BLACKLISTED)
 
 TRANSIENT_CHILDREN: dict[str, list[str]] = {}
 for g in genres.values():
+    if g.name in BLACKLISTED:
+        continue
     # Do a graph traversal to get all the transient children.
     children: set[str] = set()
     unvisited = [g.name]
     logger.debug(f"Processing {g=}")
     while unvisited:
         cur = unvisited.pop()
+        if cur in BLACKLISTED:
+            continue
         cur_children = {x.name for x in genres[cur].children} - children
         logger.debug(f"    Found new transient children {cur_children=}")
         children.update(cur_children)
         unvisited.extend(cur_children)
-    TRANSIENT_CHILDREN[g.name] = sorted(children)
+    TRANSIENT_CHILDREN[g.name] = sorted(children - BLACKLISTED)
 
 IMMEDIATE_CHILDREN: dict[str, list[str]] = {}
 for g in genres.values():
-    IMMEDIATE_CHILDREN[g.name] = sorted([x.name for x in g.children])
+    if g.name in BLACKLISTED:
+        continue
+    IMMEDIATE_CHILDREN[g.name] = sorted({x.name for x in g.children} - BLACKLISTED)
 
 with open("genres.gen.py", "w") as fp:
     fp.write(f"""\
