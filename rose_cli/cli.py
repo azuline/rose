@@ -8,33 +8,83 @@ import logging
 import os
 import signal
 import subprocess
+import uuid
 from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
 
 import click
 
-from rose.common import VERSION, RoseExpectedError
-from rose.config import Config
+from rose import (
+    STORED_DATA_FILE_REGEX,
+    VERSION,
+    AudioTags,
+    Config,
+    MetadataAction,
+    MetadataMatcher,
+    MetadataRule,
+    UnsupportedFiletypeError,
+    add_release_to_collage,
+    add_track_to_playlist,
+    create_collage,
+    create_playlist,
+    create_single_release,
+    delete_collage,
+    delete_playlist,
+    delete_playlist_cover_art,
+    delete_release,
+    delete_release_cover_art,
+    dump_all_collages,
+    dump_all_playlists,
+    dump_all_releases,
+    dump_all_tracks,
+    dump_collage,
+    dump_playlist,
+    dump_release,
+    dump_track,
+    edit_collage_in_editor,
+    edit_playlist_in_editor,
+    edit_release,
+    execute_metadata_rule,
+    execute_stored_metadata_rules,
+    maybe_invalidate_cache_database,
+    preview_path_templates,
+    remove_release_from_collage,
+    remove_track_from_playlist,
+    rename_collage,
+    rename_playlist,
+    run_actions_on_release,
+    run_actions_on_track,
+    set_playlist_cover_art,
+    set_release_cover_art,
+    start_watchdog,
+    toggle_release_new,
+    update_cache,
+)
+from rose_vfs import mount_virtualfs
 
 logger = logging.getLogger(__name__)
 
 
-class InvalidReleaseArgError(RoseExpectedError):
+class CliExpectedError(Exception):
     pass
 
 
-class InvalidTrackArgError(RoseExpectedError):
+class InvalidReleaseArgError(CliExpectedError):
     pass
 
 
-class DaemonAlreadyRunningError(RoseExpectedError):
+class InvalidTrackArgError(CliExpectedError):
+    pass
+
+
+class DaemonAlreadyRunningError(CliExpectedError):
     pass
 
 
 @dataclass
 class Context:
-    config: Config
+    config: "Config"
 
 
 @click.group()
@@ -43,7 +93,6 @@ class Context:
 @click.pass_context
 def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
     """A music manager with a virtual filesystem."""
-    from rose.cache import maybe_invalidate_cache_database
 
     cc.obj = Context(
         config=Config.parse(config_path_override=config),
@@ -56,6 +105,7 @@ def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
 @cli.command()
 def version() -> None:
     """Print version."""
+
     click.echo(VERSION)
 
 
@@ -76,7 +126,6 @@ def generate_completion(shell: str) -> None:
 @click.pass_obj
 def preview_templates(ctx: Context) -> None:
     """Preview the configured path templates with sample data."""
-    from rose.templates import preview_path_templates
 
     preview_path_templates(ctx.config)
 
@@ -91,7 +140,6 @@ def cache() -> None:
 @click.pass_obj
 def update(ctx: Context, force: bool) -> None:
     """Synchronize the read cache with new changes in the source directory."""
-    from rose.cache import update_cache
 
     update_cache(ctx.config, force)
 
@@ -101,7 +149,6 @@ def update(ctx: Context, force: bool) -> None:
 @click.pass_obj
 def watch(ctx: Context, foreground: bool) -> None:
     """Start a watchdog to auto-update the cache when the source directory changes."""
-    from rose.watcher import start_watchdog
 
     if not foreground:
         daemonize(pid_path=ctx.config.watchdog_pid_path)
@@ -136,9 +183,6 @@ def fs() -> None:
 @click.pass_obj
 def mount(ctx: Context, foreground: bool) -> None:
     """Mount the virtual filesystem."""
-    from rose.cache import update_cache
-    from rose.virtualfs import mount_virtualfs
-
     if not foreground:
         daemonize()
 
@@ -157,7 +201,7 @@ def mount(ctx: Context, foreground: bool) -> None:
 @click.pass_obj
 def unmount(ctx: Context) -> None:
     """Unmount the virtual filesystem."""
-    from rose.virtualfs import unmount_virtualfs
+    from rose_vfs import unmount_virtualfs
 
     unmount_virtualfs(ctx.config)
 
@@ -173,8 +217,6 @@ def releases() -> None:
 @click.pass_obj
 def print_release(ctx: Context, release: str) -> None:
     """Print a single release (in JSON). Accepts a release's UUID/path."""
-    from rose.releases import dump_release
-
     release = parse_release_argument(release)
     click.echo(dump_release(ctx.config, release))
 
@@ -184,9 +226,6 @@ def print_release(ctx: Context, release: str) -> None:
 @click.pass_obj
 def print_all_releases(ctx: Context, matcher: str | None) -> None:
     """Print all releases (in JSON). Accepts an optional rules matcher to filter the releases."""
-    from rose.releases import dump_all_releases
-    from rose.rule_parser import MetadataMatcher
-
     parsed_matcher = MetadataMatcher.parse(matcher) if matcher else None
     click.echo(dump_all_releases(ctx.config, parsed_matcher))
 
@@ -195,10 +234,8 @@ def print_all_releases(ctx: Context, matcher: str | None) -> None:
 @click.argument("release", type=click.Path(), nargs=1)
 @click.option("--resume", "-r", type=click.Path(path_type=Path), nargs=1, help="Resume a failed release edit.")  # fmt: skip
 @click.pass_obj
-def edit_release(ctx: Context, release: str, resume: Path | None) -> None:
+def edit_release_cmd(ctx: Context, release: str, resume: Path | None) -> None:
     """Edit a release's metadata in $EDITOR. Accepts a release's UUID/path."""
-    from rose.releases import edit_release
-
     release = parse_release_argument(release)
     edit_release(ctx.config, release, resume_file=resume)
 
@@ -208,8 +245,6 @@ def edit_release(ctx: Context, release: str, resume: Path | None) -> None:
 @click.pass_obj
 def toggle_new(ctx: Context, release: str) -> None:
     """Toggle a release's "new"-ness. Accepts a release's UUID/path."""
-    from rose.releases import toggle_release_new
-
     release = parse_release_argument(release)
     toggle_release_new(ctx.config, release)
 
@@ -217,13 +252,11 @@ def toggle_new(ctx: Context, release: str) -> None:
 @releases.command(name="delete")
 @click.argument("release", type=click.Path(), nargs=1)
 @click.pass_obj
-def delete_release(ctx: Context, release: str) -> None:
+def delete_release_cmd(ctx: Context, release: str) -> None:
     """
     Delete a release from the library. The release is moved to the trash bin, following the
     freedesktop spec. Accepts a release's UUID/path.
     """
-    from rose.releases import delete_release
-
     release = parse_release_argument(release)
     delete_release(ctx.config, release)
 
@@ -234,8 +267,6 @@ def delete_release(ctx: Context, release: str) -> None:
 @click.pass_obj
 def set_cover_release(ctx: Context, release: str, cover: Path) -> None:
     """Set/replace the cover art of a release. Accepts a release's UUID/path."""
-    from rose.releases import set_release_cover_art
-
     release = parse_release_argument(release)
     set_release_cover_art(ctx.config, release, cover)
 
@@ -245,8 +276,6 @@ def set_cover_release(ctx: Context, release: str, cover: Path) -> None:
 @click.pass_obj
 def delete_cover_release(ctx: Context, release: str) -> None:
     """Delete the cover art of a release."""
-    from rose.releases import delete_release_cover_art
-
     release = parse_release_argument(release)
     delete_release_cover_art(ctx.config, release)
 
@@ -259,9 +288,6 @@ def delete_cover_release(ctx: Context, release: str) -> None:
 @click.pass_obj
 def run_rule(ctx: Context, release: str, actions: list[str], dry_run: bool, yes: bool) -> None:
     """Run rule engine actions on all tracks in a release. Accepts a release's UUID/path."""
-    from rose.releases import run_actions_on_release
-    from rose.rule_parser import MetadataAction
-
     release = parse_release_argument(release)
     parsed_actions = [MetadataAction.parse(a) for a in actions]
     run_actions_on_release(
@@ -281,8 +307,6 @@ def create_single(ctx: Context, track_path: Path) -> None:
     Create a single release for the given track, and copy the track into it. Only accepts a track
     path.
     """
-    from rose.releases import create_single_release
-
     create_single_release(ctx.config, track_path)
 
 
@@ -296,8 +320,6 @@ def tracks() -> None:
 @click.pass_obj
 def print_track(ctx: Context, track: str) -> None:
     """Print a single track (in JSON). Accepts a tracks's UUID/path."""
-    from rose.tracks import dump_track
-
     track = parse_track_argument(track)
     click.echo(dump_track(ctx.config, track))
 
@@ -307,9 +329,6 @@ def print_track(ctx: Context, track: str) -> None:
 @click.pass_obj
 def print_all_track(ctx: Context, matcher: str | None = None) -> None:
     """Print all tracks (in JSON). Accepts an optional rules matcher to filter the tracks."""
-    from rose.rule_parser import MetadataMatcher
-    from rose.tracks import dump_all_tracks
-
     parsed_matcher = MetadataMatcher.parse(matcher) if matcher else None
     click.echo(dump_all_tracks(ctx.config, parsed_matcher))
 
@@ -322,9 +341,6 @@ def print_all_track(ctx: Context, matcher: str | None = None) -> None:
 @click.pass_obj
 def run_rule_track(ctx: Context, track: str, actions: list[str], dry_run: bool, yes: bool) -> None:
     """Run rule engine actions on a single track. Accepts a track's UUID/path."""
-    from rose.rule_parser import MetadataAction
-    from rose.tracks import run_actions_on_track
-
     track = parse_track_argument(track)
     parsed_actions = [MetadataAction.parse(a) for a in actions]
     run_actions_on_track(
@@ -346,8 +362,6 @@ def collages() -> None:
 @click.pass_obj
 def create(ctx: Context, name: str) -> None:
     """Create a new collage."""
-    from rose.collages import create_collage
-
     create_collage(ctx.config, name)
 
 
@@ -357,8 +371,6 @@ def create(ctx: Context, name: str) -> None:
 @click.pass_obj
 def rename(ctx: Context, old_name: str, new_name: str) -> None:
     """Rename a collage."""
-    from rose.collages import rename_collage
-
     rename_collage(ctx.config, old_name, new_name)
 
 
@@ -367,8 +379,6 @@ def rename(ctx: Context, old_name: str, new_name: str) -> None:
 @click.pass_obj
 def delete(ctx: Context, collage: str) -> None:
     """Delete a collage."""
-    from rose.collages import delete_collage
-
     delete_collage(ctx.config, collage)
 
 
@@ -378,8 +388,6 @@ def delete(ctx: Context, collage: str) -> None:
 @click.pass_obj
 def add_release(ctx: Context, collage: str, release: str) -> None:
     """Add a release to a collage. Accepts a collage's name and a release's UUID/path."""
-    from rose.collages import add_release_to_collage
-
     release = parse_release_argument(release)
     add_release_to_collage(ctx.config, collage, release)
 
@@ -390,8 +398,6 @@ def add_release(ctx: Context, collage: str, release: str) -> None:
 @click.pass_obj
 def remove_release(ctx: Context, collage: str, release: str) -> None:
     """Remove a release from a collage. Accepts a collage's name and a release's UUID/path."""
-    from rose.collages import remove_release_from_collage
-
     release = parse_release_argument(release)
     remove_release_from_collage(ctx.config, collage, release)
 
@@ -401,8 +407,6 @@ def remove_release(ctx: Context, collage: str, release: str) -> None:
 @click.pass_obj
 def edit(ctx: Context, collage: str) -> None:
     """Edit (reorder/remove releases from) a collage in $EDITOR. Accepts a collage's name."""
-    from rose.collages import edit_collage_in_editor
-
     edit_collage_in_editor(ctx.config, collage)
 
 
@@ -411,8 +415,6 @@ def edit(ctx: Context, collage: str) -> None:
 @click.pass_obj
 def print_collage(ctx: Context, collage: str) -> None:
     """Print a collage (in JSON). Accepts a collage's name."""
-    from rose.collages import dump_collage
-
     click.echo(dump_collage(ctx.config, collage))
 
 
@@ -420,8 +422,6 @@ def print_collage(ctx: Context, collage: str) -> None:
 @click.pass_obj
 def print_all_collages(ctx: Context) -> None:
     """Print all collages (in JSON)."""
-    from rose.collages import dump_all_collages
-
     click.echo(dump_all_collages(ctx.config))
 
 
@@ -433,10 +433,8 @@ def playlists() -> None:
 @playlists.command(name="create")
 @click.argument("name", type=str, nargs=1)
 @click.pass_obj
-def create_playlist(ctx: Context, name: str) -> None:
+def create_playlist_cmd(ctx: Context, name: str) -> None:
     """Create a new playlist."""
-    from rose.playlists import create_playlist
-
     create_playlist(ctx.config, name)
 
 
@@ -444,20 +442,16 @@ def create_playlist(ctx: Context, name: str) -> None:
 @click.argument("old_name", type=str, nargs=1)
 @click.argument("new_name", type=str, nargs=1)
 @click.pass_obj
-def rename_playlist(ctx: Context, old_name: str, new_name: str) -> None:
+def rename_playlist_cmd(ctx: Context, old_name: str, new_name: str) -> None:
     """Rename a playlist. Accepts a playlist's name."""
-    from rose.playlists import rename_playlist
-
     rename_playlist(ctx.config, old_name, new_name)
 
 
 @playlists.command(name="delete")
 @click.argument("playlist", type=str, nargs=1)
 @click.pass_obj
-def delete_playlist(ctx: Context, playlist: str) -> None:
+def delete_playlist_cmd(ctx: Context, playlist: str) -> None:
     """Delete a playlist. Accepts a playlist's name."""
-    from rose.playlists import delete_playlist
-
     delete_playlist(ctx.config, playlist)
 
 
@@ -467,8 +461,6 @@ def delete_playlist(ctx: Context, playlist: str) -> None:
 @click.pass_obj
 def add_track(ctx: Context, playlist: str, track: str) -> None:
     """Add a track to a playlist. Accepts a playlist name and a track's UUID/path."""
-    from rose.playlists import add_track_to_playlist
-
     track = parse_track_argument(track)
     add_track_to_playlist(ctx.config, playlist, track)
 
@@ -479,8 +471,6 @@ def add_track(ctx: Context, playlist: str, track: str) -> None:
 @click.pass_obj
 def remove_track(ctx: Context, playlist: str, track: str) -> None:
     """Remove a track from a playlist. Accepts a playlist name and a track's UUID/path."""
-    from rose.playlists import remove_track_from_playlist
-
     track = parse_track_argument(track)
     remove_track_from_playlist(ctx.config, playlist, track)
 
@@ -493,8 +483,6 @@ def edit_playlist(ctx: Context, playlist: str) -> None:
     Edit a playlist in $EDITOR. Reorder lines to update the ordering of tracks. Delete lines to
     delete tracks from the playlist.
     """
-    from rose.playlists import edit_playlist_in_editor
-
     edit_playlist_in_editor(ctx.config, playlist)
 
 
@@ -503,8 +491,6 @@ def edit_playlist(ctx: Context, playlist: str) -> None:
 @click.pass_obj
 def print_playlist(ctx: Context, playlist: str) -> None:
     """Print a playlist (in JSON). Accepts a playlist's name."""
-    from rose.playlists import dump_playlist
-
     click.echo(dump_playlist(ctx.config, playlist))
 
 
@@ -512,8 +498,6 @@ def print_playlist(ctx: Context, playlist: str) -> None:
 @click.pass_obj
 def print_all_playlists(ctx: Context) -> None:
     """Print all playlists (in JSON)."""
-    from rose.playlists import dump_all_playlists
-
     click.echo(dump_all_playlists(ctx.config))
 
 
@@ -525,8 +509,6 @@ def set_cover_playlist(ctx: Context, playlist: str, cover: Path) -> None:
     """
     Set the cover art of a playlist. Accepts a playlist name and a path to an image.
     """
-    from rose.playlists import set_playlist_cover_art
-
     set_playlist_cover_art(ctx.config, playlist, cover)
 
 
@@ -535,8 +517,6 @@ def set_cover_playlist(ctx: Context, playlist: str, cover: Path) -> None:
 @click.pass_obj
 def delete_cover_playlist(ctx: Context, playlist: str) -> None:
     """Delete the cover art of a playlist. Accepts a playlist name."""
-    from rose.playlists import delete_playlist_cover_art
-
     delete_playlist_cover_art(ctx.config, playlist)
 
 
@@ -561,9 +541,6 @@ def run(
     ignore: list[str],
 ) -> None:
     """Run an ad hoc rule."""
-    from rose.rule_parser import MetadataRule
-    from rose.rules import execute_metadata_rule
-
     if not actions:
         logger.info("No-Op: No actions passed")
         return
@@ -577,16 +554,11 @@ def run(
 @click.pass_obj
 def run_stored(ctx: Context, dry_run: bool, yes: bool) -> None:
     """Run the rules stored in the config."""
-    from rose.rules import execute_stored_metadata_rules
-
     execute_stored_metadata_rules(ctx.config, dry_run=dry_run, confirm_yes=not yes)
 
 
 def parse_release_argument(r: str) -> str:
     """Takes in a release argument and normalizes it to the release ID."""
-    from rose.cache import STORED_DATA_FILE_REGEX
-    from rose.common import valid_uuid
-
     if valid_uuid(r):
         logger.debug(f"Treating release argument {r} as UUID")
         return r
@@ -615,9 +587,6 @@ Release arguments must be one of:
 
 def parse_track_argument(t: str) -> str:
     """Takes in a track argument and normalizes it to the track ID."""
-    from rose.audiotags import AudioTags, UnsupportedFiletypeError
-    from rose.common import valid_uuid
-
     if valid_uuid(t):
         logger.debug(f"Treating track argument {t} as UUID")
         return t
@@ -700,3 +669,11 @@ def daemonize(pid_path: Path | None = None) -> None:
         with pid_path.open("w") as fp:
             fp.write(str(pid))
     os._exit(0)
+
+
+def valid_uuid(x: str) -> bool:
+    try:
+        uuid.UUID(x)
+        return True
+    except ValueError:
+        return False

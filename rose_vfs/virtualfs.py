@@ -55,15 +55,29 @@ from typing import Any, Generic, Literal, TypeVar
 
 import llfuse
 
-from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags
-from rose.cache import (
+from rose import (
     STORED_DATA_FILE_REGEX,
+    SUPPORTED_AUDIO_EXTENSIONS,
+    AudioTags,
     CachedRelease,
     CachedTrack,
+    Config,
+    PathTemplate,
+    RoseError,
+    add_release_to_collage,
+    add_track_to_playlist,
     artist_exists,
     calculate_release_logtext,
     calculate_track_logtext,
     collage_exists,
+    create_collage,
+    create_playlist,
+    delete_collage,
+    delete_playlist,
+    delete_playlist_cover_art,
+    delete_release,
+    eval_release_template,
+    eval_track_template,
     genre_exists,
     get_collage,
     get_path_of_track_in_playlist,
@@ -78,33 +92,18 @@ from rose.cache import (
     list_genres,
     list_labels,
     list_playlists,
-    list_releases_delete_this,
     playlist_exists,
+    remove_release_from_collage,
+    remove_track_from_playlist,
+    rename_collage,
+    rename_playlist,
+    sanitize_dirname,
+    sanitize_filename,
+    set_playlist_cover_art,
+    set_release_cover_art,
     update_cache_for_releases,
 )
-from rose.collages import (
-    add_release_to_collage,
-    create_collage,
-    delete_collage,
-    remove_release_from_collage,
-    rename_collage,
-)
-from rose.common import RoseError, sanitize_dirname, sanitize_filename
-from rose.config import Config
-from rose.playlists import (
-    add_track_to_playlist,
-    create_playlist,
-    delete_playlist,
-    delete_playlist_cover_art,
-    remove_track_from_playlist,
-    rename_playlist,
-    set_playlist_cover_art,
-)
-from rose.releases import (
-    delete_release,
-    set_release_cover_art,
-)
-from rose.templates import PathTemplate, eval_release_template, eval_track_template
+from rose.cache import list_releases_delete_this
 
 logger = logging.getLogger(__name__)
 

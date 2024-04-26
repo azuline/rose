@@ -4,7 +4,12 @@ from pathlib import Path
 import click
 import pytest
 
-from rose.config import Config, ConfigNotFoundError, InvalidConfigValueError, MissingConfigKeyError
+from rose.config import (
+    Config,
+    ConfigNotFoundError,
+    InvalidConfigValueError,
+    MissingConfigKeyError,
+)
 from rose.rule_parser import (
     MatcherPattern,
     MetadataAction,

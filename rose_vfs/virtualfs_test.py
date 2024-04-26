@@ -12,7 +12,7 @@ import pytest
 from conftest import retry_for_sec
 from rose.audiotags import AudioTags
 from rose.config import Config
-from rose.virtualfs import mount_virtualfs, unmount_virtualfs
+from rose_vfs.virtualfs import mount_virtualfs, unmount_virtualfs
 
 R1_VNAME = "Techno Man & Bass Man - 2023. Release 1"
 R2_VNAME = "Violin Woman (feat. Conductor Woman) - 2021. Release 2"
