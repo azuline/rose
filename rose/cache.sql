@@ -15,11 +15,11 @@ CREATE TABLE releases (
     title TEXT NOT NULL,
     releasetype TEXT NOT NULL,
     releaseyear INTEGER,
+    originalyear INTEGER,
     compositionyear INTEGER,
     catalognumber TEXT,
     disctotal INTEGER NOT NULL,
-    -- A sha256() of the release object, which can be used as a performant cache
-    -- key.
+    -- A sha256 of the release object, which can be used as a performant cache key.
     metahash TEXT NOT NULL UNIQUE,
     new BOOLEAN NOT NULL DEFAULT true
 );
@@ -35,6 +35,26 @@ CREATE TABLE releases_genres (
 );
 CREATE INDEX releases_genres_release_id_position ON releases_genres(release_id, position);
 CREATE INDEX releases_genres_genre ON releases_genres(genre);
+
+CREATE TABLE releases_secondary_genres (
+    release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
+    genre TEXT,
+    position INTEGER NOT NULL,
+    PRIMARY KEY (release_id, genre),
+    UNIQUE (release_id, position)
+);
+CREATE INDEX releases_secondary_genres_release_id_position ON releases_secondary_genres(release_id, position);
+CREATE INDEX releases_secondary_genres_genre ON releases_secondary_genres(genre);
+
+CREATE TABLE releases_descriptors (
+    release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
+    descriptor TEXT,
+    position INTEGER NOT NULL,
+    PRIMARY KEY (release_id, descriptor),
+    UNIQUE (release_id, position)
+);
+CREATE INDEX releases_descriptors_release_id_position ON releases_descriptors(release_id, position);
+CREATE INDEX releases_descriptors_descriptor ON releases_descriptors(descriptor);
 
 CREATE TABLE releases_labels (
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
