@@ -44,7 +44,7 @@ genres = [
     "Dance-Pop",
     "Future Bass",
 ]
-secondary_genres = [
+secondarygenres = [
     "Electropop",
     "Alternative R&B",
     "Synthpop",
@@ -320,15 +320,18 @@ The rules engine supports matching and acting on the following tags:
 - `originalyear`
 - `compositionyear`
 - `genre`
-- `secondary_genre`
+- `parentgenre`
+- `secondarygenre`
+- `parentsecondarygenre`
 - `descriptor`
 - `label`
 - `catalognumber`
 - `edition`
 
-The `trackartist[*]`, `releaseartist[*]`, `genre`, `secondary_genre`, `descriptor`, and `label` tags
-are _multi-value_ tags, which have a slightly different behavior from single-value tags for some of
-the actions. We'll explore this difference in the [Actions](#actions) section.
+The `trackartist[*]`, `releaseartist[*]`, `genre` (& parents), `secondarygenre` (& parents),
+`descriptor`, and `label` tags are _multi-value_ tags, which have a slightly different behavior from
+single-value tags for some of the actions. We'll explore this difference in the [Actions](#actions)
+section.
 
 For convenience, the rules parser also allows you to specify _tag aliases_ in
 place of the above tags, which expand to multiple tags when matching. The
