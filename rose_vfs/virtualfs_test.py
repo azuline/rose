@@ -130,8 +130,8 @@ def test_virtual_filesystem_write_files(
     with start_virtual_fs(config):
         # Write!
         af = AudioTags.from_file(path)
-        assert af.title == "Track 1"
-        af.title = "Hahahaha!!"
+        assert af.tracktitle == "Track 1"
+        af.tracktitle = "Hahahaha!!"
         af.flush()
         # Read! File should have been renamed post-cache update. exists() for the old file will
         # resolve because of the "legacy file resolution" grace period, but the old file should no
@@ -140,7 +140,7 @@ def test_virtual_filesystem_write_files(
         path = path.with_name("01. Hahahaha!!.m4a")
         assert path.is_file()
         af = AudioTags.from_file(path)
-        assert af.title == "Hahahaha!!"
+        assert af.tracktitle == "Hahahaha!!"
 
 
 @pytest.mark.usefixtures("seeded_cache")

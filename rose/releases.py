@@ -367,8 +367,8 @@ def edit_release(
                     tags.discnumber = track_meta.discnumber
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: discnumber")
-                if tags.title != track_meta.title:
-                    tags.title = track_meta.title
+                if tags.tracktitle != track_meta.title:
+                    tags.tracktitle = track_meta.title
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: title")
                 tart = MetadataArtist.to_mapping(track_meta.artists)
@@ -378,8 +378,8 @@ def edit_release(
                     logger.debug(f"Modified tag detected for {t.source_path}: artists")
 
                 # Album tags.
-                if tags.release != release_meta.title:
-                    tags.release = release_meta.title
+                if tags.releasetitle != release_meta.title:
+                    tags.releasetitle = release_meta.title
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: release")
                 if tags.releasetype != release_meta.releasetype:
@@ -468,7 +468,7 @@ def create_single_release(c: Config, track_path: Path) -> None:
 
     # Step 1. Compute the new directory name for the single.
     af = AudioTags.from_file(track_path)
-    title = (af.title or "Unknown Title").strip()
+    title = (af.tracktitle or "Unknown Title").strip()
 
     dirname = f"{artistsfmt(af.trackartists)} - "
     if af.releaseyear:
@@ -494,7 +494,7 @@ def create_single_release(c: Config, track_path: Path) -> None:
             break
     # Step 3. Update the tags of the new track. Clear the Rose IDs too: this is a brand new track.
     af = AudioTags.from_file(new_track_path)
-    af.release = title
+    af.releasetitle = title
     af.releasetype = "single"
     af.releaseartists = af.trackartists
     af.tracknumber = "1"

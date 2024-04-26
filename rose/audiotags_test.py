@@ -26,13 +26,17 @@ from rose.common import Artist, ArtistMapping
 )
 def test_getters(filename: str, track_num: str, duration: int) -> None:
     af = AudioTags.from_file(TEST_TAGGER / filename)
-    assert af.release == "A Cool Album"
+    assert af.releasetitle == "A Cool Album"
     assert af.releasetype == "album"
     assert af.releaseyear == 1990
+    assert af.originalyear == 1990
     assert af.compositionyear == 1984
     assert af.genre == ["Electronic", "House"]
+    assert af.secondarygenre == ["Minimal", "Ambient"]
+    assert af.descriptor == ["Lush", "Warm"]
     assert af.label == ["A Cool Label"]
     assert af.catalognumber == "DN-420"
+    assert af.edition == "Japan"
     assert af.releaseartists.main == [Artist("Artist A"), Artist("Artist B")]
 
     assert af.tracknumber == track_num
@@ -40,7 +44,7 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
     assert af.discnumber == "1"
     assert af.disctotal == 1
 
-    assert af.title == f"Track {track_num}"
+    assert af.tracktitle == f"Track {track_num}"
     assert af.trackartists == ArtistMapping(
         main=[Artist("Artist A"), Artist("Artist B")],
         guest=[Artist("Artist C"), Artist("Artist D")],
@@ -74,19 +78,23 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     af.flush()
     af = AudioTags.from_file(fpath)
 
-    assert af.release == "A Cool Album"
+    assert af.releasetitle == "A Cool Album"
     assert af.releasetype == "album"
     assert af.releaseyear == 1990
+    assert af.originalyear == 1990
     assert af.compositionyear == 1984
     assert af.genre == ["Electronic", "House"]
+    assert af.secondarygenre == ["Minimal", "Ambient"]
+    assert af.descriptor == ["Lush", "Warm"]
     assert af.label == ["A Cool Label"]
     assert af.catalognumber == "DN-420"
+    assert af.edition == "Japan"
     assert af.releaseartists.main == [Artist("Artist A"), Artist("Artist B")]
 
     assert af.tracknumber == track_num
     assert af.discnumber == "1"
 
-    assert af.title == f"Track {track_num}"
+    assert af.tracktitle == f"Track {track_num}"
     assert af.trackartists == ArtistMapping(
         main=[Artist("Artist A"), Artist("Artist B")],
         guest=[Artist("Artist C"), Artist("Artist D")],

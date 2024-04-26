@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 from typing import Any
 
 import mutagen
@@ -26,6 +27,8 @@ def write_tag_with_description(f: Any, name: str, value: str | None) -> None:
         f.tags.add(x)
 
 
+os.chdir(os.environ["ROSE_ROOT"] + "/testdata/Tagger")
+
 f = mutagen.File("track1.flac")  # type: ignore
 f.tags["originaldate"] = "1990"
 f.tags["secondarygenre"] = "Minimal;Ambient"
@@ -34,7 +37,7 @@ f.tags["edition"] = "Japan"
 f.save()
 
 f = mutagen.File("track2.m4a")  # type: ignore
-f.tags["----:net.sunsetglow.rose:ORIGINALYEAR"] = b"1990"
+f.tags["----:net.sunsetglow.rose:ORIGINALDATE"] = b"1990"
 f.tags["----:net.sunsetglow.rose:SECONDARYGENRE"] = b"Minimal;Ambient"
 f.tags["----:net.sunsetglow.rose:DESCRIPTOR"] = b"Lush;Warm"
 f.tags["----:net.sunsetglow.rose:EDITION"] = b"Japan"

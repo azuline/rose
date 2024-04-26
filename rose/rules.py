@@ -226,7 +226,7 @@ def filter_track_false_positives_using_tags(
         for field in matcher.tags:
             match = False
             # fmt: off
-            match = match or (field == "tracktitle" and matches_pattern(matcher.pattern, tags.title))
+            match = match or (field == "tracktitle" and matches_pattern(matcher.pattern, tags.tracktitle))
             match = match or (field == "releaseyear" and matches_pattern(matcher.pattern, tags.releaseyear))
             match = match or (field == "compositionyear" and matches_pattern(matcher.pattern, tags.compositionyear))
             match = match or (field == "catalognumber" and matches_pattern(matcher.pattern, tags.catalognumber))
@@ -234,7 +234,7 @@ def filter_track_false_positives_using_tags(
             match = match or (field == "tracktotal" and matches_pattern(matcher.pattern, tags.tracktotal))
             match = match or (field == "discnumber" and matches_pattern(matcher.pattern, tags.discnumber))
             match = match or (field == "disctotal" and matches_pattern(matcher.pattern, tags.disctotal))
-            match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, tags.release))
+            match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, tags.releasetitle))
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, tags.releasetype))
             match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in tags.genre))
             match = match or (field == "label" and any(matches_pattern(matcher.pattern, x) for x in tags.label))
@@ -260,7 +260,7 @@ def filter_track_false_positives_using_tags(
                 skip = False
                 for i in ignore:
                     # fmt: off
-                    skip = skip or (field == "tracktitle" and matches_pattern(i.pattern, tags.title))
+                    skip = skip or (field == "tracktitle" and matches_pattern(i.pattern, tags.tracktitle))
                     skip = skip or (field == "releaseyear" and matches_pattern(i.pattern, tags.releaseyear))
                     skip = skip or (field == "compositionyear" and matches_pattern(i.pattern, tags.compositionyear))
                     skip = skip or (field == "catalognumber" and matches_pattern(i.pattern, tags.catalognumber))
@@ -268,7 +268,7 @@ def filter_track_false_positives_using_tags(
                     skip = skip or (field == "tracktotal" and matches_pattern(i.pattern, tags.tracktotal))
                     skip = skip or (field == "discnumber" and matches_pattern(i.pattern, tags.discnumber))
                     skip = skip or (field == "disctotal" and matches_pattern(i.pattern, tags.disctotal))
-                    skip = skip or (field == "releasetitle" and matches_pattern(i.pattern, tags.release))
+                    skip = skip or (field == "releasetitle" and matches_pattern(i.pattern, tags.releasetitle))
                     skip = skip or (field == "releasetype" and matches_pattern(i.pattern, tags.releasetype))
                     skip = skip or (field == "genre" and any(matches_pattern(i.pattern, x) for x in tags.genre))
                     skip = skip or (field == "label" and any(matches_pattern(i.pattern, x) for x in tags.label))
@@ -337,8 +337,8 @@ def execute_metadata_actions(
             for field in fields_to_update:
                 # fmt: off
                 if field == "tracktitle":
-                    tags.title = execute_single_action(act, tags.title)
-                    potential_changes.append(("title", origtags.title, tags.title))
+                    tags.tracktitle = execute_single_action(act, tags.tracktitle)
+                    potential_changes.append(("title", origtags.tracktitle, tags.tracktitle))
                 elif field == "releaseyear":
                     v = execute_single_action(act, tags.releaseyear)
                     try:
@@ -367,8 +367,8 @@ def execute_metadata_actions(
                     tags.discnumber = execute_single_action(act, tags.discnumber)
                     potential_changes.append(("discnumber", origtags.discnumber, tags.discnumber))
                 elif field == "releasetitle":
-                    tags.release = execute_single_action(act, tags.release)
-                    potential_changes.append(("release", origtags.release, tags.release))
+                    tags.releasetitle = execute_single_action(act, tags.releasetitle)
+                    potential_changes.append(("release", origtags.releasetitle, tags.releasetitle))
                 elif field == "releasetype":
                     tags.releasetype = execute_single_action(act, tags.releasetype) or "unknown"
                     potential_changes.append(("releasetype", origtags.releasetype, tags.releasetype))

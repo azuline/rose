@@ -782,7 +782,7 @@ def _update_cache_for_releases_executor(
             # formatted artist string.
             if not pulled_release_tags:
                 pulled_release_tags = True
-                release_title = tags.release or "Unknown Release"
+                release_title = tags.releasetitle or "Unknown Release"
                 if release_title != release.releasetitle:
                     logger.debug(f"Release title change detected for {source_path}, updating")
                     release.releasetitle = release_title
@@ -862,7 +862,7 @@ def _update_cache_for_releases_executor(
                 id=track_id,
                 source_path=Path(f),
                 source_mtime=track_mtime,
-                tracktitle=tags.title or "Unknown Title",
+                tracktitle=tags.tracktitle or "Unknown Title",
                 # Remove `.` here because we use `.` to parse out discno/trackno in the virtual
                 # filesystem. It should almost never happen, but better to be safe. We set the
                 # totals on all tracks the end of the loop.
