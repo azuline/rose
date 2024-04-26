@@ -277,6 +277,7 @@ class CachedRelease:
             "parent_genres": self.parent_genres,
             "secondary_genres": self.secondary_genres,
             "parent_secondary_genres": self.parent_secondary_genres,
+            "descriptors": self.descriptors,
             "labels": self.labels,
             "releaseartists": self.releaseartists.dump(),
         }
@@ -353,6 +354,7 @@ class CachedTrack:
                     "parent_genres": self.release.parent_genres,
                     "secondary_genres": self.release.secondary_genres,
                     "parent_secondary_genres": self.release.parent_secondary_genres,
+                    "descriptors": self.release.descriptors,
                     "labels": self.release.labels,
                     "releaseartists": self.release.releaseartists.dump(),
                 }
@@ -861,6 +863,11 @@ def _update_cache_for_releases_executor(
                         f"Release secondary genre change detected for {source_path}, updating"
                     )
                     release.secondary_genres = uniq(tags.secondarygenre)
+                    release_dirty = True
+
+                if tags.descriptor != release.descriptors:
+                    logger.debug(f"Release descriptor change detected for {source_path}, updating")
+                    release.descriptors = uniq(tags.descriptor)
                     release_dirty = True
 
                 if tags.label != release.labels:

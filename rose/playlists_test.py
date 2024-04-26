@@ -169,6 +169,17 @@ def test_dump_playlist(config: Config) -> None:
                     "House",
                 ],
                 "labels": ["Silk Music"],
+                "originalyear": None,
+                "edition": None,
+                "secondary_genres": ["Rominimal", "Ambient"],
+                "parent_secondary_genres": [
+                    "Dance",
+                    "Electronic",
+                    "Electronic Dance Music",
+                    "House",
+                    "Tech House",
+                ],
+                "descriptors": ["Warm", "Hot"],
                 "releaseartists": {
                     "main": [
                         {"name": "Techno Man", "alias": False},
@@ -212,6 +223,16 @@ def test_dump_playlist(config: Config) -> None:
                 "genres": ["Classical"],
                 "parent_genres": [],
                 "labels": ["Native State"],
+                "originalyear": 2019,
+                "edition": "Deluxe",
+                "secondary_genres": ["Orchestral"],
+                "parent_secondary_genres": [
+                    "Classical Music",
+                    "Descriptor",
+                    "Uncategorised",
+                    "Western Classical Music",
+                ],
+                "descriptors": ["Wet"],
                 "releaseartists": {
                     "main": [{"name": "Violin Woman", "alias": False}],
                     "guest": [{"name": "Conductor Woman", "alias": False}],
@@ -272,6 +293,17 @@ def test_dump_playlists(config: Config) -> None:
                         "House",
                     ],
                     "labels": ["Silk Music"],
+                    "originalyear": None,
+                    "edition": None,
+                    "secondary_genres": ["Rominimal", "Ambient"],
+                    "parent_secondary_genres": [
+                        "Dance",
+                        "Electronic",
+                        "Electronic Dance Music",
+                        "House",
+                        "Tech House",
+                    ],
+                    "descriptors": ["Warm", "Hot"],
                     "releaseartists": {
                         "main": [
                             {"name": "Techno Man", "alias": False},
@@ -315,6 +347,16 @@ def test_dump_playlists(config: Config) -> None:
                     "genres": ["Classical"],
                     "parent_genres": [],
                     "labels": ["Native State"],
+                    "originalyear": 2019,
+                    "edition": "Deluxe",
+                    "secondary_genres": ["Orchestral"],
+                    "parent_secondary_genres": [
+                        "Classical Music",
+                        "Descriptor",
+                        "Uncategorised",
+                        "Western Classical Music",
+                    ],
+                    "descriptors": ["Wet"],
                     "releaseartists": {
                         "main": [{"name": "Violin Woman", "alias": False}],
                         "guest": [{"name": "Conductor Woman", "alias": False}],

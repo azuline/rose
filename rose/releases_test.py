@@ -137,18 +137,27 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         new = false
         releasetype = "single"
         releaseyear = 2222
+        originalyear = 2000
         compositionyear = 1800
+        artists = [
+            {{ name = "BLACKPINK", role = "main" }},
+            {{ name = "JISOO", role = "main" }},
+        ]
+        catalognumber = "Lalala"
+        edition = "Blabla"
+        labels = [
+            "YG Entertainment",
+        ]
         genres = [
             "J-Pop",
             "Pop Rap",
         ]
-        labels = [
-            "YG Entertainment",
+        secondary_genres = [
+            "Twerk",
         ]
-        catalognumber = "Lalala"
-        artists = [
-            {{ name = "BLACKPINK", role = "main" }},
-            {{ name = "JISOO", role = "main" }},
+        descriptors = [
+            "Playful",
+            "Cryptic",
         ]
 
         [tracks.{track_ids[0]}]
@@ -181,12 +190,22 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         releasetitle="I Really Love Blackpink",
         releasetype="single",
         releaseyear=2222,
+        originalyear=2000,
         compositionyear=1800,
         catalognumber="Lalala",
+        edition="Blabla",
         new=False,
         disctotal=1,
         genres=["J-Pop", "Pop Rap"],
         parent_genres=["Hip Hop", "Pop"],
+        secondary_genres=["Twerk"],
+        parent_secondary_genres=[
+            "Dance",
+            "Electronic",
+            "Electronic Dance Music",
+            "Trap [EDM]",
+        ],
+        descriptors=["Playful", "Cryptic"],
         labels=["YG Entertainment"],
         releaseartists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
         metahash=release.metahash,
@@ -241,19 +260,23 @@ def test_edit_release_failure_and_resume(
         new = false
         releasetype = "bullshit"
         releaseyear = 2222
+        originalyear = -9999
         compositionyear = -9999
-        genres = [
-            "J-Pop",
-            "Pop Rap",
-        ]
-        labels = [
-            "YG Entertainment",
-        ]
-        catalognumber = ""
         artists = [
             {{ name = "BLACKPINK", role = "main" }},
             {{ name = "JISOO", role = "main" }},
         ]
+        catalognumber = ""
+        edition = ""
+        labels = [
+            "YG Entertainment",
+        ]
+        genres = [
+            "J-Pop",
+            "Pop Rap",
+        ]
+        secondary_genres = []
+        descriptors = []
 
         [tracks.{track_ids[0]}]
         discnumber = "1"
@@ -285,19 +308,23 @@ def test_edit_release_failure_and_resume(
         new = false
         releasetype = "single"
         releaseyear = 2222
+        originalyear = -9999
         compositionyear = -9999
-        genres = [
-            "J-Pop",
-            "Pop Rap",
-        ]
-        labels = [
-            "YG Entertainment",
-        ]
-        catalognumber = ""
         artists = [
             {{ name = "BLACKPINK", role = "main" }},
             {{ name = "JISOO", role = "main" }},
         ]
+        catalognumber = ""
+        edition = ""
+        labels = [
+            "YG Entertainment",
+        ]
+        genres = [
+            "J-Pop",
+            "Pop Rap",
+        ]
+        secondary_genres = []
+        descriptors = []
 
         [tracks.{track_ids[0]}]
         discnumber = "1"
@@ -337,13 +364,18 @@ def test_edit_release_failure_and_resume(
         releasetitle="I Really Love Blackpink",
         releasetype="single",
         releaseyear=2222,
+        originalyear=None,
         compositionyear=None,
         catalognumber=None,
+        edition=None,
         new=False,
         disctotal=1,
         genres=["J-Pop", "Pop Rap"],
         parent_genres=["Hip Hop", "Pop"],
         labels=["YG Entertainment"],
+        secondary_genres=[],
+        parent_secondary_genres=[],
+        descriptors=[],
         releaseartists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
         metahash=release.metahash,
     )
@@ -436,6 +468,17 @@ def test_dump_release(config: Config) -> None:
             "House",
         ],
         "labels": ["Silk Music"],
+        "originalyear": None,
+        "edition": None,
+        "secondary_genres": ["Rominimal", "Ambient"],
+        "parent_secondary_genres": [
+            "Dance",
+            "Electronic",
+            "Electronic Dance Music",
+            "House",
+            "Tech House",
+        ],
+        "descriptors": ["Warm", "Hot"],
         "releaseartists": {
             "main": [
                 {"name": "Techno Man", "alias": False},
@@ -518,6 +561,17 @@ def test_dump_releases(config: Config) -> None:
                 "House",
             ],
             "labels": ["Silk Music"],
+            "originalyear": None,
+            "edition": None,
+            "secondary_genres": ["Rominimal", "Ambient"],
+            "parent_secondary_genres": [
+                "Dance",
+                "Electronic",
+                "Electronic Dance Music",
+                "House",
+                "Tech House",
+            ],
+            "descriptors": ["Warm", "Hot"],
             "releaseartists": {
                 "main": [
                     {"name": "Techno Man", "alias": False},
@@ -590,6 +644,16 @@ def test_dump_releases(config: Config) -> None:
             "genres": ["Classical"],
             "parent_genres": [],
             "labels": ["Native State"],
+            "originalyear": 2019,
+            "edition": "Deluxe",
+            "secondary_genres": ["Orchestral"],
+            "parent_secondary_genres": [
+                "Classical Music",
+                "Descriptor",
+                "Uncategorised",
+                "Western Classical Music",
+            ],
+            "descriptors": ["Wet"],
             "releaseartists": {
                 "main": [{"name": "Violin Woman", "alias": False}],
                 "guest": [{"name": "Conductor Woman", "alias": False}],
@@ -635,6 +699,11 @@ def test_dump_releases(config: Config) -> None:
             "genres": [],
             "parent_genres": [],
             "labels": [],
+            "originalyear": None,
+            "edition": None,
+            "secondary_genres": [],
+            "parent_secondary_genres": [],
+            "descriptors": [],
             "releaseartists": {
                 "main": [],
                 "guest": [],
@@ -687,6 +756,16 @@ def test_dump_releases_matcher(config: Config) -> None:
             "genres": ["Classical"],
             "parent_genres": [],
             "labels": ["Native State"],
+            "originalyear": 2019,
+            "edition": "Deluxe",
+            "secondary_genres": ["Orchestral"],
+            "parent_secondary_genres": [
+                "Classical Music",
+                "Descriptor",
+                "Uncategorised",
+                "Western Classical Music",
+            ],
+            "descriptors": ["Wet"],
             "releaseartists": {
                 "main": [{"name": "Violin Woman", "alias": False}],
                 "guest": [{"name": "Conductor Woman", "alias": False}],
