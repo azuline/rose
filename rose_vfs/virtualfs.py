@@ -424,7 +424,7 @@ class VirtualNameGenerator:
                 )
             except KeyError:
                 vname = eval_release_template(template, release, position)
-                vname = sanitize_dirname(vname, False)
+                vname = sanitize_dirname(self._config, vname, False)
                 self._release_template_eval_cache[cachekey] = vname
                 logger.debug(
                     f"VNAMES: Generated virtual dirname {vname} for release {logtext} in {time.time()-time_start} seconds"
@@ -502,7 +502,7 @@ class VirtualNameGenerator:
                 vname = self._track_template_eval_cache[cachekey]
             except KeyError:
                 vname = eval_track_template(template, track, position)
-                vname = sanitize_filename(vname, False)
+                vname = sanitize_filename(self._config, vname, False)
                 logger.debug(
                     f"VNAMES: Generated virtual filename {vname} for track {logtext} in {time.time() - time_start} seconds"
                 )
@@ -563,7 +563,8 @@ class Sanitizer:
     library calls.
     """
 
-    def __init__(self, rose: RoseLogicalCore) -> None:
+    def __init__(self, config: Config, rose: RoseLogicalCore) -> None:
+        self._config = config
         self._rose = rose
         self._to_sanitized: dict[str, str] = {}
         self._to_unsanitized: dict[str, str] = {}
@@ -572,7 +573,7 @@ class Sanitizer:
         try:
             return self._to_sanitized[unsanitized]
         except KeyError:
-            sanitized = sanitize_dirname(unsanitized, enforce_maxlen=True)
+            sanitized = sanitize_dirname(self._config, unsanitized, enforce_maxlen=True)
             self._to_sanitized[unsanitized] = sanitized
             self._to_unsanitized[sanitized] = unsanitized
             return sanitized
@@ -696,7 +697,7 @@ class RoseLogicalCore:
         self.config = config
         self.fhandler = fhandler
         self.vnames = VirtualNameGenerator(config)
-        self.sanitizer = Sanitizer(self)
+        self.sanitizer = Sanitizer(config, self)
         self.can_show = CanShower(config)
         # This map stores the state for "file creation" operations. We currently have two file
         # creation operations:
