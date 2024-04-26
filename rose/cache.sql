@@ -17,6 +17,7 @@ CREATE TABLE releases (
     releaseyear INTEGER,
     originalyear INTEGER,
     compositionyear INTEGER,
+    edition TEXT,
     catalognumber TEXT,
     disctotal INTEGER NOT NULL,
     -- A sha256 of the release object, which can be used as a performant cache key.
@@ -172,9 +173,13 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
   , releasetitle
   , releasetype
   , releaseyear
+  , originalyear
   , compositionyear
+  , edition
   , catalognumber
   , genre
+  , secondary_genres
+  , descriptors
   , label
   , releaseartist
   , trackartist
@@ -193,6 +198,18 @@ CREATE VIEW releases_view AS
             release_id
           , GROUP_CONCAT(genre, ' ¬ ') AS genres
         FROM (SELECT * FROM releases_genres ORDER BY position)
+        GROUP BY release_id
+    ), secondary_genres AS (
+        SELECT
+            release_id
+          , GROUP_CONCAT(genre, ' ¬ ') AS genres
+        FROM (SELECT * FROM releases_secondary_genres ORDER BY position)
+        GROUP BY release_id
+    ), descriptors AS (
+        SELECT
+            release_id
+          , GROUP_CONCAT(descriptor, ' ¬ ') AS descriptors
+        FROM (SELECT * FROM releases_descriptors ORDER BY position)
         GROUP BY release_id
     ), labels AS (
         SELECT
@@ -217,16 +234,23 @@ CREATE VIEW releases_view AS
       , r.title AS releasetitle
       , r.releasetype
       , r.releaseyear
+      , r.originalyear
       , r.compositionyear
+      , r.edition
       , r.catalognumber
       , r.disctotal
       , r.new
       , r.metahash
       , COALESCE(g.genres, '') AS genres
+      , COALESCE(s.secondary_genres, '') AS secondary_genres
+      , COALESCE(d.descriptors, '') AS descriptors
       , COALESCE(l.labels, '') AS labels
       , COALESCE(a.names, '') AS releaseartist_names
       , COALESCE(a.roles, '') AS releaseartist_roles
     FROM releases r
+    LEFT JOIN genres g ON g.release_id = r.id
+    LEFT JOIN secondary_genres s ON s.release_id = r.id
+    LEFT JOIN descriptors d ON d.release_id = r.id
     LEFT JOIN genres g ON g.release_id = r.id
     LEFT JOIN labels l ON l.release_id = r.id
     LEFT JOIN artists a ON a.release_id = r.id;

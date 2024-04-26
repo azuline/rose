@@ -37,15 +37,38 @@ title = "Mix & Match"
 new = false
 releasetype = "ep"
 releaseyear = 2017
+originalyear = 2017
 compositionyear = -9999
 genres = [
+    "K-Pop",
     "Dance-Pop",
     "Future Bass",
-    "K-Pop",
+]
+secondary_genres = [
+    "Electropop",
+    "Alternative R&B",
+    "Synthpop",
+]
+descriptors = [
+    "melodic",
+    "energetic",
+    "female vocalist",
+    "sensual",
+    "love",
+    "playful",
+    "romantic",
+    "eclectic",
+    "lush",
+    "rhythmic",
+    "optimistic",
+    "warm",
+    "urban",
+    "uplifting",
 ]
 labels = [
-    "BlockBerry Creative",
+    "BlockBerryCreative",
 ]
+edition = ""
 catalognumber = "WMED0709"
 artists = [
     { name = "LOOΠΔ ODD EYE CIRCLE", role = "main" },
@@ -294,14 +317,18 @@ The rules engine supports matching and acting on the following tags:
 - `releaseartist[djmixer]`
 - `releasetype`
 - `releaseyear`
+- `originalyear`
 - `compositionyear`
 - `genre`
+- `secondary_genre`
+- `descriptor`
 - `label`
 - `catalognumber`
+- `edition`
 
-The `trackartist[*]`, `releaseartist[*]`, `genre`, and `label` tags are _multi-value_ tags, which
-have a slightly different behavior from single-value tags for some of the actions. We'll explore
-this difference in the [Actions](#actions) section.
+The `trackartist[*]`, `releaseartist[*]`, `genre`, `secondary_genre`, `descriptor`, and `label` tags
+are _multi-value_ tags, which have a slightly different behavior from single-value tags for some of
+the actions. We'll explore this difference in the [Actions](#actions) section.
 
 For convenience, the rules parser also allows you to specify _tag aliases_ in
 place of the above tags, which expand to multiple tags when matching. The

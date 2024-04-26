@@ -113,16 +113,28 @@ def seeded_cache(config: Config) -> None:
         conn.executescript(
             f"""\
 INSERT INTO releases
-       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype, releaseyear, compositionyear, catalognumber, disctotal, new  , metahash)
-VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'    , 2023       , null           , null         , 1        , false, '1')
-     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'    , 2021       , null           , 'DG-001'     , 1        , false, '2')
-     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , 2021       , 1780           , 'DG-002'     , 1        , true , '3');
+       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype, releaseyear, originalyear, compositionyear, catalognumber, edition , disctotal, new  , metahash)
+VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'    , 2023       , null        , null           , null         , null    , 1        , false, '1')
+     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'    , 2021       , 2019        , null           , 'DG-001'     , 'Deluxe', 1        , false, '2')
+     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , 2021       , null        , 1780           , 'DG-002'     , null    , 1        , true , '3');
 
 INSERT INTO releases_genres
        (release_id, genre       , position)
 VALUES ('r1'      , 'Techno'    , 1)
      , ('r1'      , 'Deep House', 2)
      , ('r2'      , 'Classical' , 1);
+
+INSERT INTO releases_secondary_genres
+       (release_id, genre       , position)
+VALUES ('r1'      , 'Rominimal' , 1)
+     , ('r1'      , 'Ambient'   , 2)
+     , ('r2'      , 'Orchestral', 1);
+
+INSERT INTO releases_descriptors
+       (release_id, descriptor, position)
+VALUES ('r1'      , 'Warm'    , 1)
+     , ('r1'      , 'Hot'     , 2)
+     , ('r2'      , 'Wet'     , 1);
 
 INSERT INTO releases_labels
        (release_id, label         , position)
@@ -185,10 +197,14 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
               , discnumber
               , releasetitle
               , releaseyear
+              , originalyear
               , compositionyear
               , catalognumber
+              , edition
               , releasetype
               , genre
+              , secondary_genre
+              , descriptor
               , label
               , releaseartist
               , trackartist
@@ -200,16 +216,22 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
               , process_string_for_fts(t.discnumber) AS discnumber
               , process_string_for_fts(r.title) AS releasetitle
               , process_string_for_fts(r.releaseyear) AS releaseyear
+              , process_string_for_fts(r.originalyear) AS originalyear
               , process_string_for_fts(r.compositionyear) AS compositionyear
               , process_string_for_fts(r.catalognumber) AS catalognumber
+              , process_string_for_fts(r.edition) AS edition
               , process_string_for_fts(r.releasetype) AS releasetype
               , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, ' '), '')) AS genre
+              , process_string_for_fts(COALESCE(GROUP_CONCAT(rs.genre, ' '), '')) AS secondary_genre
+              , process_string_for_fts(COALESCE(GROUP_CONCAT(rd.descriptor, ' '), '')) AS descriptor
               , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, ' '), '')) AS label
               , process_string_for_fts(COALESCE(GROUP_CONCAT(ra.artist, ' '), '')) AS releaseartist
               , process_string_for_fts(COALESCE(GROUP_CONCAT(ta.artist, ' '), '')) AS trackartist
             FROM tracks t
             JOIN releases r ON r.id = t.release_id
             LEFT JOIN releases_genres rg ON rg.release_id = r.id
+            LEFT JOIN releases_secondary_genres rs ON rs.release_id = r.id
+            LEFT JOIN releases_descriptors rd ON rd.release_id = r.id
             LEFT JOIN releases_labels rl ON rl.release_id = r.id
             LEFT JOIN releases_artists ra ON ra.release_id = r.id
             LEFT JOIN tracks_artists ta ON ta.track_id = t.id
