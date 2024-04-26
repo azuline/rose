@@ -1,6 +1,6 @@
 # Architecture
 
-Rosé has a simple uni-directional looping architecture.
+Rosé's data flow is architected in a simple uni-directional loop.
 
 ```mermaid
 flowchart BT
@@ -39,6 +39,16 @@ This has some nice consequences:
 - Rosé has no ambiguous conflict resolution between audio tags and its own state, because the audio
   tags _are_ the state. Regardless of how the cache drifts from source files, that drift can always
   be automatically resolved simply by rebuilding the cache.
+
+# Frontends
+
+At its core, Rosé is a library that manages its state and exposes functions for managing music.
+Alongside the library are two frontends: a CLI and a Virtual Filesystem. These two frontends are
+organized to be consume the library but not be part of it. This is visible in Rosé's package
+structure: `rose`, `rose_cli`, and `rose_vfs`.
+
+Theoretically, other frontends can be built on top of the `rose` library in the future, such as a
+`mpd` daemon or a `subsonic` API.
 
 # Release & Track Identifiers
 
@@ -165,3 +175,9 @@ In tests, due to our use of multiple processes for testing the virtual filesyste
 be displayed by default by pytest. By default, we do not register a logging handler in tests, since
 pytest registers its own. However, if you run tests with `LOG_TEST=1`, Rosé will attach its own
 logging handler, which will print debug logs from other processes on failure.
+
+# Language Choice
+
+Python was chosen to make this a quick project, but it's ultimately too unperformant for a virtual
+filesystem. Bad choice. Thus we were forced to implement a handful of optimizations to keep
+performance reasonable. I do not have the time to port this to a more performant language.
