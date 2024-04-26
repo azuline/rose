@@ -104,6 +104,7 @@ from rose import (
     update_cache_for_releases,
 )
 from rose.cache import list_releases_delete_this
+from rose.templates import PathContext
 
 logger = logging.getLogger(__name__)
 
@@ -224,6 +225,16 @@ class VirtualPath:
     @property
     def label_parent(self) -> VirtualPath:
         """Parent path of a label: Used as an input to the Sanitizer."""
+        return VirtualPath(view=self.view)
+
+    @property
+    def collage_parent(self) -> VirtualPath:
+        """Parent path of a collage: Used as an input to the Sanitizer."""
+        return VirtualPath(view=self.view)
+
+    @property
+    def playlist_parent(self) -> VirtualPath:
+        """Parent path of a playlist: Used as an input to the Sanitizer."""
         return VirtualPath(view=self.view)
 
     @classmethod
@@ -355,9 +366,10 @@ class VirtualNameGenerator:
     paths, new paths will take precedence.
     """
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, sanitizer: Sanitizer):
         # fmt: off
         self._config = config
+        self._sanitizer = sanitizer
         # These are the stateful maps that we use to remember path mappings. They are maps from the
         # (parent_path, virtual path) -> entity ID.
         #
@@ -423,7 +435,29 @@ class VirtualNameGenerator:
                     f"VNAMES: Reused cached virtual dirname {vname} for release {logtext} in {time.time()-time_start} seconds"
                 )
             except KeyError:
-                vname = eval_release_template(template, release, position)
+                context = PathContext(
+                    genre=self._sanitizer.unsanitize(
+                        release_parent.genre,
+                        release_parent.genre_parent,
+                    )
+                    if release_parent.genre
+                    else None,
+                    label=self._sanitizer.unsanitize(
+                        release_parent.label,
+                        release_parent.label_parent,
+                    )
+                    if release_parent.label
+                    else None,
+                    artist=self._sanitizer.unsanitize(
+                        release_parent.artist,
+                        release_parent.artist_parent,
+                    )
+                    if release_parent.artist
+                    else None,
+                    collage=release_parent.collage,
+                    playlist=None,
+                )
+                vname = eval_release_template(template, release, context, position)
                 vname = sanitize_dirname(self._config, vname, False)
                 self._release_template_eval_cache[cachekey] = vname
                 logger.debug(
@@ -501,7 +535,29 @@ class VirtualNameGenerator:
             try:
                 vname = self._track_template_eval_cache[cachekey]
             except KeyError:
-                vname = eval_track_template(template, track, position)
+                context = PathContext(
+                    genre=self._sanitizer.unsanitize(
+                        track_parent.genre,
+                        track_parent.genre_parent,
+                    )
+                    if track_parent.genre
+                    else None,
+                    label=self._sanitizer.unsanitize(
+                        track_parent.label,
+                        track_parent.label_parent,
+                    )
+                    if track_parent.label
+                    else None,
+                    artist=self._sanitizer.unsanitize(
+                        track_parent.artist,
+                        track_parent.artist_parent,
+                    )
+                    if track_parent.artist
+                    else None,
+                    collage=track_parent.collage,
+                    playlist=track_parent.playlist,
+                )
+                vname = eval_track_template(template, track, context, position)
                 vname = sanitize_filename(self._config, vname, False)
                 logger.debug(
                     f"VNAMES: Generated virtual filename {vname} for track {logtext} in {time.time() - time_start} seconds"
@@ -696,8 +752,8 @@ class RoseLogicalCore:
     def __init__(self, config: Config, fhandler: FileHandleManager):
         self.config = config
         self.fhandler = fhandler
-        self.vnames = VirtualNameGenerator(config)
         self.sanitizer = Sanitizer(config, self)
+        self.vnames = VirtualNameGenerator(config, self.sanitizer)
         self.can_show = CanShower(config)
         # This map stores the state for "file creation" operations. We currently have two file
         # creation operations:

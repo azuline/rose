@@ -99,6 +99,11 @@ releaseartists.composer: list[Artist]
 releaseartists.conductor: list[Artist]
 releaseartists.djmixer: list[Artist]
 position: str                        # If in a collage context, the zero-padded position of the release in the collage.
+context.genre: str                   # The current genre being viewed in the Virtual Filesystem.
+context.label: str                   # The current label being viewed in the Virtual Filesystem.
+context.artist: str                  # The current artist being viewed in the Virtual Filesystem.
+context.collage: str                 # The current collage being viewed in the Virtual Filesystem.
+context.playlist: str                # The current playlist being viewed in the Virtual Filesystem.
 ```
 
 And provides the template variables for tracks:
@@ -141,6 +146,11 @@ releaseartists.composer: list[Artist]
 releaseartists.conductor: list[Artist]
 releaseartists.djmixer: list[Artist]
 position: str                        # If in a playlist context, the zero-padded position of the track in the playlist.
+context.genre: str                   # The current genre being viewed in the Virtual Filesystem.
+context.label: str                   # The current label being viewed in the Virtual Filesystem.
+context.artist: str                  # The current artist being viewed in the Virtual Filesystem.
+context.collage: str                 # The current collage being viewed in the Virtual Filesystem.
+context.playlist: str                # The current playlist being viewed in the Virtual Filesystem.
 ```
 
 Rosé also provides the following custom filters:

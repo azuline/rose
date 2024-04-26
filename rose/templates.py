@@ -251,21 +251,36 @@ class PathTemplateConfig:
             raise InvalidPathTemplateError(f"Failed to compile template: {e}", key=key) from e
 
 
+@dataclasses.dataclass
+class PathContext:
+    genre: str | None
+    artist: str | None
+    label: str | None
+    collage: str | None
+    playlist: str | None
+
+
 def eval_release_template(
     template: PathTemplate,
     release: CachedRelease,
+    context: PathContext | None = None,
     position: str | None = None,
 ) -> str:
-    return _collapse_spacing(template.compiled.render(**_calc_release_variables(release, position)))
+    return _collapse_spacing(
+        template.compiled.render(context=context, **_calc_release_variables(release, position))
+    )
 
 
 def eval_track_template(
     template: PathTemplate,
     track: CachedTrack,
+    context: PathContext | None = None,
     position: str | None = None,
 ) -> str:
     return (
-        _collapse_spacing(template.compiled.render(**_calc_track_variables(track, position)))
+        _collapse_spacing(
+            template.compiled.render(context=context, **_calc_track_variables(track, position))
+        )
         + track.source_path.suffix
     )
 
@@ -480,11 +495,11 @@ def _preview_release_template(c: Config, label: str, template: PathTemplate) -> 
     kimlip, youngforever, debussy = _get_preview_releases(c)
     click.secho(f"{label}:", dim=True, underline=True)
     click.secho("  Sample 1: ", dim=True, nl=False)
-    click.secho(eval_release_template(template, kimlip, "1"))
+    click.secho(eval_release_template(template, kimlip, position="1"))
     click.secho("  Sample 2: ", dim=True, nl=False)
-    click.secho(eval_release_template(template, youngforever, "2"))
+    click.secho(eval_release_template(template, youngforever, position="2"))
     click.secho("  Sample 3: ", dim=True, nl=False)
-    click.secho(eval_release_template(template, debussy, "3"))
+    click.secho(eval_release_template(template, debussy, position="3"))
 
 
 def _preview_track_template(c: Config, label: str, template: PathTemplate) -> None:
@@ -509,7 +524,7 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         metahash="0",
         release=kimlip,
     )
-    click.secho(eval_track_template(template, track, "1"))
+    click.secho(eval_track_template(template, track, position="1"))
 
     click.secho("  Sample 2: ", dim=True, nl=False)
     track = CachedTrack(
@@ -527,7 +542,7 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         metahash="0",
         release=youngforever,
     )
-    click.secho(eval_track_template(template, track, "2"))
+    click.secho(eval_track_template(template, track, position="2"))
 
     click.secho("  Sample 3: ", dim=True, nl=False)
     track = CachedTrack(
@@ -549,4 +564,4 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         metahash="0",
         release=debussy,
     )
-    click.secho(eval_track_template(template, track, "3"))
+    click.secho(eval_track_template(template, track, position="3"))

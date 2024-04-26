@@ -73,7 +73,7 @@ def test_default_templates() -> None:
         == "A1, A2 & A3 (feat. BB) (prod. PP) - 2023. Title - Single"
     )
     assert (
-        eval_release_template(templates.collages.release, release, "4")
+        eval_release_template(templates.collages.release, release, position="4")
         == "4. A1, A2 & A3 (feat. BB) (prod. PP) - 2023. Title - Single"
     )
 
@@ -81,7 +81,7 @@ def test_default_templates() -> None:
     release.releasetitle = "Title"
     assert eval_release_template(templates.source.release, release) == "Unknown Artists - Title"
     assert (
-        eval_release_template(templates.collages.release, release, "4")
+        eval_release_template(templates.collages.release, release, position="4")
         == "4. Unknown Artists - Title"
     )
 
@@ -89,7 +89,10 @@ def test_default_templates() -> None:
     track.tracknumber = "2"
     track.tracktitle = "Trick"
     assert eval_track_template(templates.source.track, track) == "02. Trick.m4a"
-    assert eval_track_template(templates.playlists, track, "4") == "4. Unknown Artists - Trick.m4a"
+    assert (
+        eval_track_template(templates.playlists, track, position="4")
+        == "4. Unknown Artists - Trick.m4a"
+    )
 
     track = deepcopy(EMPTY_CACHED_TRACK)
     track.release.disctotal = 2
@@ -105,7 +108,7 @@ def test_default_templates() -> None:
         == "04-02. Trick (feat. Hi, High & Hye).m4a"
     )
     assert (
-        eval_track_template(templates.playlists, track, "4")
+        eval_track_template(templates.playlists, track, position="4")
         == "4. Main (feat. Hi, High & Hye) - Trick.m4a"
     )
 
