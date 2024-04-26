@@ -178,8 +178,8 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
   , edition
   , catalognumber
   , genre
-  , secondary_genres
-  , descriptors
+  , secondary_genre
+  , descriptor
   , label
   , releaseartist
   , trackartist
@@ -242,7 +242,7 @@ CREATE VIEW releases_view AS
       , r.new
       , r.metahash
       , COALESCE(g.genres, '') AS genres
-      , COALESCE(s.secondary_genres, '') AS secondary_genres
+      , COALESCE(s.genres, '') AS secondary_genres
       , COALESCE(d.descriptors, '') AS descriptors
       , COALESCE(l.labels, '') AS labels
       , COALESCE(a.names, '') AS releaseartist_names
@@ -251,7 +251,6 @@ CREATE VIEW releases_view AS
     LEFT JOIN genres g ON g.release_id = r.id
     LEFT JOIN secondary_genres s ON s.release_id = r.id
     LEFT JOIN descriptors d ON d.release_id = r.id
-    LEFT JOIN genres g ON g.release_id = r.id
     LEFT JOIN labels l ON l.release_id = r.id
     LEFT JOIN artists a ON a.release_id = r.id;
 
