@@ -51,6 +51,9 @@ rename_source_files = false
 # That's what this configuration option enables. This configuration option
 # makes the releases of "aliased" artists also appear under the main artist in
 # the Artists browsing view.
+#
+# Relationships are followed transitively. This means that if A is an alias of
+# B, and B is an alias of C, then A will appear under C.
 artist_aliases = [
   { artist = "Abakus", aliases = ["Cinnamon Chasers"] },
   { artist = "tripleS", aliases = ["EVOLution", "LOVElution", "+(KR)ystal Eyes", "Acid Angel From Asia", "Acid Eyes"] },

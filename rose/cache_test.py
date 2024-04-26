@@ -1252,18 +1252,28 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
 def test_get_release_applies_artist_aliases(config: Config) -> None:
     config = dataclasses.replace(
         config,
-        artist_aliases_map={"Hype Boy": ["Bass Man"]},
-        artist_aliases_parents_map={"Bass Man": ["Hype Boy"]},
+        artist_aliases_map={"Hype Boy": ["Bass Man"], "Bubble Gum": ["Hype Boy"]},
+        artist_aliases_parents_map={"Bass Man": ["Hype Boy"], "Hype Boy": ["Bubble Gum"]},
     )
     release = get_release(config, "r1")
     assert release is not None
     assert release.releaseartists == ArtistMapping(
-        main=[Artist("Techno Man"), Artist("Bass Man"), Artist("Hype Boy", True)],
+        main=[
+            Artist("Techno Man"),
+            Artist("Bass Man"),
+            Artist("Hype Boy", True),
+            Artist("Bubble Gum", True),
+        ],
     )
     tracks = get_tracks_associated_with_release(config, release)
     for t in tracks:
         assert t.trackartists == ArtistMapping(
-            main=[Artist("Techno Man"), Artist("Bass Man"), Artist("Hype Boy", True)],
+            main=[
+                Artist("Techno Man"),
+                Artist("Bass Man"),
+                Artist("Hype Boy", True),
+                Artist("Bubble Gum", True),
+            ],
         )
 
 
@@ -1803,6 +1813,16 @@ def test_artist_exists_with_alias(config: Config) -> None:
         artist_aliases_parents_map={"Bass Man": ["Hype Boy"]},
     )
     assert artist_exists(config, "Hype Boy")
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_artist_exists_with_alias_transient(config: Config) -> None:
+    config = dataclasses.replace(
+        config,
+        artist_aliases_map={"Hype Boy": ["Bass Man"], "Bubble Gum": ["Hype Boy"]},
+        artist_aliases_parents_map={"Bass Man": ["Hype Boy"], "Hype Boy": ["Bubble Gum"]},
+    )
+    assert artist_exists(config, "Bubble Gum")
 
 
 @pytest.mark.usefixtures("seeded_cache")

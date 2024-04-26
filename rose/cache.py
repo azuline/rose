@@ -1824,7 +1824,7 @@ def list_releases_delete_this(
         args: list[str | bool] = []
         if artist_filter:
             artists: list[str] = [artist_filter]
-            for alias in c.artist_aliases_map.get(artist_filter, []):
+            for alias in _get_all_artist_aliases(c, artist_filter):
                 artists.append(alias)
             query += f"""
                 AND EXISTS (
@@ -2234,7 +2234,7 @@ def list_artists(c: Config) -> list[str]:
 
 def artist_exists(c: Config, artist: str) -> bool:
     args: list[str] = [artist]
-    for alias in c.artist_aliases_map.get(artist, []):
+    for alias in _get_all_artist_aliases(c, artist):
         args.append(alias)
     with connect(c) as conn:
         cursor = conn.execute(
@@ -2301,16 +2301,37 @@ def _unpack_artists(
     aliases: bool = True,
 ) -> ArtistMapping:
     mapping = ArtistMapping()
+    seen: set[tuple[str, str]] = set()
     for name, role in _unpack(names, roles):
         role_artists: list[Artist] = getattr(mapping, role)
         role_artists.append(Artist(name=name, alias=False))
-        seen: set[str] = {name}
-        if aliases:
-            for alias in c.artist_aliases_parents_map.get(name, []):
-                if alias not in seen:
+        seen.add((name, role))
+        if not aliases:
+            continue
+
+        # Get all immediate and transitive artist aliases.
+        unvisited: set[str] = {name}
+        while unvisited:
+            cur = unvisited.pop()
+            for alias in c.artist_aliases_parents_map.get(cur, []):
+                if (alias, role) not in seen:
                     role_artists.append(Artist(name=alias, alias=True))
-                    seen.add(alias)
+                    seen.add((alias, role))
+                    unvisited.add(alias)
     return mapping
+
+
+def _get_all_artist_aliases(c: Config, x: str) -> list[str]:
+    """Includes transitive aliases."""
+    aliases: set[str] = set()
+    unvisited: set[str] = {x}
+    while unvisited:
+        cur = unvisited.pop()
+        if cur in aliases:
+            continue
+        aliases.add(cur)
+        unvisited.update(c.artist_aliases_map.get(cur, []))
+    return list(aliases)
 
 
 def _get_parent_genres(genres: list[str]) -> list[str]:
