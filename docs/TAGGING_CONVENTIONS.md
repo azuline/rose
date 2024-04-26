@@ -107,7 +107,7 @@ world, Rosé will support reading from additional fields.
 ## MP3
 
 | Tag              | Field Name              | Will Ingest These Fields                                                                                               |
-| ---------------- | --------------------    | ---------------------------------------------------------------------------------------------------------------------- |
+| ---------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Release Title    | `TALB`                  |                                                                                                                        |
 | Release Artists  | `TPE2`                  |                                                                                                                        |
 | Release Year     | `TDRC`                  | `TYER`, `TDAT`                                                                                                         |
@@ -125,7 +125,7 @@ world, Rosé will support reading from additional fields.
 ## MP4
 
 | Tag              | Field Name                                 | Will Ingest These Fields                                                                                                                                                                               |
-| ---------------  | ------------------------------------       | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ---------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Release Title    | `\xa9alb`                                  |                                                                                                                                                                                                        |
 | Release Artists  | `aART`                                     |                                                                                                                                                                                                        |
 | Release Year     | `\xa9day`                                  |                                                                                                                                                                                                        |
@@ -143,13 +143,13 @@ world, Rosé will support reading from additional fields.
 ## Vorbis
 
 | Tag              | Field Name        | Will Ingest These Fields                                                                                        |
-| ---------------  | ---------------   | --------------------------------------------------------------------------------------------------------------- |
+| ---------------- | ----------------- | --------------------------------------------------------------------------------------------------------------- |
 | Release Title    | `release`         |                                                                                                                 |
 | Release Artists  | `albumartist`     |                                                                                                                 |
 | Release Year     | `date`            | `year`                                                                                                          |
 | Release Type     | `releasetype`     |                                                                                                                 |
 | Genre            | `genre`           |                                                                                                                 |
-| Label            | `label`    | `organization`, `recordlabel`                                                                                          |
+| Label            | `label`           | `organization`, `recordlabel`                                                                                   |
 | Track Title      | `title`           |                                                                                                                 |
 | Track Artists    | `artist`          | `remixer` (Remixer), `composer` (Composer), `conductor` (Conductor), `producer` (producer), `djmixer` (djmixer) |
 | Track Number     | `tracknumber`     |                                                                                                                 |
