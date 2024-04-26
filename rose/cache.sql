@@ -14,9 +14,9 @@ CREATE TABLE releases (
     datafile_mtime TEXT NOT NULL,
     title TEXT NOT NULL,
     releasetype TEXT NOT NULL,
-    releaseyear INTEGER,
-    originalyear INTEGER,
-    compositionyear INTEGER,
+    releasedate INTEGER,
+    originaldate INTEGER,
+    compositiondate INTEGER,
     edition TEXT,
     catalognumber TEXT,
     disctotal INTEGER NOT NULL,
@@ -172,9 +172,9 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
   , disctotal
   , releasetitle
   , releasetype
-  , releaseyear
-  , originalyear
-  , compositionyear
+  , releasedate
+  , originaldate
+  , compositiondate
   , edition
   , catalognumber
   , genre
@@ -233,9 +233,9 @@ CREATE VIEW releases_view AS
       , r.datafile_mtime
       , r.title AS releasetitle
       , r.releasetype
-      , r.releaseyear
-      , r.originalyear
-      , r.compositionyear
+      , r.releasedate
+      , r.originaldate
+      , r.compositiondate
       , r.edition
       , r.catalognumber
       , r.disctotal

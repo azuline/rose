@@ -101,7 +101,7 @@ def delete_release(c: Config, release_id: str) -> None:
         send2trash(release.source_path)
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        releaseyear=release.releasedate,
+        releasedate=release.releasedate,
         artists=release.releaseartists,
     )
     logger.info(f"Trashed release {release_logtext}")
@@ -118,7 +118,7 @@ def toggle_release_new(c: Config, release_id: str) -> None:
 
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        releaseyear=release.releasedate,
+        releasedate=release.releasedate,
         artists=release.releaseartists,
     )
 
@@ -160,7 +160,7 @@ def set_release_cover_art(
 
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        releaseyear=release.releasedate,
+        releasedate=release.releasedate,
         artists=release.releaseartists,
     )
 
@@ -181,7 +181,7 @@ def delete_release_cover_art(c: Config, release_id: str) -> None:
 
     release_logtext = calculate_release_logtext(
         title=release.releasetitle,
-        releaseyear=release.releasedate,
+        releasedate=release.releasedate,
         artists=release.releaseartists,
     )
 
@@ -238,9 +238,9 @@ class MetadataRelease:
     title: str
     new: bool
     releasetype: str
-    releaseyear: int | None
-    originalyear: int | None
-    compositionyear: int | None
+    releasedate: int | None
+    originaldate: int | None
+    compositiondate: int | None
     artists: list[MetadataArtist]
     labels: list[str]
     edition: str | None
@@ -256,9 +256,9 @@ class MetadataRelease:
             title=release.releasetitle,
             new=release.new,
             releasetype=release.releasetype,
-            releaseyear=release.releasedate,
-            originalyear=release.originaldate,
-            compositionyear=release.compositiondate,
+            releasedate=release.releasedate,
+            originaldate=release.originaldate,
+            compositiondate=release.compositiondate,
             edition=release.catalognumber,
             catalognumber=release.edition,
             labels=release.labels,
@@ -281,9 +281,9 @@ class MetadataRelease:
         # LOL TOML DOESN'T HAVE A NULL TYPE. Use -9999 as sentinel. If your music is legitimately
         # released in -9999, you should probably lay off the shrooms.
         data = asdict(self)
-        data["releaseyear"] = self.releaseyear or -9999
-        data["originalyear"] = self.originalyear or -9999
-        data["compositionyear"] = self.compositionyear or -9999
+        data["releasedate"] = self.releasedate or -9999
+        data["originaldate"] = self.originaldate or -9999
+        data["compositiondate"] = self.compositiondate or -9999
         data["edition"] = self.edition or -9999
         data["catalognumber"] = self.catalognumber or ""
         return tomli_w.dumps(data)
@@ -295,9 +295,9 @@ class MetadataRelease:
             title=d["title"],
             new=d["new"],
             releasetype=d["releasetype"],
-            originalyear=d["originalyear"] if d["originalyear"] != -9999 else None,
-            releaseyear=d["releaseyear"] if d["releaseyear"] != -9999 else None,
-            compositionyear=d["compositionyear"] if d["compositionyear"] != -9999 else None,
+            originaldate=d["originaldate"] if d["originaldate"] != -9999 else None,
+            releasedate=d["releasedate"] if d["releasedate"] != -9999 else None,
+            compositiondate=d["compositiondate"] if d["compositiondate"] != -9999 else None,
             genres=d["genres"],
             secondary_genres=d["secondary_genres"],
             descriptors=d["descriptors"],
@@ -400,18 +400,18 @@ def edit_release(
                     tags.releasetype = release_meta.releasetype.lower()
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: releasetype")
-                if tags.releasedate != release_meta.releaseyear:
-                    tags.releasedate = release_meta.releaseyear
+                if tags.releasedate != release_meta.releasedate:
+                    tags.releasedate = release_meta.releasedate
                     dirty = True
-                    logger.debug(f"Modified tag detected for {t.source_path}: releaseyear")
-                if tags.originaldate != release_meta.originalyear:
-                    tags.originaldate = release_meta.originalyear
+                    logger.debug(f"Modified tag detected for {t.source_path}: releasedate")
+                if tags.originaldate != release_meta.originaldate:
+                    tags.originaldate = release_meta.originaldate
                     dirty = True
-                    logger.debug(f"Modified tag detected for {t.source_path}: originalyear")
-                if tags.compositiondate != release_meta.compositionyear:
-                    tags.compositiondate = release_meta.compositionyear
+                    logger.debug(f"Modified tag detected for {t.source_path}: originaldate")
+                if tags.compositiondate != release_meta.compositiondate:
+                    tags.compositiondate = release_meta.compositiondate
                     dirty = True
-                    logger.debug(f"Modified tag detected for {t.source_path}: compositionyear")
+                    logger.debug(f"Modified tag detected for {t.source_path}: compositiondate")
                 if tags.edition != release_meta.edition:
                     tags.edition = release_meta.edition
                     dirty = True

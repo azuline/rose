@@ -115,8 +115,8 @@ def test_rules_fields_match_tracktitle(config: Config, source_dir: Path) -> None
     assert af.tracktitle == "8"
 
 
-def test_rules_fields_match_releaseyear(config: Config, source_dir: Path) -> None:
-    rule = MetadataRule.parse("releaseyear:1990", ["replace:8"])
+def test_rules_fields_match_releasedate(config: Config, source_dir: Path) -> None:
+    rule = MetadataRule.parse("releasedate:1990", ["replace:8"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.releasedate == 8

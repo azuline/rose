@@ -145,7 +145,7 @@ class PathTemplatePair:
 DEFAULT_RELEASE_TEMPLATE = PathTemplate(
     """
 {{ releaseartists | artistsfmt }} -
-{% if releaseyear %}{{ releaseyear }}.{% endif %}
+{% if releasedate %}{{ releasedate }}.{% endif %}
 {{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 {% if new %}[NEW]{% endif %}
@@ -291,9 +291,9 @@ def _calc_release_variables(release: CachedRelease, position: str | None) -> dic
         "added_at": release.added_at,
         "releasetitle": release.releasetitle,
         "releasetype": release.releasetype,
-        "releaseyear": release.releasedate,
-        "originalyear": release.originaldate,
-        "compositionyear": release.compositiondate,
+        "releasedate": release.releasedate,
+        "originaldate": release.originaldate,
+        "compositiondate": release.compositiondate,
         "edition": release.edition,
         "catalognumber": release.catalognumber,
         "new": release.new,
@@ -321,9 +321,9 @@ def _calc_track_variables(track: CachedTrack, position: str | None) -> dict[str,
         "trackartists": track.trackartists,
         "releasetitle": track.release.releasetitle,
         "releasetype": track.release.releasetype,
-        "releaseyear": track.release.releasedate,
-        "originalyear": track.release.originaldate,
-        "compositionyear": track.release.compositiondate,
+        "releasedate": track.release.releasedate,
+        "originaldate": track.release.originaldate,
+        "compositiondate": track.release.compositiondate,
         "edition": track.release.edition,
         "catalognumber": track.release.catalognumber,
         "new": track.release.new,

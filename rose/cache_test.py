@@ -174,7 +174,7 @@ def test_update_cache_releases(config: Config) -> None:
     with connect(config) as conn:
         cursor = conn.execute(
             """
-            SELECT id, source_path, title, releasetype, releaseyear, compositionyear, catalognumber, new
+            SELECT id, source_path, title, releasetype, releasedate, compositiondate, catalognumber, new
             FROM releases WHERE id = ?
             """,
             (release_id,),
@@ -183,8 +183,8 @@ def test_update_cache_releases(config: Config) -> None:
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["releaseyear"] == 1990
-        assert row["compositionyear"] is None
+        assert row["releasedate"] == 1990
+        assert row["compositiondate"] is None
         assert row["catalognumber"] is None
         assert row["new"]
 
@@ -311,13 +311,13 @@ def test_update_cache_releases_already_fully_cached(config: Config) -> None:
     # Assert that the release metadata was read correctly.
     with connect(config) as conn:
         cursor = conn.execute(
-            "SELECT id, source_path, title, releasetype, releaseyear, new FROM releases",
+            "SELECT id, source_path, title, releasetype, releasedate, new FROM releases",
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["releaseyear"] == 1990
+        assert row["releasedate"] == 1990
         assert row["new"]
 
 
@@ -336,13 +336,13 @@ def test_update_cache_releases_disk_update_to_previously_cached(config: Config) 
     # Assert that the release metadata was re-read and updated correctly.
     with connect(config) as conn:
         cursor = conn.execute(
-            "SELECT id, source_path, title, releasetype, releaseyear, new FROM releases",
+            "SELECT id, source_path, title, releasetype, releasedate, new FROM releases",
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["releaseyear"] == 1990
+        assert row["releasedate"] == 1990
         assert row["new"]
 
 
@@ -396,13 +396,13 @@ def test_update_cache_releases_source_path_renamed(config: Config) -> None:
     # Assert that the release metadata was re-read and updated correctly.
     with connect(config) as conn:
         cursor = conn.execute(
-            "SELECT id, source_path, title, releasetype, releaseyear, new FROM releases",
+            "SELECT id, source_path, title, releasetype, releasedate, new FROM releases",
         )
         row = cursor.fetchone()
         assert row["source_path"] == str(moved_release_dir)
         assert row["title"] == "I Love Blackpink"
         assert row["releasetype"] == "album"
-        assert row["releaseyear"] == 1990
+        assert row["releasedate"] == 1990
         assert row["new"]
 
 

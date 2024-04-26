@@ -210,10 +210,10 @@ def test_classical(config: Config) -> None:
         """
         {% if new %}{{ '{N}' }}{% endif %}
         {{ releaseartists.composer | map(attribute='name') | map('sortorder') | arrayfmt }} -
-        {% if compositionyear %}{{ compositionyear }}.{% endif %}
+        {% if compositiondate %}{{ compositiondate }}.{% endif %}
         {{ releasetitle }}
         performed by {{ releaseartists | artistsfmt(omit=["composer"]) }}
-        {% if releaseyear %}({{ releaseyear }}){% endif %}
+        {% if releasedate %}({{ releasedate }}){% endif %}
         """
     )
 
