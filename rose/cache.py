@@ -897,7 +897,7 @@ def _update_cache_for_releases_executor(
         if c.rename_source_files:
             if release_dirty:
                 wanted_dirname = eval_release_template(c.path_templates.source.release, release)
-                wanted_dirname = sanitize_dirname(wanted_dirname, True)
+                wanted_dirname = sanitize_dirname(c, wanted_dirname, True)
                 # Iterate until we've either:
                 # 1. Realized that the name of the source path matches the desired dirname (which we
                 #    may not realize immediately if there are name conflicts).
@@ -908,7 +908,8 @@ def _update_cache_for_releases_executor(
                     new_source_path = release.source_path.with_name(wanted_dirname)
                     # If there is a collision, bump the collision counter and retry.
                     if new_source_path.exists():
-                        wanted_dirname = f"{original_wanted_dirname} [{collision_no}]"
+                        new_max_len = c.max_filename_bytes - (3 + len(str(collision_no)))
+                        wanted_dirname = f"{original_wanted_dirname[:new_max_len]} [{collision_no}]"
                         collision_no += 1
                         continue
                     # If no collision, rename the directory.
@@ -932,7 +933,7 @@ def _update_cache_for_releases_executor(
                         track_ids_to_insert.add(track.id)
             for track in [t for t in tracks if t.id in track_ids_to_insert]:
                 wanted_filename = eval_track_template(c.path_templates.source.track, track)
-                wanted_filename = sanitize_filename(wanted_filename, True)
+                wanted_filename = sanitize_filename(c, wanted_filename, True)
                 # And repeat a similar process to the release rename handling. Except: we can have
                 # arbitrarily nested files here, so we need to compare more than the name.
                 original_wanted_stem = Path(wanted_filename).stem
@@ -943,9 +944,10 @@ def _update_cache_for_releases_executor(
                 ) and wanted_filename != relpath:
                     new_source_path = release.source_path / wanted_filename
                     if new_source_path.exists():
-                        wanted_filename = (
-                            f"{original_wanted_stem} [{collision_no}]{original_wanted_suffix}"
+                        new_max_len = c.max_filename_bytes - (
+                            3 + len(str(collision_no)) + len(original_wanted_suffix)
                         )
+                        wanted_filename = f"{original_wanted_stem[:new_max_len]} [{collision_no}]{original_wanted_suffix}"
                         collision_no += 1
                         continue
                     old_source_path = track.source_path

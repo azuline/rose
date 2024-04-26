@@ -57,6 +57,7 @@ def test_config_full() -> None:
                 fuse_labels_blacklist = [ "zzz" ]
                 cover_art_stems = [ "aa", "bb" ]
                 valid_art_exts = [ "tiff" ]
+                max_filename_bytes = 255
                 ignore_release_directories = [ "dummy boy" ]
                 rename_source_files = true
 
@@ -122,6 +123,7 @@ def test_config_full() -> None:
             fuse_labels_blacklist=["zzz"],
             cover_art_stems=["aa", "bb"],
             valid_art_exts=["tiff"],
+            max_filename_bytes=255,
             rename_source_files=True,
             path_templates=PathTemplateConfig(
                 source=PathTemplatePair(
@@ -477,6 +479,16 @@ def test_config_value_validation() -> None:
             == f"Invalid value for valid_art_exts in configuration file ({path}): Each art extension must be of type str: got <class 'int'>"
         )
         config += '\nvalid_art_exts = [ "jpg" ]'
+
+        # max_filename_bytes
+        write(config + '\nmax_filename_bytes = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for max_filename_bytes in configuration file ({path}): Must be an int: got <class 'str'>"
+        )
+        config += "\nmax_filename_bytes = 240"
 
         # ignore_release_directories
         write(config + '\nignore_release_directories = "lalala"')

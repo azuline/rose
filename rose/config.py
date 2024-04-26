@@ -79,6 +79,8 @@ class Config:
     cover_art_stems: list[str]
     valid_art_exts: list[str]
 
+    max_filename_bytes: int
+
     rename_source_files: bool
     path_templates: PathTemplateConfig
 
@@ -307,6 +309,18 @@ class Config:
         valid_art_exts = [x.lower() for x in valid_art_exts]
 
         try:
+            max_filename_bytes = data["max_filename_bytes"]
+            del data["max_filename_bytes"]
+            if not isinstance(max_filename_bytes, int):
+                raise ValueError(f"Must be an int: got {type(max_filename_bytes)}")
+        except KeyError:
+            max_filename_bytes = 180
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for max_filename_bytes in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
             rename_source_files = data["rename_source_files"]
             del data["rename_source_files"]
             if not isinstance(rename_source_files, bool):
@@ -467,6 +481,7 @@ class Config:
             fuse_labels_blacklist=fuse_labels_blacklist,
             cover_art_stems=cover_art_stems,
             valid_art_exts=valid_art_exts,
+            max_filename_bytes=max_filename_bytes,
             path_templates=path_templates,
             rename_source_files=rename_source_files,
             ignore_release_directories=ignore_release_directories,

@@ -94,6 +94,11 @@ fuse_labels_blacklist = [ "xxx" ]
 cover_art_stems = [ "folder", "cover", "art", "front" ]
 valid_art_exts = [ "jpg", "jpeg", "png" ]
 
+# Maximum number of bytes allowed in a filename. This should be set in
+# accordance with your host filesystem's limitations. This does not apply to
+# the virtual filesystem, as it does not have a limit.
+max_filename_bytes = 180
+
 # You may have some directories in your music source directory that should not
 # be treated like releases. You can make Rosé ignore them by adding the
 # directory names to this configuration variable. For example, if you use

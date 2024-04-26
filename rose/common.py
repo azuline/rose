@@ -9,7 +9,10 @@ import os.path
 import re
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from rose.config import Config
 
 with (Path(__file__).parent / ".version").open("r") as fp:
     VERSION = fp.read().strip()
@@ -84,7 +87,7 @@ def uniq(xs: list[T]) -> list[T]:
 ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]+')
 
 
-def sanitize_dirname(name: str, enforce_maxlen: bool) -> str:
+def sanitize_dirname(c: "Config", name: str, enforce_maxlen: bool) -> str:
     """
     Replace illegal characters and truncate. We have 255 bytes in ext4, and we truncate to 240 in
     order to leave room for any collision numbers.
@@ -94,11 +97,11 @@ def sanitize_dirname(name: str, enforce_maxlen: bool) -> str:
     """
     name = ILLEGAL_FS_CHARS_REGEX.sub("_", name)
     if enforce_maxlen:
-        name = name.encode("utf-8")[:240].decode("utf-8", "ignore")
+        name = name.encode("utf-8")[: c.max_filename_bytes].decode("utf-8", "ignore").strip()
     return name
 
 
-def sanitize_filename(name: str, enforce_maxlen: bool) -> str:
+def sanitize_filename(c: "Config", name: str, enforce_maxlen: bool) -> str:
     """Same as sanitize dirname, except we preserve file extension."""
     name = ILLEGAL_FS_CHARS_REGEX.sub("_", name)
     if enforce_maxlen:
@@ -108,7 +111,7 @@ def sanitize_filename(name: str, enforce_maxlen: bool) -> str:
         if len(ext.encode()) > 6:
             stem = name
             ext = ""
-        stem = stem.encode("utf-8")[:240].decode("utf-8", "ignore")
+        stem = stem.encode("utf-8")[: c.max_filename_bytes].decode("utf-8", "ignore").strip()
         name = stem + ext
     return name
 
