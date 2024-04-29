@@ -1843,11 +1843,18 @@ def list_releases_delete_this(
             genres = [genre_filter]
             genres.extend(TRANSIENT_CHILD_GENRES.get(genre_filter, []))
             query += f"""
-                AND EXISTS (
-                    SELECT * FROM releases_genres
-                    WHERE release_id = id AND genre IN ({",".join(["?"]*len(genres))})
+                AND (
+                    EXISTS (
+                        SELECT * FROM releases_genres
+                        WHERE release_id = id AND genre IN ({",".join(["?"]*len(genres))})
+                    )
+                    OR EXISTS (
+                        SELECT * FROM releases_secondary_genres
+                        WHERE release_id = id AND genre IN ({",".join(["?"]*len(genres))})
+                    )
                 )
             """
+            args.extend(genres)
             args.extend(genres)
         if label_filter:
             query += """
