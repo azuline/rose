@@ -4,6 +4,7 @@ The releases module provides functions for interacting with releases.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import re
@@ -534,7 +535,8 @@ def create_single_release(c: Config, track_path: Path) -> None:
     af = AudioTags.from_file(new_track_path)
     logger.info(f"Created phony single release {source_path.name}")
     # Step 4: Update the cache!
-    update_cache_for_releases(c, [source_path])
+    c_tmp = dataclasses.replace(c, rename_source_files=False)
+    update_cache_for_releases(c_tmp, [source_path])
     # Step 5: Default extracted singles to not new: if it is new, why are you meddling with it?
     for f in source_path.iterdir():
         if m := STORED_DATA_FILE_REGEX.match(f.name):
