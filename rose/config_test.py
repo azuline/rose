@@ -52,8 +52,9 @@ def test_config_full() -> None:
                   {{ artist = "Abakus", aliases = ["Cinnamon Chasers"] }},
                   {{ artist = "tripleS", aliases = ["EVOLution", "LOVElution", "+(KR)ystal Eyes", "Acid Angel From Asia", "Acid Eyes"] }},
                 ]
-                fuse_artists_blacklist = [ "xxx" ]
-                fuse_genres_blacklist = [ "yyy" ]
+                fuse_artists_blacklist = [ "www" ]
+                fuse_genres_blacklist = [ "xxx" ]
+                fuse_descriptors_blacklist = [ "yyy" ]
                 fuse_labels_blacklist = [ "zzz" ]
                 cover_art_stems = [ "aa", "bb" ]
                 valid_art_exts = [ "tiff" ]
@@ -75,12 +76,14 @@ def test_config_full() -> None:
                 default.track = "{{{{ title }}}}"
                 source.release = "{{{{ title }}}}"
                 source.track = "{{{{ title }}}}"
-                all_releases.release = "{{{{ title }}}}"
-                all_releases.track = "{{{{ title }}}}"
-                new_releases.release = "{{{{ title }}}}"
-                new_releases.track = "{{{{ title }}}}"
-                recently_added_releases.release = "{{{{ title }}}}"
-                recently_added_releases.track = "{{{{ title }}}}"
+                releases.release = "{{{{ title }}}}"
+                releases.track = "{{{{ title }}}}"
+                releases_new.release = "{{{{ title }}}}"
+                releases_new.track = "{{{{ title }}}}"
+                releases_added_on.release = "{{{{ title }}}}"
+                releases_added_on.track = "{{{{ title }}}}"
+                releases_released_on.release = "{{{{ title }}}}"
+                releases_released_on.track = "{{{{ title }}}}"
                 artists.release = "{{{{ title }}}}"
                 artists.track = "{{{{ title }}}}"
                 labels.release = "{{{{ title }}}}"
@@ -117,9 +120,11 @@ def test_config_full() -> None:
             },
             fuse_artists_whitelist=None,
             fuse_genres_whitelist=None,
+            fuse_descriptors_whitelist=None,
             fuse_labels_whitelist=None,
-            fuse_artists_blacklist=["xxx"],
-            fuse_genres_blacklist=["yyy"],
+            fuse_artists_blacklist=["www"],
+            fuse_genres_blacklist=["xxx"],
+            fuse_descriptors_blacklist=["yyy"],
             fuse_labels_blacklist=["zzz"],
             cover_art_stems=["aa", "bb"],
             valid_art_exts=["tiff"],
@@ -129,19 +134,25 @@ def test_config_full() -> None:
                 source=PathTemplatePair(
                     release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
                 ),
-                all_releases=PathTemplatePair(
+                releases=PathTemplatePair(
                     release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
                 ),
-                new_releases=PathTemplatePair(
+                releases_new=PathTemplatePair(
                     release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
                 ),
-                recently_added_releases=PathTemplatePair(
+                releases_added_on=PathTemplatePair(
+                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                ),
+                releases_released_on=PathTemplatePair(
                     release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
                 ),
                 artists=PathTemplatePair(
                     release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
                 ),
                 genres=PathTemplatePair(
+                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                ),
+                descriptors=PathTemplatePair(
                     release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
                 ),
                 labels=PathTemplatePair(
@@ -198,18 +209,21 @@ def test_config_whitelist() -> None:
                 """
                 music_source_dir = "~/.music-src"
                 fuse_mount_dir = "~/music"
-                fuse_artists_whitelist = [ "xxx" ]
-                fuse_genres_whitelist = [ "yyy" ]
+                fuse_artists_whitelist = [ "www" ]
+                fuse_genres_whitelist = [ "xxx" ]
+                fuse_descriptors_whitelist = [ "yyy" ]
                 fuse_labels_whitelist = [ "zzz" ]
                 """
             )
 
         c = Config.parse(config_path_override=path)
-        assert c.fuse_artists_whitelist == ["xxx"]
-        assert c.fuse_genres_whitelist == ["yyy"]
+        assert c.fuse_artists_whitelist == ["www"]
+        assert c.fuse_genres_whitelist == ["xxx"]
+        assert c.fuse_descriptors_whitelist == ["yyy"]
         assert c.fuse_labels_whitelist == ["zzz"]
         assert c.fuse_artists_blacklist is None
         assert c.fuse_genres_blacklist is None
+        assert c.fuse_descriptors_blacklist is None
         assert c.fuse_labels_blacklist is None
 
 
@@ -401,6 +415,22 @@ def test_config_value_validation() -> None:
         assert (
             str(excinfo.value)
             == f"Invalid value for fuse_genres_blacklist in configuration file ({path}): Each genre must be of type str: got <class 'int'>"
+        )
+
+        # fuse_descriptors_blacklist
+        write(config + '\nfuse_descriptors_blacklist = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for fuse_descriptors_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
+        )
+        write(config + "\nfuse_descriptors_blacklist = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for fuse_descriptors_blacklist in configuration file ({path}): Each descriptor must be of type str: got <class 'int'>"
         )
 
         # fuse_labels_blacklist

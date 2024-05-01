@@ -1822,6 +1822,7 @@ def list_releases_delete_this(
     c: Config,
     artist_filter: str | None = None,
     genre_filter: str | None = None,
+    descriptor_filter: str | None = None,
     label_filter: str | None = None,
     new: bool | None = None,
 ) -> list[CachedRelease]:
@@ -1856,6 +1857,14 @@ def list_releases_delete_this(
             """
             args.extend(genres)
             args.extend(genres)
+        if descriptor_filter:
+            query += """
+                AND EXISTS (
+                    SELECT * FROM releases_descriptors
+                    WHERE release_id = id AND descriptor = ?
+                )
+            """
+            args.append(descriptor_filter)
         if label_filter:
             query += """
                 AND EXISTS (
@@ -2284,6 +2293,21 @@ def genre_exists(c: Config, genre: str) -> bool:
         cursor = conn.execute(
             f"SELECT EXISTS(SELECT * FROM releases_genres WHERE genre IN ({','.join(['?']*len(args))}))",
             args,
+        )
+        return bool(cursor.fetchone()[0])
+
+
+def list_descriptors(c: Config) -> list[str]:
+    with connect(c) as conn:
+        cursor = conn.execute("SELECT DISTINCT descriptor FROM releases_descriptors")
+        return [row["descriptor"] for row in cursor]
+
+
+def descriptor_exists(c: Config, descriptor: str) -> bool:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            "SELECT EXISTS(SELECT * FROM releases_descriptors WHERE descriptor = ?)",
+            (descriptor,),
         )
         return bool(cursor.fetchone()[0])
 

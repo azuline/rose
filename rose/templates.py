@@ -170,11 +170,13 @@ DEFAULT_TEMPLATE_PAIR = PathTemplatePair(
 @dataclasses.dataclass
 class PathTemplateConfig:
     source: PathTemplatePair
-    all_releases: PathTemplatePair
-    new_releases: PathTemplatePair
-    recently_added_releases: PathTemplatePair
+    releases: PathTemplatePair
+    releases_new: PathTemplatePair
+    releases_added_on: PathTemplatePair
+    releases_released_on: PathTemplatePair
     artists: PathTemplatePair
     genres: PathTemplatePair
+    descriptors: PathTemplatePair
     labels: PathTemplatePair
     collages: PathTemplatePair
     playlists: PathTemplate
@@ -186,14 +188,22 @@ class PathTemplateConfig:
     ) -> PathTemplateConfig:
         return PathTemplateConfig(
             source=deepcopy(default_pair),
-            all_releases=deepcopy(default_pair),
-            new_releases=deepcopy(default_pair),
-            recently_added_releases=PathTemplatePair(
+            releases=deepcopy(default_pair),
+            releases_new=deepcopy(default_pair),
+            releases_added_on=PathTemplatePair(
                 release=PathTemplate("[{{ added_at[:10] }}] " + default_pair.release.text),
+                track=deepcopy(default_pair.track),
+            ),
+            releases_released_on=PathTemplatePair(
+                release=PathTemplate(
+                    "[{{ originaldate or releasedate or '0000-00-00' }}] "
+                    + default_pair.release.text
+                ),
                 track=deepcopy(default_pair.track),
             ),
             artists=deepcopy(default_pair),
             genres=deepcopy(default_pair),
+            descriptors=deepcopy(default_pair),
             labels=deepcopy(default_pair),
             collages=PathTemplatePair(
                 release=PathTemplate("{{ position }}. " + default_pair.release.text),
@@ -219,18 +229,22 @@ class PathTemplateConfig:
             _ = self.source.release.compiled
             key = "source.track"
             _ = self.source.track.compiled
-            key = "all_releases.release"
-            _ = self.all_releases.release.compiled
-            key = "all_releases.track"
-            _ = self.all_releases.track.compiled
-            key = "new_releases.release"
-            _ = self.new_releases.release.compiled
-            key = "new_releases.track"
-            _ = self.new_releases.track.compiled
-            key = "recently_added_releases.release"
-            _ = self.recently_added_releases.release.compiled
-            key = "recently_added_releases.track"
-            _ = self.recently_added_releases.track.compiled
+            key = "releases.release"
+            _ = self.releases.release.compiled
+            key = "releases.track"
+            _ = self.releases.track.compiled
+            key = "releases_new.release"
+            _ = self.releases_new.release.compiled
+            key = "releases_new.track"
+            _ = self.releases_new.track.compiled
+            key = "releases_added_on.release"
+            _ = self.releases_added_on.release.compiled
+            key = "releases_added_on.track"
+            _ = self.releases_added_on.track.compiled
+            key = "releases_released_on.release"
+            _ = self.releases_released_on.release.compiled
+            key = "releases_released_on.track"
+            _ = self.releases_released_on.track.compiled
             key = "artists.release"
             _ = self.artists.release.compiled
             key = "artists.track"
@@ -239,6 +253,10 @@ class PathTemplateConfig:
             _ = self.genres.release.compiled
             key = "genres.track"
             _ = self.genres.track.compiled
+            key = "descriptors.release"
+            _ = self.descriptors.release.compiled
+            key = "descriptors.track"
+            _ = self.descriptors.track.compiled
             key = "labels.release"
             _ = self.labels.release.compiled
             key = "labels.track"
@@ -258,6 +276,7 @@ class PathContext:
     genre: str | None
     artist: str | None
     label: str | None
+    descriptor: str | None
     collage: str | None
     playlist: str | None
 
@@ -352,28 +371,34 @@ def preview_path_templates(c: Config) -> None:
     _preview_release_template(c, "Source Directory - Release", c.path_templates.source.release)
     _preview_track_template(c, "Source Directory - Track", c.path_templates.source.track)
     click.echo()
-    _preview_release_template(c, "1. All Releases - Release", c.path_templates.all_releases.release)
-    _preview_track_template(c, "1. All Releases - Track", c.path_templates.all_releases.track)
+    _preview_release_template(c, "1. Releases - Release", c.path_templates.releases.release)
+    _preview_track_template(c, "1. Releases - Track", c.path_templates.releases.track)
     click.echo()
-    _preview_release_template(c, "2. New Releases - Release", c.path_templates.new_releases.release)
-    _preview_track_template(c, "2. New Releases - Track", c.path_templates.new_releases.track)
+    _preview_release_template(c, "1. Releases (New) - Release", c.path_templates.releases_new.release)
+    _preview_track_template(c, "1. Releases (New) - Track", c.path_templates.releases_new.track)
     click.echo()
-    _preview_release_template(c, "3. Recently Added Releases - Release", c.path_templates.recently_added_releases.release)
-    _preview_track_template(c, "3. Recently Added Releases - Track", c.path_templates.recently_added_releases.track)
+    _preview_release_template(c, "1. Releases (Added On) - Release", c.path_templates.releases_added_on.release)
+    _preview_track_template(c, "1. Releases (Added On) - Track", c.path_templates.releases_added_on.track)
     click.echo()
-    _preview_release_template(c, "4. Artists - Release", c.path_templates.artists.release)
-    _preview_track_template(c, "4. Artists - Track", c.path_templates.artists.track)
+    _preview_release_template(c, "1. Releases (Released On) - Release", c.path_templates.releases_added_on.release)
+    _preview_track_template(c, "1. Releases (Released On) - Track", c.path_templates.releases_added_on.track)
     click.echo()
-    _preview_release_template(c, "5. Genres - Release", c.path_templates.genres.release)
-    _preview_track_template(c, "5. Genres - Track", c.path_templates.genres.track)
+    _preview_release_template(c, "2. Artists - Release", c.path_templates.artists.release)
+    _preview_track_template(c, "2. Artists - Track", c.path_templates.artists.track)
     click.echo()
-    _preview_release_template(c, "6. Labels - Release", c.path_templates.labels.release)
-    _preview_track_template(c, "6. Labels - Track", c.path_templates.labels.track)
+    _preview_release_template(c, "3. Genres - Release", c.path_templates.genres.release)
+    _preview_track_template(c, "3. Genres - Track", c.path_templates.genres.track)
     click.echo()
-    _preview_release_template(c, "7. Collages - Release", c.path_templates.collages.release)
-    _preview_track_template(c, "7. Collages - Track", c.path_templates.collages.track)
+    _preview_release_template(c, "4. Descriptors - Release", c.path_templates.genres.release)
+    _preview_track_template(c, "4. Descriptors - Track", c.path_templates.genres.track)
     click.echo()
-    _preview_track_template(c, "8. Playlists - Track", c.path_templates.playlists)
+    _preview_release_template(c, "5. Labels - Release", c.path_templates.labels.release)
+    _preview_track_template(c, "5. Labels - Track", c.path_templates.labels.track)
+    click.echo()
+    _preview_release_template(c, "6. Collages - Release", c.path_templates.collages.release)
+    _preview_track_template(c, "6. Collages - Track", c.path_templates.collages.track)
+    click.echo()
+    _preview_track_template(c, "7. Playlists - Track", c.path_templates.playlists)
     # fmt: on
 
 
@@ -553,7 +578,7 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         / "Debussy - 1907. Images performed by Cleveland Orchestra under Pierre Boulez (1992)"
         / "01. Gigues: Modéré.opus",
         source_mtime="999",
-        tracktitle="Gigues: Modéré.opus",
+        tracktitle="Gigues: Modéré",
         tracknumber="1",
         tracktotal=6,
         discnumber="1",

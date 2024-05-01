@@ -43,7 +43,6 @@ import errno
 import logging
 import os
 import random
-import re
 import stat
 import subprocess
 import tempfile
@@ -62,6 +61,7 @@ from rose import (
     CachedRelease,
     CachedTrack,
     Config,
+    PathContext,
     PathTemplate,
     RoseError,
     add_release_to_collage,
@@ -76,6 +76,7 @@ from rose import (
     delete_playlist,
     delete_playlist_cover_art,
     delete_release,
+    descriptor_exists,
     eval_release_template,
     eval_track_template,
     genre_exists,
@@ -89,6 +90,7 @@ from rose import (
     label_exists,
     list_artists,
     list_collages,
+    list_descriptors,
     list_genres,
     list_labels,
     list_playlists,
@@ -104,7 +106,6 @@ from rose import (
     update_cache_for_releases,
 )
 from rose.cache import list_releases_delete_this
-from rose.templates import PathContext
 
 logger = logging.getLogger(__name__)
 
@@ -155,15 +156,6 @@ class TTLCache(Generic[K, V]):
             return default
 
 
-# In collages, playlists, and releases, we print directories with position of the release/track in
-# the collage. When parsing, strip it out. Otherwise we will have to handle this parsing in every
-# method.
-POSITION_REGEX = re.compile(r"^([^.]+)\. ")
-# In recently added, we print the date that the release was added to the library. When parsing,
-# strip it out.
-ADDED_AT_REGEX = re.compile(r"^\[[\d-]{10}\] ")
-
-
 @dataclass(frozen=True, slots=True)
 class VirtualPath:
     view: (
@@ -172,16 +164,19 @@ class VirtualPath:
             "Releases",
             "Artists",
             "Genres",
+            "Descriptors",
             "Labels",
             "Collages",
             "Playlists",
             "New",
-            "Recently Added",
+            "Added On",
+            "Released On",
         ]
         | None
     )
     artist: str | None = None
     genre: str | None = None
+    descriptor: str | None = None
     label: str | None = None
     collage: str | None = None
     playlist: str | None = None
@@ -195,6 +190,7 @@ class VirtualPath:
             view=self.view,
             artist=self.artist,
             genre=self.genre,
+            descriptor=self.descriptor,
             label=self.label,
             collage=self.collage,
         )
@@ -206,6 +202,7 @@ class VirtualPath:
             view=self.view,
             artist=self.artist,
             genre=self.genre,
+            descriptor=self.descriptor,
             label=self.label,
             collage=self.collage,
             playlist=self.playlist,
@@ -220,6 +217,11 @@ class VirtualPath:
     @property
     def genre_parent(self) -> VirtualPath:
         """Parent path of a genre: Used as an input to the Sanitizer."""
+        return VirtualPath(view=self.view)
+
+    @property
+    def descriptor_parent(self) -> VirtualPath:
+        """Parent path of a descriptor: Used as an input to the Sanitizer."""
         return VirtualPath(view=self.view)
 
     @property
@@ -263,7 +265,7 @@ class VirtualPath:
                 return VirtualPath(view="Releases", release=parts[1], file=parts[2])
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if parts[0] == "2. Releases - New":
+        if parts[0] == "1. Releases - New":
             if len(parts) == 1:
                 return VirtualPath(view="New")
             if len(parts) == 2:
@@ -272,16 +274,25 @@ class VirtualPath:
                 return VirtualPath(view="New", release=parts[1], file=parts[2])
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if parts[0] == "3. Releases - Recently Added":
+        if parts[0] == "1. Releases - Added On":
             if len(parts) == 1:
-                return VirtualPath(view="Recently Added")
+                return VirtualPath(view="Added On")
             if len(parts) == 2:
-                return VirtualPath(view="Recently Added", release=parts[1])
+                return VirtualPath(view="Added On", release=parts[1])
             if len(parts) == 3:
-                return VirtualPath(view="Recently Added", release=parts[1], file=parts[2])
+                return VirtualPath(view="Added On", release=parts[1], file=parts[2])
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if parts[0] == "4. Artists":
+        if parts[0] == "1. Releases - Released On":
+            if len(parts) == 1:
+                return VirtualPath(view="Released On")
+            if len(parts) == 2:
+                return VirtualPath(view="Released On", release=parts[1])
+            if len(parts) == 3:
+                return VirtualPath(view="Released On", release=parts[1], file=parts[2])
+            raise llfuse.FUSEError(errno.ENOENT)
+
+        if parts[0] == "2. Artists":
             if len(parts) == 1:
                 return VirtualPath(view="Artists")
             if len(parts) == 2:
@@ -292,7 +303,7 @@ class VirtualPath:
                 return VirtualPath(view="Artists", artist=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if parts[0] == "5. Genres":
+        if parts[0] == "3. Genres":
             if len(parts) == 1:
                 return VirtualPath(view="Genres")
             if len(parts) == 2:
@@ -303,7 +314,20 @@ class VirtualPath:
                 return VirtualPath(view="Genres", genre=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if parts[0] == "6. Labels":
+        if parts[0] == "4. Descriptors":
+            if len(parts) == 1:
+                return VirtualPath(view="Descriptors")
+            if len(parts) == 2:
+                return VirtualPath(view="Descriptors", descriptor=parts[1])
+            if len(parts) == 3:
+                return VirtualPath(view="Descriptors", descriptor=parts[1], release=parts[2])
+            if len(parts) == 4:
+                return VirtualPath(
+                    view="Descriptors", descriptor=parts[1], release=parts[2], file=parts[3]
+                )
+            raise llfuse.FUSEError(errno.ENOENT)
+
+        if parts[0] == "5. Labels":
             if len(parts) == 1:
                 return VirtualPath(view="Labels")
             if len(parts) == 2:
@@ -314,7 +338,7 @@ class VirtualPath:
                 return VirtualPath(view="Labels", label=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if parts[0] == "7. Collages":
+        if parts[0] == "6. Collages":
             if len(parts) == 1:
                 return VirtualPath(view="Collages")
             if len(parts) == 2:
@@ -327,7 +351,7 @@ class VirtualPath:
                 )
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if parts[0] == "8. Playlists":
+        if parts[0] == "7. Playlists":
             if len(parts) == 1:
                 return VirtualPath(view="Playlists")
             if len(parts) == 2:
@@ -399,15 +423,19 @@ class VirtualNameGenerator:
             # Determine the proper template.
             template = None
             if release_parent.view == "Releases":
-                template = self._config.path_templates.all_releases.release
+                template = self._config.path_templates.releases.release
             elif release_parent.view == "New":
-                template = self._config.path_templates.new_releases.release
-            elif release_parent.view == "Recently Added":
-                template = self._config.path_templates.recently_added_releases.release
+                template = self._config.path_templates.releases_new.release
+            elif release_parent.view == "Added On":
+                template = self._config.path_templates.releases_added_on.release
+            elif release_parent.view == "Released On":
+                template = self._config.path_templates.releases_released_on.release
             elif release_parent.view == "Artists":
                 template = self._config.path_templates.artists.release
             elif release_parent.view == "Genres":
                 template = self._config.path_templates.genres.release
+            elif release_parent.view == "Descriptors":
+                template = self._config.path_templates.descriptors.release
             elif release_parent.view == "Labels":
                 template = self._config.path_templates.labels.release
             elif release_parent.view == "Collages":
@@ -441,6 +469,12 @@ class VirtualNameGenerator:
                         release_parent.genre_parent,
                     )
                     if release_parent.genre
+                    else None,
+                    descriptor=self._sanitizer.unsanitize(
+                        release_parent.descriptor,
+                        release_parent.descriptor_parent,
+                    )
+                    if release_parent.descriptor
                     else None,
                     label=self._sanitizer.unsanitize(
                         release_parent.label,
@@ -500,15 +534,19 @@ class VirtualNameGenerator:
             # Determine the proper template.
             template = None
             if track_parent.view == "Releases":
-                template = self._config.path_templates.all_releases.track
+                template = self._config.path_templates.releases.track
             elif track_parent.view == "New":
-                template = self._config.path_templates.new_releases.track
-            elif track_parent.view == "Recently Added":
-                template = self._config.path_templates.recently_added_releases.track
+                template = self._config.path_templates.releases_new.track
+            elif track_parent.view == "Added On":
+                template = self._config.path_templates.releases_added_on.track
+            elif track_parent.view == "Released On":
+                template = self._config.path_templates.releases_released_on.track
             elif track_parent.view == "Artists":
                 template = self._config.path_templates.artists.track
             elif track_parent.view == "Genres":
                 template = self._config.path_templates.genres.track
+            elif track_parent.view == "Descriptors":
+                template = self._config.path_templates.descriptors.track
             elif track_parent.view == "Labels":
                 template = self._config.path_templates.labels.track
             elif track_parent.view == "Collages":
@@ -541,6 +579,12 @@ class VirtualNameGenerator:
                         track_parent.genre_parent,
                     )
                     if track_parent.genre
+                    else None,
+                    descriptor=self._sanitizer.unsanitize(
+                        track_parent.descriptor,
+                        track_parent.descriptor_parent,
+                    )
+                    if track_parent.descriptor
                     else None,
                     label=self._sanitizer.unsanitize(
                         track_parent.label,
@@ -668,6 +712,8 @@ class CanShower:
         self._artist_b = None
         self._genre_w = None
         self._genre_b = None
+        self._descriptor_w = None
+        self._descriptor_b = None
         self._label_w = None
         self._label_b = None
 
@@ -679,6 +725,10 @@ class CanShower:
             self._genre_w = set(config.fuse_genres_whitelist)
         if config.fuse_genres_blacklist:
             self._genre_b = set(config.fuse_genres_blacklist)
+        if config.fuse_descriptors_whitelist:
+            self._descriptor_w = set(config.fuse_descriptors_whitelist)
+        if config.fuse_descriptors_blacklist:
+            self._descriptor_b = set(config.fuse_descriptors_blacklist)
         if config.fuse_labels_whitelist:
             self._label_w = set(config.fuse_labels_whitelist)
         if config.fuse_labels_blacklist:
@@ -696,6 +746,13 @@ class CanShower:
             return genre in self._genre_w
         elif self._genre_b:
             return genre not in self._genre_b
+        return True
+
+    def descriptor(self, descriptor: str) -> bool:
+        if self._descriptor_w:
+            return descriptor in self._descriptor_w
+        elif self._descriptor_b:
+            return descriptor not in self._descriptor_b
         return True
 
     def label(self, label: str) -> bool:
@@ -869,7 +926,7 @@ class RoseLogicalCore:
     def getattr(self, p: VirtualPath) -> dict[str, Any]:
         logger.debug(f"LOGICAL: Received getattr for {p=}")
 
-        # 8. Playlists
+        # 7. Playlists
         if p.playlist:
             if not playlist_exists(self.config, p.playlist):
                 raise llfuse.FUSEError(errno.ENOENT)
@@ -883,7 +940,7 @@ class RoseLogicalCore:
                 raise llfuse.FUSEError(errno.ENOENT)
             return self.stat("dir")
 
-        # 7. Collages
+        # 6. Collages
         if p.collage:
             if not collage_exists(self.config, p.collage):
                 raise llfuse.FUSEError(errno.ENOENT)
@@ -891,37 +948,43 @@ class RoseLogicalCore:
                 return self._getattr_release(p)
             return self.stat("dir")
 
-        # 6. Labels
+        # 5. Labels
         if p.label:
-            if not label_exists(
-                self.config, self.sanitizer.unsanitize(p.label, p.label_parent)
-            ) or not self.can_show.label(self.sanitizer.unsanitize(p.label, p.label_parent)):
+            la = self.sanitizer.unsanitize(p.label, p.label_parent)
+            if not label_exists(self.config, la) or not self.can_show.label(la):
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 return self._getattr_release(p)
             return self.stat("dir")
 
-        # 5. Genres
+        # 4. Descriptors
+        if p.descriptor:
+            d = self.sanitizer.unsanitize(p.descriptor, p.descriptor_parent)
+            if not descriptor_exists(self.config, d) or not self.can_show.descriptor(d):
+                raise llfuse.FUSEError(errno.ENOENT)
+            if p.release:
+                return self._getattr_release(p)
+            return self.stat("dir")
+
+        # 3. Genres
         if p.genre:
-            if not genre_exists(
-                self.config, self.sanitizer.unsanitize(p.genre, p.genre_parent)
-            ) or not self.can_show.genre(self.sanitizer.unsanitize(p.genre, p.genre_parent)):
+            g = self.sanitizer.unsanitize(p.genre, p.genre_parent)
+            if not genre_exists(self.config, g) or not self.can_show.genre(g):
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 return self._getattr_release(p)
             return self.stat("dir")
 
-        # 4. Artists
+        # 2. Artists
         if p.artist:
-            if not artist_exists(
-                self.config, self.sanitizer.unsanitize(p.artist, p.artist_parent)
-            ) or not self.can_show.artist(self.sanitizer.unsanitize(p.artist, p.artist_parent)):
+            a = self.sanitizer.unsanitize(p.artist, p.artist_parent)
+            if not artist_exists(self.config, a) or not self.can_show.artist(a):
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 return self._getattr_release(p)
             return self.stat("dir")
 
-        # {1,2,3}. Releases
+        # 1. Releases
         if p.release:
             return self._getattr_release(p)
 
@@ -949,13 +1012,15 @@ class RoseLogicalCore:
         if p.view == "Root":
             yield from [
                 ("1. Releases", self.stat("dir")),
-                ("2. Releases - New", self.stat("dir")),
-                ("3. Releases - Recently Added", self.stat("dir")),
-                ("4. Artists", self.stat("dir")),
-                ("5. Genres", self.stat("dir")),
-                ("6. Labels", self.stat("dir")),
-                ("7. Collages", self.stat("dir")),
-                ("8. Playlists", self.stat("dir")),
+                ("1. Releases - New", self.stat("dir")),
+                ("1. Releases - Added On", self.stat("dir")),
+                ("1. Releases - Released On", self.stat("dir")),
+                ("2. Artists", self.stat("dir")),
+                ("3. Genres", self.stat("dir")),
+                ("4. Descriptors", self.stat("dir")),
+                ("5. Labels", self.stat("dir")),
+                ("6. Collages", self.stat("dir")),
+                ("7. Playlists", self.stat("dir")),
             ]
             return
 
@@ -972,13 +1037,20 @@ class RoseLogicalCore:
                 return
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if p.artist or p.genre or p.label or p.view in ["Releases", "New", "Recently Added"]:
+        if (
+            p.artist
+            or p.genre
+            or p.descriptor
+            or p.label
+            or p.view in ["Releases", "New", "Added On", "Released On"]
+        ):
             # fmt: off
             releases = list_releases_delete_this(
                 self.config,
                 artist_filter=self.sanitizer.unsanitize(p.artist, p.artist_parent) if p.artist else None,
-                genre_filter=self.sanitizer.unsanitize(p.genre, p.artist_parent) if p.genre else None,
-                label_filter=self.sanitizer.unsanitize(p.label, p.artist_parent) if p.label else None,
+                genre_filter=self.sanitizer.unsanitize(p.genre, p.genre_parent) if p.genre else None,
+                descriptor_filter=self.sanitizer.unsanitize(p.descriptor, p.descriptor_parent) if p.descriptor else None,
+                label_filter=self.sanitizer.unsanitize(p.label, p.label_parent) if p.label else None,
                 new=True if p.view == "New" else None,
             )
             # fmt: on
@@ -998,6 +1070,13 @@ class RoseLogicalCore:
                 if not self.can_show.genre(genre):
                     continue
                 yield self.sanitizer.sanitize(genre), self.stat("dir")
+            return
+
+        if p.view == "Descriptors":
+            for descriptor in list_descriptors(self.config):
+                if not self.can_show.descriptor(descriptor):
+                    continue
+                yield self.sanitizer.sanitize(descriptor), self.stat("dir")
             return
 
         if p.view == "Labels":

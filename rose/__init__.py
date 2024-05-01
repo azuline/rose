@@ -19,6 +19,7 @@ from rose.cache import (
     calculate_release_logtext,
     calculate_track_logtext,
     collage_exists,
+    descriptor_exists,
     genre_exists,
     get_collage,
     get_path_of_track_in_playlist,
@@ -30,6 +31,7 @@ from rose.cache import (
     label_exists,
     list_artists,
     list_collages,
+    list_descriptors,
     list_genres,
     list_labels,
     list_playlists,
@@ -82,6 +84,7 @@ from rose.releases import (
 from rose.rule_parser import MetadataAction, MetadataMatcher, MetadataRule
 from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
 from rose.templates import (
+    PathContext,
     PathTemplate,
     eval_release_template,
     eval_track_template,
@@ -119,8 +122,10 @@ __all__ = [
     "delete_playlist_cover_art",
     "delete_release",
     "delete_release_cover_art",
+    "descriptor_exists",
     "dump_all_collages",
     "dump_all_playlists",
+    "PathContext",
     "dump_all_releases",
     "dump_all_tracks",
     "dump_collage",
@@ -145,6 +150,7 @@ __all__ = [
     "label_exists",
     "list_artists",
     "list_collages",
+    "list_descriptors",
     "list_genres",
     "list_labels",
     "list_playlists",

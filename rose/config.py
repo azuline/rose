@@ -71,9 +71,11 @@ class Config:
 
     fuse_artists_whitelist: list[str] | None
     fuse_genres_whitelist: list[str] | None
+    fuse_descriptors_whitelist: list[str] | None
     fuse_labels_whitelist: list[str] | None
     fuse_artists_blacklist: list[str] | None
     fuse_genres_blacklist: list[str] | None
+    fuse_descriptors_blacklist: list[str] | None
     fuse_labels_blacklist: list[str] | None
 
     cover_art_stems: list[str]
@@ -203,6 +205,21 @@ class Config:
             ) from e
 
         try:
+            fuse_descriptors_whitelist = data["fuse_descriptors_whitelist"]
+            del data["fuse_descriptors_whitelist"]
+            if not isinstance(fuse_descriptors_whitelist, list):
+                raise ValueError(f"Must be a list[str]: got {type(fuse_descriptors_whitelist)}")
+            for s in fuse_descriptors_whitelist:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each descriptor must be of type str: got {type(s)}")
+        except KeyError:
+            fuse_descriptors_whitelist = None
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for fuse_descriptors_whitelist in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
             fuse_labels_whitelist = data["fuse_labels_whitelist"]
             del data["fuse_labels_whitelist"]
             if not isinstance(fuse_labels_whitelist, list):
@@ -245,6 +262,21 @@ class Config:
         except ValueError as e:
             raise InvalidConfigValueError(
                 f"Invalid value for fuse_genres_blacklist in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
+            fuse_descriptors_blacklist = data["fuse_descriptors_blacklist"]
+            del data["fuse_descriptors_blacklist"]
+            if not isinstance(fuse_descriptors_blacklist, list):
+                raise ValueError(f"Must be a list[str]: got {type(fuse_descriptors_blacklist)}")
+            for s in fuse_descriptors_blacklist:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each descriptor must be of type str: got {type(s)}")
+        except KeyError:
+            fuse_descriptors_blacklist = None
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for fuse_descriptors_blacklist in configuration file ({cfgpath}): {e}"
             ) from e
 
         try:
@@ -417,11 +449,13 @@ class Config:
         if tmpl_config := data.get("path_templates", None):
             for key in [
                 "source",
-                "all_releases",
-                "new_releases",
-                "recently_added_releases",
+                "releases",
+                "releases_new",
+                "releases_added_on",
+                "releases_released_on",
                 "artists",
                 "genres",
+                "descriptors",
                 "labels",
                 "collages",
             ]:
@@ -475,9 +509,11 @@ class Config:
             artist_aliases_parents_map=artist_aliases_parents_map,
             fuse_artists_whitelist=fuse_artists_whitelist,
             fuse_genres_whitelist=fuse_genres_whitelist,
+            fuse_descriptors_whitelist=fuse_descriptors_whitelist,
             fuse_labels_whitelist=fuse_labels_whitelist,
             fuse_artists_blacklist=fuse_artists_blacklist,
             fuse_genres_blacklist=fuse_genres_blacklist,
+            fuse_descriptors_blacklist=fuse_descriptors_blacklist,
             fuse_labels_blacklist=fuse_labels_blacklist,
             cover_art_stems=cover_art_stems,
             valid_art_exts=valid_art_exts,

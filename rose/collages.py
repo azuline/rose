@@ -103,11 +103,11 @@ def remove_release_from_collage(c: Config, collage_name: str, release_id: str) -
         with path.open("rb") as fp:
             data = tomllib.load(fp)
         old_releases = data.get("releases", [])
-        new_releases = [r for r in old_releases if r["uuid"] != release_id]
-        if old_releases == new_releases:
+        releases_new = [r for r in old_releases if r["uuid"] != release_id]
+        if old_releases == releases_new:
             logger.info(f"No-Op: Release {release_logtext} not in collage {collage_name}")
             return
-        data["releases"] = new_releases
+        data["releases"] = releases_new
         with path.open("wb") as fp:
             tomli_w.dump(data, fp)
     logger.info(f"Removed release {release_logtext} from collage {collage_name}")

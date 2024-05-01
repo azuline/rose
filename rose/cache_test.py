@@ -20,6 +20,7 @@ from rose.cache import (
     artist_exists,
     collage_exists,
     connect,
+    descriptor_exists,
     genre_exists,
     get_collage,
     get_path_of_track_in_playlist,
@@ -35,6 +36,7 @@ from rose.cache import (
     label_exists,
     list_artists,
     list_collages,
+    list_descriptors,
     list_genres,
     list_labels,
     list_playlists,
@@ -1589,6 +1591,12 @@ def test_list_genres(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
+def test_list_descriptors(config: Config) -> None:
+    descriptors = list_descriptors(config)
+    assert set(descriptors) == {"Warm", "Hot", "Wet"}
+
+
+@pytest.mark.usefixtures("seeded_cache")
 def test_list_labels(config: Config) -> None:
     labels = list_labels(config)
     assert set(labels) == {"Silk Music", "Native State"}
@@ -1854,6 +1862,12 @@ def test_genre_exists(config: Config) -> None:
     assert genre_exists(config, "Electronic")
     # Child genre
     assert not genre_exists(config, "Lo-Fi House")
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_descriptor_exists(config: Config) -> None:
+    assert descriptor_exists(config, "Warm")
+    assert not descriptor_exists(config, "Icy")
 
 
 @pytest.mark.usefixtures("seeded_cache")
