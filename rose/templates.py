@@ -57,7 +57,8 @@ def arrayfmt(xs: Iterable[str]) -> str:
 
 def artistsarrayfmt(xs: Iterable[Artist]) -> str:
     """Format an array of Artists."""
-    return arrayfmt([x.name for x in xs if not x.alias])
+    strs = [x.name for x in xs if not x.alias]
+    return arrayfmt(strs) if len(strs) <= 3 else f"{strs[0]} et al."
 
 
 def artistsfmt(a: ArtistMapping, *, omit: list[str] | None = None) -> str:
