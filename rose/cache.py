@@ -1149,81 +1149,81 @@ def _update_cache_for_releases_executor(
                """,
                 _flatten(upd_release_args),
             )
-        if upd_release_genre_args:
             conn.execute(
                 f"""
                 DELETE FROM releases_genres
-                WHERE release_id IN ({",".join(["?"]*len(upd_release_genre_args))})
+                WHERE release_id IN ({",".join(["?"]*len(upd_release_args))})
                 """,
-                [a[0] for a in upd_release_genre_args],
+                [a[0] for a in upd_release_args],
             )
-            conn.execute(
-                f"""
-                INSERT INTO releases_genres (release_id, genre, position)
-                VALUES {",".join(["(?,?,?)"]*len(upd_release_genre_args))}
-                """,
-                _flatten(upd_release_genre_args),
-            )
-        if upd_release_secondary_genre_args:
+            if upd_release_genre_args:
+                conn.execute(
+                    f"""
+                    INSERT INTO releases_genres (release_id, genre, position)
+                    VALUES {",".join(["(?,?,?)"]*len(upd_release_genre_args))}
+                    """,
+                    _flatten(upd_release_genre_args),
+                )
             conn.execute(
                 f"""
                 DELETE FROM releases_secondary_genres
-                WHERE release_id IN ({",".join(["?"]*len(upd_release_secondary_genre_args))})
+                WHERE release_id IN ({",".join(["?"]*len(upd_release_args))})
                 """,
-                [a[0] for a in upd_release_secondary_genre_args],
+                [a[0] for a in upd_release_args],
             )
-            conn.execute(
-                f"""
-                INSERT INTO releases_secondary_genres (release_id, genre, position)
-                VALUES {",".join(["(?,?,?)"]*len(upd_release_secondary_genre_args))}
-                """,
-                _flatten(upd_release_secondary_genre_args),
-            )
-        if upd_release_descriptor_args:
+            if upd_release_secondary_genre_args:
+                conn.execute(
+                    f"""
+                    INSERT INTO releases_secondary_genres (release_id, genre, position)
+                    VALUES {",".join(["(?,?,?)"]*len(upd_release_secondary_genre_args))}
+                    """,
+                    _flatten(upd_release_secondary_genre_args),
+                )
             conn.execute(
                 f"""
                 DELETE FROM releases_descriptors
-                WHERE release_id IN ({",".join(["?"]*len(upd_release_descriptor_args))})
+                WHERE release_id IN ({",".join(["?"]*len(upd_release_args))})
                 """,
-                [a[0] for a in upd_release_descriptor_args],
+                [a[0] for a in upd_release_args],
             )
-            conn.execute(
-                f"""
-                INSERT INTO releases_descriptors (release_id, descriptor, position)
-                VALUES {",".join(["(?,?,?)"]*len(upd_release_descriptor_args))}
-                """,
-                _flatten(upd_release_descriptor_args),
-            )
-        if upd_release_label_args:
+            if upd_release_descriptor_args:
+                conn.execute(
+                    f"""
+                    INSERT INTO releases_descriptors (release_id, descriptor, position)
+                    VALUES {",".join(["(?,?,?)"]*len(upd_release_descriptor_args))}
+                    """,
+                    _flatten(upd_release_descriptor_args),
+                )
             conn.execute(
                 f"""
                 DELETE FROM releases_labels
-                WHERE release_id IN ({",".join(["?"]*len(upd_release_label_args))})
+                WHERE release_id IN ({",".join(["?"]*len(upd_release_args))})
                 """,
-                [a[0] for a in upd_release_label_args],
+                [a[0] for a in upd_release_args],
             )
-            conn.execute(
-                f"""
-                INSERT INTO releases_labels (release_id, label, position)
-                VALUES {",".join(["(?,?,?)"]*len(upd_release_label_args))}
-                """,
-                _flatten(upd_release_label_args),
-            )
-        if upd_release_artist_args:
+            if upd_release_label_args:
+                conn.execute(
+                    f"""
+                    INSERT INTO releases_labels (release_id, label, position)
+                    VALUES {",".join(["(?,?,?)"]*len(upd_release_label_args))}
+                    """,
+                    _flatten(upd_release_label_args),
+                )
             conn.execute(
                 f"""
                 DELETE FROM releases_artists
-                WHERE release_id IN ({",".join(["?"]*len(upd_release_artist_args))})
+                WHERE release_id IN ({",".join(["?"]*len(upd_release_args))})
                 """,
-                [a[0] for a in upd_release_artist_args],
+                [a[0] for a in upd_release_args],
             )
-            conn.execute(
-                f"""
-                INSERT INTO releases_artists (release_id, artist, role, position)
-                VALUES {",".join(["(?,?,?,?)"]*len(upd_release_artist_args))}
-                """,
-                _flatten(upd_release_artist_args),
-            )
+            if upd_release_artist_args:
+                conn.execute(
+                    f"""
+                    INSERT INTO releases_artists (release_id, artist, role, position)
+                    VALUES {",".join(["(?,?,?,?)"]*len(upd_release_artist_args))}
+                    """,
+                    _flatten(upd_release_artist_args),
+                )
         if upd_track_args:
             # The OR REPLACE handles source_path conflicts. The ON CONFLICT handles normal updates.
             conn.execute(

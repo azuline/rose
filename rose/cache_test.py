@@ -321,6 +321,27 @@ def test_update_cache_releases_already_fully_cached(config: Config) -> None:
         assert row["new"]
 
 
+def test_update_cache_releases_to_empty_multi_value_tag(config: Config) -> None:
+    """Test that 1:many relations are properly emptied when they are updated from something to nothing."""
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+
+    update_cache(config)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT EXISTS(SELECT * FROM releases_labels)")
+        assert cursor.fetchone()[0]
+
+    for fn in ["01.m4a", "02.m4a"]:
+        af = AudioTags.from_file(release_dir / fn)
+        af.label = []
+        af.flush()
+
+    update_cache(config)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT EXISTS(SELECT * FROM releases_labels)")
+        assert not cursor.fetchone()[0]
+
+
 def test_update_cache_releases_disk_update_to_previously_cached(config: Config) -> None:
     """Test that a cached release is updated after a track updates."""
     release_dir = config.music_source_dir / TEST_RELEASE_1.name
