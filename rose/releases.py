@@ -365,7 +365,10 @@ def edit_release(
             return
 
         try:
-            release_meta = MetadataRelease.from_toml(toml)
+            try:
+                release_meta = MetadataRelease.from_toml(toml)
+            except tomllib.TOMLDecodeError as e:
+                raise ReleaseEditFailedError("Failed to decode TOML file.") from e
             for t in tracks:
                 track_meta = release_meta.tracks[t.id]
                 tags = AudioTags.from_file(t.source_path)
