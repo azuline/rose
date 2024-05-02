@@ -15,8 +15,8 @@ from rose.config import Config
 from rose_vfs.virtualfs import mount_virtualfs, unmount_virtualfs
 
 R1_VNAME = "Techno Man & Bass Man - 2023. Release 1"
-R2_VNAME = "Violin Woman (feat. Conductor Woman) - 2021. Release 2"
-R3_VNAME = "Unknown Artists - 2021. Release 3 [NEW]"
+R2_VNAME = "Violin Woman (feat. Conductor Woman) - 2021. Release 2 [NEW]"
+R3_VNAME = "Unknown Artists - 2021. Release 3"
 
 
 @contextmanager
@@ -60,10 +60,10 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert can_read(root / "1. Releases" / R2_VNAME / ".rose.r2.toml")
 
         assert (root / "1. Releases - New").is_dir()
-        assert (root / "1. Releases - New" / R3_VNAME).is_dir()
-        assert not (root / "1. Releases - New" / R2_VNAME).exists()
-        assert (root / "1. Releases - New" / R3_VNAME / "01. Track 1.m4a").is_file()
-        assert not (root / "1. Releases - New" / R3_VNAME / "lalala").exists()
+        assert (root / "1. Releases - New" / R2_VNAME).is_dir()
+        assert not (root / "1. Releases - New" / R3_VNAME).exists()
+        assert (root / "1. Releases - New" / R2_VNAME / "01. Track 1 (feat. Conductor Woman).m4a").is_file()
+        assert not (root / "1. Releases - New" / R2_VNAME / "lalala").exists()
 
         assert (root / "1. Releases - Added On").is_dir()
         assert (root / "1. Releases - Added On" / f"[0000-01-01] {R2_VNAME}").exists()
@@ -423,5 +423,23 @@ def test_virtual_filesystem_whitelist(config: Config) -> None:
         assert not (root / "5. Labels" / "Native State").exists()
         assert (root / "2. Artists" / "Bass Man").is_dir()
         assert (root / "3. Genres" / "Techno").is_dir()
+        assert (root / "4. Descriptors" / "Warm").is_dir()
+        assert (root / "5. Labels" / "Silk Music").is_dir()
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_virtual_filesystem_hide_new_release_classifiers(config: Config) -> None:
+    new_config = dataclasses.replace(
+        config,
+        hide_genres_with_only_new_releases=True,
+        hide_descriptors_with_only_new_releases=True,
+        hide_labels_with_only_new_releases=True,
+    )
+    root = config.fuse_mount_dir
+    with start_virtual_fs(new_config):
+        assert not (root / "3. Genres" / "Classical").exists()
+        assert not (root / "4. Descriptors" / "Wet").exists()
+        assert not (root / "5. Labels" / "Native State").exists()
+        assert (root / "3. Genres" / "Deep House").is_dir()
         assert (root / "4. Descriptors" / "Warm").is_dir()
         assert (root / "5. Labels" / "Silk Music").is_dir()

@@ -16,6 +16,9 @@ from rose.cache import (
     CachedPlaylist,
     CachedRelease,
     CachedTrack,
+    DescriptorEntry,
+    GenreEntry,
+    LabelEntry,
     _unpack,
     artist_exists,
     collage_exists,
@@ -1151,7 +1154,7 @@ def test_list_releases(config: Config) -> None:
             compositiondate=None,
             catalognumber="DG-001",
             disctotal=1,
-            new=False,
+            new=True,
             genres=["Classical"],
             parent_genres=[],
             labels=["Native State"],
@@ -1180,7 +1183,7 @@ def test_list_releases(config: Config) -> None:
             compositiondate=RoseDate(1780),
             catalognumber="DG-002",
             disctotal=1,
-            new=True,
+            new=False,
             genres=[],
             parent_genres=[],
             labels=[],
@@ -1426,7 +1429,7 @@ def test_list_tracks(config: Config) -> None:
                 releasedate=RoseDate(2021),
                 compositiondate=None,
                 catalognumber="DG-001",
-                new=False,
+                new=True,
                 disctotal=1,
                 genres=["Classical"],
                 parent_genres=[],
@@ -1467,7 +1470,7 @@ def test_list_tracks(config: Config) -> None:
                 releasedate=RoseDate(2021, 4, 20),
                 compositiondate=RoseDate(1780),
                 catalognumber="DG-002",
-                new=True,
+                new=False,
                 disctotal=1,
                 genres=[],
                 parent_genres=[],
@@ -1580,26 +1583,33 @@ def test_list_artists(config: Config) -> None:
 def test_list_genres(config: Config) -> None:
     genres = list_genres(config)
     assert set(genres) == {
-        "Techno",
-        "Deep House",
-        "Classical",
-        "Dance",
-        "Electronic",
-        "Electronic Dance Music",
-        "House",
+        GenreEntry("Techno", False),
+        GenreEntry("Deep House", False),
+        GenreEntry("Classical", True),
+        GenreEntry("Dance", False),
+        GenreEntry("Electronic", False),
+        GenreEntry("Electronic Dance Music", False),
+        GenreEntry("House", False),
     }
 
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_descriptors(config: Config) -> None:
     descriptors = list_descriptors(config)
-    assert set(descriptors) == {"Warm", "Hot", "Wet"}
+    assert set(descriptors) == {
+        DescriptorEntry("Warm", False),
+        DescriptorEntry("Hot", False),
+        DescriptorEntry("Wet", True),
+    }
 
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_labels(config: Config) -> None:
     labels = list_labels(config)
-    assert set(labels) == {"Silk Music", "Native State"}
+    assert set(labels) == {
+        LabelEntry("Silk Music", False),
+        LabelEntry("Native State", True),
+    }
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -1665,7 +1675,7 @@ def test_get_collage(config: Config) -> None:
             releasedate=RoseDate(2021),
             compositiondate=None,
             catalognumber="DG-001",
-            new=False,
+            new=True,
             disctotal=1,
             genres=["Classical"],
             parent_genres=[],
@@ -1791,7 +1801,7 @@ def test_get_playlist(config: Config) -> None:
                 releasedate=RoseDate(2021),
                 compositiondate=None,
                 catalognumber="DG-001",
-                new=False,
+                new=True,
                 disctotal=1,
                 genres=["Classical"],
                 parent_genres=[],

@@ -78,6 +78,10 @@ class Config:
     fuse_descriptors_blacklist: list[str] | None
     fuse_labels_blacklist: list[str] | None
 
+    hide_genres_with_only_new_releases: bool
+    hide_descriptors_with_only_new_releases: bool
+    hide_labels_with_only_new_releases: bool
+
     cover_art_stems: list[str]
     valid_art_exts: list[str]
 
@@ -308,6 +312,46 @@ class Config:
             )
 
         try:
+            hide_genres_with_only_new_releases = data["hide_genres_with_only_new_releases"]
+            del data["hide_genres_with_only_new_releases"]
+            if not isinstance(hide_genres_with_only_new_releases, bool):
+                raise ValueError(f"Must be a bool: got {type(hide_genres_with_only_new_releases)}")
+        except KeyError:
+            hide_genres_with_only_new_releases = False
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for hide_genres_with_only_new_releases in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
+            hide_descriptors_with_only_new_releases = data[
+                "hide_descriptors_with_only_new_releases"
+            ]
+            del data["hide_descriptors_with_only_new_releases"]
+            if not isinstance(hide_descriptors_with_only_new_releases, bool):
+                raise ValueError(
+                    f"Must be a bool: got {type(hide_descriptors_with_only_new_releases)}"
+                )
+        except KeyError:
+            hide_descriptors_with_only_new_releases = False
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for hide_descriptors_with_only_new_releases in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
+            hide_labels_with_only_new_releases = data["hide_labels_with_only_new_releases"]
+            del data["hide_labels_with_only_new_releases"]
+            if not isinstance(hide_labels_with_only_new_releases, bool):
+                raise ValueError(f"Must be a bool: got {type(hide_labels_with_only_new_releases)}")
+        except KeyError:
+            hide_labels_with_only_new_releases = False
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for hide_labels_with_only_new_releases in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
             cover_art_stems = data["cover_art_stems"]
             del data["cover_art_stems"]
             if not isinstance(cover_art_stems, list):
@@ -515,6 +559,9 @@ class Config:
             fuse_genres_blacklist=fuse_genres_blacklist,
             fuse_descriptors_blacklist=fuse_descriptors_blacklist,
             fuse_labels_blacklist=fuse_labels_blacklist,
+            hide_genres_with_only_new_releases=hide_genres_with_only_new_releases,
+            hide_descriptors_with_only_new_releases=hide_descriptors_with_only_new_releases,
+            hide_labels_with_only_new_releases=hide_labels_with_only_new_releases,
             cover_art_stems=cover_art_stems,
             valid_art_exts=valid_art_exts,
             max_filename_bytes=max_filename_bytes,

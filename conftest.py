@@ -83,6 +83,9 @@ def config(isolated_dir: Path) -> Config:
         fuse_genres_blacklist=None,
         fuse_descriptors_blacklist=None,
         fuse_labels_blacklist=None,
+        hide_genres_with_only_new_releases=False,
+        hide_descriptors_with_only_new_releases=False,
+        hide_labels_with_only_new_releases=False,
         cover_art_stems=["cover", "folder", "art", "front"],
         valid_art_exts=["jpg", "jpeg", "png"],
         max_filename_bytes=180,
@@ -117,8 +120,8 @@ def seeded_cache(config: Config) -> None:
 INSERT INTO releases
        (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype, releasedate , originaldate, compositiondate, catalognumber, edition , disctotal, new  , metahash)
 VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'    , '2023'      , null        , null           , null         , null    , 1        , false, '1')
-     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'    , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 1        , false, '2')
-     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , true , '3');
+     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'    , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 1        , true , '2')
+     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, '3');
 
 INSERT INTO releases_genres
        (release_id, genre       , position)

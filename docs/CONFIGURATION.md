@@ -82,6 +82,14 @@ fuse_genres_blacklist = [ "xxx" ]
 fuse_descriptors_blacklist = [ "xxx" ]
 fuse_labels_blacklist = [ "xxx" ]
 
+# Whether to hide the genres, descriptors, and labels from new releases from
+# being returned in when listing genres/descriptors/labels. This is useful new
+# releases are improperly tagged, as those tags tend to be very incorrect by
+# default.
+hide_genres_with_only_new_releases = true
+hide_descriptors_with_only_new_releases = true
+hide_labels_with_only_new_releases = true
+
 # When Rosé scans a release directory, it looks for cover art that matches:
 #
 # 1. A supported file "stem" (the filename excluding the extension).

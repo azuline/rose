@@ -52,10 +52,16 @@ def test_config_full() -> None:
                   {{ artist = "Abakus", aliases = ["Cinnamon Chasers"] }},
                   {{ artist = "tripleS", aliases = ["EVOLution", "LOVElution", "+(KR)ystal Eyes", "Acid Angel From Asia", "Acid Eyes"] }},
                 ]
+
                 fuse_artists_blacklist = [ "www" ]
                 fuse_genres_blacklist = [ "xxx" ]
                 fuse_descriptors_blacklist = [ "yyy" ]
                 fuse_labels_blacklist = [ "zzz" ]
+
+                hide_genres_with_only_new_releases = true
+                hide_descriptors_with_only_new_releases = true
+                hide_labels_with_only_new_releases = true
+
                 cover_art_stems = [ "aa", "bb" ]
                 valid_art_exts = [ "tiff" ]
                 max_filename_bytes = 255
@@ -122,6 +128,9 @@ def test_config_full() -> None:
             fuse_genres_whitelist=None,
             fuse_descriptors_whitelist=None,
             fuse_labels_whitelist=None,
+            hide_genres_with_only_new_releases=True,
+            hide_descriptors_with_only_new_releases=True,
+            hide_labels_with_only_new_releases=True,
             fuse_artists_blacklist=["www"],
             fuse_genres_blacklist=["xxx"],
             fuse_descriptors_blacklist=["yyy"],
@@ -594,4 +603,31 @@ Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'ma
         assert (
             str(excinfo.value)
             == f"Invalid value for rename_source_files in configuration file ({path}): Must be a bool: got <class 'str'>"
+        )
+
+        # hide_genres_with_only_new_releases
+        write(config + '\nhide_genres_with_only_new_releases = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for hide_genres_with_only_new_releases in configuration file ({path}): Must be a bool: got <class 'str'>"
+        )
+
+        # hide_descriptors_with_only_new_releases
+        write(config + '\nhide_descriptors_with_only_new_releases = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for hide_descriptors_with_only_new_releases in configuration file ({path}): Must be a bool: got <class 'str'>"
+        )
+
+        # hide_labels_with_only_new_releases
+        write(config + '\nhide_labels_with_only_new_releases = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for hide_labels_with_only_new_releases in configuration file ({path}): Must be a bool: got <class 'str'>"
         )

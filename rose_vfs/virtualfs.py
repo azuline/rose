@@ -1066,24 +1066,30 @@ class RoseLogicalCore:
             return
 
         if p.view == "Genres":
-            for genre in list_genres(self.config):
-                if not self.can_show.genre(genre):
+            for e1 in list_genres(self.config):
+                if not self.can_show.genre(e1.genre):
                     continue
-                yield self.sanitizer.sanitize(genre), self.stat("dir")
+                if self.config.hide_genres_with_only_new_releases and e1.only_new_releases:
+                    continue
+                yield self.sanitizer.sanitize(e1.genre), self.stat("dir")
             return
 
         if p.view == "Descriptors":
-            for descriptor in list_descriptors(self.config):
-                if not self.can_show.descriptor(descriptor):
+            for e2 in list_descriptors(self.config):
+                if not self.can_show.descriptor(e2.descriptor):
                     continue
-                yield self.sanitizer.sanitize(descriptor), self.stat("dir")
+                if self.config.hide_descriptors_with_only_new_releases and e2.only_new_releases:
+                    continue
+                yield self.sanitizer.sanitize(e2.descriptor), self.stat("dir")
             return
 
         if p.view == "Labels":
-            for label in list_labels(self.config):
-                if not self.can_show.label(label):
+            for e3 in list_labels(self.config):
+                if not self.can_show.label(e3.label):
                     continue
-                yield self.sanitizer.sanitize(label), self.stat("dir")
+                if self.config.hide_labels_with_only_new_releases and e3.only_new_releases:
+                    continue
+                yield self.sanitizer.sanitize(e3.label), self.stat("dir")
             return
 
         if p.view == "Collages" and p.collage:

@@ -2273,15 +2273,27 @@ def artist_exists(c: Config, artist: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
-def list_genres(c: Config) -> list[str]:
+@dataclass(frozen=True)
+class GenreEntry:
+    genre: str
+    only_new_releases: bool
+
+
+def list_genres(c: Config) -> list[GenreEntry]:
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT genre FROM releases_genres")
-        rval = set()
+        query = """
+            SELECT rg.genre, MIN(r.id) AS has_non_new_release
+            FROM releases_genres rg
+            LEFT JOIN releases r ON r.id = rg.release_id AND NOT r.new
+            GROUP BY rg.genre
+        """
+        cursor = conn.execute(query)
+        rval: dict[str, bool] = {}
         for row in cursor:
-            genre = row["genre"]
-            rval.add(genre)
-            rval.update(TRANSIENT_PARENT_GENRES.get(genre, []))
-        return list(rval)
+            rval[row["genre"]] = row["has_non_new_release"] is None
+            for g in TRANSIENT_PARENT_GENRES.get(row["genre"], []):
+                rval[g] = rval.get(g, False) or row["has_non_new_release"] is None
+        return [GenreEntry(genre=k, only_new_releases=v) for k, v in rval.items()]
 
 
 def genre_exists(c: Config, genre: str) -> bool:
@@ -2295,10 +2307,29 @@ def genre_exists(c: Config, genre: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
-def list_descriptors(c: Config) -> list[str]:
+@dataclass(frozen=True)
+class DescriptorEntry:
+    descriptor: str
+    only_new_releases: bool
+
+
+def list_descriptors(c: Config) -> list[DescriptorEntry]:
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT descriptor FROM releases_descriptors")
-        return [row["descriptor"] for row in cursor]
+        cursor = conn.execute(
+            """
+            SELECT rg.descriptor, MIN(r.id) AS has_non_new_release
+            FROM releases_descriptors rg
+            LEFT JOIN releases r ON r.id = rg.release_id AND NOT r.new
+            GROUP BY rg.descriptor
+            """
+        )
+        return [
+            DescriptorEntry(
+                descriptor=row["descriptor"],
+                only_new_releases=row["has_non_new_release"] is None,
+            )
+            for row in cursor
+        ]
 
 
 def descriptor_exists(c: Config, descriptor: str) -> bool:
@@ -2310,10 +2341,26 @@ def descriptor_exists(c: Config, descriptor: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
-def list_labels(c: Config) -> list[str]:
+@dataclass(frozen=True)
+class LabelEntry:
+    label: str
+    only_new_releases: bool
+
+
+def list_labels(c: Config) -> list[LabelEntry]:
     with connect(c) as conn:
-        cursor = conn.execute("SELECT DISTINCT label FROM releases_labels")
-        return [row["label"] for row in cursor]
+        cursor = conn.execute(
+            """
+            SELECT rg.label, MIN(r.id) AS has_non_new_release
+            FROM releases_labels rg
+            LEFT JOIN releases r ON r.id = rg.release_id AND NOT r.new
+            GROUP BY rg.label
+            """
+        )
+        return [
+            LabelEntry(label=row["label"], only_new_releases=row["has_non_new_release"] is None)
+            for row in cursor
+        ]
 
 
 def label_exists(c: Config, label: str) -> bool:
