@@ -501,7 +501,7 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease, Cach
         new=False,
         disctotal=2,
         genres=["Impressionism, Orchestral"],
-        parent_genres=["Classical"],
+        parent_genres=["Modern Classical"],
         secondary_genres=["Tone Poem"],
         parent_secondary_genres=["Orchestral"],
         descriptors=["Orchestral"],

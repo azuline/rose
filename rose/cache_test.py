@@ -1155,8 +1155,8 @@ def test_list_releases(config: Config) -> None:
             catalognumber="DG-001",
             disctotal=1,
             new=True,
-            genres=["Classical"],
-            parent_genres=[],
+            genres=["Modern Classical"],
+            parent_genres=["Classical Music", "Western Classical Music"],
             labels=["Native State"],
             originaldate=RoseDate(2019),
             edition="Deluxe",
@@ -1431,8 +1431,8 @@ def test_list_tracks(config: Config) -> None:
                 catalognumber="DG-001",
                 new=True,
                 disctotal=1,
-                genres=["Classical"],
-                parent_genres=[],
+                genres=["Modern Classical"],
+                parent_genres=["Classical Music", "Western Classical Music"],
                 labels=["Native State"],
                 originaldate=RoseDate(2019),
                 edition="Deluxe",
@@ -1581,15 +1581,22 @@ def test_list_artists(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_genres(config: Config) -> None:
+    # Test the accumulator too.
+    with connect(config) as conn:
+        conn.execute(
+            "INSERT INTO releases_genres (release_id, genre, position) VALUES ('r3', 'Classical Music', 1)"
+        )
     genres = list_genres(config)
     assert set(genres) == {
         GenreEntry("Techno", False),
         GenreEntry("Deep House", False),
-        GenreEntry("Classical", True),
         GenreEntry("Dance", False),
         GenreEntry("Electronic", False),
         GenreEntry("Electronic Dance Music", False),
         GenreEntry("House", False),
+        GenreEntry("Modern Classical", True),
+        GenreEntry("Western Classical Music", True),
+        GenreEntry("Classical Music", False),  # Final parent genre has not-new r3.
     }
 
 
@@ -1677,8 +1684,8 @@ def test_get_collage(config: Config) -> None:
             catalognumber="DG-001",
             new=True,
             disctotal=1,
-            genres=["Classical"],
-            parent_genres=[],
+            genres=["Modern Classical"],
+            parent_genres=["Classical Music", "Western Classical Music"],
             labels=["Native State"],
             originaldate=RoseDate(2019),
             edition="Deluxe",
@@ -1803,8 +1810,8 @@ def test_get_playlist(config: Config) -> None:
                 catalognumber="DG-001",
                 new=True,
                 disctotal=1,
-                genres=["Classical"],
-                parent_genres=[],
+                genres=["Modern Classical"],
+                parent_genres=["Classical Music", "Western Classical Music"],
                 labels=["Native State"],
                 originaldate=RoseDate(2019),
                 edition="Deluxe",

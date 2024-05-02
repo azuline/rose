@@ -437,9 +437,10 @@ def test_virtual_filesystem_hide_new_release_classifiers(config: Config) -> None
     )
     root = config.fuse_mount_dir
     with start_virtual_fs(new_config):
-        assert not (root / "3. Genres" / "Classical").exists()
+        assert not (root / "3. Genres" / "Modern Classical").exists()
         assert not (root / "4. Descriptors" / "Wet").exists()
         assert not (root / "5. Labels" / "Native State").exists()
         assert (root / "3. Genres" / "Deep House").is_dir()
+        assert (root / "3. Genres" / "House").is_dir()
         assert (root / "4. Descriptors" / "Warm").is_dir()
         assert (root / "5. Labels" / "Silk Music").is_dir()

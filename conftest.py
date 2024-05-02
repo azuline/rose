@@ -124,10 +124,10 @@ VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '
      , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, '3');
 
 INSERT INTO releases_genres
-       (release_id, genre       , position)
-VALUES ('r1'      , 'Techno'    , 1)
-     , ('r1'      , 'Deep House', 2)
-     , ('r2'      , 'Classical' , 1);
+       (release_id, genre             , position)
+VALUES ('r1'      , 'Techno'          , 1)
+     , ('r1'      , 'Deep House'      , 2)
+     , ('r2'      , 'Modern Classical', 1);
 
 INSERT INTO releases_secondary_genres
        (release_id, genre       , position)

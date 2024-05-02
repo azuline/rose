@@ -2292,7 +2292,10 @@ def list_genres(c: Config) -> list[GenreEntry]:
         for row in cursor:
             rval[row["genre"]] = row["has_non_new_release"] is None
             for g in TRANSIENT_PARENT_GENRES.get(row["genre"], []):
-                rval[g] = rval.get(g, False) or row["has_non_new_release"] is None
+                # We are accumulating here whether any release of this genre is not-new. Thus, if a
+                # past iteration had a not-new release, make sure the accumulator stays false. And
+                # if we have a not-new release this time, set it false. Otherwise, keep it true.
+                rval[g] = not (rval.get(g) is False or row["has_non_new_release"] is not None)
         return [GenreEntry(genre=k, only_new_releases=v) for k, v in rval.items()]
 
 
