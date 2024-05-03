@@ -113,7 +113,9 @@ def execute_metadata_rule(
         return
 
     matcher_audiotags = filter_track_false_positives_using_tags(
-        rule.matcher, fast_search_results, rule.ignore
+        rule.matcher,
+        fast_search_results,
+        rule.ignore,
     )
     if not matcher_audiotags:
         click.secho("No matching tracks found", dim=True, italic=True)

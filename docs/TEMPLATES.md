@@ -168,10 +168,6 @@ sortorder: str -> str                   # Formats an artist name as Lastname, Fi
 lastname: str -> str                    # Formats an artist name as Lastname.
 ```
 
-# Examples
-
-_TODO_
-
 # Previewing Templates
 
 You can preview your templates with the following command. It will evaluate all your templates with
@@ -198,3 +194,7 @@ Preview for template 2. New Releases - Release:
   Sample 2: BTS - 2016. Young Forever (花樣年華) [K-Pop]
 ...
 ```
+
+# Examples
+
+See my templates [here](https://github.com/azuline/nixos/blob/master/home/rose/config.toml).

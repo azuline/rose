@@ -223,3 +223,7 @@ systemd.user.services.rose = {
   };
 };
 ```
+
+# Example
+
+See my config [here](https://github.com/azuline/nixos/blob/master/home/rose/config.toml).

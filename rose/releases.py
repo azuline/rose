@@ -108,6 +108,7 @@ def delete_release(c: Config, release_id: str) -> None:
     logger.info(f"Trashed release {release_logtext}")
     update_cache_evict_nonexistent_releases(c)
     # Update all collages and playlists so that the release is removed from whichever it was in.
+    # TODO: Move this into the cache evict nonexistent releases and make it more efficient.
     update_cache_for_collages(c, None, force=True)
     update_cache_for_playlists(c, None, force=True)
 
