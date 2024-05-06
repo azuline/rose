@@ -40,7 +40,6 @@ import sqlite3
 import time
 from collections import Counter, defaultdict
 from collections.abc import Iterator
-from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
@@ -200,7 +199,7 @@ def playlist_lock_name(playlist_name: str) -> str:
     return f"playlist-{playlist_name}"
 
 
-@dataclass(slots=True)
+@dataclasses.dataclass(slots=True)
 class Release:
     id: str
     source_path: Path
@@ -257,7 +256,7 @@ def cached_release_from_view(c: Config, row: dict[str, Any], aliases: bool = Tru
     )
 
 
-@dataclass(slots=True)
+@dataclasses.dataclass(slots=True)
 class Track:
     id: str
     source_path: Path
@@ -299,26 +298,28 @@ def cached_track_from_view(
     )
 
 
-@dataclass(slots=True)
+@dataclasses.dataclass(slots=True)
 class Collage:
     name: str
     source_mtime: str
 
 
-@dataclass(slots=True)
+@dataclasses.dataclass(slots=True)
 class Playlist:
     name: str
     source_mtime: str
     cover_path: Path | None
 
 
-@dataclass(slots=True)
+@dataclasses.dataclass(slots=True)
 class StoredDataFile:
-    new: bool
-    added_at: str  # ISO8601 timestamp
+    new: bool = True
+    added_at: str = dataclasses.field(
+        default_factory=lambda: datetime.now().astimezone().replace(microsecond=0).isoformat()
+    )
 
 
-STORED_DATA_FILE_REGEX = re.compile(r"\.rose\.([^.]+)\.toml")
+STORED_DATA_FILE_REGEX = re.compile(r"^\.rose\.([^.]+)\.toml$")
 
 
 def update_cache(
@@ -2187,7 +2188,7 @@ def artist_exists(c: Config, artist: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class GenreEntry:
     genre: str
     only_new_releases: bool
@@ -2224,7 +2225,7 @@ def genre_exists(c: Config, genre: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class DescriptorEntry:
     descriptor: str
     only_new_releases: bool
@@ -2258,7 +2259,7 @@ def descriptor_exists(c: Config, descriptor: str) -> bool:
         return bool(cursor.fetchone()[0])
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class LabelEntry:
     label: str
     only_new_releases: bool
