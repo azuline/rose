@@ -7,6 +7,7 @@ import pytest
 
 from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
+    get_release,
     list_releases,
     list_tracks,
     update_cache,
@@ -190,6 +191,36 @@ def test_rules_fields_match_trackartist(config: Config, source_dir: Path) -> Non
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.trackartists.main == [Artist("8")]
+
+
+@pytest.mark.usefixtures("source_dir")
+def test_rules_fields_match_new(config: Config) -> None:
+    rule = MetadataRule.parse("new:false", ["replace:true"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    release = get_release(config, "ilovecarly")
+    assert release
+    assert release.new
+    release = get_release(config, "ilovenewjeans")
+    assert release
+    assert release.new
+
+    rule = MetadataRule.parse("new:true", ["replace:false"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    release = get_release(config, "ilovecarly")
+    assert release
+    assert not release.new
+    release = get_release(config, "ilovenewjeans")
+    assert release
+    assert not release.new
+
+    rule = MetadataRule.parse("releasetitle:Carly", ["new/replace:true"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    release = get_release(config, "ilovecarly")
+    assert release
+    assert release.new
+    release = get_release(config, "ilovenewjeans")
+    assert release
+    assert not release.new
 
 
 def test_match_backslash(config: Config, source_dir: Path) -> None:

@@ -586,9 +586,9 @@ def execute_metadata_actions(
         return
 
     # And then let's go for the confirmation.
+    num_changes = len(actionable_audiotags) + len(actionable_datafiles)
     if confirm_yes:
         click.echo()
-        num_changes = len(actionable_datafiles) + len(actionable_datafiles)
         if num_changes > enter_number_to_confirm_above_count:
             while True:
                 userconfirmation = click.prompt(
@@ -640,7 +640,7 @@ def execute_metadata_actions(
         logger.info(f"Wrote datafile changes to {pathtext}")
 
     click.echo()
-    click.echo(f"Applied tag changes to {len(actionable_audiotags)} tracks!")
+    click.echo(f"Applied tag changes to {num_changes} tracks!")
 
     # == Step 6: Trigger cache update ===
 
