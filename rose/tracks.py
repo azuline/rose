@@ -15,7 +15,7 @@ from rose.cache import (
 )
 from rose.common import RoseExpectedError
 from rose.config import Config
-from rose.rule_parser import ALL_TAGS, MetadataAction, MetadataMatcher
+from rose.rule_parser import ALL_TAGS, Action, Matcher
 from rose.rules import (
     execute_metadata_actions,
     fast_search_for_matching_tracks,
@@ -29,18 +29,22 @@ class TrackDoesNotExistError(RoseExpectedError):
     pass
 
 
-def find_tracks_matching_rule(c: Config, matcher: MetadataMatcher) -> list[Track]:
+def find_tracks_matching_rule(c: Config, matcher: Matcher) -> list[Track]:
     # Implement optimizations for common lookups. Only applies to strict lookups.
     # TODO: Morning
-    if matcher.pattern.pattern.startswith("^") and matcher.pattern.pattern.endswith("$"):
+    if matcher.pattern.strict_start and matcher.pattern.strict_end:
         if matcher.tags == ALL_TAGS["artist"]:
-            return filter_tracks(c, artist_filter=matcher.pattern.pattern[1:-1])
+            return filter_tracks(c, all_artist_filter=matcher.pattern.needle)
+        if matcher.tags == ALL_TAGS["trackartist"]:
+            return filter_tracks(c, track_artist_filter=matcher.pattern.needle)
+        if matcher.tags == ALL_TAGS["releaseartist"]:
+            return filter_tracks(c, release_artist_filter=matcher.pattern.needle)
         if matcher.tags == ["genre"]:
-            return filter_tracks(c, genre_filter=matcher.pattern.pattern[1:-1])
+            return filter_tracks(c, genre_filter=matcher.pattern.needle)
         if matcher.tags == ["label"]:
-            return filter_tracks(c, label_filter=matcher.pattern.pattern[1:-1])
+            return filter_tracks(c, label_filter=matcher.pattern.needle)
         if matcher.tags == ["descriptor"]:
-            return filter_tracks(c, descriptor_filter=matcher.pattern.pattern[1:-1])
+            return filter_tracks(c, descriptor_filter=matcher.pattern.needle)
 
     track_ids = [t.id for t in fast_search_for_matching_tracks(c, matcher)]
     tracks = list_tracks(c, track_ids)
@@ -50,7 +54,7 @@ def find_tracks_matching_rule(c: Config, matcher: MetadataMatcher) -> list[Track
 def run_actions_on_track(
     c: Config,
     track_id: str,
-    actions: list[MetadataAction],
+    actions: list[Action],
     *,
     dry_run: bool = False,
     confirm_yes: bool = False,

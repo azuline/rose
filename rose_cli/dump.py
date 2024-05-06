@@ -8,8 +8,8 @@ from rose import (
     DescriptorDoesNotExistError,
     GenreDoesNotExistError,
     LabelDoesNotExistError,
-    MatcherPattern,
-    MetadataMatcher,
+    Matcher,
+    Pattern,
     PlaylistDoesNotExistError,
     Release,
     ReleaseDoesNotExistError,
@@ -117,7 +117,7 @@ def dump_release(c: Config, release_id: str) -> str:
     )
 
 
-def dump_all_releases(c: Config, matcher: MetadataMatcher | None = None) -> str:
+def dump_all_releases(c: Config, matcher: Matcher | None = None) -> str:
     releases = find_releases_matching_rule(c, matcher) if matcher else list_releases(c)
     return json.dumps(
         [
@@ -137,7 +137,7 @@ def dump_track(c: Config, track_id: str) -> str:
     return json.dumps(track_to_json(track))
 
 
-def dump_all_tracks(c: Config, matcher: MetadataMatcher | None = None) -> str:
+def dump_all_tracks(c: Config, matcher: Matcher | None = None) -> str:
     tracks = find_tracks_matching_rule(c, matcher) if matcher else list_tracks(c)
     return json.dumps([track_to_json(t) for t in tracks])
 
@@ -146,8 +146,7 @@ def dump_artist(c: Config, artist_name: str) -> str:
     if not artist_exists(c, artist_name):
         raise ArtistDoesNotExistError(f"artist {artist_name} does not exist")
     artist_releases = find_releases_matching_rule(
-        c,
-        MetadataMatcher(tags=["artist"], pattern=MatcherPattern(f"^{artist_name}$")),
+        c, Matcher(["artist"], Pattern(artist_name, strict=True))
     )
     roles = _partition_releases_by_role(artist_name, artist_releases)
     roles_json = {k: [release_to_json(x) for x in v] for k, v in roles.items()}
@@ -159,8 +158,7 @@ def dump_all_artists(c: Config) -> str:
     # TODO: Perhaps dump all releases and process from there? Should be more performant.
     for name in list_artists(c):
         artist_releases = find_releases_matching_rule(
-            c,
-            MetadataMatcher(tags=["artist"], pattern=MatcherPattern(f"^{name}$")),
+            c, Matcher(["artist"], Pattern(name, strict=True))
         )
         roles = _partition_releases_by_role(name, artist_releases)
         roles_json = {k: [release_to_json(x) for x in v] for k, v in roles.items()}
@@ -191,8 +189,7 @@ def dump_genre(c: Config, genre_name: str) -> str:
     if not genre_exists(c, genre_name):
         raise GenreDoesNotExistError(f"Genre {genre_name} does not exist")
     genre_releases = find_releases_matching_rule(
-        c,
-        MetadataMatcher(tags=["genre"], pattern=MatcherPattern(f"^{genre_name}$")),
+        c, Matcher(["genre"], Pattern(genre_name, strict=True))
     )
     releases = [release_to_json(r) for r in genre_releases]
     return json.dumps({"name": genre_name, "releases": releases})
@@ -202,8 +199,7 @@ def dump_all_genres(c: Config) -> str:
     out: list[dict[str, Any]] = []
     for e in list_genres(c):
         genre_releases = find_releases_matching_rule(
-            c,
-            MetadataMatcher(tags=["genre"], pattern=MatcherPattern(f"^{e.genre}$")),
+            c, Matcher(["genre"], Pattern(e.genre, strict=True))
         )
         releases = [release_to_json(r) for r in genre_releases]
         out.append(
@@ -216,8 +212,7 @@ def dump_label(c: Config, label_name: str) -> str:
     if not label_exists(c, label_name):
         raise LabelDoesNotExistError(f"label {label_name} does not exist")
     label_releases = find_releases_matching_rule(
-        c,
-        MetadataMatcher(tags=["label"], pattern=MatcherPattern(f"^{label_name}$")),
+        c, Matcher(["label"], Pattern(label_name, strict=True))
     )
     releases = [release_to_json(r) for r in label_releases]
     return json.dumps({"name": label_name, "releases": releases})
@@ -227,8 +222,7 @@ def dump_all_labels(c: Config) -> str:
     out: list[dict[str, Any]] = []
     for e in list_labels(c):
         label_releases = find_releases_matching_rule(
-            c,
-            MetadataMatcher(tags=["label"], pattern=MatcherPattern(f"^{e.label}$")),
+            c, Matcher(["label"], Pattern(e.label, strict=True))
         )
         releases = [release_to_json(r) for r in label_releases]
         out.append(
@@ -241,8 +235,7 @@ def dump_descriptor(c: Config, descriptor_name: str) -> str:
     if not descriptor_exists(c, descriptor_name):
         raise DescriptorDoesNotExistError(f"descriptor {descriptor_name} does not exist")
     descriptor_releases = find_releases_matching_rule(
-        c,
-        MetadataMatcher(tags=["descriptor"], pattern=MatcherPattern(f"^{descriptor_name}$")),
+        c, Matcher(["descriptor"], Pattern(descriptor_name, strict=True))
     )
     releases = [release_to_json(r) for r in descriptor_releases]
     return json.dumps({"name": descriptor_name, "releases": releases})
@@ -252,8 +245,7 @@ def dump_all_descriptors(c: Config) -> str:
     out: list[dict[str, Any]] = []
     for e in list_descriptors(c):
         descriptor_releases = find_releases_matching_rule(
-            c,
-            MetadataMatcher(tags=["descriptor"], pattern=MatcherPattern(f"^{e.descriptor}$")),
+            c, Matcher(["descriptor"], Pattern(e.descriptor, strict=True))
         )
         releases = [release_to_json(r) for r in descriptor_releases]
         out.append(

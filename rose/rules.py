@@ -40,13 +40,13 @@ from rose.common import Artist, RoseError, RoseExpectedError, uniq
 from rose.config import Config
 from rose.rule_parser import (
     RELEASE_TAGS,
+    Action,
     AddAction,
     DeleteAction,
-    MatcherPattern,
-    MetadataAction,
-    MetadataMatcher,
-    MetadataRule,
+    Matcher,
+    Pattern,
     ReplaceAction,
+    Rule,
     SedAction,
     SplitAction,
 )
@@ -75,7 +75,7 @@ def execute_stored_metadata_rules(
 
 def execute_metadata_rule(
     c: Config,
-    rule: MetadataRule,
+    rule: Rule,
     *,
     dry_run: bool = False,
     confirm_yes: bool = False,
@@ -148,7 +148,7 @@ class FastSearchResult:
 
 def fast_search_for_matching_tracks(
     c: Config,
-    matcher: MetadataMatcher,
+    matcher: Matcher,
 ) -> list[FastSearchResult]:
     """
     Run a search for tracks with the matcher on the Full Text Search index. This is _fast_, but will
@@ -195,36 +195,25 @@ def fast_search_for_matching_tracks(
     return results
 
 
-def _convert_matcher_to_fts_query(pattern: MatcherPattern) -> str:
+def _convert_matcher_to_fts_query(pattern: Pattern) -> str:
     # Convert the matcher to a SQL expression for SQLite FTS. We won't be doing the precise
     # prefix/suffix matching here: for performance, we abuse SQLite FTS by making every character
     # its own token, which grants us the ability to search for arbitrary substrings. However, FTS
     # cannot guarantee ordering, which means that a search for `BLACKPINK` will also match
     # `PINKBLACK`. So we first pull all matching results, and then we use the previously written
     # precise Python matcher to ignore the false positives and only modify the tags we care about.
-    #
-    # Therefore we strip the `^$` and convert the text into SQLite FTS Match query. We use NEAR to
-    # assert that all the characters are within a substring equivalent to the length of the query,
-    # which should filter out most false positives.
-    needle = pattern.pattern
-    if needle.startswith("^") or needle.startswith(r"\^"):
-        needle = needle[1:]
-    if needle.endswith(r"\$"):
-        needle = needle[:-2] + "$"
-    elif needle.endswith("$"):
-        needle = needle[:-1]
     # Construct the SQL string for the matcher. Escape quotes in the match string.
-    matchsql = "¬".join(needle).replace("'", "''").replace('"', '""')
+    matchsql = "¬".join(pattern.needle).replace("'", "''").replace('"', '""')
     # NEAR restricts the query such that the # of tokens in between the first and last tokens of the
     # matched substring must be less than or equal to a given number. For us, that number is
     # len(matchsqlstr) - 2, as we subtract the first and last characters.
-    return f'NEAR("{matchsql}", {max(0, len(needle)-2)})'
+    return f'NEAR("{matchsql}", {max(0, len(pattern.needle)-2)})'
 
 
 def filter_track_false_positives_using_tags(
-    matcher: MetadataMatcher,
+    matcher: Matcher,
     fast_search_results: list[FastSearchResult],
-    ignore: list[MetadataMatcher],
+    ignore: list[Matcher],
 ) -> list[AudioTags]:
     time_start = time.time()
     rval = []
@@ -353,7 +342,7 @@ Changes = tuple[
 
 def execute_metadata_actions(
     c: Config,
-    actions: list[MetadataAction],
+    actions: list[Action],
     audiotags: list[AudioTags],
     *,
     dry_run: bool = False,
@@ -660,40 +649,27 @@ def value_to_str(value: TagValue) -> str:
     return ""
 
 
-def matches_pattern(pattern: MatcherPattern, value: str | int | bool | RoseDate | None) -> bool:
+def matches_pattern(pattern: Pattern, value: str | int | bool | RoseDate | None) -> bool:
     value = value_to_str(value)
 
-    needle = pattern.pattern
+    needle = pattern.needle
     haystack = value
     if pattern.case_insensitive:
         needle = needle.lower()
         haystack = haystack.lower()
 
-    strictstart = strictend = False
-    if needle.startswith("^"):
-        strictstart = True
-        needle = needle[1:]
-    elif needle.startswith(r"\^"):
-        needle = needle[1:]
-
-    if needle.endswith(r"\$"):
-        needle = needle[:-2] + "$"
-    elif needle.endswith(r"$"):
-        needle = needle[:-1]
-        strictend = True
-
-    if strictstart and strictend:
+    if pattern.strict_start and pattern.strict_end:
         return haystack == needle
-    if strictstart:
+    if pattern.strict_start:
         return haystack.startswith(needle)
-    if strictend:
+    if pattern.strict_end:
         return haystack.endswith(needle)
     return needle in haystack
 
 
 # Factor out the logic for executing an action on a single-value tag and a multi-value tag.
 def execute_single_action(
-    action: MetadataAction,
+    action: Action,
     value: str | int | bool | RoseDate | None,
 ) -> str | None:
     if action.pattern and not matches_pattern(action.pattern, value):
@@ -716,7 +692,7 @@ def execute_single_action(
 
 
 def execute_multi_value_action(
-    action: MetadataAction,
+    action: Action,
     values: list[str],
 ) -> list[str]:
     bhv = action.behavior
@@ -760,7 +736,7 @@ def execute_multi_value_action(
 
 def fast_search_for_matching_releases(
     c: Config,
-    matcher: MetadataMatcher,
+    matcher: Matcher,
 ) -> list[FastSearchResult]:
     """Basically the same thing as fast_search_for_matching_tracks but with releases."""
     time_start = time.time()
@@ -798,7 +774,7 @@ def fast_search_for_matching_releases(
 
 
 def filter_track_false_positives_using_read_cache(
-    matcher: MetadataMatcher,
+    matcher: Matcher,
     tracks: list[Track],
 ) -> list[Track]:
     time_start = time.time()
@@ -849,7 +825,7 @@ def filter_track_false_positives_using_read_cache(
 
 
 def filter_release_false_positives_using_read_cache(
-    matcher: MetadataMatcher,
+    matcher: Matcher,
     releases: list[Release],
 ) -> list[Release]:
     time_start = time.time()

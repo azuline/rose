@@ -18,11 +18,11 @@ import click
 
 from rose import (
     VERSION,
+    Action,
     AudioTags,
     Config,
-    MetadataAction,
-    MetadataMatcher,
-    MetadataRule,
+    Matcher,
+    Rule,
     UnsupportedFiletypeError,
     add_release_to_collage,
     add_track_to_playlist,
@@ -237,7 +237,7 @@ def print_release(ctx: Context, release: str) -> None:
 @click.pass_obj
 def print_all_releases(ctx: Context, matcher: str | None) -> None:
     """Print all releases (in JSON). Accepts an optional rules matcher to filter the releases."""
-    parsed_matcher = MetadataMatcher.parse(matcher) if matcher else None
+    parsed_matcher = Matcher.parse(matcher) if matcher else None
     click.echo(dump_all_releases(ctx.config, parsed_matcher))
 
 
@@ -300,7 +300,7 @@ def delete_cover_release(ctx: Context, release: str) -> None:
 def run_rule(ctx: Context, release: str, actions: list[str], dry_run: bool, yes: bool) -> None:
     """Run rule engine actions on all tracks in a release. Accepts a release's UUID/path."""
     release = parse_release_argument(release)
-    parsed_actions = [MetadataAction.parse(a) for a in actions]
+    parsed_actions = [Action.parse(a) for a in actions]
     run_actions_on_release(
         ctx.config,
         release,
@@ -340,7 +340,7 @@ def print_track(ctx: Context, track: str) -> None:
 @click.pass_obj
 def print_all_track(ctx: Context, matcher: str | None = None) -> None:
     """Print all tracks (in JSON). Accepts an optional rules matcher to filter the tracks."""
-    parsed_matcher = MetadataMatcher.parse(matcher) if matcher else None
+    parsed_matcher = Matcher.parse(matcher) if matcher else None
     click.echo(dump_all_tracks(ctx.config, parsed_matcher))
 
 
@@ -353,7 +353,7 @@ def print_all_track(ctx: Context, matcher: str | None = None) -> None:
 def run_rule_track(ctx: Context, track: str, actions: list[str], dry_run: bool, yes: bool) -> None:
     """Run rule engine actions on a single track. Accepts a track's UUID/path."""
     track = parse_track_argument(track)
-    parsed_actions = [MetadataAction.parse(a) for a in actions]
+    parsed_actions = [Action.parse(a) for a in actions]
     run_actions_on_track(
         ctx.config,
         track,
@@ -635,7 +635,7 @@ def run(
     if not actions:
         logger.info("No-Op: No actions passed")
         return
-    rule = MetadataRule.parse(matcher, actions, ignore)
+    rule = Rule.parse(matcher, actions, ignore)
     execute_metadata_rule(ctx.config, rule, dry_run=dry_run, confirm_yes=not yes)
 
 

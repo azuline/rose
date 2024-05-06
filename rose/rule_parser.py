@@ -271,25 +271,63 @@ class DeleteAction:
 
 
 @dataclass
-class MatcherPattern:
+class Pattern:
     # Substring match with support for `^$` strict start / strict end matching.
-    pattern: str
+    needle: str
+    strict_start: bool = False
+    strict_end: bool = False
     case_insensitive: bool = False
 
+    def __init__(
+        self,
+        # The starting `^` and the trailing `$` are parsed to set strict_start/strict_end if they
+        # are not passed explicitly. If they are passed explicitly, the needle is untouched. They
+        # can be escaped with backslashes.
+        needle: str,
+        # Sets both strict_start and strict_end to true.
+        strict: bool = False,
+        strict_start: bool = False,
+        strict_end: bool = False,
+        case_insensitive: bool = False,
+    ):
+        self.needle = needle
+        self.strict_start = strict_start or strict
+        self.strict_end = strict_end or strict
+        if not self.strict_start:
+            if needle.startswith("^"):
+                self.strict_start = True
+                self.needle = self.needle[1:]
+            elif needle.startswith(r"\^"):
+                self.needle = self.needle[1:]
+        if not self.strict_end:
+            if needle.endswith(r"\$"):
+                self.needle = self.needle[:-2] + "$"
+            elif needle.endswith("$"):
+                self.strict_end = True
+                self.needle = self.needle[:-1]
+        self.case_insensitive = case_insensitive
+
     def __str__(self) -> str:
-        r = escape(self.pattern)
+        r = escape(self.needle)
         if self.case_insensitive:
             r += ":i"
         return r
 
 
 @dataclass()
-class MetadataMatcher:
+class Matcher:
     # Tags to test against the pattern. If any tags match the pattern, the action will be ran
     # against the track.
     tags: list[Tag]
     # The pattern to test the tag against.
-    pattern: MatcherPattern
+    pattern: Pattern
+
+    def __init__(self, tags: Sequence[ExpandableTag], pattern: Pattern) -> None:
+        _tags: list[Tag] = []
+        for t in tags:
+            _tags.extend(ALL_TAGS[t])
+        self.tags = uniq(_tags)
+        self.pattern = pattern
 
     def __str__(self) -> str:
         r = stringify_tags(self.tags)
@@ -297,15 +335,8 @@ class MetadataMatcher:
         r += str(self.pattern)
         return r
 
-    def __init__(self, tags: Sequence[ExpandableTag], pattern: MatcherPattern) -> None:
-        _tags: list[Tag] = []
-        for t in tags:
-            _tags.extend(ALL_TAGS[t])
-        self.tags = uniq(_tags)
-        self.pattern = pattern
-
     @classmethod
-    def parse(cls, raw: str, *, rule_name: str = "matcher") -> MetadataMatcher:
+    def parse(cls, raw: str, *, rule_name: str = "matcher") -> Matcher:
         idx = 0
         # Common arguments to feed into Syntax Error.
         err = {"rule_name": rule_name, "rule": raw}
@@ -372,35 +403,35 @@ class MetadataMatcher:
                 feedback="Extra input found after end of matcher. Perhaps you meant to escape this colon?",
             )
 
-        matcher = MetadataMatcher(
+        matcher = Matcher(
             tags=tags,
-            pattern=MatcherPattern(pattern=pattern, case_insensitive=case_insensitive),
+            pattern=Pattern(needle=pattern, case_insensitive=case_insensitive),
         )
         logger.debug(f"Parsed rule matcher {raw=} as {matcher=}")
         return matcher
 
 
 @dataclass
-class MetadataAction:
-    # The behavior of the action, along with behavior-specific parameters.
-    behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction
+class Action:
     # The tags to apply the action on. Defaults to the tag that the pattern matched.
     tags: list[Tag]
+    # The behavior of the action, along with behavior-specific parameters.
+    behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction
     # Only apply the action on values that match this pattern. None means that all values are acted
     # upon.
-    pattern: MatcherPattern | None = None
+    pattern: Pattern | None = None
 
     def __init__(
         self,
-        behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction,
         tags: Sequence[ExpandableTag],
-        pattern: MatcherPattern | None = None,
+        behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction,
+        pattern: Pattern | None = None,
     ) -> None:
-        self.behavior = behavior
         _tags: list[Tag] = []
         for t in tags:
             _tags.extend(ALL_TAGS[t])
         self.tags = uniq(_tags)
+        self.behavior = behavior
         self.pattern = pattern
 
     def __str__(self) -> str:
@@ -438,8 +469,8 @@ class MetadataAction:
         raw: str,
         action_number: int | None = None,
         # If there is a matcher for the action, pass it here to set the defaults.
-        matcher: MetadataMatcher | None = None,
-    ) -> MetadataAction:
+        matcher: Matcher | None = None,
+    ) -> Action:
         idx = 0
         # Common arguments to feed into Syntax Error.
         err = {"rule": raw, "rule_name": "action"}
@@ -462,7 +493,11 @@ class MetadataAction:
                     "Make sure you are formatting your action like {tags}:{pattern}/{kind}:{args} (where `:{pattern}` is optional)",
                 )
             tags: list[Tag] = [x for x in matcher.tags if x in MODIFIABLE_TAGS]
-            pattern = matcher.pattern.pattern
+            pattern = matcher.pattern.needle
+            if matcher.pattern.strict_start:
+                pattern = "^" + pattern
+            if matcher.pattern.strict_end:
+                pattern = pattern + "$"
             case_insensitive = matcher.pattern.case_insensitive
         else:
             # First, parse the tags. If the tag is matched, keep going, otherwise employ the list
@@ -476,8 +511,6 @@ class MetadataAction:
                     )
                 idx += len("matched:")
                 tags = [x for x in matcher.tags if x in MODIFIABLE_TAGS]
-                pattern = matcher.pattern.pattern
-                case_insensitive = matcher.pattern.case_insensitive
             else:
                 tags = []
                 found_end = False
@@ -518,7 +551,12 @@ class MetadataAction:
             # `tracktitle/` (inherit pattern), which we handle in the following two cases:
             if take(raw[idx - 1 :], "/") == ("", 1):
                 if matcher and tags == matcher.tags:
-                    pattern = matcher.pattern.pattern
+                    pattern = matcher.pattern.needle
+                    if matcher.pattern.strict_start:
+                        pattern = "^" + pattern
+                    if matcher.pattern.strict_end:
+                        pattern = pattern + "$"
+                    case_insensitive = matcher.pattern.case_insensitive
             elif take(raw[idx:], "/") == ("", 1):
                 idx += 1
             # And otherwise, parse the pattern!
@@ -680,22 +718,20 @@ class MetadataAction:
         else:  # pragma: no cover
             raise RoseError(f"Impossible: unknown action_kind {action_kind=}")
 
-        action = MetadataAction(
+        action = Action(
             behavior=behavior,
             tags=tags,
-            pattern=MatcherPattern(pattern=pattern, case_insensitive=case_insensitive)
-            if pattern
-            else None,
+            pattern=Pattern(needle=pattern, case_insensitive=case_insensitive) if pattern else None,
         )
         logger.debug(f"Parsed rule action {raw=} {matcher=} as {action=}")
         return action
 
 
 @dataclass
-class MetadataRule:
-    matcher: MetadataMatcher
-    actions: list[MetadataAction]
-    ignore: list[MetadataMatcher]
+class Rule:
+    matcher: Matcher
+    actions: list[Action]
+    ignore: list[Matcher]
 
     def __str__(self) -> str:
         rval: list[str] = []
@@ -710,12 +746,12 @@ class MetadataRule:
         matcher: str,
         actions: list[str],
         ignore: list[str] | None = None,
-    ) -> MetadataRule:
-        parsed_matcher = MetadataMatcher.parse(matcher)
-        return MetadataRule(
+    ) -> Rule:
+        parsed_matcher = Matcher.parse(matcher)
+        return Rule(
             matcher=parsed_matcher,
-            actions=[MetadataAction.parse(a, i + 1, parsed_matcher) for i, a in enumerate(actions)],
-            ignore=[MetadataMatcher.parse(v, rule_name="ignore") for v in (ignore or [])],
+            actions=[Action.parse(a, i + 1, parsed_matcher) for i, a in enumerate(actions)],
+            ignore=[Matcher.parse(v, rule_name="ignore") for v in (ignore or [])],
         )
 
 

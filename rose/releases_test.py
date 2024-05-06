@@ -29,7 +29,7 @@ from rose.releases import (
     set_release_cover_art,
     toggle_release_new,
 )
-from rose.rule_parser import MetadataAction, MetadataMatcher
+from rose.rule_parser import Action, Matcher
 
 
 def test_delete_release(config: Config) -> None:
@@ -445,7 +445,7 @@ def test_extract_single_release_with_trailing_space(config: Config) -> None:
 
 
 def test_run_action_on_release(config: Config, source_dir: Path) -> None:
-    action = MetadataAction.parse("tracktitle/replace:Bop")
+    action = Action.parse("tracktitle/replace:Bop")
     run_actions_on_release(config, "ilovecarly", [action])
     af = AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a")
     assert af.tracktitle == "Bop"
@@ -453,21 +453,21 @@ def test_run_action_on_release(config: Config, source_dir: Path) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_find_matching_releases(config: Config) -> None:
-    results = find_releases_matching_rule(config, MetadataMatcher.parse("releasetitle:Release 2"))
+    results = find_releases_matching_rule(config, Matcher.parse("releasetitle:Release 2"))
     assert {r.id for r in results} == {"r2"}
-    results = find_releases_matching_rule(config, MetadataMatcher.parse("artist:^Techno Man$"))
+    results = find_releases_matching_rule(config, Matcher.parse("artist:^Techno Man$"))
     assert {r.id for r in results} == {"r1"}
-    results = find_releases_matching_rule(config, MetadataMatcher.parse("artist:Techno Man"))
+    results = find_releases_matching_rule(config, Matcher.parse("artist:Techno Man"))
     assert {r.id for r in results} == {"r1"}
-    results = find_releases_matching_rule(config, MetadataMatcher.parse("genre:^Deep House$"))
+    results = find_releases_matching_rule(config, Matcher.parse("genre:^Deep House$"))
     assert {r.id for r in results} == {"r1"}
-    results = find_releases_matching_rule(config, MetadataMatcher.parse("genre:Deep House"))
+    results = find_releases_matching_rule(config, Matcher.parse("genre:Deep House"))
     assert {r.id for r in results} == {"r1"}
-    results = find_releases_matching_rule(config, MetadataMatcher.parse("descriptor:^Wet$"))
+    results = find_releases_matching_rule(config, Matcher.parse("descriptor:^Wet$"))
     assert {r.id for r in results} == {"r2"}
-    results = find_releases_matching_rule(config, MetadataMatcher.parse("descriptor:Wet"))
+    results = find_releases_matching_rule(config, Matcher.parse("descriptor:Wet"))
     assert {r.id for r in results} == {"r2"}
-    results = find_releases_matching_rule(config, MetadataMatcher.parse("label:^Native State$"))
+    results = find_releases_matching_rule(config, Matcher.parse("label:^Native State$"))
     assert {r.id for r in results} == {"r2"}
-    results = find_releases_matching_rule(config, MetadataMatcher.parse("label:Native State"))
+    results = find_releases_matching_rule(config, Matcher.parse("label:Native State"))
     assert {r.id for r in results} == {"r2"}

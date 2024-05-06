@@ -108,7 +108,7 @@ from rose import (
 )
 from rose.cache import list_releases, list_tracks
 from rose.releases import find_releases_matching_rule
-from rose.rule_parser import MatcherPattern, MetadataMatcher
+from rose.rule_parser import Matcher, Pattern
 from rose.tracks import find_tracks_matching_rule
 
 logger = logging.getLogger(__name__)
@@ -1090,25 +1090,13 @@ class RoseLogicalCore:
         if p.release == ALL_TRACKS:
             matcher = None
             if p.artist:
-                matcher = MetadataMatcher(
-                    tags=["artist"],
-                    pattern=MatcherPattern(f"^{p.artist}$"),
-                )
+                matcher = Matcher(["artist"], Pattern(p.artist, strict=True))
             if p.genre:
-                matcher = MetadataMatcher(
-                    tags=["genre"],
-                    pattern=MatcherPattern(f"^{p.genre}$"),
-                )
+                matcher = Matcher(["genre"], Pattern(p.genre, strict=True))
             if p.descriptor:
-                matcher = MetadataMatcher(
-                    tags=["descriptor"],
-                    pattern=MatcherPattern(f"^{p.descriptor}$"),
-                )
+                matcher = Matcher(["descriptor"], Pattern(p.descriptor, strict=True))
             if p.label:
-                matcher = MetadataMatcher(
-                    tags=["label"],
-                    pattern=MatcherPattern(f"^{p.label}$"),
-                )
+                matcher = Matcher(["label"], Pattern(p.label, strict=True))
 
             tracks = (
                 find_tracks_matching_rule(self.config, matcher)
@@ -1141,30 +1129,16 @@ class RoseLogicalCore:
         ):
             matcher = None
             if p.artist:
-                matcher = MetadataMatcher(
-                    tags=["releaseartist"],
-                    pattern=MatcherPattern(f"^{p.artist}$"),
-                )
+                matcher = Matcher(["releaseartist"], Pattern(p.artist, strict=True))
             if p.genre:
-                matcher = MetadataMatcher(
-                    tags=["genre"],
-                    pattern=MatcherPattern(f"^{p.genre}$"),
-                )
+                matcher = Matcher(["genre"], Pattern(p.genre, strict=True))
             if p.descriptor:
-                matcher = MetadataMatcher(
-                    tags=["descriptor"],
-                    pattern=MatcherPattern(f"^{p.descriptor}$"),
-                )
+                matcher = Matcher(["descriptor"], Pattern(p.descriptor, strict=True))
             if p.label:
-                matcher = MetadataMatcher(
-                    tags=["label"],
-                    pattern=MatcherPattern(f"^{p.label}$"),
-                )
+                matcher = Matcher(["label"], Pattern(p.label, strict=True))
             if p.view == "New":
-                matcher = MetadataMatcher(
-                    tags=["new"],
-                    pattern=MatcherPattern("^true$"),
-                )
+                matcher = Matcher(["new"], Pattern("true", strict=True))
+
             releases = (
                 find_releases_matching_rule(self.config, matcher)
                 if matcher

@@ -1756,25 +1756,44 @@ def update_cache_evict_nonexistent_playlists(c: Config) -> None:
 
 def filter_releases(
     c: Config,
-    artist_filter: str | None = None,
+    release_artist_filter: str | None = None,
+    all_artist_filter: str | None = None,
     genre_filter: str | None = None,
     descriptor_filter: str | None = None,
     label_filter: str | None = None,
     new: bool | None = None,
 ) -> list[Release]:
     with connect(c) as conn:
-        query = "SELECT * FROM releases_view WHERE 1=1"
+        query = "SELECT * FROM releases_view rv WHERE 1=1"
         args: list[str | bool] = []
-        if artist_filter:
-            artists: list[str] = [artist_filter]
-            for alias in _get_all_artist_aliases(c, artist_filter):
+        if release_artist_filter:
+            artists: list[str] = [release_artist_filter]
+            for alias in _get_all_artist_aliases(c, release_artist_filter):
                 artists.append(alias)
             query += f"""
                 AND EXISTS (
-                    SELECT * FROM releases_artists
-                    WHERE release_id = id AND artist IN ({','.join(['?']*len(artists))})
+                    SELECT * FROM releases_artists ra
+                    WHERE ra.release_id = rv.id AND ra.artist IN ({','.join(['?']*len(artists))})
                 )
             """
+            args.extend(artists)
+        if all_artist_filter:
+            artists = [all_artist_filter]
+            for alias in _get_all_artist_aliases(c, all_artist_filter):
+                artists.append(alias)
+            query += f"""
+                AND (
+                    EXISTS (
+                        SELECT * FROM releases_artists
+                        WHERE release_id = id AND artist IN ({','.join(['?']*len(artists))})
+                    )
+                    OR EXISTS (
+                        SELECT * FROM releases_artists
+                        WHERE release_id = id AND artist IN ({','.join(['?']*len(artists))})
+                    )
+                )
+            """
+            args.extend(artists)
             args.extend(artists)
         if genre_filter:
             genres = [genre_filter]
@@ -1823,7 +1842,9 @@ def filter_releases(
 
 def filter_tracks(
     c: Config,
-    artist_filter: str | None = None,
+    track_artist_filter: str | None = None,
+    release_artist_filter: str | None = None,
+    all_artist_filter: str | None = None,
     genre_filter: str | None = None,
     descriptor_filter: str | None = None,
     label_filter: str | None = None,
@@ -1832,16 +1853,45 @@ def filter_tracks(
     with connect(c) as conn:
         query = "SELECT * FROM tracks_view tv WHERE 1=1"
         args: list[str | bool] = []
-        if artist_filter:
-            artists: list[str] = [artist_filter]
-            for alias in _get_all_artist_aliases(c, artist_filter):
+        if track_artist_filter:
+            artists: list[str] = [track_artist_filter]
+            for alias in _get_all_artist_aliases(c, track_artist_filter):
                 artists.append(alias)
             query += f"""
                 AND EXISTS (
                     SELECT * FROM tracks_artists ta
-                    WHERE ta.track_id = tv.id AND artist IN ({','.join(['?']*len(artists))})
+                    WHERE ta.track_id = tv.id AND ta.artist IN ({','.join(['?']*len(artists))})
                 )
             """
+            args.extend(artists)
+        if release_artist_filter:
+            artists = [release_artist_filter]
+            for alias in _get_all_artist_aliases(c, release_artist_filter):
+                artists.append(alias)
+            query += f"""
+                AND EXISTS (
+                    SELECT * FROM releases_artists ra
+                    WHERE ra.release_id = tv.id AND ra.artist IN ({','.join(['?']*len(artists))})
+                )
+            """
+            args.extend(artists)
+        if all_artist_filter:
+            artists = [all_artist_filter]
+            for alias in _get_all_artist_aliases(c, all_artist_filter):
+                artists.append(alias)
+            query += f"""
+                AND (
+                    EXISTS (
+                        SELECT * FROM tracks_artists ta
+                        WHERE ta.track_id = tv.id AND ta.artist IN ({','.join(['?']*len(artists))})
+                    )
+                    OR EXISTS (
+                        SELECT * FROM releases_artists ra
+                        WHERE ra.release_id = tv.release_id AND ra.artist IN ({','.join(['?']*len(artists))})
+                    )
+                )
+            """
+            args.extend(artists)
             args.extend(artists)
         if genre_filter:
             genres = [genre_filter]
@@ -1872,7 +1922,7 @@ def filter_tracks(
             query += """
                 AND EXISTS (
                     SELECT * FROM releases_labels rl
-                    WHERE rl.release_id = rl.release_id AND rl.label = ?
+                    WHERE rl.release_id = tv.release_id AND rl.label = ?
                 )
             """
             args.append(label_filter)
