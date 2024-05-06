@@ -24,11 +24,12 @@ from rose.releases import (
     delete_release,
     delete_release_cover_art,
     edit_release,
+    find_releases_matching_rule,
     run_actions_on_release,
     set_release_cover_art,
     toggle_release_new,
 )
-from rose.rule_parser import MetadataAction
+from rose.rule_parser import MetadataAction, MetadataMatcher
 
 
 def test_delete_release(config: Config) -> None:
@@ -448,3 +449,25 @@ def test_run_action_on_release(config: Config, source_dir: Path) -> None:
     run_actions_on_release(config, "ilovecarly", [action])
     af = AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a")
     assert af.tracktitle == "Bop"
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_find_matching_releases(config: Config) -> None:
+    results = find_releases_matching_rule(config, MetadataMatcher.parse("releasetitle:Release 2"))
+    assert {r.id for r in results} == {"r2"}
+    results = find_releases_matching_rule(config, MetadataMatcher.parse("artist:^Techno Man$"))
+    assert {r.id for r in results} == {"r1"}
+    results = find_releases_matching_rule(config, MetadataMatcher.parse("artist:Techno Man"))
+    assert {r.id for r in results} == {"r1"}
+    results = find_releases_matching_rule(config, MetadataMatcher.parse("genre:^Deep House$"))
+    assert {r.id for r in results} == {"r1"}
+    results = find_releases_matching_rule(config, MetadataMatcher.parse("genre:Deep House"))
+    assert {r.id for r in results} == {"r1"}
+    results = find_releases_matching_rule(config, MetadataMatcher.parse("descriptor:^Wet$"))
+    assert {r.id for r in results} == {"r2"}
+    results = find_releases_matching_rule(config, MetadataMatcher.parse("descriptor:Wet"))
+    assert {r.id for r in results} == {"r2"}
+    results = find_releases_matching_rule(config, MetadataMatcher.parse("label:^Native State$"))
+    assert {r.id for r in results} == {"r2"}
+    results = find_releases_matching_rule(config, MetadataMatcher.parse("label:Native State"))
+    assert {r.id for r in results} == {"r2"}
