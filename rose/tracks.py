@@ -9,6 +9,7 @@ import logging
 from rose.audiotags import AudioTags
 from rose.cache import (
     Track,
+    filter_tracks,
     get_track,
     list_tracks,
 )
@@ -33,13 +34,13 @@ def find_tracks_matching_rule(c: Config, matcher: MetadataMatcher) -> list[Track
     # TODO: Morning
     if matcher.pattern.pattern.startswith("^") and matcher.pattern.pattern.endswith("$"):
         if matcher.tags == ALL_TAGS["artist"]:
-            pass
+            return filter_tracks(c, artist_filter=matcher.pattern.pattern[1:-1])
         if matcher.tags == ["genre"]:
-            pass
+            return filter_tracks(c, genre_filter=matcher.pattern.pattern[1:-1])
         if matcher.tags == ["label"]:
-            pass
+            return filter_tracks(c, label_filter=matcher.pattern.pattern[1:-1])
         if matcher.tags == ["descriptor"]:
-            pass
+            return filter_tracks(c, descriptor_filter=matcher.pattern.pattern[1:-1])
 
     track_ids = [t.id for t in fast_search_for_matching_tracks(c, matcher)]
     tracks = list_tracks(c, track_ids)

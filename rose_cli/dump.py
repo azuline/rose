@@ -2,17 +2,20 @@ import json
 from typing import Any
 
 from rose import (
+    ArtistDoesNotExistError,
     CollageDoesNotExistError,
     Config,
     DescriptorDoesNotExistError,
     GenreDoesNotExistError,
     LabelDoesNotExistError,
+    MatcherPattern,
     MetadataMatcher,
     PlaylistDoesNotExistError,
     Release,
     ReleaseDoesNotExistError,
     Track,
     TrackDoesNotExistError,
+    artist_exists,
     descriptor_exists,
     find_releases_matching_rule,
     find_tracks_matching_rule,
@@ -26,6 +29,7 @@ from rose import (
     get_tracks_of_release,
     get_tracks_of_releases,
     label_exists,
+    list_artists,
     list_collages,
     list_descriptors,
     list_genres,
@@ -34,8 +38,6 @@ from rose import (
     list_releases,
     list_tracks,
 )
-from rose.cache import artist_exists, list_artists, list_releases_delete_this
-from rose.common import ArtistDoesNotExistError
 
 
 def release_to_json(r: Release) -> dict[str, Any]:
@@ -143,7 +145,10 @@ def dump_all_tracks(c: Config, matcher: MetadataMatcher | None = None) -> str:
 def dump_artist(c: Config, artist_name: str) -> str:
     if not artist_exists(c, artist_name):
         raise ArtistDoesNotExistError(f"artist {artist_name} does not exist")
-    artist_releases = list_releases_delete_this(c, artist_filter=artist_name)
+    artist_releases = find_releases_matching_rule(
+        c,
+        MetadataMatcher(tags=["artist"], pattern=MatcherPattern(f"^{artist_name}$")),
+    )
     roles = _partition_releases_by_role(artist_name, artist_releases)
     roles_json = {k: [release_to_json(x) for x in v] for k, v in roles.items()}
     return json.dumps({"name": artist_name, "roles": roles_json})
@@ -151,8 +156,12 @@ def dump_artist(c: Config, artist_name: str) -> str:
 
 def dump_all_artists(c: Config) -> str:
     out: list[dict[str, Any]] = []
+    # TODO: Perhaps dump all releases and process from there? Should be more performant.
     for name in list_artists(c):
-        artist_releases = list_releases_delete_this(c, artist_filter=name)
+        artist_releases = find_releases_matching_rule(
+            c,
+            MetadataMatcher(tags=["artist"], pattern=MatcherPattern(f"^{name}$")),
+        )
         roles = _partition_releases_by_role(name, artist_releases)
         roles_json = {k: [release_to_json(x) for x in v] for k, v in roles.items()}
         out.append({"name": name, "roles": roles_json})
@@ -181,7 +190,10 @@ def _partition_releases_by_role(artist: str, releases: list[Release]) -> dict[st
 def dump_genre(c: Config, genre_name: str) -> str:
     if not genre_exists(c, genre_name):
         raise GenreDoesNotExistError(f"Genre {genre_name} does not exist")
-    genre_releases = list_releases_delete_this(c, genre_filter=genre_name)
+    genre_releases = find_releases_matching_rule(
+        c,
+        MetadataMatcher(tags=["genre"], pattern=MatcherPattern(f"^{genre_name}$")),
+    )
     releases = [release_to_json(r) for r in genre_releases]
     return json.dumps({"name": genre_name, "releases": releases})
 
@@ -189,7 +201,10 @@ def dump_genre(c: Config, genre_name: str) -> str:
 def dump_all_genres(c: Config) -> str:
     out: list[dict[str, Any]] = []
     for e in list_genres(c):
-        genre_releases = list_releases_delete_this(c, genre_filter=e.genre)
+        genre_releases = find_releases_matching_rule(
+            c,
+            MetadataMatcher(tags=["genre"], pattern=MatcherPattern(f"^{e.genre}$")),
+        )
         releases = [release_to_json(r) for r in genre_releases]
         out.append(
             {"name": e.genre, "only_new_releases": e.only_new_releases, "releases": releases}
@@ -200,7 +215,10 @@ def dump_all_genres(c: Config) -> str:
 def dump_label(c: Config, label_name: str) -> str:
     if not label_exists(c, label_name):
         raise LabelDoesNotExistError(f"label {label_name} does not exist")
-    label_releases = list_releases_delete_this(c, label_filter=label_name)
+    label_releases = find_releases_matching_rule(
+        c,
+        MetadataMatcher(tags=["label"], pattern=MatcherPattern(f"^{label_name}$")),
+    )
     releases = [release_to_json(r) for r in label_releases]
     return json.dumps({"name": label_name, "releases": releases})
 
@@ -208,7 +226,10 @@ def dump_label(c: Config, label_name: str) -> str:
 def dump_all_labels(c: Config) -> str:
     out: list[dict[str, Any]] = []
     for e in list_labels(c):
-        label_releases = list_releases_delete_this(c, label_filter=e.label)
+        label_releases = find_releases_matching_rule(
+            c,
+            MetadataMatcher(tags=["label"], pattern=MatcherPattern(f"^{e.label}$")),
+        )
         releases = [release_to_json(r) for r in label_releases]
         out.append(
             {"name": e.label, "only_new_releases": e.only_new_releases, "releases": releases}
@@ -219,7 +240,10 @@ def dump_all_labels(c: Config) -> str:
 def dump_descriptor(c: Config, descriptor_name: str) -> str:
     if not descriptor_exists(c, descriptor_name):
         raise DescriptorDoesNotExistError(f"descriptor {descriptor_name} does not exist")
-    descriptor_releases = list_releases_delete_this(c, descriptor_filter=descriptor_name)
+    descriptor_releases = find_releases_matching_rule(
+        c,
+        MetadataMatcher(tags=["descriptor"], pattern=MatcherPattern(f"^{descriptor_name}$")),
+    )
     releases = [release_to_json(r) for r in descriptor_releases]
     return json.dumps({"name": descriptor_name, "releases": releases})
 
@@ -227,7 +251,10 @@ def dump_descriptor(c: Config, descriptor_name: str) -> str:
 def dump_all_descriptors(c: Config) -> str:
     out: list[dict[str, Any]] = []
     for e in list_descriptors(c):
-        descriptor_releases = list_releases_delete_this(c, descriptor_filter=e.descriptor)
+        descriptor_releases = find_releases_matching_rule(
+            c,
+            MetadataMatcher(tags=["descriptor"], pattern=MatcherPattern(f"^{e.descriptor}$")),
+        )
         releases = [release_to_json(r) for r in descriptor_releases]
         out.append(
             {"name": e.descriptor, "only_new_releases": e.only_new_releases, "releases": releases}

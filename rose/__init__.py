@@ -109,7 +109,13 @@ from rose.releases import (
     set_release_cover_art,
     toggle_release_new,
 )
-from rose.rule_parser import InvalidRuleError, MetadataAction, MetadataMatcher, MetadataRule
+from rose.rule_parser import (
+    InvalidRuleError,
+    MatcherPattern,
+    MetadataAction,
+    MetadataMatcher,
+    MetadataRule,
+)
 from rose.rules import (
     InvalidReplacementValueError,
     TrackTagNotAllowedError,
@@ -171,6 +177,7 @@ __all__ = [
     "MetadataAction",
     "MetadataMatcher",
     "MetadataRule",
+    "MatcherPattern",
     "execute_metadata_rule",
     "execute_stored_metadata_rules",
     "run_actions_on_release",

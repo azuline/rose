@@ -1754,7 +1754,7 @@ def update_cache_evict_nonexistent_playlists(c: Config) -> None:
             logger.info(f"Evicted missing playlist {row['name']} from cache")
 
 
-def list_releases_delete_this(
+def filter_releases(
     c: Config,
     artist_filter: str | None = None,
     genre_filter: str | None = None,
@@ -1819,6 +1819,88 @@ def list_releases_delete_this(
         for row in cursor:
             releases.append(cached_release_from_view(c, row))
         return releases
+
+
+def filter_tracks(
+    c: Config,
+    artist_filter: str | None = None,
+    genre_filter: str | None = None,
+    descriptor_filter: str | None = None,
+    label_filter: str | None = None,
+    new: bool | None = None,
+) -> list[Track]:
+    with connect(c) as conn:
+        query = "SELECT * FROM tracks_view tv WHERE 1=1"
+        args: list[str | bool] = []
+        if artist_filter:
+            artists: list[str] = [artist_filter]
+            for alias in _get_all_artist_aliases(c, artist_filter):
+                artists.append(alias)
+            query += f"""
+                AND EXISTS (
+                    SELECT * FROM tracks_artists ta
+                    WHERE ta.track_id = tv.id AND artist IN ({','.join(['?']*len(artists))})
+                )
+            """
+            args.extend(artists)
+        if genre_filter:
+            genres = [genre_filter]
+            genres.extend(TRANSIENT_CHILD_GENRES.get(genre_filter, []))
+            query += f"""
+                AND (
+                    EXISTS (
+                        SELECT * FROM releases_genres rg
+                        WHERE rg.release_id = tv.release_id AND rg.genre IN ({",".join(["?"]*len(genres))})
+                    )
+                    OR EXISTS (
+                        SELECT * FROM releases_secondary_genres rsg
+                        WHERE rsg.release_id = tv.release_id AND rsg.genre IN ({",".join(["?"]*len(genres))})
+                    )
+                )
+            """
+            args.extend(genres)
+            args.extend(genres)
+        if descriptor_filter:
+            query += """
+                AND EXISTS (
+                    SELECT * FROM releases_descriptors rd
+                    WHERE rd.release_id = tv.release_id AND rd.descriptor = ?
+                )
+            """
+            args.append(descriptor_filter)
+        if label_filter:
+            query += """
+                AND EXISTS (
+                    SELECT * FROM releases_labels rl
+                    WHERE rl.release_id = rl.release_id AND rl.label = ?
+                )
+            """
+            args.append(label_filter)
+        if new is not None:
+            query += " AND new = ?"
+            args.append(new)
+        query += " ORDER BY source_path"
+
+        cursor = conn.execute(query, args)
+        trackrows = cursor.fetchall()
+
+        release_ids = [r["release_id"] for r in trackrows]
+        cursor = conn.execute(
+            f"""
+            SELECT *
+            FROM releases_view
+            WHERE id IN ({','.join(['?']*len(release_ids))})
+            """,
+            release_ids,
+        )
+        releases_map: dict[str, Release] = {}
+        for row in cursor:
+            releases_map[row["id"]] = cached_release_from_view(c, row)
+
+        rval = []
+        for row in trackrows:
+            rval.append(cached_track_from_view(c, row, releases_map[row["release_id"]]))
+        return rval
 
 
 def list_releases(c: Config, release_ids: list[str] | None = None) -> list[Release]:
@@ -2235,10 +2317,10 @@ def list_descriptors(c: Config) -> list[DescriptorEntry]:
     with connect(c) as conn:
         cursor = conn.execute(
             """
-            SELECT rg.descriptor, MIN(r.id) AS has_non_new_release
-            FROM releases_descriptors rg
-            LEFT JOIN releases r ON r.id = rg.release_id AND NOT r.new
-            GROUP BY rg.descriptor
+            SELECT rd.descriptor, MIN(r.id) AS has_non_new_release
+            FROM releases_descriptors rd
+            LEFT JOIN releases r ON r.id = rd.release_id AND NOT r.new
+            GROUP BY rd.descriptor
             """
         )
         return [
@@ -2269,10 +2351,10 @@ def list_labels(c: Config) -> list[LabelEntry]:
     with connect(c) as conn:
         cursor = conn.execute(
             """
-            SELECT rg.label, MIN(r.id) AS has_non_new_release
-            FROM releases_labels rg
-            LEFT JOIN releases r ON r.id = rg.release_id AND NOT r.new
-            GROUP BY rg.label
+            SELECT rl.label, MIN(r.id) AS has_non_new_release
+            FROM releases_labels rl
+            LEFT JOIN releases r ON r.id = rl.release_id AND NOT r.new
+            GROUP BY rl.label
             """
         )
         return [

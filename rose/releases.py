@@ -22,6 +22,7 @@ from rose.cache import (
     STORED_DATA_FILE_REGEX,
     Release,
     Track,
+    filter_releases,
     get_release,
     get_tracks_of_release,
     list_releases,
@@ -454,13 +455,13 @@ def find_releases_matching_rule(c: Config, matcher: MetadataMatcher) -> list[Rel
     # TODO: Morning
     if matcher.pattern.pattern.startswith("^") and matcher.pattern.pattern.endswith("$"):
         if matcher.tags == ALL_TAGS["artist"]:
-            pass
+            return filter_releases(c, artist_filter=matcher.pattern.pattern[1:-1])
         if matcher.tags == ["genre"]:
-            pass
+            return filter_releases(c, genre_filter=matcher.pattern.pattern[1:-1])
         if matcher.tags == ["label"]:
-            pass
+            return filter_releases(c, label_filter=matcher.pattern.pattern[1:-1])
         if matcher.tags == ["descriptor"]:
-            pass
+            return filter_releases(c, descriptor_filter=matcher.pattern.pattern[1:-1])
 
     release_ids = [x.id for x in fast_search_for_matching_releases(c, matcher)]
     releases = list_releases(c, release_ids)
