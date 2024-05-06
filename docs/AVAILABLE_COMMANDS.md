@@ -64,6 +64,18 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
   - `playlists remove-track`: Remove a track from a playlist.
   - `playlists set-cover`: Set the cover art for a playlist. Replaces any existing cover art.
   - `playlists delete-cover`: Remove the cover art of a playlist.
+- artists/
+  - `artists print`: Print a single artist's metadata and releases in JSON.
+  - `artists print-all`: Print all artists' metadata and releases in JSON.
+- genres/
+  - `genres print`: Print a single genre's metadata and releases in JSON.
+  - `genres print-all`: Print all genres' metadata and releases in JSON.
+- labels/
+  - `labels print`: Print a single label's metadata and releases in JSON.
+  - `labels print-all`: Print all labels' metadata and releases in JSON.
+- descriptors/
+  - `descriptors print`: Print a single descriptor's metadata and releases in JSON.
+  - `descriptors print-all`: Print all descriptors' metadata and releases in JSON.
 - rules/ _(see [Improving Your Music Metadata](./METADATA_TOOLS.md))_
   - `rules run`: Run an ad hoc rule in the command line interface. You can also easily test rules
     with the `--dry-run` flag.

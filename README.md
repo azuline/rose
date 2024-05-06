@@ -222,15 +222,20 @@ Options:
   -c, --config PATH  Override the config file location.
   --help             Show this message and exit.
 
-
 Commands:
-  cache      Manage the read cache.
-  collages   Manage collages.
-  config     Utilites for configuring Rosé.
-  fs         Manage the virtual filesystem.
-  playlists  Manage playlists.
-  releases   Manage releases.
-  rules      Run metadata upda
+  artists      Manage artists.
+  cache        Manage the read cache.
+  collages     Manage collages.
+  config       Utilites for configuring Rosé.
+  descriptors  Manage descriptors.
+  fs           Manage the virtual filesystem.
+  genres       Manage genres.
+  labels       Manage labels.
+  playlists    Manage playlists.
+  releases     Manage releases.
+  rules        Run metadata update rules on the entire library.
+  tracks       Manage tracks.
+  version      Print version.
 ```
 
 > [!NOTE]

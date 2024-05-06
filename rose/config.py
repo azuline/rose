@@ -564,9 +564,10 @@ class Config:
                         dfs_state.append((child_accessor, v))
                     continue
                 unrecognized_accessors.append(accessor)
-            logger.warning(
-                f"Unrecognized options found in configuration file: {', '.join(unrecognized_accessors)}"
-            )
+            if unrecognized_accessors:
+                logger.warning(
+                    f"Unrecognized options found in configuration file: {', '.join(unrecognized_accessors)}"
+                )
 
         return Config(
             music_source_dir=music_source_dir,

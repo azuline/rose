@@ -52,11 +52,19 @@ from rose import (
     update_cache,
 )
 from rose_cli.dump import (
+    dump_all_artists,
     dump_all_collages,
+    dump_all_descriptors,
+    dump_all_genres,
+    dump_all_labels,
     dump_all_playlists,
     dump_all_releases,
     dump_all_tracks,
+    dump_artist,
     dump_collage,
+    dump_descriptor,
+    dump_genre,
+    dump_label,
     dump_playlist,
     dump_release,
     dump_track,
@@ -521,6 +529,86 @@ def set_cover_playlist(ctx: Context, playlist: str, cover: Path) -> None:
 def delete_cover_playlist(ctx: Context, playlist: str) -> None:
     """Delete the cover art of a playlist. Accepts a playlist name."""
     delete_playlist_cover_art(ctx.config, playlist)
+
+
+@cli.group()
+def artists() -> None:
+    """Manage artists."""
+
+
+@artists.command(name="print")
+@click.argument("artist", type=str, nargs=1)
+@click.pass_obj
+def print_artist(ctx: Context, artist: str) -> None:
+    """Print a artist (in JSON). Accepts a artist's name."""
+    click.echo(dump_artist(ctx.config, artist))
+
+
+@artists.command(name="print-all")
+@click.pass_obj
+def print_all_artists(ctx: Context) -> None:
+    """Print all artists (in JSON)."""
+    click.echo(dump_all_artists(ctx.config))
+
+
+@cli.group()
+def genres() -> None:
+    """Manage genres."""
+
+
+@genres.command(name="print")
+@click.argument("genre", type=str, nargs=1)
+@click.pass_obj
+def print_genre(ctx: Context, genre: str) -> None:
+    """Print a genre (in JSON). Accepts a genre's name."""
+    click.echo(dump_genre(ctx.config, genre))
+
+
+@genres.command(name="print-all")
+@click.pass_obj
+def print_all_genres(ctx: Context) -> None:
+    """Print all genres (in JSON)."""
+    click.echo(dump_all_genres(ctx.config))
+
+
+@cli.group()
+def labels() -> None:
+    """Manage labels."""
+
+
+@labels.command(name="print")
+@click.argument("label", type=str, nargs=1)
+@click.pass_obj
+def print_label(ctx: Context, label: str) -> None:
+    """Print a label (in JSON). Accepts a label's name."""
+    click.echo(dump_label(ctx.config, label))
+
+
+@labels.command(name="print-all")
+@click.pass_obj
+def print_all_labels(ctx: Context) -> None:
+    """Print all labels (in JSON)."""
+    click.echo(dump_all_labels(ctx.config))
+
+
+@cli.group()
+def descriptors() -> None:
+    """Manage descriptors."""
+
+
+@descriptors.command(name="print")
+@click.argument("descriptor", type=str, nargs=1)
+@click.pass_obj
+def print_descriptor(ctx: Context, descriptor: str) -> None:
+    """Print a descriptor (in JSON). Accepts a descriptor's name."""
+    click.echo(dump_descriptor(ctx.config, descriptor))
+
+
+@descriptors.command(name="print-all")
+@click.pass_obj
+def print_all_descriptors(ctx: Context) -> None:
+    """Print all descriptors (in JSON)."""
+    click.echo(dump_all_descriptors(ctx.config))
 
 
 @cli.group()
