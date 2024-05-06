@@ -12,6 +12,7 @@ from rose.cache import (
     Release,
     Track,
     artist_exists,
+    collage_lock_name,
     descriptor_exists,
     genre_exists,
     get_collage,
@@ -28,9 +29,12 @@ from rose.cache import (
     list_genres,
     list_labels,
     list_playlists,
+    lock,
     make_release_logtext,
     make_track_logtext,
     maybe_invalidate_cache_database,
+    playlist_lock_name,
+    release_lock_name,
     release_within_collage,
     track_within_playlist,
     track_within_release,
@@ -122,6 +126,11 @@ __all__ = [
     "update_cache_for_collages",
     "update_cache_for_playlists",
     "update_cache_for_releases",
+    # Locks
+    "lock",
+    "release_lock_name",
+    "collage_lock_name",
+    "playlist_lock_name",
     # Tagging
     "AudioTags",
     # Rule Engine
