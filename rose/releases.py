@@ -335,7 +335,6 @@ def edit_release(
     # Trigger a quick cache update to ensure we are reading the liveliest data.
     update_cache_for_releases(c, [release.source_path])
 
-    # TODO: Read from tags directly to ensure that we are not writing stale data.
     with lock(c, release_lock_name(release_id)):
         assert release is not None
         tracks = get_tracks_of_release(c, release)

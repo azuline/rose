@@ -129,6 +129,7 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert not (root / "7. Playlists" / "lalala").exists()
         assert (root / "7. Playlists" / "Lala Lisa" / "1. Techno Man & Bass Man - Track 1.m4a").is_file()
         assert (root / "7. Playlists" / "Lala Lisa" / "cover.jpg").is_file()
+        assert not (root / "7. Playlists" / "Turtle Rabbit" / "1. Techno Man & Bass Man - Track 1.m4a").is_file()
         assert not (root / "7. Playlists" / "Lala Lisa" / "lalala").exists()
         assert can_read(root / "7. Playlists" / "Lala Lisa" / "1. Techno Man & Bass Man - Track 1.m4a")
         assert can_read(root / "7. Playlists" / "Lala Lisa" / "cover.jpg")

@@ -211,7 +211,6 @@ def unmount(ctx: Context) -> None:
 @cli.group()
 def releases() -> None:
     """Manage releases."""
-    # TODO: extract-covers
 
 
 @releases.command(name="print")

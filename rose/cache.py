@@ -551,6 +551,8 @@ def _update_cache_for_releases_executor(
                 if m := STORED_DATA_FILE_REGEX.match(sf):
                     release_id = m[1]
                 files.append(Path(root) / sf)
+        # Force a deterministic file sort order.
+        files.sort()
         dir_tree.append((rd.resolve(), release_id, files))
         if release_id is not None:
             release_uuids.append(release_id)

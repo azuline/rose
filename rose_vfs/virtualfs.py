@@ -954,7 +954,7 @@ class RoseLogicalCore:
         if p.collage:
             if not get_collage(self.config, p.collage):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:  # TODO: Validate existence of release in collage.
+            if p.release:
                 return self._getattr_release(p)
             return self.stat("dir")
 
@@ -963,7 +963,7 @@ class RoseLogicalCore:
             la = self.sanitizer.unsanitize(p.label, p.label_parent)
             if not label_exists(self.config, la) or not self.can_show.label(la):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:  # TODO: Validate existence of release in label.
+            if p.release:
                 return self._getattr_release(p)
             return self.stat("dir")
 
@@ -972,7 +972,7 @@ class RoseLogicalCore:
             d = self.sanitizer.unsanitize(p.descriptor, p.descriptor_parent)
             if not descriptor_exists(self.config, d) or not self.can_show.descriptor(d):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:  # TODO: Validate existence of release in descriptor.
+            if p.release:
                 return self._getattr_release(p)
             return self.stat("dir")
 
@@ -981,7 +981,7 @@ class RoseLogicalCore:
             g = self.sanitizer.unsanitize(p.genre, p.genre_parent)
             if not genre_exists(self.config, g) or not self.can_show.genre(g):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:  # TODO: Validate existence of release in genre.
+            if p.release:
                 return self._getattr_release(p)
             return self.stat("dir")
 
@@ -990,7 +990,7 @@ class RoseLogicalCore:
             a = self.sanitizer.unsanitize(p.artist, p.artist_parent)
             if not artist_exists(self.config, a) or not self.can_show.artist(a):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:  # TODO: Validate existence of release in artist.
+            if p.release:
                 return self._getattr_release(p)
             return self.stat("dir")
 
