@@ -4,11 +4,11 @@ The releases module encapsulates all mutations that can occur on release and tra
 
 from __future__ import annotations
 
-import json
 import logging
 
 from rose.audiotags import AudioTags
 from rose.cache import (
+    Track,
     get_track,
     list_tracks,
 )
@@ -28,21 +28,10 @@ class TrackDoesNotExistError(RoseExpectedError):
     pass
 
 
-def dump_track(c: Config, track_id: str) -> str:
-    track = get_track(c, track_id)
-    if track is None:
-        raise TrackDoesNotExistError(f"Track {track_id} does not exist")
-    return json.dumps(track.dump())
-
-
-def dump_all_tracks(c: Config, matcher: MetadataMatcher | None = None) -> str:
-    track_ids = None
-    if matcher:
-        track_ids = [t.id for t in fast_search_for_matching_tracks(c, matcher)]
+def find_tracks_matching_rule(c: Config, matcher: MetadataMatcher) -> list[Track]:
+    track_ids = [t.id for t in fast_search_for_matching_tracks(c, matcher)]
     tracks = list_tracks(c, track_ids)
-    if matcher:
-        tracks = filter_track_false_positives_using_read_cache(matcher, tracks)
-    return json.dumps([t.dump() for t in tracks])
+    return filter_track_false_positives_using_read_cache(matcher, tracks)
 
 
 def run_actions_on_track(

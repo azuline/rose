@@ -1,7 +1,9 @@
 from rose.audiotags import (
     SUPPORTED_AUDIO_EXTENSIONS,
     AudioTags,
+    RoseDate,
     UnsupportedFiletypeError,
+    UnsupportedTagValueTypeError,
 )
 from rose.cache import (
     Collage,
@@ -22,6 +24,7 @@ from rose.cache import (
     get_release,
     get_track,
     get_tracks_of_release,
+    get_tracks_of_releases,
     label_exists,
     list_artists,
     list_collages,
@@ -29,6 +32,8 @@ from rose.cache import (
     list_genres,
     list_labels,
     list_playlists,
+    list_releases,
+    list_tracks,
     lock,
     make_release_logtext,
     make_track_logtext,
@@ -47,11 +52,12 @@ from rose.cache import (
     update_cache_for_releases,
 )
 from rose.collages import (
+    CollageAlreadyExistsError,
+    CollageDoesNotExistError,
+    DescriptionMismatchError,
     add_release_to_collage,
     create_collage,
     delete_collage,
-    dump_all_collages,
-    dump_collage,
     edit_collage_in_editor,
     remove_release_from_collage,
     rename_collage,
@@ -66,49 +72,66 @@ from rose.common import (
     sanitize_dirname,
     sanitize_filename,
 )
-from rose.config import Config
+from rose.config import (
+    Config,
+    ConfigDecodeError,
+    ConfigNotFoundError,
+    InvalidConfigValueError,
+    MissingConfigKeyError,
+)
 from rose.playlists import (
+    PlaylistAlreadyExistsError,
+    PlaylistDoesNotExistError,
     add_track_to_playlist,
     create_playlist,
     delete_playlist,
     delete_playlist_cover_art,
-    dump_all_playlists,
-    dump_playlist,
     edit_playlist_in_editor,
     remove_track_from_playlist,
     rename_playlist,
     set_playlist_cover_art,
 )
 from rose.releases import (
+    InvalidCoverArtFileError,
+    ReleaseDoesNotExistError,
+    ReleaseEditFailedError,
+    UnknownArtistRoleError,
     create_single_release,
     delete_release,
     delete_release_cover_art,
-    dump_all_releases,
-    dump_release,
     edit_release,
+    find_releases_matching_rule,
     run_actions_on_release,
     set_release_cover_art,
     toggle_release_new,
 )
-from rose.rule_parser import MetadataAction, MetadataMatcher, MetadataRule
-from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
+from rose.rule_parser import InvalidRuleError, MetadataAction, MetadataMatcher, MetadataRule
+from rose.rules import (
+    InvalidReplacementValueError,
+    TrackTagNotAllowedError,
+    execute_metadata_rule,
+    execute_stored_metadata_rules,
+)
 from rose.templates import (
+    InvalidPathTemplateError,
     PathContext,
     PathTemplate,
     evaluate_release_template,
     evaluate_track_template,
-    preview_path_templates,
+    get_sample_music,
 )
-from rose.tracks import dump_all_tracks, dump_track, run_actions_on_track
+from rose.tracks import TrackDoesNotExistError, find_tracks_matching_rule, run_actions_on_track
 
 __all__ = [
     # Plumbing
     "initialize_logging",
     "VERSION",
-    # Errors
     "RoseError",
     "RoseExpectedError",
-    "UnsupportedFiletypeError",
+    "DescriptionMismatchError",
+    "InvalidCoverArtFileError",
+    "ReleaseDoesNotExistError",
+    "ReleaseEditFailedError",
     # Utilities
     "sanitize_dirname",
     "sanitize_filename",
@@ -117,6 +140,10 @@ __all__ = [
     "SUPPORTED_AUDIO_EXTENSIONS",
     # Configuration
     "Config",
+    "ConfigNotFoundError",
+    "ConfigDecodeError",
+    "MissingConfigKeyError",
+    "InvalidConfigValueError",
     # Cache
     "maybe_invalidate_cache_database",
     "update_cache",
@@ -133,6 +160,9 @@ __all__ = [
     "playlist_lock_name",
     # Tagging
     "AudioTags",
+    "RoseDate",
+    "UnsupportedFiletypeError",
+    "UnsupportedTagValueTypeError",
     # Rule Engine
     "MetadataAction",
     "MetadataMatcher",
@@ -141,35 +171,42 @@ __all__ = [
     "execute_stored_metadata_rules",
     "run_actions_on_release",
     "run_actions_on_track",
+    "InvalidRuleError",
+    "InvalidReplacementValueError",
+    "TrackTagNotAllowedError",
     # Path Templates
     "PathContext",
     "PathTemplate",
     "evaluate_release_template",
     "evaluate_track_template",
-    "preview_path_templates",
+    "get_sample_music",
+    "InvalidPathTemplateError",
     # Releases
     "Release",
     "create_single_release",
     "delete_release",
     "delete_release_cover_art",
-    "dump_all_releases",
-    "dump_release",
     "edit_release",
+    "list_releases",
+    "find_releases_matching_rule",
     "get_release",
     "set_release_cover_art",
     "toggle_release_new",
     # Tracks
     "Track",
-    "dump_all_tracks",
-    "dump_track",
     "get_track",
+    "find_tracks_matching_rule",
+    "list_tracks",
     "get_tracks_of_release",
+    "get_tracks_of_releases",
     "track_within_release",
+    "TrackDoesNotExistError",
     # Artists
     "Artist",
     "ArtistMapping",
     "artist_exists",
     "list_artists",
+    "UnknownArtistRoleError",
     # Genres
     "GenreEntry",
     "list_genres",
@@ -187,8 +224,6 @@ __all__ = [
     "add_release_to_collage",
     "create_collage",
     "delete_collage",
-    "dump_all_collages",
-    "dump_collage",
     "edit_collage_in_editor",  # TODO: Move editor part to CLI, make this file-submissions.
     "get_collage",
     "get_collage_releases",
@@ -196,6 +231,8 @@ __all__ = [
     "remove_release_from_collage",
     "release_within_collage",
     "rename_collage",
+    "CollageDoesNotExistError",
+    "CollageAlreadyExistsError",
     # Playlists
     "Playlist",
     "add_track_to_playlist",
@@ -205,13 +242,13 @@ __all__ = [
     "delete_playlist_cover_art",
     "get_playlist",
     "get_playlist_tracks",
-    "dump_all_playlists",
-    "dump_playlist",
     "edit_playlist_in_editor",  # TODO: Move editor part to CLI, make this file-submissions.
     "track_within_playlist",
     "remove_track_from_playlist",
     "rename_playlist",
     "set_playlist_cover_art",
+    "PlaylistDoesNotExistError",
+    "PlaylistAlreadyExistsError",
 ]
 
 initialize_logging(__name__)

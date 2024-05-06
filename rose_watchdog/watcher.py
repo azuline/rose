@@ -36,7 +36,8 @@ from watchdog.events import (
 )
 from watchdog.observers import Observer
 
-from rose.cache import (
+from rose import (
+    Config,
     update_cache_evict_nonexistent_collages,
     update_cache_evict_nonexistent_playlists,
     update_cache_evict_nonexistent_releases,
@@ -44,7 +45,6 @@ from rose.cache import (
     update_cache_for_playlists,
     update_cache_for_releases,
 )
-from rose.config import Config
 
 logger = logging.getLogger(__name__)
 

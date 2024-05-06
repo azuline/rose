@@ -10,8 +10,7 @@ from pathlib import Path
 import pytest
 
 from conftest import retry_for_sec
-from rose.audiotags import AudioTags
-from rose.config import Config
+from rose import AudioTags, Config
 from rose_vfs.virtualfs import mount_virtualfs, unmount_virtualfs
 
 R1_VNAME = "Techno Man & Bass Man - 2023. Release 1"

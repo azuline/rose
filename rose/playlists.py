@@ -2,7 +2,6 @@
 The playlists module provides functions for interacting with playlists.
 """
 
-import json
 import logging
 import shutil
 from collections import Counter
@@ -15,34 +14,22 @@ import tomllib
 from send2trash import send2trash
 
 from rose.cache import (
-    get_playlist,
-    get_playlist_tracks,
     get_track_logtext,
-    list_playlists,
     lock,
     playlist_lock_name,
     update_cache_evict_nonexistent_playlists,
     update_cache_for_playlists,
 )
+from rose.collages import DescriptionMismatchError
 from rose.common import RoseExpectedError
 from rose.config import Config
+from rose.releases import InvalidCoverArtFileError
+from rose.tracks import TrackDoesNotExistError
 
 logger = logging.getLogger(__name__)
 
 
-class InvalidCoverArtFileError(RoseExpectedError):
-    pass
-
-
-class DescriptionMismatchError(RoseExpectedError):
-    pass
-
-
 class PlaylistDoesNotExistError(RoseExpectedError):
-    pass
-
-
-class TrackDoesNotExistError(RoseExpectedError):
     pass
 
 
@@ -150,42 +137,6 @@ def add_track_to_playlist(
             tomli_w.dump(data, fp)
     logger.info(f"Added track {track_logtext} to playlist {playlist_name}")
     update_cache_for_playlists(c, [playlist_name], force=True)
-
-
-def dump_playlist(c: Config, playlist_name: str) -> str:
-    playlist = get_playlist(c, playlist_name)
-    if playlist is None:
-        raise PlaylistDoesNotExistError(f"Playlist {playlist_name} does not exist")
-    playlist_tracks = get_playlist_tracks(c, playlist_name)
-    tracks: list[dict[str, Any]] = []
-    for idx, trk in enumerate(playlist_tracks):
-        tracks.append({"position": idx + 1, **trk.dump()})
-    return json.dumps(
-        {
-            "name": playlist_name,
-            "cover_image_path": str(playlist.cover_path) if playlist.cover_path else None,
-            "tracks": tracks,
-        }
-    )
-
-
-def dump_all_playlists(c: Config) -> str:
-    out: list[dict[str, Any]] = []
-    for name in list_playlists(c):
-        playlist = get_playlist(c, name)
-        assert playlist is not None
-        playlist_tracks = get_playlist_tracks(c, name)
-        tracks: list[dict[str, Any]] = []
-        for idx, trk in enumerate(playlist_tracks):
-            tracks.append({"position": idx + 1, **trk.dump()})
-        out.append(
-            {
-                "name": name,
-                "cover_image_path": str(playlist.cover_path) if playlist.cover_path else None,
-                "tracks": tracks,
-            }
-        )
-    return json.dumps(out)
 
 
 def edit_playlist_in_editor(c: Config, playlist_name: str) -> None:
