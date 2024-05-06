@@ -60,6 +60,7 @@ def test_rule_parse_matcher() -> None:
     )
     assert Matcher.parse(r"tracktitle:\^Track") == Matcher(["tracktitle"], Pattern(r"\^Track"))
     assert Matcher.parse(r"tracktitle:Track\$") == Matcher(["tracktitle"], Pattern(r"Track\$"))
+    assert Matcher.parse(r"tracktitle:\^Track\$") == Matcher(["tracktitle"], Pattern(r"\^Track\$"))
 
     def test_err(rule: str, err: str) -> None:
         with pytest.raises(RuleSyntaxError) as exc:
@@ -483,26 +484,28 @@ Failed to parse action 1, invalid syntax:
     )
 
 
-def test_rule_parsing_end_to_end() -> None:
-    matcher = "tracktitle:Track"
-    action = "delete"
-    assert (
-        str(Rule.parse(matcher, [action])) == f"matcher={matcher} action=tracktitle:Track/{action}"
-    )
+@pytest.mark.parametrize(
+    ("matcher", "action"),
+    [
+        ("tracktitle:Track", "delete"),
+        (r"tracktitle:\^Track", "delete"),
+        (r"tracktitle:Track\$", "delete"),
+        (r"tracktitle:\^Track\$", "delete"),
+    ],
+)
+def test_rule_parsing_end_to_end_1(matcher: str, action: str) -> None:
+    assert str(Rule.parse(matcher, [action])) == f"matcher={matcher} action={matcher}/{action}"
 
-    matcher = "tracktitle:Track"
-    action = "genre:lala/replace:lalala"
+
+@pytest.mark.parametrize(
+    ("matcher", "action"),
+    [
+        ("tracktitle:Track", "genre:lala/replace:lalala"),
+        ("tracktitle,genre,trackartist:Track", "tracktitle,genre,artist/delete"),
+    ],
+)
+def test_rule_parsing_end_to_end_2(matcher: str, action: str) -> None:
     assert str(Rule.parse(matcher, [action])) == f"matcher={matcher} action={action}"
-
-    matcher = "tracktitle,genre,trackartist:Track"
-    action = "tracktitle,genre,artist/delete"
-    assert str(Rule.parse(matcher, [action])) == f"matcher={matcher} action={action}"
-
-    matcher = "tracktitle:Track"
-    action = "delete"
-    assert (
-        str(Rule.parse(matcher, [action])) == f"matcher={matcher} action=tracktitle:Track/{action}"
-    )
 
 
 def test_rule_parsing_multi_value_validation() -> None:

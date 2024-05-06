@@ -171,6 +171,9 @@ def initialize_logging(logger_name: str) -> None:
     logger = logging.getLogger(logger_name)
     logger.setLevel(logging.INFO)
 
+    if "pytest" in sys.modules:  # pragma: no cover
+        logger.setLevel(logging.DEBUG)
+
     # appdirs by default has Unix log to $XDG_CACHE_HOME, but I'd rather write logs to $XDG_STATE_HOME.
     log_home = Path(appdirs.user_state_dir("rose"))
     if appdirs.system == "darwin":

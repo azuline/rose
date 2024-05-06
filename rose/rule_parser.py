@@ -294,21 +294,32 @@ class Pattern:
         self.strict_start = strict_start or strict
         self.strict_end = strict_end or strict
         if not self.strict_start:
-            if needle.startswith("^"):
+            if self.needle.startswith("^"):
                 self.strict_start = True
                 self.needle = self.needle[1:]
-            elif needle.startswith(r"\^"):
+            elif self.needle.startswith(r"\^"):
                 self.needle = self.needle[1:]
         if not self.strict_end:
-            if needle.endswith(r"\$"):
+            if self.needle.endswith(r"\$"):
                 self.needle = self.needle[:-2] + "$"
-            elif needle.endswith("$"):
+            elif self.needle.endswith("$"):
                 self.strict_end = True
                 self.needle = self.needle[:-1]
         self.case_insensitive = case_insensitive
 
     def __str__(self) -> str:
         r = escape(self.needle)
+
+        if self.strict_start:
+            r = "^" + r
+        elif self.needle.startswith("^"):
+            r = "\\" + r
+
+        if self.strict_end:
+            r += "$"
+        elif self.needle.endswith("$"):
+            r = r[:-1] + r"\$"
+
         if self.case_insensitive:
             r += ":i"
         return r
@@ -493,12 +504,7 @@ class Action:
                     "Make sure you are formatting your action like {tags}:{pattern}/{kind}:{args} (where `:{pattern}` is optional)",
                 )
             tags: list[Tag] = [x for x in matcher.tags if x in MODIFIABLE_TAGS]
-            pattern = matcher.pattern.needle
-            if matcher.pattern.strict_start:
-                pattern = "^" + pattern
-            if matcher.pattern.strict_end:
-                pattern = pattern + "$"
-            case_insensitive = matcher.pattern.case_insensitive
+            pattern = matcher.pattern
         else:
             # First, parse the tags. If the tag is matched, keep going, otherwise employ the list
             # parsing logic.
@@ -546,17 +552,11 @@ class Action:
             # And now parse the optional pattern. If the next character is a `/`, then we have an
             # explicitly empty pattern, after which we reach the end of the tags+pattern section.
             pattern = None
-            case_insensitive = False
             # It's possible for us to have both `tracktitle:/` (explicitly empty pattern) or
             # `tracktitle/` (inherit pattern), which we handle in the following two cases:
             if take(raw[idx - 1 :], "/") == ("", 1):
                 if matcher and tags == matcher.tags:
-                    pattern = matcher.pattern.needle
-                    if matcher.pattern.strict_start:
-                        pattern = "^" + pattern
-                    if matcher.pattern.strict_end:
-                        pattern = pattern + "$"
-                    case_insensitive = matcher.pattern.case_insensitive
+                    pattern = matcher.pattern
             elif take(raw[idx:], "/") == ("", 1):
                 idx += 1
             # And otherwise, parse the pattern!
@@ -565,37 +565,39 @@ class Action:
                 colon_pattern, colon_fwd = take(raw[idx:], ":")
                 slash_pattern, slash_fwd = take(raw[idx:], "/")
                 if colon_fwd < slash_fwd:
-                    pattern = colon_pattern
+                    needle = colon_pattern
                     fwd = colon_fwd
                     has_flags = True
                 else:
-                    pattern = slash_pattern
+                    needle = slash_pattern
                     fwd = slash_fwd
                     has_flags = False
                 idx += fwd
-                # Set an empty pattern to null.
-                pattern = pattern or None
 
-                # If we don't see the second colon here, that means we are looking at
-                # single-character flags. Only check this if pattern is not null though.
-                if has_flags:
-                    flags, fwd = take(raw[idx:], "/")
-                    if not flags:
-                        raise RuleSyntaxError(
-                            **err,
-                            index=idx,
-                            feedback="No flags specified: Please remove this section (by deleting the colon) or specify one of the supported flags: `i` (case insensitive).",
-                        )
-                    for i, flag in enumerate(flags):
-                        if flag == "i":
-                            case_insensitive = True
-                            continue
-                        raise RuleSyntaxError(
-                            **err,
-                            index=idx + i,
-                            feedback="Unrecognized flag: Either you forgot a colon here (to end the matcher), or this is an invalid matcher flag. The only supported flag is `i` (case insensitive).",
-                        )
-                    idx += fwd
+                if needle:
+                    # If we don't see the second colon here, that means we are looking at
+                    # single-character flags. Only check this if pattern is not null though.
+                    case_insensitive = False
+                    if has_flags:
+                        flags, fwd = take(raw[idx:], "/")
+                        if not flags:
+                            raise RuleSyntaxError(
+                                **err,
+                                index=idx,
+                                feedback="No flags specified: Please remove this section (by deleting the colon) or specify one of the supported flags: `i` (case insensitive).",
+                            )
+                        for i, flag in enumerate(flags):
+                            if flag == "i":
+                                case_insensitive = True
+                                continue
+                            raise RuleSyntaxError(
+                                **err,
+                                index=idx + i,
+                                feedback="Unrecognized flag: Either you forgot a colon here (to end the matcher), or this is an invalid matcher flag. The only supported flag is `i` (case insensitive).",
+                            )
+                        idx += fwd
+
+                    pattern = Pattern(needle, case_insensitive=case_insensitive)
 
         # Then let's start parsing the action!
         valid_actions = [
@@ -718,11 +720,7 @@ class Action:
         else:  # pragma: no cover
             raise RoseError(f"Impossible: unknown action_kind {action_kind=}")
 
-        action = Action(
-            behavior=behavior,
-            tags=tags,
-            pattern=Pattern(needle=pattern, case_insensitive=case_insensitive) if pattern else None,
-        )
+        action = Action(behavior=behavior, tags=tags, pattern=pattern)
         logger.debug(f"Parsed rule action {raw=} {matcher=} as {action=}")
         return action
 
