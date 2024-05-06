@@ -183,6 +183,7 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
   , label
   , releaseartist
   , trackartist
+  , new
   -- Use standard unicode tokenizer; do not remove diacritics; treat everything we know as token.
   -- Except for the ¬, which is our "separator." We use that separator to produce single-character
   -- tokens.

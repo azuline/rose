@@ -22,6 +22,7 @@ from rose.cache import (
     STORED_DATA_FILE_REGEX,
     Release,
     Track,
+    filter_releases,
     get_release,
     get_tracks_of_release,
     list_releases,
@@ -35,7 +36,7 @@ from rose.cache import (
 )
 from rose.common import Artist, ArtistMapping, RoseError, RoseExpectedError
 from rose.config import Config
-from rose.rule_parser import MetadataAction, MetadataMatcher
+from rose.rule_parser import ALL_TAGS, Action, Matcher
 from rose.rules import (
     execute_metadata_actions,
     fast_search_for_matching_releases,
@@ -449,7 +450,21 @@ You can reattempt the release edit and fix the metadata file with the command:
     update_cache_for_releases(c, [release.source_path], force=True)
 
 
-def find_releases_matching_rule(c: Config, matcher: MetadataMatcher) -> list[Release]:
+def find_releases_matching_rule(c: Config, matcher: Matcher) -> list[Release]:
+    # Implement optimizations for common lookups. Only applies to strict lookups.
+    # TODO: Morning
+    if matcher.pattern.strict_start and matcher.pattern.strict_end:
+        if matcher.tags == ALL_TAGS["artist"]:
+            return filter_releases(c, all_artist_filter=matcher.pattern.needle)
+        if matcher.tags == ALL_TAGS["releaseartist"]:
+            return filter_releases(c, release_artist_filter=matcher.pattern.needle)
+        if matcher.tags == ["genre"]:
+            return filter_releases(c, genre_filter=matcher.pattern.needle)
+        if matcher.tags == ["label"]:
+            return filter_releases(c, label_filter=matcher.pattern.needle)
+        if matcher.tags == ["descriptor"]:
+            return filter_releases(c, descriptor_filter=matcher.pattern.needle)
+
     release_ids = [x.id for x in fast_search_for_matching_releases(c, matcher)]
     releases = list_releases(c, release_ids)
     return filter_release_false_positives_using_read_cache(matcher, releases)
@@ -458,7 +473,7 @@ def find_releases_matching_rule(c: Config, matcher: MetadataMatcher) -> list[Rel
 def run_actions_on_release(
     c: Config,
     release_id: str,
-    actions: list[MetadataAction],
+    actions: list[Action],
     *,
     dry_run: bool = False,
     confirm_yes: bool = False,

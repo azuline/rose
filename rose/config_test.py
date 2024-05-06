@@ -12,11 +12,11 @@ from rose.config import (
     VirtualFSConfig,
 )
 from rose.rule_parser import (
-    MatcherPattern,
-    MetadataAction,
-    MetadataMatcher,
-    MetadataRule,
+    Action,
+    Matcher,
+    Pattern,
     ReplaceAction,
+    Rule,
     SplitAction,
 )
 from rose.templates import PathTemplate, PathTemplateConfig, PathTemplatePair
@@ -163,36 +163,32 @@ def test_config_full() -> None:
             ),
             ignore_release_directories=["dummy boy"],
             stored_metadata_rules=[
-                MetadataRule(
-                    matcher=MetadataMatcher(tags=["tracktitle"], pattern=MatcherPattern("lala")),
+                Rule(
+                    matcher=Matcher(["tracktitle"], Pattern("lala")),
                     actions=[
-                        MetadataAction(
+                        Action(
                             behavior=ReplaceAction(replacement="hihi"),
                             tags=["tracktitle"],
-                            pattern=MatcherPattern("lala"),
+                            pattern=Pattern("lala"),
                         )
                     ],
                     ignore=[],
                 ),
-                MetadataRule(
-                    matcher=MetadataMatcher(
-                        tags=["trackartist[main]"], pattern=MatcherPattern("haha")
-                    ),
+                Rule(
+                    matcher=Matcher(["trackartist[main]"], Pattern("haha")),
                     actions=[
-                        MetadataAction(
+                        Action(
                             behavior=ReplaceAction(replacement="bibi"),
                             tags=["trackartist[main]"],
-                            pattern=MatcherPattern("haha"),
+                            pattern=Pattern("haha"),
                         ),
-                        MetadataAction(
+                        Action(
                             behavior=SplitAction(delimiter=" "),
                             tags=["trackartist[main]"],
-                            pattern=MatcherPattern("haha"),
+                            pattern=Pattern("haha"),
                         ),
                     ],
-                    ignore=[
-                        MetadataMatcher(tags=["releasetitle"], pattern=MatcherPattern("blabla"))
-                    ],
+                    ignore=[Matcher(["releasetitle"], Pattern("blabla"))],
                 ),
             ],
             vfs=VirtualFSConfig(

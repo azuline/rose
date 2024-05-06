@@ -13,18 +13,23 @@ cache, which is used by other modules to provide release/track filtering capabil
 """
 
 import copy
+import dataclasses
 import logging
 import re
 import shlex
 import time
-from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 import click
+import tomli_w
+import tomllib
 
 from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
+    STORED_DATA_FILE_REGEX,
     Release,
+    StoredDataFile,
     Track,
     connect,
     list_releases,
@@ -35,13 +40,13 @@ from rose.common import Artist, RoseError, RoseExpectedError, uniq
 from rose.config import Config
 from rose.rule_parser import (
     RELEASE_TAGS,
+    Action,
     AddAction,
     DeleteAction,
-    MatcherPattern,
-    MetadataAction,
-    MetadataMatcher,
-    MetadataRule,
+    Matcher,
+    Pattern,
     ReplaceAction,
+    Rule,
     SedAction,
     SplitAction,
 )
@@ -70,7 +75,7 @@ def execute_stored_metadata_rules(
 
 def execute_metadata_rule(
     c: Config,
-    rule: MetadataRule,
+    rule: Rule,
     *,
     dry_run: bool = False,
     confirm_yes: bool = False,
@@ -135,7 +140,7 @@ def execute_metadata_rule(
 TAG_ROLE_REGEX = re.compile(r"\[[^\]]+\]$")
 
 
-@dataclass
+@dataclasses.dataclass(slots=True)
 class FastSearchResult:
     id: str
     path: Path
@@ -143,7 +148,7 @@ class FastSearchResult:
 
 def fast_search_for_matching_tracks(
     c: Config,
-    matcher: MetadataMatcher,
+    matcher: Matcher,
 ) -> list[FastSearchResult]:
     """
     Run a search for tracks with the matcher on the Full Text Search index. This is _fast_, but will
@@ -190,41 +195,32 @@ def fast_search_for_matching_tracks(
     return results
 
 
-def _convert_matcher_to_fts_query(pattern: MatcherPattern) -> str:
+def _convert_matcher_to_fts_query(pattern: Pattern) -> str:
     # Convert the matcher to a SQL expression for SQLite FTS. We won't be doing the precise
     # prefix/suffix matching here: for performance, we abuse SQLite FTS by making every character
     # its own token, which grants us the ability to search for arbitrary substrings. However, FTS
     # cannot guarantee ordering, which means that a search for `BLACKPINK` will also match
     # `PINKBLACK`. So we first pull all matching results, and then we use the previously written
     # precise Python matcher to ignore the false positives and only modify the tags we care about.
-    #
-    # Therefore we strip the `^$` and convert the text into SQLite FTS Match query. We use NEAR to
-    # assert that all the characters are within a substring equivalent to the length of the query,
-    # which should filter out most false positives.
-    needle = pattern.pattern
-    if needle.startswith("^") or needle.startswith(r"\^"):
-        needle = needle[1:]
-    if needle.endswith(r"\$"):
-        needle = needle[:-2] + "$"
-    elif needle.endswith("$"):
-        needle = needle[:-1]
     # Construct the SQL string for the matcher. Escape quotes in the match string.
-    matchsql = "¬".join(needle).replace("'", "''").replace('"', '""')
+    matchsql = "¬".join(pattern.needle).replace("'", "''").replace('"', '""')
     # NEAR restricts the query such that the # of tokens in between the first and last tokens of the
     # matched substring must be less than or equal to a given number. For us, that number is
     # len(matchsqlstr) - 2, as we subtract the first and last characters.
-    return f'NEAR("{matchsql}", {max(0, len(needle)-2)})'
+    return f'NEAR("{matchsql}", {max(0, len(pattern.needle)-2)})'
 
 
 def filter_track_false_positives_using_tags(
-    matcher: MetadataMatcher,
+    matcher: Matcher,
     fast_search_results: list[FastSearchResult],
-    ignore: list[MetadataMatcher],
+    ignore: list[Matcher],
 ) -> list[AudioTags]:
     time_start = time.time()
     rval = []
     for fsr in fast_search_results:
         tags = AudioTags.from_file(fsr.path)
+        # Cached datafile. As it's an extra disk read, we only read it when necessary.
+        datafile: StoredDataFile | None = None
         for field in matcher.tags:
             match = False
             # fmt: off
@@ -259,6 +255,11 @@ def filter_track_false_positives_using_tags(
             match = match or (field == "releaseartist[conductor]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.conductor))
             match = match or (field == "releaseartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.djmixer))
             # fmt: on
+            # And if necessary, open the datafile to match `new`.
+            if not match and field == "new":
+                if not datafile:
+                    datafile = _get_release_datafile_of_directory(tags.path.parent)
+                match = matches_pattern(matcher.pattern, datafile.new)
 
             # If there is a match, check to see if the track is matched by one of the ignore values.
             # If it is ignored, skip the result entirely.
@@ -296,6 +297,11 @@ def filter_track_false_positives_using_tags(
                     skip = skip or (field == "releaseartist[composer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.composer))
                     skip = skip or (field == "releaseartist[conductor]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.conductor))
                     skip = skip or (field == "releaseartist[djmixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.djmixer))
+                    # And finally, check the datafile.
+                    if not skip and field == "new":
+                        if not datafile:
+                            datafile = _get_release_datafile_of_directory(tags.path.parent)
+                        match = matches_pattern(i.pattern, datafile.new)
                     # fmt: on
                     if skip:
                         break
@@ -312,14 +318,31 @@ def filter_track_false_positives_using_tags(
     return rval
 
 
+def _get_release_datafile_of_directory(d: Path) -> StoredDataFile:
+    for f in d.iterdir():
+        if not STORED_DATA_FILE_REGEX.match(f.name):
+            continue
+        with f.open("rb") as fp:
+            diskdata = tomllib.load(fp)
+        return StoredDataFile(
+            new=diskdata.get("new", True),
+            added_at=diskdata.get(
+                "added_at", datetime.now().astimezone().replace(microsecond=0).isoformat()
+            ),
+        )
+    raise RoseError(f"Release data file not found in {d}. How is it in the library?")
+
+
 Changes = tuple[
-    str, str | int | RoseDate | None | list[str], str | int | RoseDate | None | list[str]
+    str,
+    str | int | bool | RoseDate | None | list[str],
+    str | int | bool | RoseDate | None | list[str],
 ]
 
 
 def execute_metadata_actions(
     c: Config,
-    actions: list[MetadataAction],
+    actions: list[Action],
     audiotags: list[AudioTags],
     *,
     dry_run: bool = False,
@@ -340,17 +363,55 @@ def execute_metadata_actions(
         # NOTE: Nothing should be an alias in this fn because we get data from tags.
         return [Artist(x) for x in xs]
 
+    # Map from str(audiofile.path.parent) to datafile.
+    opened_datafiles: dict[str, StoredDataFile] = {}
+
+    def open_datafile(path: Path) -> StoredDataFile:
+        try:
+            return opened_datafiles[str(path.parent)]
+        except KeyError:
+            datafile = _get_release_datafile_of_directory(path.parent)
+            opened_datafiles[str(path.parent)] = datafile
+            return datafile
+
     actionable_audiotags: list[tuple[AudioTags, list[Changes]]] = []
+    # Map from parent directory to tuple.
+    actionable_datafiles: dict[str, tuple[AudioTags, StoredDataFile, list[Changes]]] = {}
+
+    # We loop over audiotags as the main loop since the rules engine operates on tracks. Perhaps in
+    # the future we better arrange this into release-level as well as track-level and make datafile
+    # part of the release loop. We apply the datafile updates as-we-go, so even if we have 12 tracks
+    # updating a datafile, the update should only apply and be shown once.
     for tags in audiotags:
         origtags = copy.deepcopy(tags)
-        potential_changes: list[Changes] = []
+        potential_audiotag_changes: list[Changes] = []
+        # Load the datafile if we use it. Then we know that we have potential datafile changes for
+        # this datafile.
+        datafile = None
+        potential_datafile_changes: list[Changes] = []
         for act in actions:
             fields_to_update = act.tags
             for field in fields_to_update:
+                # Datafile actions.
+                # Only read the datafile if it's necessary; we don't want to pay the extra cost
+                # every time for rarer fields. Store the opened datafiles in opened_datafiles.
+                if field == "new":
+                    datafile = datafile or open_datafile(tags.path)
+                    v = execute_single_action(act, datafile.new)
+                    if v != "true" and v != "false":
+                        raise InvalidReplacementValueError(
+                            f"Failed to assign new value {v} to new: value must be string `true` or `false`"
+                        )
+                    orig_value = datafile.new
+                    datafile.new = v == "true"
+                    if orig_value != datafile.new:
+                        potential_datafile_changes.append(("new", orig_value, datafile.new))
+
+                # AudioTag Actions
                 # fmt: off
                 if field == "tracktitle":
                     tags.tracktitle = execute_single_action(act, tags.tracktitle)
-                    potential_changes.append(("title", origtags.tracktitle, tags.tracktitle))
+                    potential_audiotag_changes.append(("title", origtags.tracktitle, tags.tracktitle))
                 elif field == "releasedate":
                     v = execute_single_action(act, tags.releasedate)
                     try:
@@ -359,7 +420,7 @@ def execute_metadata_actions(
                         raise InvalidReplacementValueError(
                             f"Failed to assign new value {v} to releasedate: value must be date string"
                         ) from e
-                    potential_changes.append(("releasedate", origtags.releasedate, tags.releasedate))
+                    potential_audiotag_changes.append(("releasedate", origtags.releasedate, tags.releasedate))
                 elif field == "originaldate":
                     v = execute_single_action(act, tags.originaldate)
                     try:
@@ -368,7 +429,7 @@ def execute_metadata_actions(
                         raise InvalidReplacementValueError(
                             f"Failed to assign new value {v} to originaldate: value must be date string"
                         ) from e
-                    potential_changes.append(("originaldate", origtags.originaldate, tags.originaldate))
+                    potential_audiotag_changes.append(("originaldate", origtags.originaldate, tags.originaldate))
                 elif field == "compositiondate":
                     v = execute_single_action(act, tags.compositiondate)
                     try:
@@ -377,88 +438,102 @@ def execute_metadata_actions(
                         raise InvalidReplacementValueError(
                             f"Failed to assign new value {v} to compositiondate: value must be date string"
                         ) from e
-                    potential_changes.append(("compositiondate", origtags.compositiondate, tags.compositiondate))
+                    potential_audiotag_changes.append(("compositiondate", origtags.compositiondate, tags.compositiondate))
                 elif field == "edition":
                     tags.edition = execute_single_action(act, tags.edition)
-                    potential_changes.append(("edition", origtags.edition, tags.edition))
+                    potential_audiotag_changes.append(("edition", origtags.edition, tags.edition))
                 elif field == "catalognumber":
                     tags.catalognumber = execute_single_action(act, tags.catalognumber)
-                    potential_changes.append(("catalognumber", origtags.catalognumber, tags.catalognumber))
+                    potential_audiotag_changes.append(("catalognumber", origtags.catalognumber, tags.catalognumber))
                 elif field == "tracknumber":
                     tags.tracknumber = execute_single_action(act, tags.tracknumber)
-                    potential_changes.append(("tracknumber", origtags.tracknumber, tags.tracknumber))
+                    potential_audiotag_changes.append(("tracknumber", origtags.tracknumber, tags.tracknumber))
                 elif field == "discnumber":
                     tags.discnumber = execute_single_action(act, tags.discnumber)
-                    potential_changes.append(("discnumber", origtags.discnumber, tags.discnumber))
+                    potential_audiotag_changes.append(("discnumber", origtags.discnumber, tags.discnumber))
                 elif field == "releasetitle":
                     tags.releasetitle = execute_single_action(act, tags.releasetitle)
-                    potential_changes.append(("release", origtags.releasetitle, tags.releasetitle))
+                    potential_audiotag_changes.append(("release", origtags.releasetitle, tags.releasetitle))
                 elif field == "releasetype":
                     tags.releasetype = execute_single_action(act, tags.releasetype) or "unknown"
-                    potential_changes.append(("releasetype", origtags.releasetype, tags.releasetype))
+                    potential_audiotag_changes.append(("releasetype", origtags.releasetype, tags.releasetype))
                 elif field == "genre":
                     tags.genre = execute_multi_value_action(act, tags.genre)
-                    potential_changes.append(("genre", origtags.genre, tags.genre))
+                    potential_audiotag_changes.append(("genre", origtags.genre, tags.genre))
                 elif field == "secondarygenre":
                     tags.secondarygenre = execute_multi_value_action(act, tags.secondarygenre)
-                    potential_changes.append(("secondarygenre", origtags.secondarygenre, tags.secondarygenre))
+                    potential_audiotag_changes.append(("secondarygenre", origtags.secondarygenre, tags.secondarygenre))
                 elif field == "descriptor":
                     tags.descriptor = execute_multi_value_action(act, tags.descriptor)
-                    potential_changes.append(("descriptor", origtags.descriptor, tags.descriptor))
+                    potential_audiotag_changes.append(("descriptor", origtags.descriptor, tags.descriptor))
                 elif field == "label":
                     tags.label = execute_multi_value_action(act, tags.label)
-                    potential_changes.append(("label", origtags.label, tags.label))
+                    potential_audiotag_changes.append(("label", origtags.label, tags.label))
                 elif field == "trackartist[main]":
                     tags.trackartists.main = artists(execute_multi_value_action(act, names(tags.trackartists.main)))
-                    potential_changes.append(("trackartist[main]", names(origtags.trackartists.main), names(tags.trackartists.main)))
+                    potential_audiotag_changes.append(("trackartist[main]", names(origtags.trackartists.main), names(tags.trackartists.main)))
                 elif field == "trackartist[guest]":
                     tags.trackartists.guest = artists(execute_multi_value_action(act, names(tags.trackartists.guest)))
-                    potential_changes.append(("trackartist[guest]", names(origtags.trackartists.guest), names(tags.trackartists.guest)))
+                    potential_audiotag_changes.append(("trackartist[guest]", names(origtags.trackartists.guest), names(tags.trackartists.guest)))
                 elif field == "trackartist[remixer]":
                     tags.trackartists.remixer = artists(execute_multi_value_action(act, names(tags.trackartists.remixer)))
-                    potential_changes.append(("trackartist[remixer]", names(origtags.trackartists.remixer), names(tags.trackartists.remixer)))
+                    potential_audiotag_changes.append(("trackartist[remixer]", names(origtags.trackartists.remixer), names(tags.trackartists.remixer)))
                 elif field == "trackartist[producer]":
                     tags.trackartists.producer = artists(execute_multi_value_action(act, names(tags.trackartists.producer)))
-                    potential_changes.append(("trackartist[producer]", names(origtags.trackartists.producer), names(tags.trackartists.producer)))
+                    potential_audiotag_changes.append(("trackartist[producer]", names(origtags.trackartists.producer), names(tags.trackartists.producer)))
                 elif field == "trackartist[composer]":
                     tags.trackartists.composer = artists(execute_multi_value_action(act, names(tags.trackartists.composer)))
-                    potential_changes.append(("trackartist[composer]", names(origtags.trackartists.composer), names(tags.trackartists.composer)))
+                    potential_audiotag_changes.append(("trackartist[composer]", names(origtags.trackartists.composer), names(tags.trackartists.composer)))
                 elif field == "trackartist[conductor]":
                     tags.trackartists.conductor = artists(execute_multi_value_action(act, names(tags.trackartists.conductor)))
-                    potential_changes.append(("trackartist[conductor]", names(origtags.trackartists.conductor), names(tags.trackartists.conductor)))
+                    potential_audiotag_changes.append(("trackartist[conductor]", names(origtags.trackartists.conductor), names(tags.trackartists.conductor)))
                 elif field == "trackartist[djmixer]":
                     tags.trackartists.djmixer = artists(execute_multi_value_action(act, names(tags.trackartists.djmixer)))
-                    potential_changes.append(("trackartist[djmixer]", names(origtags.trackartists.djmixer), names(tags.trackartists.djmixer)))
+                    potential_audiotag_changes.append(("trackartist[djmixer]", names(origtags.trackartists.djmixer), names(tags.trackartists.djmixer)))
                 elif field == "releaseartist[main]":
                     tags.releaseartists.main = artists(execute_multi_value_action(act, names(tags.releaseartists.main)))
-                    potential_changes.append(("releaseartist[main]", names(origtags.releaseartists.main), names(tags.releaseartists.main)))
+                    potential_audiotag_changes.append(("releaseartist[main]", names(origtags.releaseartists.main), names(tags.releaseartists.main)))
                 elif field == "releaseartist[guest]":
                     tags.releaseartists.guest = artists(execute_multi_value_action(act, names(tags.releaseartists.guest)))
-                    potential_changes.append(("releaseartist[guest]", names(origtags.releaseartists.guest), names(tags.releaseartists.guest)))
+                    potential_audiotag_changes.append(("releaseartist[guest]", names(origtags.releaseartists.guest), names(tags.releaseartists.guest)))
                 elif field == "releaseartist[remixer]":
                     tags.releaseartists.remixer = artists(execute_multi_value_action(act, names(tags.releaseartists.remixer)))
-                    potential_changes.append(("releaseartist[remixer]", names(origtags.releaseartists.remixer), names(tags.releaseartists.remixer)))
+                    potential_audiotag_changes.append(("releaseartist[remixer]", names(origtags.releaseartists.remixer), names(tags.releaseartists.remixer) ))
                 elif field == "releaseartist[producer]":
-                    tags.releaseartists.producer = artists(execute_multi_value_action(act, names(tags.releaseartists.producer)) )
-                    potential_changes.append(("releaseartist[producer]", names(origtags.releaseartists.producer), names(tags.releaseartists.producer)))
+                    tags.releaseartists.producer = artists(execute_multi_value_action(act, names(tags.releaseartists.producer)))
+                    potential_audiotag_changes.append(("releaseartist[producer]", names(origtags.releaseartists.producer), names(tags.releaseartists.producer)))
                 elif field == "releaseartist[composer]":
-                    tags.releaseartists.composer = artists(execute_multi_value_action(act, names(tags.releaseartists.composer)) )
-                    potential_changes.append(("releaseartist[composer]", names(origtags.releaseartists.composer), names(tags.releaseartists.composer)))
+                    tags.releaseartists.composer = artists(execute_multi_value_action(act, names(tags.releaseartists.composer)))
+                    potential_audiotag_changes.append(("releaseartist[composer]", names(origtags.releaseartists.composer), names(tags.releaseartists.composer)))
                 elif field == "releaseartist[conductor]":
                     tags.releaseartists.conductor = artists(execute_multi_value_action(act, names(tags.releaseartists.conductor)))
-                    potential_changes.append(("releaseartist[conductor]", names(origtags.releaseartists.conductor), names(tags.releaseartists.conductor)))
+                    potential_audiotag_changes.append(("releaseartist[conductor]", names(origtags.releaseartists.conductor), names(tags.releaseartists.conductor)))
                 elif field == "releaseartist[djmixer]":
                     tags.releaseartists.djmixer = artists(execute_multi_value_action(act, names(tags.releaseartists.djmixer)))
-                    potential_changes.append(("releaseartist[djmixer]", names(origtags.releaseartists.djmixer), names(tags.releaseartists.djmixer)))
+                    potential_audiotag_changes.append(( "releaseartist[djmixer]", names(origtags.releaseartists.djmixer), names(tags.releaseartists.djmixer)))
                 # fmt: on
 
         # Compute real changes by diffing the tags, and then store.
-        changes = [(x, y, z) for x, y, z in potential_changes if y != z]
-        if changes:
-            actionable_audiotags.append((tags, changes))
-        else:
-            logger.debug(f"Skipping matched track {tags.path}: no changes calculated off tags")
-    if not actionable_audiotags:
+        tag_changes = [(x, y, z) for x, y, z in potential_audiotag_changes if y != z]
+        if tag_changes:
+            actionable_audiotags.append((tags, tag_changes))
+
+        # We already handled diffing for the datafile above. This moves the inner-track-loop
+        # datafile updates to the outer scope.
+        if datafile and potential_datafile_changes:
+            try:
+                _, _, datafile_changes = actionable_datafiles[str(tags.path.parent)]
+            except KeyError:
+                datafile_changes = []
+                actionable_datafiles[str(tags.path.parent)] = (tags, datafile, datafile_changes)
+            datafile_changes.extend(potential_datafile_changes)
+
+        if not tag_changes and not (datafile and potential_datafile_changes):
+            logger.debug(
+                f"Skipping matched track {tags.path}: no changes calculated off tags and datafile"
+            )
+
+    if not actionable_audiotags and not actionable_datafiles:
         click.secho("No matching tracks found", dim=True, italic=True)
         click.echo()
         return
@@ -468,17 +543,23 @@ def execute_metadata_actions(
     # Compute the text to display:
     todisplay: list[tuple[str, list[Changes]]] = []
     maxpathwidth = 0
-    for tags, changes in actionable_audiotags:
+    for tags, tag_changes in actionable_audiotags:
         pathtext = str(tags.path).removeprefix(str(c.music_source_dir) + "/")
         if len(pathtext) >= 120:
             pathtext = pathtext[:59] + ".." + pathtext[-59:]
         maxpathwidth = max(maxpathwidth, len(pathtext))
-        todisplay.append((pathtext, changes))
+        todisplay.append((pathtext, tag_changes))
+    for path, (_, _, datafile_changes) in actionable_datafiles.items():
+        pathtext = path.removeprefix(str(c.music_source_dir) + "/")
+        if len(pathtext) >= 120:
+            pathtext = pathtext[:59] + ".." + pathtext[-59:]
+        maxpathwidth = max(maxpathwidth, len(pathtext))
+        todisplay.append((pathtext, datafile_changes))
 
     # And then display it.
-    for pathtext, changes in todisplay:
+    for pathtext, tag_changes in todisplay:
         click.secho(pathtext, underline=True)
-        for name, old, new in changes:
+        for name, old, new in tag_changes:
             click.echo(f"      {name}: ", nl=False)
             click.secho(old, fg="red", nl=False)
             click.echo(" -> ", nl=False)
@@ -494,22 +575,23 @@ def execute_metadata_actions(
         return
 
     # And then let's go for the confirmation.
+    num_changes = len(actionable_audiotags) + len(actionable_datafiles)
     if confirm_yes:
         click.echo()
-        if len(actionable_audiotags) > enter_number_to_confirm_above_count:
+        if num_changes > enter_number_to_confirm_above_count:
             while True:
                 userconfirmation = click.prompt(
-                    f"Write changes to {len(actionable_audiotags)} tracks? Enter {click.style(len(actionable_audiotags), bold=True)} to confirm (or 'no' to abort)"
+                    f"Write changes to {num_changes} tracks? Enter {click.style(num_changes, bold=True)} to confirm (or 'no' to abort)"
                 )
                 if userconfirmation == "no":
                     logger.debug("Aborting planned tag changes after user confirmation")
                     return
-                if userconfirmation == str(len(actionable_audiotags)):
+                if userconfirmation == str(num_changes):
                     click.echo()
                     break
         else:
             if not click.confirm(
-                f"Write changes to {click.style(len(actionable_audiotags), bold=True)} tracks?",
+                f"Write changes to {click.style(num_changes, bold=True)} tracks?",
                 default=True,
                 prompt_suffix="",
             ):
@@ -523,18 +605,31 @@ def execute_metadata_actions(
         f"Writing tag changes for actions {' '.join([shlex.quote(str(a)) for a in actions])}"
     )
     changed_release_ids: set[str] = set()
-    for tags, changes in actionable_audiotags:
+    for tags, tag_changes in actionable_audiotags:
         if tags.release_id:
             changed_release_ids.add(tags.release_id)
         pathtext = str(tags.path).removeprefix(str(c.music_source_dir) + "/")
         logger.debug(
-            f"Attempting to write {pathtext} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in changes])}"
+            f"Attempting to write {pathtext} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in tag_changes])}"
         )
         tags.flush()
         logger.info(f"Wrote tag changes to {pathtext}")
+    for path, (tags, datafile, datafile_changes) in actionable_datafiles.items():
+        if tags.release_id:
+            changed_release_ids.add(tags.release_id)
+        pathtext = path.removeprefix(str(c.music_source_dir) + "/")
+        logger.debug(
+            f"Attempting to write {pathtext} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in datafile_changes])}"
+        )
+        for f in Path(path).iterdir():
+            if not STORED_DATA_FILE_REGEX.match(f.name):
+                continue
+            with f.open("wb") as fp:
+                tomli_w.dump(dataclasses.asdict(datafile), fp)
+        logger.info(f"Wrote datafile changes to {pathtext}")
 
     click.echo()
-    click.echo(f"Applied tag changes to {len(actionable_audiotags)} tracks!")
+    click.echo(f"Applied tag changes to {num_changes} tracks!")
 
     # == Step 6: Trigger cache update ===
 
@@ -543,44 +638,45 @@ def execute_metadata_actions(
     update_cache_for_releases(c, source_paths)
 
 
-def matches_pattern(pattern: MatcherPattern, value: str | int | RoseDate | None) -> bool:
-    value = str(value) if value is not None else ""
+TagValue = str | int | bool | RoseDate | None
 
-    needle = pattern.pattern
+
+def value_to_str(value: TagValue) -> str:
+    if isinstance(value, bool):
+        return str(value).lower()
+    if value:
+        return str(value)
+    return ""
+
+
+def matches_pattern(pattern: Pattern, value: str | int | bool | RoseDate | None) -> bool:
+    value = value_to_str(value)
+
+    needle = pattern.needle
     haystack = value
     if pattern.case_insensitive:
         needle = needle.lower()
         haystack = haystack.lower()
 
-    strictstart = strictend = False
-    if needle.startswith("^"):
-        strictstart = True
-        needle = needle[1:]
-    elif needle.startswith(r"\^"):
-        needle = needle[1:]
-
-    if needle.endswith(r"\$"):
-        needle = needle[:-2] + "$"
-    elif needle.endswith(r"$"):
-        needle = needle[:-1]
-        strictend = True
-
-    if strictstart and strictend:
+    if pattern.strict_start and pattern.strict_end:
         return haystack == needle
-    if strictstart:
+    if pattern.strict_start:
         return haystack.startswith(needle)
-    if strictend:
+    if pattern.strict_end:
         return haystack.endswith(needle)
     return needle in haystack
 
 
 # Factor out the logic for executing an action on a single-value tag and a multi-value tag.
-def execute_single_action(action: MetadataAction, value: str | int | RoseDate | None) -> str | None:
+def execute_single_action(
+    action: Action,
+    value: str | int | bool | RoseDate | None,
+) -> str | None:
     if action.pattern and not matches_pattern(action.pattern, value):
-        return str(value)
+        return value_to_str(value)
 
     bhv = action.behavior
-    strvalue = str(value) if value is not None else None
+    strvalue = value_to_str(value)
 
     if isinstance(bhv, ReplaceAction):
         return bhv.replacement
@@ -596,7 +692,7 @@ def execute_single_action(action: MetadataAction, value: str | int | RoseDate | 
 
 
 def execute_multi_value_action(
-    action: MetadataAction,
+    action: Action,
     values: list[str],
 ) -> list[str]:
     bhv = action.behavior
@@ -640,7 +736,7 @@ def execute_multi_value_action(
 
 def fast_search_for_matching_releases(
     c: Config,
-    matcher: MetadataMatcher,
+    matcher: Matcher,
 ) -> list[FastSearchResult]:
     """Basically the same thing as fast_search_for_matching_tracks but with releases."""
     time_start = time.time()
@@ -678,7 +774,7 @@ def fast_search_for_matching_releases(
 
 
 def filter_track_false_positives_using_read_cache(
-    matcher: MetadataMatcher,
+    matcher: Matcher,
     tracks: list[Track],
 ) -> list[Track]:
     time_start = time.time()
@@ -699,6 +795,7 @@ def filter_track_false_positives_using_read_cache(
             match = match or (field == "disctotal" and matches_pattern(matcher.pattern, t.release.disctotal))
             match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, t.release.releasetitle))
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, t.release.releasetype))
+            match = match or (field == "new" and matches_pattern(matcher.pattern, t.release.new))
             match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in t.release.genres))
             match = match or (field == "secondarygenre" and any(matches_pattern(matcher.pattern, x) for x in t.release.secondary_genres))
             match = match or (field == "descriptor" and any(matches_pattern(matcher.pattern, x) for x in t.release.descriptors))
@@ -728,7 +825,7 @@ def filter_track_false_positives_using_read_cache(
 
 
 def filter_release_false_positives_using_read_cache(
-    matcher: MetadataMatcher,
+    matcher: Matcher,
     releases: list[Release],
 ) -> list[Release]:
     time_start = time.time()
@@ -745,6 +842,7 @@ def filter_release_false_positives_using_read_cache(
             match = match or (field == "catalognumber" and matches_pattern(matcher.pattern, r.catalognumber))
             match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, r.releasetitle))
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, r.releasetype))
+            match = match or (field == "new" and matches_pattern(matcher.pattern, r.new))
             match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in r.genres))
             match = match or (field == "secondarygenre" and any(matches_pattern(matcher.pattern, x) for x in r.secondary_genres))
             match = match or (field == "descriptor" and any(matches_pattern(matcher.pattern, x) for x in r.descriptors))

@@ -4,14 +4,14 @@ import click
 import pytest
 
 from rose.rule_parser import (
+    Action,
     AddAction,
     DeleteAction,
     InvalidRuleError,
-    MatcherPattern,
-    MetadataAction,
-    MetadataMatcher,
-    MetadataRule,
+    Matcher,
+    Pattern,
     ReplaceAction,
+    Rule,
     RuleSyntaxError,
     SedAction,
     SplitAction,
@@ -20,54 +20,51 @@ from rose.rule_parser import (
 
 
 def test_rule_str() -> None:
-    rule = MetadataRule.parse("tracktitle:Track", ["releaseartist,genre/replace:lalala"])
+    rule = Rule.parse("tracktitle:Track", ["releaseartist,genre/replace:lalala"])
     assert str(rule) == "matcher=tracktitle:Track action=releaseartist,genre/replace:lalala"
 
     # Test that rules are quoted properly.
-    rule = MetadataRule.parse(r"tracktitle,releaseartist,genre::: ", [r"sed::::; "])
+    rule = Rule.parse(r"tracktitle,releaseartist,genre::: ", [r"sed::::; "])
     assert (
         str(rule)
         == r"matcher='tracktitle,releaseartist,genre::: ' action='tracktitle,releaseartist,genre::: /sed::::; '"
     )
 
     # Test that custom action matcher is printed properly.
-    rule = MetadataRule.parse("tracktitle:Track", ["genre:lala/replace:lalala"])
+    rule = Rule.parse("tracktitle:Track", ["genre:lala/replace:lalala"])
     assert str(rule) == "matcher=tracktitle:Track action=genre:lala/replace:lalala"
 
     # Test that we print `matched` when action pattern is not null.
-    rule = MetadataRule.parse("genre:b", ["genre:h/replace:hi"])
+    rule = Rule.parse("genre:b", ["genre:h/replace:hi"])
     assert str(rule) == r"matcher=genre:b action=genre:h/replace:hi"
 
 
 def test_rule_parse_matcher() -> None:
-    assert MetadataMatcher.parse("tracktitle:Track") == MetadataMatcher(
-        tags=["tracktitle"],
-        pattern=MatcherPattern("Track"),
+    assert Matcher.parse("tracktitle:Track") == Matcher(["tracktitle"], Pattern("Track"))
+    assert Matcher.parse("tracktitle,tracknumber:Track") == Matcher(
+        ["tracktitle", "tracknumber"], Pattern("Track")
     )
-    assert MetadataMatcher.parse("tracktitle,tracknumber:Track") == MetadataMatcher(
-        tags=["tracktitle", "tracknumber"],
-        pattern=MatcherPattern("Track"),
+    assert Matcher.parse(r"tracktitle,tracknumber:Tr::ck") == Matcher(
+        ["tracktitle", "tracknumber"], Pattern("Tr:ck")
     )
-    assert MetadataMatcher.parse("tracktitle,tracknumber:^Track$") == MetadataMatcher(
-        tags=["tracktitle", "tracknumber"],
-        pattern=MatcherPattern("^Track$"),
+    assert Matcher.parse("tracktitle,tracknumber:Track:i") == Matcher(
+        ["tracktitle", "tracknumber"], Pattern("Track", case_insensitive=True)
     )
-    assert MetadataMatcher.parse(r"tracktitle,tracknumber:Tr::ck") == MetadataMatcher(
-        tags=["tracktitle", "tracknumber"],
-        pattern=MatcherPattern("Tr:ck"),
+    assert Matcher.parse(r"tracktitle:") == Matcher(["tracktitle"], Pattern(""))
+
+    assert Matcher.parse("tracktitle:^Track") == Matcher(
+        ["tracktitle"], Pattern("Track", strict_start=True)
     )
-    assert MetadataMatcher.parse("tracktitle,tracknumber:Track:i") == MetadataMatcher(
-        tags=["tracktitle", "tracknumber"],
-        pattern=MatcherPattern("Track", case_insensitive=True),
+    assert Matcher.parse("tracktitle:Track$") == Matcher(
+        ["tracktitle"], Pattern("Track", strict_end=True)
     )
-    assert MetadataMatcher.parse(r"tracktitle:") == MetadataMatcher(
-        tags=["tracktitle"],
-        pattern=MatcherPattern(""),
-    )
+    assert Matcher.parse(r"tracktitle:\^Track") == Matcher(["tracktitle"], Pattern(r"\^Track"))
+    assert Matcher.parse(r"tracktitle:Track\$") == Matcher(["tracktitle"], Pattern(r"Track\$"))
+    assert Matcher.parse(r"tracktitle:\^Track\$") == Matcher(["tracktitle"], Pattern(r"\^Track\$"))
 
     def test_err(rule: str, err: str) -> None:
         with pytest.raises(RuleSyntaxError) as exc:
-            MetadataMatcher.parse(rule)
+            Matcher.parse(rule)
         assert click.unstyle(str(exc.value)) == err
 
     test_err(
@@ -77,7 +74,7 @@ Failed to parse matcher, invalid syntax:
 
     tracknumber^Track$
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, tracktotal, discnumber, disctotal, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, genre, secondarygenre, descriptor, label, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, tracktotal, discnumber, disctotal, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, genre, secondarygenre, descriptor, label, new, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -116,120 +113,118 @@ Failed to parse matcher, invalid syntax:
 
 
 def test_rule_parse_action() -> None:
-    assert MetadataAction.parse(
+    assert Action.parse(
         "replace:lalala",
-        matcher=MetadataMatcher(tags=["tracktitle"], pattern=MatcherPattern("haha")),
-    ) == MetadataAction(
+        matcher=Matcher(tags=["tracktitle"], pattern=Pattern("haha")),
+    ) == Action(
         behavior=ReplaceAction(replacement="lalala"),
         tags=["tracktitle"],
-        pattern=MatcherPattern("haha"),
+        pattern=Pattern("haha"),
     )
-    assert MetadataAction.parse("genre/replace:lalala") == MetadataAction(
+    assert Action.parse("genre/replace:lalala") == Action(
         behavior=ReplaceAction(replacement="lalala"),
         tags=["genre"],
         pattern=None,
     )
-    assert MetadataAction.parse("tracknumber,genre/replace:lalala") == MetadataAction(
+    assert Action.parse("tracknumber,genre/replace:lalala") == Action(
         behavior=ReplaceAction(replacement="lalala"),
         tags=["tracknumber", "genre"],
         pattern=None,
     )
-    assert MetadataAction.parse("genre:lala/replace:lalala") == MetadataAction(
+    assert Action.parse("genre:lala/replace:lalala") == Action(
         behavior=ReplaceAction(replacement="lalala"),
         tags=["genre"],
-        pattern=MatcherPattern("lala"),
+        pattern=Pattern("lala"),
     )
-    assert MetadataAction.parse("genre:lala:i/replace:lalala") == MetadataAction(
+    assert Action.parse("genre:lala:i/replace:lalala") == Action(
         behavior=ReplaceAction(replacement="lalala"),
         tags=["genre"],
-        pattern=MatcherPattern("lala", case_insensitive=True),
+        pattern=Pattern("lala", case_insensitive=True),
     )
-    assert MetadataAction.parse(
+    assert Action.parse(
         "matched:^x/replace:lalala",
-        matcher=MetadataMatcher(tags=["tracktitle"], pattern=MatcherPattern("haha")),
-    ) == MetadataAction(
+        matcher=Matcher(tags=["tracktitle"], pattern=Pattern("haha")),
+    ) == Action(
         behavior=ReplaceAction(replacement="lalala"),
         tags=["tracktitle"],
-        pattern=MatcherPattern("^x"),
+        pattern=Pattern("^x"),
     )
 
     # Test that case insensitivity is inherited from the matcher.
-    assert MetadataAction.parse(
+    assert Action.parse(
         "replace:lalala",
-        matcher=MetadataMatcher(
-            tags=["tracktitle"], pattern=MatcherPattern("haha", case_insensitive=True)
-        ),
-    ) == MetadataAction(
+        matcher=Matcher(tags=["tracktitle"], pattern=Pattern("haha", case_insensitive=True)),
+    ) == Action(
         behavior=ReplaceAction(replacement="lalala"),
         tags=["tracktitle"],
-        pattern=MatcherPattern("haha", case_insensitive=True),
+        pattern=Pattern("haha", case_insensitive=True),
     )
 
     # Test that the action excludes the immutable *total tags.
-    assert MetadataAction.parse(
+    assert Action.parse(
         "replace:5",
-        matcher=MetadataMatcher(
+        matcher=Matcher(
             tags=["tracknumber", "tracktotal", "discnumber", "disctotal"],
-            pattern=MatcherPattern("1"),
+            pattern=Pattern("1"),
         ),
-    ) == MetadataAction(
+    ) == Action(
         behavior=ReplaceAction(replacement="5"),
         tags=["tracknumber", "discnumber"],
-        pattern=MatcherPattern("1"),
+        pattern=Pattern("1"),
     )
 
-    assert MetadataAction.parse(
+    assert Action.parse(
         "sed:lalala:hahaha",
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
-    ) == MetadataAction(
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
+    ) == Action(
         behavior=SedAction(src=re.compile("lalala"), dst="hahaha"),
         tags=["genre"],
-        pattern=MatcherPattern("haha"),
+        pattern=Pattern("haha"),
     )
-    assert MetadataAction.parse(
+    assert Action.parse(
         r"split:::",
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
-    ) == MetadataAction(
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
+    ) == Action(
         behavior=SplitAction(delimiter=":"),
         tags=["genre"],
-        pattern=MatcherPattern("haha"),
+        pattern=Pattern("haha"),
     )
-    assert MetadataAction.parse(
+    assert Action.parse(
         r"split:::",
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
-    ) == MetadataAction(
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
+    ) == Action(
         behavior=SplitAction(delimiter=":"),
         tags=["genre"],
-        pattern=MatcherPattern("haha"),
+        pattern=Pattern("haha"),
     )
-    assert MetadataAction.parse(
+    assert Action.parse(
         r"add:cute",
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
-    ) == MetadataAction(
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
+    ) == Action(
         behavior=AddAction(value="cute"),
         tags=["genre"],
-        pattern=MatcherPattern("haha"),
+        pattern=Pattern("haha"),
     )
-    assert MetadataAction.parse(
+    assert Action.parse(
         r"delete:",
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
-    ) == MetadataAction(
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
+    ) == Action(
         behavior=DeleteAction(),
         tags=["genre"],
-        pattern=MatcherPattern("haha"),
+        pattern=Pattern("haha"),
     )
-    assert MetadataAction.parse(
+    assert Action.parse(
         r"delete:",
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
-    ) == MetadataAction(
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
+    ) == Action(
         behavior=DeleteAction(),
         tags=["genre"],
-        pattern=MatcherPattern("haha"),
+        pattern=Pattern("haha"),
     )
 
-    def test_err(rule: str, err: str, matcher: MetadataMatcher | None = None) -> None:
+    def test_err(rule: str, err: str, matcher: Matcher | None = None) -> None:
         with pytest.raises(RuleSyntaxError) as exc:
-            MetadataAction.parse(rule, 1, matcher)
+            Action.parse(rule, 1, matcher)
         assert click.unstyle(str(exc.value)) == err
 
     test_err(
@@ -250,7 +245,7 @@ Failed to parse action 1, invalid syntax:
 
     haha/delete
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, genre, secondarygenre, descriptor, label, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, genre, secondarygenre, descriptor, label, new, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -261,7 +256,7 @@ Failed to parse action 1, invalid syntax:
 
     tracktitler/delete
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, genre, secondarygenre, descriptor, label, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, genre, secondarygenre, descriptor, label, new, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -274,7 +269,7 @@ Failed to parse action 1, invalid syntax:
     ^
     Invalid action kind: must be one of {replace, sed, split, add, delete}. If this is pointing at your pattern, you forgot to put a `/` between the matcher section and the action section.
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -297,7 +292,7 @@ Failed to parse action 1, invalid syntax:
     ^
     Invalid action kind: must be one of {replace, sed, split, add, delete}.
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -309,7 +304,7 @@ Failed to parse action 1, invalid syntax:
            ^
            Replacement not found: must specify a non-empty replacement. Use the delete action to remove a value.
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
     test_err(
         "replace:haha:",
@@ -320,7 +315,7 @@ Failed to parse action 1, invalid syntax:
                 ^
                 Found another section after the replacement, but the replacement must be the last section. Perhaps you meant to escape this colon?
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -332,7 +327,7 @@ Failed to parse action 1, invalid syntax:
        ^
        Empty sed pattern found: must specify a non-empty pattern. Example: sed:pattern:replacement
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -344,7 +339,7 @@ Failed to parse action 1, invalid syntax:
             ^
             Sed replacement not found: must specify a sed replacement section. Example: sed:hihi:replacement.
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -356,7 +351,7 @@ Failed to parse action 1, invalid syntax:
         ^
         Failed to compile the sed pattern regex: invalid pattern: unterminated character set at position 7
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -368,7 +363,7 @@ Failed to parse action 1, invalid syntax:
                    ^
                    Found another section after the sed replacement, but the sed replacement must be the last section. Perhaps you meant to escape this colon?
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -380,7 +375,7 @@ Failed to parse action 1, invalid syntax:
          ^
          Delimiter not found: must specify a non-empty delimiter to split on.
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -392,7 +387,7 @@ Failed to parse action 1, invalid syntax:
             ^
             Found another section after the delimiter, but the delimiter must be the last section. Perhaps you meant to escape this colon?
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -404,7 +399,7 @@ Failed to parse action 1, invalid syntax:
           ^
           Delimiter not found: must specify a non-empty delimiter to split on.
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -416,7 +411,7 @@ Failed to parse action 1, invalid syntax:
        ^
        Value not found: must specify a non-empty value to add.
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -428,7 +423,7 @@ Failed to parse action 1, invalid syntax:
           ^
           Found another section after the value, but the value must be the last section. Perhaps you meant to escape this colon?
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -440,7 +435,7 @@ Failed to parse action 1, invalid syntax:
         ^
         Value not found: must specify a non-empty value to add.
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -452,7 +447,7 @@ Failed to parse action 1, invalid syntax:
            ^
            Found another section after the action kind, but the delete action has no parameters. Please remove this section.
 """,
-        matcher=MetadataMatcher(tags=["genre"], pattern=MatcherPattern("haha")),
+        matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
 
     test_err(
@@ -489,51 +484,58 @@ Failed to parse action 1, invalid syntax:
     )
 
 
-def test_rule_parsing_end_to_end() -> None:
-    matcher = "tracktitle:Track"
-    action = "delete"
-    assert (
-        str(MetadataRule.parse(matcher, [action]))
-        == f"matcher={matcher} action=tracktitle:Track/{action}"
-    )
+@pytest.mark.parametrize(
+    ("matcher", "action"),
+    [("tracktitle:Track", "delete")],
+)
+def test_rule_parsing_end_to_end_1(matcher: str, action: str) -> None:
+    assert str(Rule.parse(matcher, [action])) == f"matcher={matcher} action={matcher}/{action}"
 
-    matcher = "tracktitle:Track"
-    action = "genre:lala/replace:lalala"
-    assert str(MetadataRule.parse(matcher, [action])) == f"matcher={matcher} action={action}"
 
-    matcher = "tracktitle,genre,trackartist:Track"
-    action = "tracktitle,genre,artist/delete"
-    assert str(MetadataRule.parse(matcher, [action])) == f"matcher={matcher} action={action}"
+@pytest.mark.parametrize(
+    ("matcher", "action"),
+    [
+        (r"tracktitle:\^Track", "delete"),
+        (r"tracktitle:Track\$", "delete"),
+        (r"tracktitle:\^Track\$", "delete"),
+    ],
+)
+def test_rule_parsing_end_to_end_2(matcher: str, action: str) -> None:
+    assert str(Rule.parse(matcher, [action])) == f"matcher='{matcher}' action='{matcher}/{action}'"
 
-    matcher = "tracktitle:Track"
-    action = "delete"
-    assert (
-        str(MetadataRule.parse(matcher, [action]))
-        == f"matcher={matcher} action=tracktitle:Track/{action}"
-    )
+
+@pytest.mark.parametrize(
+    ("matcher", "action"),
+    [
+        ("tracktitle:Track", "genre:lala/replace:lalala"),
+        ("tracktitle,genre,trackartist:Track", "tracktitle,genre,artist/delete"),
+    ],
+)
+def test_rule_parsing_end_to_end_3(matcher: str, action: str) -> None:
+    assert str(Rule.parse(matcher, [action])) == f"matcher={matcher} action={action}"
 
 
 def test_rule_parsing_multi_value_validation() -> None:
     with pytest.raises(InvalidRuleError) as e:
-        MetadataRule.parse("tracktitle:h", ["split:x"])
+        Rule.parse("tracktitle:h", ["split:x"])
     assert (
         str(e.value)
         == "Single valued tags tracktitle cannot be modified by multi-value action split"
     )
     with pytest.raises(InvalidRuleError):
-        MetadataRule.parse("tracktitle:h", ["split:x"])
+        Rule.parse("tracktitle:h", ["split:x"])
     assert (
         str(e.value)
         == "Single valued tags tracktitle cannot be modified by multi-value action split"
     )
     with pytest.raises(InvalidRuleError):
-        MetadataRule.parse("genre:h", ["tracktitle/split:x"])
+        Rule.parse("genre:h", ["tracktitle/split:x"])
     assert (
         str(e.value)
         == "Single valued tags tracktitle cannot be modified by multi-value action split"
     )
     with pytest.raises(InvalidRuleError):
-        MetadataRule.parse("genre:h", ["split:y", "tracktitle/split:x"])
+        Rule.parse("genre:h", ["split:y", "tracktitle/split:x"])
     assert (
         str(e.value)
         == "Single valued tags tracktitle cannot be modified by multi-value action split"
@@ -541,15 +543,15 @@ def test_rule_parsing_multi_value_validation() -> None:
 
 
 def test_rule_parsing_defaults() -> None:
-    rule = MetadataRule.parse("tracktitle:Track", ["replace:hi"])
+    rule = Rule.parse("tracktitle:Track", ["replace:hi"])
     assert rule.actions[0].pattern is not None
-    assert rule.actions[0].pattern.pattern == "Track"
-    rule = MetadataRule.parse("tracktitle:Track", ["tracktitle/replace:hi"])
+    assert rule.actions[0].pattern.needle == "Track"
+    rule = Rule.parse("tracktitle:Track", ["tracktitle/replace:hi"])
     assert rule.actions[0].pattern is not None
-    assert rule.actions[0].pattern.pattern == "Track"
-    rule = MetadataRule.parse("tracktitle:Track", ["tracktitle:Lack/replace:hi"])
+    assert rule.actions[0].pattern.needle == "Track"
+    rule = Rule.parse("tracktitle:Track", ["tracktitle:Lack/replace:hi"])
     assert rule.actions[0].pattern is not None
-    assert rule.actions[0].pattern.pattern == "Lack"
+    assert rule.actions[0].pattern.needle == "Lack"
 
 
 def test_parser_take() -> None:

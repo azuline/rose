@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 
-from rose import Config, MetadataMatcher
+from rose import Config, Matcher
 from rose_cli.dump import (
     dump_all_artists,
     dump_all_collages,
@@ -36,7 +36,7 @@ def test_dump_releases(config: Config, snapshot: Any) -> None:
 
 @pytest.mark.usefixtures("static_cache")
 def test_dump_releases_matcher(config: Config, snapshot: Any) -> None:
-    matcher = MetadataMatcher.parse("releasetitle:2$")
+    matcher = Matcher.parse("releasetitle:2$")
     snapshot.assert_match(json.loads(dump_all_releases(config, matcher)))
 
 
@@ -47,7 +47,7 @@ def test_dump_tracks(config: Config, snapshot: Any) -> None:
 
 @pytest.mark.usefixtures("static_cache")
 def test_dump_tracks_with_matcher(config: Config, snapshot: Any) -> None:
-    matcher = MetadataMatcher.parse("artist:Techno Man")
+    matcher = Matcher.parse("artist:Techno Man")
     snapshot.assert_match(json.loads(dump_all_tracks(config, matcher)))
 
 

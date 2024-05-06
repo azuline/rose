@@ -7,16 +7,17 @@ module and the rules module.
 
 from __future__ import annotations
 
+import dataclasses
 import io
 import logging
 import re
 import shlex
-from dataclasses import dataclass
+from collections.abc import Sequence
 from typing import Literal
 
 import click
 
-from rose.common import RoseError, RoseExpectedError
+from rose.common import RoseError, RoseExpectedError, uniq
 
 logger = logging.getLogger(__name__)
 
@@ -74,11 +75,14 @@ Tag = Literal[
     "secondarygenre",
     "descriptor",
     "label",
+    "new",
 ]
+
+ExpandableTag = Tag | Literal["artist", "trackartist", "releaseartist"]
 
 # Map of a tag to its "resolved" tags. Most tags simply resolve to themselves; however, we let
 # certain tags be aliases for multiple other tags, purely for convenience.
-ALL_TAGS: dict[str, list[Tag]] = {
+ALL_TAGS: dict[ExpandableTag, list[Tag]] = {
     "tracktitle": ["tracktitle"],
     "trackartist": [
         "trackartist[main]",
@@ -127,6 +131,7 @@ ALL_TAGS: dict[str, list[Tag]] = {
     "secondarygenre": ["secondarygenre"],
     "descriptor": ["descriptor"],
     "label": ["label"],
+    "new": ["new"],
     "artist": [
         "trackartist[main]",
         "trackartist[guest]",
@@ -174,6 +179,7 @@ MODIFIABLE_TAGS: list[Tag] = [
     "secondarygenre",
     "descriptor",
     "label",
+    "new",
 ]
 
 SINGLE_VALUE_TAGS: list[Tag] = [
@@ -189,6 +195,7 @@ SINGLE_VALUE_TAGS: list[Tag] = [
     "compositiondate",
     "edition",
     "catalognumber",
+    "new",
 ]
 
 RELEASE_TAGS: list[Tag] = [
@@ -212,10 +219,11 @@ RELEASE_TAGS: list[Tag] = [
     "descriptor",
     "label",
     "disctotal",
+    "new",
 ]
 
 
-@dataclass
+@dataclasses.dataclass
 class ReplaceAction:
     """
     Replaces the matched tag with `replacement`. For multi-valued tags, `;` is treated as a
@@ -225,7 +233,7 @@ class ReplaceAction:
     replacement: str
 
 
-@dataclass
+@dataclasses.dataclass
 class SedAction:
     """
     Executes a regex substitution on a tag value.
@@ -235,7 +243,7 @@ class SedAction:
     dst: str
 
 
-@dataclass
+@dataclasses.dataclass
 class SplitAction:
     """
     Splits a tag into multiple tags on the provided delimiter. This action is only allowed on
@@ -245,7 +253,7 @@ class SplitAction:
     delimiter: str
 
 
-@dataclass
+@dataclasses.dataclass
 class AddAction:
     """
     Adds a value to the tag. This action is only allowed on multi-value tags. If the value already
@@ -255,33 +263,82 @@ class AddAction:
     value: str
 
 
-@dataclass
+@dataclasses.dataclass
 class DeleteAction:
     """
     Deletes the tag value.
     """
 
 
-@dataclass
-class MatcherPattern:
+@dataclasses.dataclass(slots=True)
+class Pattern:
     # Substring match with support for `^$` strict start / strict end matching.
-    pattern: str
+    needle: str
+    strict_start: bool = False
+    strict_end: bool = False
     case_insensitive: bool = False
 
+    def __init__(
+        self,
+        # The starting `^` and the trailing `$` are parsed to set strict_start/strict_end if they
+        # are not passed explicitly. If they are passed explicitly, the needle is untouched. They
+        # can be escaped with backslashes.
+        needle: str,
+        # Sets both strict_start and strict_end to true.
+        strict: bool = False,
+        strict_start: bool = False,
+        strict_end: bool = False,
+        case_insensitive: bool = False,
+    ):
+        self.needle = needle
+        self.strict_start = strict_start or strict
+        self.strict_end = strict_end or strict
+        if not self.strict_start:
+            if self.needle.startswith("^"):
+                self.strict_start = True
+                self.needle = self.needle[1:]
+            elif self.needle.startswith(r"\^"):
+                self.needle = self.needle[1:]
+        if not self.strict_end:
+            if self.needle.endswith(r"\$"):
+                self.needle = self.needle[:-2] + "$"
+            elif self.needle.endswith("$"):
+                self.strict_end = True
+                self.needle = self.needle[:-1]
+        self.case_insensitive = case_insensitive
+
     def __str__(self) -> str:
-        r = escape(self.pattern)
+        r = escape(self.needle)
+
+        if self.strict_start:
+            r = "^" + r
+        elif self.needle.startswith("^"):
+            r = "\\" + r
+
+        if self.strict_end:
+            r += "$"
+        elif self.needle.endswith("$"):
+            r = r[:-1] + r"\$"
+
         if self.case_insensitive:
             r += ":i"
         return r
 
 
-@dataclass
-class MetadataMatcher:
+@dataclasses.dataclass(slots=True)
+class Matcher:
     # Tags to test against the pattern. If any tags match the pattern, the action will be ran
     # against the track.
     tags: list[Tag]
     # The pattern to test the tag against.
-    pattern: MatcherPattern
+    pattern: Pattern
+
+    def __init__(self, tags: Sequence[ExpandableTag], pattern: Pattern) -> None:
+        _tags: list[Tag] = []
+        for t in tags:
+            _tags.extend(ALL_TAGS[t])
+        self.tags = uniq(_tags)
+        self.pattern = pattern
 
     def __str__(self) -> str:
         r = stringify_tags(self.tags)
@@ -290,7 +347,7 @@ class MetadataMatcher:
         return r
 
     @classmethod
-    def parse(cls, raw: str, *, rule_name: str = "matcher") -> MetadataMatcher:
+    def parse(cls, raw: str, *, rule_name: str = "matcher") -> Matcher:
         idx = 0
         # Common arguments to feed into Syntax Error.
         err = {"rule_name": rule_name, "rule": raw}
@@ -357,23 +414,36 @@ class MetadataMatcher:
                 feedback="Extra input found after end of matcher. Perhaps you meant to escape this colon?",
             )
 
-        matcher = MetadataMatcher(
+        matcher = Matcher(
             tags=tags,
-            pattern=MatcherPattern(pattern=pattern, case_insensitive=case_insensitive),
+            pattern=Pattern(needle=pattern, case_insensitive=case_insensitive),
         )
         logger.debug(f"Parsed rule matcher {raw=} as {matcher=}")
         return matcher
 
 
-@dataclass
-class MetadataAction:
-    # The behavior of the action, along with behavior-specific parameters.
-    behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction
+@dataclasses.dataclass(slots=True)
+class Action:
     # The tags to apply the action on. Defaults to the tag that the pattern matched.
     tags: list[Tag]
+    # The behavior of the action, along with behavior-specific parameters.
+    behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction
     # Only apply the action on values that match this pattern. None means that all values are acted
     # upon.
-    pattern: MatcherPattern | None = None
+    pattern: Pattern | None = None
+
+    def __init__(
+        self,
+        tags: Sequence[ExpandableTag],
+        behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction,
+        pattern: Pattern | None = None,
+    ) -> None:
+        _tags: list[Tag] = []
+        for t in tags:
+            _tags.extend(ALL_TAGS[t])
+        self.tags = uniq(_tags)
+        self.behavior = behavior
+        self.pattern = pattern
 
     def __str__(self) -> str:
         r = ""
@@ -410,8 +480,8 @@ class MetadataAction:
         raw: str,
         action_number: int | None = None,
         # If there is a matcher for the action, pass it here to set the defaults.
-        matcher: MetadataMatcher | None = None,
-    ) -> MetadataAction:
+        matcher: Matcher | None = None,
+    ) -> Action:
         idx = 0
         # Common arguments to feed into Syntax Error.
         err = {"rule": raw, "rule_name": "action"}
@@ -434,8 +504,7 @@ class MetadataAction:
                     "Make sure you are formatting your action like {tags}:{pattern}/{kind}:{args} (where `:{pattern}` is optional)",
                 )
             tags: list[Tag] = [x for x in matcher.tags if x in MODIFIABLE_TAGS]
-            pattern = matcher.pattern.pattern
-            case_insensitive = matcher.pattern.case_insensitive
+            pattern = matcher.pattern
         else:
             # First, parse the tags. If the tag is matched, keep going, otherwise employ the list
             # parsing logic.
@@ -448,8 +517,6 @@ class MetadataAction:
                     )
                 idx += len("matched:")
                 tags = [x for x in matcher.tags if x in MODIFIABLE_TAGS]
-                pattern = matcher.pattern.pattern
-                case_insensitive = matcher.pattern.case_insensitive
             else:
                 tags = []
                 found_end = False
@@ -485,12 +552,11 @@ class MetadataAction:
             # And now parse the optional pattern. If the next character is a `/`, then we have an
             # explicitly empty pattern, after which we reach the end of the tags+pattern section.
             pattern = None
-            case_insensitive = False
             # It's possible for us to have both `tracktitle:/` (explicitly empty pattern) or
             # `tracktitle/` (inherit pattern), which we handle in the following two cases:
             if take(raw[idx - 1 :], "/") == ("", 1):
                 if matcher and tags == matcher.tags:
-                    pattern = matcher.pattern.pattern
+                    pattern = matcher.pattern
             elif take(raw[idx:], "/") == ("", 1):
                 idx += 1
             # And otherwise, parse the pattern!
@@ -499,37 +565,39 @@ class MetadataAction:
                 colon_pattern, colon_fwd = take(raw[idx:], ":")
                 slash_pattern, slash_fwd = take(raw[idx:], "/")
                 if colon_fwd < slash_fwd:
-                    pattern = colon_pattern
+                    needle = colon_pattern
                     fwd = colon_fwd
                     has_flags = True
                 else:
-                    pattern = slash_pattern
+                    needle = slash_pattern
                     fwd = slash_fwd
                     has_flags = False
                 idx += fwd
-                # Set an empty pattern to null.
-                pattern = pattern or None
 
-                # If we don't see the second colon here, that means we are looking at
-                # single-character flags. Only check this if pattern is not null though.
-                if has_flags:
-                    flags, fwd = take(raw[idx:], "/")
-                    if not flags:
-                        raise RuleSyntaxError(
-                            **err,
-                            index=idx,
-                            feedback="No flags specified: Please remove this section (by deleting the colon) or specify one of the supported flags: `i` (case insensitive).",
-                        )
-                    for i, flag in enumerate(flags):
-                        if flag == "i":
-                            case_insensitive = True
-                            continue
-                        raise RuleSyntaxError(
-                            **err,
-                            index=idx + i,
-                            feedback="Unrecognized flag: Either you forgot a colon here (to end the matcher), or this is an invalid matcher flag. The only supported flag is `i` (case insensitive).",
-                        )
-                    idx += fwd
+                if needle:
+                    # If we don't see the second colon here, that means we are looking at
+                    # single-character flags. Only check this if pattern is not null though.
+                    case_insensitive = False
+                    if has_flags:
+                        flags, fwd = take(raw[idx:], "/")
+                        if not flags:
+                            raise RuleSyntaxError(
+                                **err,
+                                index=idx,
+                                feedback="No flags specified: Please remove this section (by deleting the colon) or specify one of the supported flags: `i` (case insensitive).",
+                            )
+                        for i, flag in enumerate(flags):
+                            if flag == "i":
+                                case_insensitive = True
+                                continue
+                            raise RuleSyntaxError(
+                                **err,
+                                index=idx + i,
+                                feedback="Unrecognized flag: Either you forgot a colon here (to end the matcher), or this is an invalid matcher flag. The only supported flag is `i` (case insensitive).",
+                            )
+                        idx += fwd
+
+                    pattern = Pattern(needle, case_insensitive=case_insensitive)
 
         # Then let's start parsing the action!
         valid_actions = [
@@ -652,22 +720,16 @@ class MetadataAction:
         else:  # pragma: no cover
             raise RoseError(f"Impossible: unknown action_kind {action_kind=}")
 
-        action = MetadataAction(
-            behavior=behavior,
-            tags=tags,
-            pattern=MatcherPattern(pattern=pattern, case_insensitive=case_insensitive)
-            if pattern
-            else None,
-        )
+        action = Action(behavior=behavior, tags=tags, pattern=pattern)
         logger.debug(f"Parsed rule action {raw=} {matcher=} as {action=}")
         return action
 
 
-@dataclass
-class MetadataRule:
-    matcher: MetadataMatcher
-    actions: list[MetadataAction]
-    ignore: list[MetadataMatcher]
+@dataclasses.dataclass
+class Rule:
+    matcher: Matcher
+    actions: list[Action]
+    ignore: list[Matcher]
 
     def __str__(self) -> str:
         rval: list[str] = []
@@ -682,12 +744,12 @@ class MetadataRule:
         matcher: str,
         actions: list[str],
         ignore: list[str] | None = None,
-    ) -> MetadataRule:
-        parsed_matcher = MetadataMatcher.parse(matcher)
-        return MetadataRule(
+    ) -> Rule:
+        parsed_matcher = Matcher.parse(matcher)
+        return Rule(
             matcher=parsed_matcher,
-            actions=[MetadataAction.parse(a, i + 1, parsed_matcher) for i, a in enumerate(actions)],
-            ignore=[MetadataMatcher.parse(v, rule_name="ignore") for v in (ignore or [])],
+            actions=[Action.parse(a, i + 1, parsed_matcher) for i, a in enumerate(actions)],
+            ignore=[Matcher.parse(v, rule_name="ignore") for v in (ignore or [])],
         )
 
 

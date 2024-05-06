@@ -93,6 +93,7 @@ from rose import (
     list_playlists,
     make_release_logtext,
     make_track_logtext,
+    release_within_collage,
     remove_release_from_collage,
     remove_track_from_playlist,
     rename_collage,
@@ -105,9 +106,10 @@ from rose import (
     track_within_release,
     update_cache_for_releases,
 )
-from rose.cache import (
-    list_releases_delete_this,
-)
+from rose.cache import list_releases, list_tracks
+from rose.releases import find_releases_matching_rule
+from rose.rule_parser import Matcher, Pattern
+from rose.tracks import find_tracks_matching_rule
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +162,9 @@ class TTLCache(Generic[K, V]):
             return default
 
 
+ALL_TRACKS = "!All Tracks"
+
+
 @dataclass(frozen=True, slots=True)
 class VirtualPath:
     view: (
@@ -184,6 +189,9 @@ class VirtualPath:
     label: str | None = None
     collage: str | None = None
     playlist: str | None = None
+    # Release may be set to `ALL_TRACKS`, in which case it is never attempted to be resolved to a
+    # release. Instead, it is treated as a special directory. There may be name conflicts; I don't
+    # care.
     release: str | None = None
     file: str | None = None
 
@@ -421,7 +429,7 @@ class VirtualNameGenerator:
         directory names.
         """
         # For collision number generation.
-        seen: set[str] = set()
+        seen: set[str] = {ALL_TRACKS}
         prefix_pad_size = len(str(len(releases)))
         for idx, release in enumerate(releases):
             # Determine the proper template.
@@ -954,6 +962,14 @@ class RoseLogicalCore:
         if p.collage:
             if not get_collage(self.config, p.collage):
                 raise llfuse.FUSEError(errno.ENOENT)
+            if p.release == ALL_TRACKS:
+                if not p.file:
+                    return self.stat("dir")
+                if (track := get_track(self.config, self._get_track_id(p))) and (
+                    release_within_collage(self.config, track.release.id, p.collage)
+                ):
+                    return self.stat("file", track.source_path)
+                raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 return self._getattr_release(p)
             return self.stat("dir")
@@ -962,6 +978,14 @@ class RoseLogicalCore:
         if p.label:
             la = self.sanitizer.unsanitize(p.label, p.label_parent)
             if not label_exists(self.config, la) or not self.can_show.label(la):
+                raise llfuse.FUSEError(errno.ENOENT)
+            if p.release == ALL_TRACKS:
+                if not p.file:
+                    return self.stat("dir")
+                if (track := get_track(self.config, self._get_track_id(p))) and (
+                    p.label in track.release.labels
+                ):
+                    return self.stat("file", track.source_path)
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 return self._getattr_release(p)
@@ -972,6 +996,14 @@ class RoseLogicalCore:
             d = self.sanitizer.unsanitize(p.descriptor, p.descriptor_parent)
             if not descriptor_exists(self.config, d) or not self.can_show.descriptor(d):
                 raise llfuse.FUSEError(errno.ENOENT)
+            if p.release == ALL_TRACKS:
+                if not p.file:
+                    return self.stat("dir")
+                if (track := get_track(self.config, self._get_track_id(p))) and (
+                    p.descriptor in track.release.descriptors
+                ):
+                    return self.stat("file", track.source_path)
+                raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 return self._getattr_release(p)
             return self.stat("dir")
@@ -981,6 +1013,17 @@ class RoseLogicalCore:
             g = self.sanitizer.unsanitize(p.genre, p.genre_parent)
             if not genre_exists(self.config, g) or not self.can_show.genre(g):
                 raise llfuse.FUSEError(errno.ENOENT)
+            if p.release == ALL_TRACKS:
+                if not p.file:
+                    return self.stat("dir")
+                if (track := get_track(self.config, self._get_track_id(p))) and (
+                    p.genre in track.release.genres
+                    or p.genre in track.release.parent_genres
+                    or p.genre in track.release.secondary_genres
+                    or p.genre in track.release.parent_secondary_genres
+                ):
+                    return self.stat("file", track.source_path)
+                raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 return self._getattr_release(p)
             return self.stat("dir")
@@ -989,6 +1032,16 @@ class RoseLogicalCore:
         if p.artist:
             a = self.sanitizer.unsanitize(p.artist, p.artist_parent)
             if not artist_exists(self.config, a) or not self.can_show.artist(a):
+                raise llfuse.FUSEError(errno.ENOENT)
+            if p.release == ALL_TRACKS:
+                if not p.file:
+                    return self.stat("dir")
+                if (track := get_track(self.config, self._get_track_id(p))) and any(
+                    p.artist == a.name
+                    for _, artists in track.release.releaseartists.items()
+                    for a in artists
+                ):
+                    return self.stat("file", track.source_path)
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
                 return self._getattr_release(p)
@@ -1034,6 +1087,26 @@ class RoseLogicalCore:
             ]
             return
 
+        if p.release == ALL_TRACKS:
+            matcher = None
+            if p.artist:
+                matcher = Matcher(["artist"], Pattern(p.artist, strict=True))
+            if p.genre:
+                matcher = Matcher(["genre"], Pattern(p.genre, strict=True))
+            if p.descriptor:
+                matcher = Matcher(["descriptor"], Pattern(p.descriptor, strict=True))
+            if p.label:
+                matcher = Matcher(["label"], Pattern(p.label, strict=True))
+
+            tracks = (
+                find_tracks_matching_rule(self.config, matcher)
+                if matcher
+                else list_tracks(self.config)
+            )
+            for trk, vname in self.vnames.list_track_paths(p, tracks):
+                yield vname, self.stat("file", trk.source_path)
+            return
+
         if p.release:
             if (release_id := self.vnames.lookup_release(p)) and (
                 release := get_release(self.config, release_id)
@@ -1054,16 +1127,25 @@ class RoseLogicalCore:
             or p.label
             or p.view in ["Releases", "New", "Added On", "Released On"]
         ):
-            # fmt: off
-            releases = list_releases_delete_this(
-                self.config,
-                artist_filter=self.sanitizer.unsanitize(p.artist, p.artist_parent) if p.artist else None,
-                genre_filter=self.sanitizer.unsanitize(p.genre, p.genre_parent) if p.genre else None,
-                descriptor_filter=self.sanitizer.unsanitize(p.descriptor, p.descriptor_parent) if p.descriptor else None,
-                label_filter=self.sanitizer.unsanitize(p.label, p.label_parent) if p.label else None,
-                new=True if p.view == "New" else None,
+            matcher = None
+            if p.artist:
+                matcher = Matcher(["releaseartist"], Pattern(p.artist, strict=True))
+            if p.genre:
+                matcher = Matcher(["genre"], Pattern(p.genre, strict=True))
+            if p.descriptor:
+                matcher = Matcher(["descriptor"], Pattern(p.descriptor, strict=True))
+            if p.label:
+                matcher = Matcher(["label"], Pattern(p.label, strict=True))
+            if p.view == "New":
+                matcher = Matcher(["new"], Pattern("true", strict=True))
+
+            releases = (
+                find_releases_matching_rule(self.config, matcher)
+                if matcher
+                else list_releases(self.config)
             )
-            # fmt: on
+
+            yield ALL_TRACKS, self.stat("dir")
             for rls, vname in self.vnames.list_release_paths(p, releases):
                 yield vname, self.stat("dir", rls.source_path)
             return
@@ -1106,6 +1188,7 @@ class RoseLogicalCore:
             releases = get_collage_releases(self.config, p.collage)
             for rls, vname in self.vnames.list_release_paths(p, releases):
                 yield vname, self.stat("dir", rls.source_path)
+            yield ALL_TRACKS, self.stat("dir")
             return
 
         if p.view == "Collages":

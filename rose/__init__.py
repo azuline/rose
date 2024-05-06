@@ -109,7 +109,18 @@ from rose.releases import (
     set_release_cover_art,
     toggle_release_new,
 )
-from rose.rule_parser import InvalidRuleError, MetadataAction, MetadataMatcher, MetadataRule
+from rose.rule_parser import (
+    Action,
+    AddAction,
+    DeleteAction,
+    InvalidRuleError,
+    Matcher,
+    Pattern,
+    ReplaceAction,
+    Rule,
+    SedAction,
+    SplitAction,
+)
 from rose.rules import (
     InvalidReplacementValueError,
     TrackTagNotAllowedError,
@@ -168,9 +179,15 @@ __all__ = [
     "UnsupportedFiletypeError",
     "UnsupportedTagValueTypeError",
     # Rule Engine
-    "MetadataAction",
-    "MetadataMatcher",
-    "MetadataRule",
+    "Action",
+    "Matcher",
+    "Rule",
+    "Pattern",
+    "ReplaceAction",
+    "SedAction",
+    "SplitAction",
+    "AddAction",
+    "DeleteAction",
     "execute_metadata_rule",
     "execute_stored_metadata_rules",
     "run_actions_on_release",

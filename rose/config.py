@@ -21,7 +21,7 @@ import appdirs
 import tomllib
 
 from rose.common import RoseExpectedError
-from rose.rule_parser import MetadataRule, RuleSyntaxError
+from rose.rule_parser import Rule, RuleSyntaxError
 from rose.templates import (
     DEFAULT_TEMPLATE_PAIR,
     InvalidPathTemplateError,
@@ -295,7 +295,7 @@ class Config:
     artist_aliases_parents_map: dict[str, list[str]]
 
     path_templates: PathTemplateConfig
-    stored_metadata_rules: list[MetadataRule]
+    stored_metadata_rules: list[Rule]
 
     vfs: VirtualFSConfig
 
@@ -445,7 +445,7 @@ class Config:
                 f"Invalid value for ignore_release_directories in configuration file ({cfgpath}): {e}"
             ) from e
 
-        stored_metadata_rules: list[MetadataRule] = []
+        stored_metadata_rules: list[Rule] = []
         for d in data.get("stored_metadata_rules", []):
             if not isinstance(d, dict):
                 raise InvalidConfigValueError(
@@ -491,7 +491,7 @@ class Config:
                     )
 
             try:
-                stored_metadata_rules.append(MetadataRule.parse(matcher, actions, ignore))
+                stored_metadata_rules.append(Rule.parse(matcher, actions, ignore))
             except RuleSyntaxError as e:
                 raise InvalidConfigValueError(
                     f"Failed to parse stored_metadata_rules in configuration file ({cfgpath}): rule {d}: {e}"
