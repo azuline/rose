@@ -1160,13 +1160,17 @@ class RoseLogicalCore:
                     tags=["label"],
                     pattern=MatcherPattern(f"^{p.label}$"),
                 )
-
+            if p.view == "New":
+                matcher = MetadataMatcher(
+                    tags=["new"],
+                    pattern=MatcherPattern("^true$"),
+                )
             releases = (
                 find_releases_matching_rule(self.config, matcher)
                 if matcher
                 else list_releases(self.config)
             )
-            # TODO: new=True if p.view == "New" else None,
+
             yield ALL_TRACKS, self.stat("dir")
             for rls, vname in self.vnames.list_release_paths(p, releases):
                 yield vname, self.stat("dir", rls.source_path)
