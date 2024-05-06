@@ -1,3 +1,4 @@
+import dataclasses
 import hashlib
 import logging
 import shutil
@@ -100,6 +101,17 @@ def config(isolated_dir: Path) -> Config:
 
 @pytest.fixture()
 def seeded_cache(config: Config) -> None:
+    _seed_cache(config, True)
+
+
+@pytest.fixture()
+def static_cache(config: Config) -> None:
+    """A variant of the seeded cache with static hardcoded (fake) paths. Useful for snapshot tests."""
+    config = dataclasses.replace(config, music_source_dir=Path("/dummy"))
+    _seed_cache(config, False)
+
+
+def _seed_cache(config: Config, mkfiles: bool) -> None:
     dirpaths = [
         config.music_source_dir / "r1",
         config.music_source_dir / "r2",
@@ -246,18 +258,19 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
             """,
         )
 
-    (config.music_source_dir / "!collages").mkdir()
-    (config.music_source_dir / "!playlists").mkdir()
+    if mkfiles:
+        (config.music_source_dir / "!collages").mkdir()
+        (config.music_source_dir / "!playlists").mkdir()
 
-    for d in dirpaths:
-        d.mkdir()
-        (d / f".rose.{d.name}.toml").touch()
-    for f in musicpaths + imagepaths:
-        f.touch()
-    for cn in ["Rose Gold", "Ruby Red"]:
-        (config.music_source_dir / "!collages" / f"{cn}.toml").touch()
-    for pn in ["Lala Lisa", "Turtle Rabbit"]:
-        (config.music_source_dir / "!playlists" / f"{pn}.toml").touch()
+        for d in dirpaths:
+            d.mkdir()
+            (d / f".rose.{d.name}.toml").touch()
+        for f in musicpaths + imagepaths:
+            f.touch()
+        for cn in ["Rose Gold", "Ruby Red"]:
+            (config.music_source_dir / "!collages" / f"{cn}.toml").touch()
+        for pn in ["Lala Lisa", "Turtle Rabbit"]:
+            (config.music_source_dir / "!playlists" / f"{pn}.toml").touch()
 
 
 @pytest.fixture()

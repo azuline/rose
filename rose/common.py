@@ -36,6 +36,22 @@ class RoseExpectedError(RoseError):
     pass
 
 
+class GenreDoesNotExistError(RoseExpectedError):
+    pass
+
+
+class LabelDoesNotExistError(RoseExpectedError):
+    pass
+
+
+class DescriptorDoesNotExistError(RoseExpectedError):
+    pass
+
+
+class ArtistDoesNotExistError(RoseExpectedError):
+    pass
+
+
 @dataclasses.dataclass
 class Artist:
     name: str

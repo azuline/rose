@@ -65,7 +65,11 @@ from rose.collages import (
 from rose.common import (
     VERSION,
     Artist,
+    ArtistDoesNotExistError,
     ArtistMapping,
+    DescriptorDoesNotExistError,
+    GenreDoesNotExistError,
+    LabelDoesNotExistError,
     RoseError,
     RoseExpectedError,
     initialize_logging,
@@ -207,18 +211,22 @@ __all__ = [
     "artist_exists",
     "list_artists",
     "UnknownArtistRoleError",
+    "ArtistDoesNotExistError",
     # Genres
     "GenreEntry",
     "list_genres",
     "genre_exists",
+    "GenreDoesNotExistError",
     # Descriptors
     "DescriptorEntry",
     "list_descriptors",
     "descriptor_exists",
+    "DescriptorDoesNotExistError",
     # Labels
     "LabelEntry",
     "list_labels",
     "label_exists",
+    "LabelDoesNotExistError",
     # Collages
     "Collage",
     "add_release_to_collage",

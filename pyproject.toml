@@ -9,6 +9,7 @@ exclude = [
   ".mypy_cache",
   ".ruff_cache",
   ".venv",
+  "snapshots",
 ]
 
 [tool.ruff.lint]

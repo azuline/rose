@@ -44,6 +44,7 @@
         pytest-timeout
         pytest-cov
         pytest-xdist
+        snapshottest
       ];
       dev-cli = pkgs.writeShellScriptBin "rose" ''
         cd $ROSE_ROOT
