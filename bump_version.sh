@@ -13,6 +13,7 @@ echo "$version" > "$ROSE_ROOT/rose/.version"
 git add .
 git commit -am "[Release] v$version - $message"
 git tag "v$version" HEAD -m "v$version"
+git push origin master
 git push origin "v$version"
 git checkout release
 git reset --hard "v$version"
