@@ -7,6 +7,7 @@ module and the rules module.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import io
 import logging
 import re
@@ -76,9 +77,11 @@ Tag = Literal[
     "label",
 ]
 
+ExpandableTag = Tag | Literal["artist", "trackartist", "releaseartist"]
+
 # Map of a tag to its "resolved" tags. Most tags simply resolve to themselves; however, we let
 # certain tags be aliases for multiple other tags, purely for convenience.
-ALL_TAGS: dict[str, list[Tag]] = {
+ALL_TAGS: dict[ExpandableTag, list[Tag]] = {
     "tracktitle": ["tracktitle"],
     "trackartist": [
         "trackartist[main]",
@@ -275,7 +278,7 @@ class MatcherPattern:
         return r
 
 
-@dataclass
+@dataclass()
 class MetadataMatcher:
     # Tags to test against the pattern. If any tags match the pattern, the action will be ran
     # against the track.
@@ -288,6 +291,13 @@ class MetadataMatcher:
         r += ":"
         r += str(self.pattern)
         return r
+
+    def __init__(self, tags: Sequence[ExpandableTag], pattern: MatcherPattern) -> None:
+        _tags: set[Tag] = set()
+        for t in tags:
+            _tags.update(ALL_TAGS[t])
+        self.tags = list(_tags)
+        self.pattern = pattern
 
     @classmethod
     def parse(cls, raw: str, *, rule_name: str = "matcher") -> MetadataMatcher:
@@ -374,6 +384,19 @@ class MetadataAction:
     # Only apply the action on values that match this pattern. None means that all values are acted
     # upon.
     pattern: MatcherPattern | None = None
+
+    def __init__(
+        self,
+        behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction,
+        tags: Sequence[ExpandableTag],
+        pattern: MatcherPattern | None = None,
+    ) -> None:
+        self.behavior = behavior
+        _tags: set[Tag] = set()
+        for t in tags:
+            _tags.update(ALL_TAGS[t])
+        self.tags = list(_tags)
+        self.pattern = pattern
 
     def __str__(self) -> str:
         r = ""

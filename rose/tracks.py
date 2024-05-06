@@ -14,7 +14,7 @@ from rose.cache import (
 )
 from rose.common import RoseExpectedError
 from rose.config import Config
-from rose.rule_parser import MetadataAction, MetadataMatcher
+from rose.rule_parser import ALL_TAGS, MetadataAction, MetadataMatcher
 from rose.rules import (
     execute_metadata_actions,
     fast_search_for_matching_tracks,
@@ -29,6 +29,18 @@ class TrackDoesNotExistError(RoseExpectedError):
 
 
 def find_tracks_matching_rule(c: Config, matcher: MetadataMatcher) -> list[Track]:
+    # Implement optimizations for common lookups. Only applies to strict lookups.
+    # TODO: Morning
+    if matcher.pattern.pattern.startswith("^") and matcher.pattern.pattern.endswith("$"):
+        if matcher.tags == ALL_TAGS["artist"]:
+            pass
+        if matcher.tags == ["genre"]:
+            pass
+        if matcher.tags == ["label"]:
+            pass
+        if matcher.tags == ["descriptor"]:
+            pass
+
     track_ids = [t.id for t in fast_search_for_matching_tracks(c, matcher)]
     tracks = list_tracks(c, track_ids)
     return filter_track_false_positives_using_read_cache(matcher, tracks)
