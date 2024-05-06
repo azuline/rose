@@ -14,7 +14,6 @@ from copy import deepcopy
 from functools import cached_property
 from typing import Any
 
-import click
 import jinja2
 
 from rose.audiotags import RoseDate
@@ -366,46 +365,12 @@ def _collapse_spacing(x: str) -> str:
     return COLLAPSE_SPACING_REGEX.sub(" ", x).strip()
 
 
-def preview_path_templates(c: Config) -> None:
-    # fmt: off
-    _preview_release_template(c, "Source Directory - Release", c.path_templates.source.release)
-    _preview_track_template(c, "Source Directory - Track", c.path_templates.source.track)
-    click.echo()
-    _preview_release_template(c, "1. Releases - Release", c.path_templates.releases.release)
-    _preview_track_template(c, "1. Releases - Track", c.path_templates.releases.track)
-    click.echo()
-    _preview_release_template(c, "1. Releases (New) - Release", c.path_templates.releases_new.release)
-    _preview_track_template(c, "1. Releases (New) - Track", c.path_templates.releases_new.track)
-    click.echo()
-    _preview_release_template(c, "1. Releases (Added On) - Release", c.path_templates.releases_added_on.release)
-    _preview_track_template(c, "1. Releases (Added On) - Track", c.path_templates.releases_added_on.track)
-    click.echo()
-    _preview_release_template(c, "1. Releases (Released On) - Release", c.path_templates.releases_added_on.release)
-    _preview_track_template(c, "1. Releases (Released On) - Track", c.path_templates.releases_added_on.track)
-    click.echo()
-    _preview_release_template(c, "2. Artists - Release", c.path_templates.artists.release)
-    _preview_track_template(c, "2. Artists - Track", c.path_templates.artists.track)
-    click.echo()
-    _preview_release_template(c, "3. Genres - Release", c.path_templates.genres.release)
-    _preview_track_template(c, "3. Genres - Track", c.path_templates.genres.track)
-    click.echo()
-    _preview_release_template(c, "4. Descriptors - Release", c.path_templates.genres.release)
-    _preview_track_template(c, "4. Descriptors - Track", c.path_templates.genres.track)
-    click.echo()
-    _preview_release_template(c, "5. Labels - Release", c.path_templates.labels.release)
-    _preview_track_template(c, "5. Labels - Track", c.path_templates.labels.track)
-    click.echo()
-    _preview_release_template(c, "6. Collages - Release", c.path_templates.collages.release)
-    _preview_track_template(c, "6. Collages - Track", c.path_templates.collages.track)
-    click.echo()
-    _preview_track_template(c, "7. Playlists - Track", c.path_templates.playlists)
-    # fmt: on
+def get_sample_music(
+    c: Config,
+) -> tuple[tuple[Release, Track], tuple[Release, Track], tuple[Release, Track]]:
+    from rose.cache import Release, Track
 
-
-def _get_preview_releases(c: Config) -> tuple[Release, Release, Release]:
-    from rose.cache import Release
-
-    kimlip = Release(
+    kimlip_rls = Release(
         id="018b268e-ff1e-7a0c-9ac8-7bbb282761f2",
         source_path=c.music_source_dir / "LOONA - 2017. Kim Lip",
         cover_image_path=None,
@@ -442,8 +407,7 @@ def _get_preview_releases(c: Config) -> tuple[Release, Release, Release]:
         releaseartists=ArtistMapping(main=[Artist("Kim Lip")]),
         metahash="0",
     )
-
-    youngforever = Release(
+    bts_rls = Release(
         id="018b6021-f1e5-7d4b-b796-440fbbea3b13",
         source_path=c.music_source_dir / "BTS - 2016. Young Forever (花樣年華)",
         cover_image_path=None,
@@ -483,8 +447,7 @@ def _get_preview_releases(c: Config) -> tuple[Release, Release, Release]:
         releaseartists=ArtistMapping(main=[Artist("BTS")]),
         metahash="0",
     )
-
-    debussy = Release(
+    debussy_rls = Release(
         id="018b268e-de0c-7cb2-8ffa-bcc2083c94e6",
         source_path=c.music_source_dir
         / "Debussy - 1907. Images performed by Cleveland Orchestra under Pierre Boulez (1992)",
@@ -514,31 +477,7 @@ def _get_preview_releases(c: Config) -> tuple[Release, Release, Release]:
         metahash="0",
     )
 
-    return kimlip, youngforever, debussy
-
-
-def _preview_release_template(c: Config, label: str, template: PathTemplate) -> None:
-    # Import cycle trick :)
-    kimlip, youngforever, debussy = _get_preview_releases(c)
-    click.secho(f"{label}:", dim=True, underline=True)
-    click.secho("  Sample 1: ", dim=True, nl=False)
-    click.secho(evaluate_release_template(template, kimlip, position="1"))
-    click.secho("  Sample 2: ", dim=True, nl=False)
-    click.secho(evaluate_release_template(template, youngforever, position="2"))
-    click.secho("  Sample 3: ", dim=True, nl=False)
-    click.secho(evaluate_release_template(template, debussy, position="3"))
-
-
-def _preview_track_template(c: Config, label: str, template: PathTemplate) -> None:
-    # Import cycle trick :)
-    from rose.cache import Track
-
-    kimlip, youngforever, debussy = _get_preview_releases(c)
-
-    click.secho(f"{label}:", dim=True, underline=True)
-
-    click.secho("  Sample 1: ", dim=True, nl=False)
-    track = Track(
+    kimlip_trk = Track(
         id="018b268e-ff1e-7a0c-9ac8-7bbb282761f1",
         source_path=c.music_source_dir / "LOONA - 2017. Kim Lip" / "01. Eclipse.opus",
         source_mtime="999",
@@ -549,12 +488,9 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         duration_seconds=230,
         trackartists=ArtistMapping(main=[Artist("Kim Lip")]),
         metahash="0",
-        release=kimlip,
+        release=kimlip_rls,
     )
-    click.secho(evaluate_track_template(template, track, position="1"))
-
-    click.secho("  Sample 2: ", dim=True, nl=False)
-    track = Track(
+    bts_trk = Track(
         id="018b6021-f1e5-7d4b-b796-440fbbea3b15",
         source_path=c.music_source_dir
         / "BTS - 2016. Young Forever (花樣年華)"
@@ -567,12 +503,9 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         duration_seconds=226,
         trackartists=ArtistMapping(main=[Artist("BTS")]),
         metahash="0",
-        release=youngforever,
+        release=bts_rls,
     )
-    click.secho(evaluate_track_template(template, track, position="2"))
-
-    click.secho("  Sample 3: ", dim=True, nl=False)
-    track = Track(
+    debussy_trk = Track(
         id="018b6514-6e65-78cc-94a5-fdb17418f090",
         source_path=c.music_source_dir
         / "Debussy - 1907. Images performed by Cleveland Orchestra under Pierre Boulez (1992)"
@@ -589,6 +522,7 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
             conductor=[Artist("Pierre Boulez")],
         ),
         metahash="0",
-        release=debussy,
+        release=debussy_rls,
     )
-    click.secho(evaluate_track_template(template, track, position="3"))
+
+    return (kimlip_rls, kimlip_trk), (bts_rls, bts_trk), (debussy_rls, debussy_trk)

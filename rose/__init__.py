@@ -1,6 +1,7 @@
 from rose.audiotags import (
     SUPPORTED_AUDIO_EXTENSIONS,
     AudioTags,
+    RoseDate,
     UnsupportedFiletypeError,
 )
 from rose.cache import (
@@ -50,8 +51,6 @@ from rose.collages import (
     add_release_to_collage,
     create_collage,
     delete_collage,
-    dump_all_collages,
-    dump_collage,
     edit_collage_in_editor,
     remove_release_from_collage,
     rename_collage,
@@ -72,8 +71,6 @@ from rose.playlists import (
     create_playlist,
     delete_playlist,
     delete_playlist_cover_art,
-    dump_all_playlists,
-    dump_playlist,
     edit_playlist_in_editor,
     remove_track_from_playlist,
     rename_playlist,
@@ -83,8 +80,6 @@ from rose.releases import (
     create_single_release,
     delete_release,
     delete_release_cover_art,
-    dump_all_releases,
-    dump_release,
     edit_release,
     run_actions_on_release,
     set_release_cover_art,
@@ -97,9 +92,9 @@ from rose.templates import (
     PathTemplate,
     evaluate_release_template,
     evaluate_track_template,
-    preview_path_templates,
+    get_sample_music,
 )
-from rose.tracks import dump_all_tracks, dump_track, run_actions_on_track
+from rose.tracks import run_actions_on_track
 
 __all__ = [
     # Plumbing
@@ -133,6 +128,7 @@ __all__ = [
     "playlist_lock_name",
     # Tagging
     "AudioTags",
+    "RoseDate",
     # Rule Engine
     "MetadataAction",
     "MetadataMatcher",
@@ -146,22 +142,18 @@ __all__ = [
     "PathTemplate",
     "evaluate_release_template",
     "evaluate_track_template",
-    "preview_path_templates",
+    "get_sample_music",
     # Releases
     "Release",
     "create_single_release",
     "delete_release",
     "delete_release_cover_art",
-    "dump_all_releases",
-    "dump_release",
     "edit_release",
     "get_release",
     "set_release_cover_art",
     "toggle_release_new",
     # Tracks
     "Track",
-    "dump_all_tracks",
-    "dump_track",
     "get_track",
     "get_tracks_of_release",
     "track_within_release",
@@ -187,8 +179,6 @@ __all__ = [
     "add_release_to_collage",
     "create_collage",
     "delete_collage",
-    "dump_all_collages",
-    "dump_collage",
     "edit_collage_in_editor",  # TODO: Move editor part to CLI, make this file-submissions.
     "get_collage",
     "get_collage_releases",
@@ -205,8 +195,6 @@ __all__ = [
     "delete_playlist_cover_art",
     "get_playlist",
     "get_playlist_tracks",
-    "dump_all_playlists",
-    "dump_playlist",
     "edit_playlist_in_editor",  # TODO: Move editor part to CLI, make this file-submissions.
     "track_within_playlist",
     "remove_track_from_playlist",
