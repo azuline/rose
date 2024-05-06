@@ -5,6 +5,8 @@ from rose.audiotags import (
 )
 from rose.cache import (
     STORED_DATA_FILE_REGEX,
+    CachedCollage,
+    CachedPlaylist,
     CachedRelease,
     CachedTrack,
     DescriptorEntry,
@@ -90,87 +92,106 @@ from rose.tracks import dump_all_tracks, dump_track, run_actions_on_track
 from rose.watcher import start_watchdog
 
 __all__ = [
-    "AudioTags",
-    "CachedRelease",
-    "CachedTrack",
+    # Plumbing
+    "initialize_logging",
+    "VERSION",  # TODO: get_version()
+    # Errors
+    "RoseError",
+    "RoseExpectedError",
+    "UnsupportedFiletypeError",
+    # Utilities
+    "sanitize_dirname",
+    "sanitize_filename",
+    "calculate_release_logtext",  # TODO: Rename.
+    "calculate_track_logtext",  # TODO: Rename.
+    "STORED_DATA_FILE_REGEX",  # TODO: Revise: is_release_directory() / is_track_file()
+    "SUPPORTED_AUDIO_EXTENSIONS",  # TODO: is_supported_audio_file()
+    # Configuration
     "Config",
-    "DescriptorEntry",
-    "GenreEntry",
-    "LabelEntry",
+    # Cache
+    "maybe_invalidate_cache_database",
+    "update_cache",
+    "update_cache_for_releases",
+    # Tagging
+    "AudioTags",
+    # Rule Engine
     "MetadataAction",
     "MetadataMatcher",
     "MetadataRule",
-    "PathContext",
-    "PathTemplate",
-    "RoseError",
-    "RoseExpectedError",
-    "STORED_DATA_FILE_REGEX",  # TODO: Revise: is_release_directory / is_track_file
-    "SUPPORTED_AUDIO_EXTENSIONS",
-    "UnsupportedFiletypeError",
-    "VERSION",
-    "add_release_to_collage",
-    "add_track_to_playlist",
-    "artist_exists",
-    "calculate_release_logtext",  # TODO: Rename.
-    "calculate_track_logtext",  # TODO: Rename.
-    "collage_exists",
-    "create_collage",
-    "create_playlist",
-    "create_single_release",
-    "delete_collage",
-    "delete_playlist",
-    "delete_playlist_cover_art",
-    "delete_release",
-    "delete_release_cover_art",
-    "descriptor_exists",
-    "dump_all_collages",
-    "dump_all_playlists",
-    "dump_all_releases",
-    "dump_all_tracks",
-    "dump_collage",
-    "dump_playlist",
-    "dump_release",
-    "dump_track",
-    "edit_collage_in_editor",  # TODO: Move editor part to CLI, make this file-submissions.
-    "edit_playlist_in_editor",  # TODO: Move editor part to CLI, make this file-submissions.
-    "edit_release",
-    "eval_release_template",  # TODO: Rename.
-    "eval_track_template",  # TODO: Rename.
     "execute_metadata_rule",
     "execute_stored_metadata_rules",
-    "genre_exists",
-    "get_collage",
-    "get_path_of_track_in_playlist",  # TODO: Redesign.
-    "get_playlist",
-    "get_playlist_cover_path",  # TODO: Remove.
-    "get_release",
-    "get_track",
-    "get_tracks_associated_with_release",  # TODO: Rename: `get_tracks_of_release` / `dump_release(with_tracks=tracks)`
-    "label_exists",
-    "list_artists",
-    "list_collages",
-    "list_descriptors",
-    "list_genres",
-    "list_labels",
-    "list_playlists",
-    "maybe_invalidate_cache_database",
-    "playlist_exists",
-    "preview_path_templates",
-    "remove_release_from_collage",
-    "remove_track_from_playlist",
-    "rename_collage",
-    "rename_playlist",
     "run_actions_on_release",
     "run_actions_on_track",
-    "sanitize_dirname",
-    "sanitize_filename",
-    "set_playlist_cover_art",
+    # Path Templates
+    "PathContext",
+    "PathTemplate",
+    "eval_release_template",  # TODO: Rename.
+    "eval_track_template",  # TODO: Rename.
+    "preview_path_templates",
+    # Watchdog
+    "start_watchdog",  # TODO: Move into its own separate package.
+    # Releases
+    "CachedRelease",
+    "create_single_release",
+    "delete_release",
+    "delete_release_cover_art",
+    "dump_all_releases",
+    "dump_release",
+    "edit_release",
+    "get_release",
     "set_release_cover_art",
-    "start_watchdog",
     "toggle_release_new",
-    "update_cache",
-    "update_cache_for_releases",
-    "initialize_logging",
+    # Tracks
+    "CachedTrack",
+    "dump_all_tracks",
+    "dump_track",
+    "get_track",
+    "get_tracks_associated_with_release",  # TODO: Rename: `get_tracks_of_release` / `dump_release(with_tracks=tracks)`
+    # Artists
+    "artist_exists",
+    "list_artists",
+    # Genres
+    "GenreEntry",
+    "list_genres",
+    "genre_exists",
+    # Descriptors
+    "DescriptorEntry",
+    "list_descriptors",
+    "descriptor_exists",
+    # Labels
+    "LabelEntry",
+    "list_labels",
+    "label_exists",
+    # Collages
+    "CachedCollage",
+    "add_release_to_collage",
+    "collage_exists",
+    "create_collage",
+    "delete_collage",
+    "dump_all_collages",
+    "dump_collage",
+    "edit_collage_in_editor",  # TODO: Move editor part to CLI, make this file-submissions.
+    "get_collage",
+    "list_collages",
+    "remove_release_from_collage",
+    "rename_collage",
+    # Playlists
+    "CachedPlaylist",
+    "add_track_to_playlist",
+    "list_playlists",
+    "playlist_exists",
+    "create_playlist",
+    "delete_playlist",
+    "delete_playlist_cover_art",
+    "get_playlist",
+    "dump_all_playlists",
+    "dump_playlist",
+    "edit_playlist_in_editor",  # TODO: Move editor part to CLI, make this file-submissions.
+    "get_path_of_track_in_playlist",  # TODO: Redesign.
+    "get_playlist_cover_path",  # TODO: Remove.
+    "remove_track_from_playlist",
+    "rename_playlist",
+    "set_playlist_cover_art",
 ]
 
 initialize_logging(__name__)
