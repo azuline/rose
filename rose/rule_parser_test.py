@@ -486,15 +486,22 @@ Failed to parse action 1, invalid syntax:
 
 @pytest.mark.parametrize(
     ("matcher", "action"),
+    [("tracktitle:Track", "delete")],
+)
+def test_rule_parsing_end_to_end_1(matcher: str, action: str) -> None:
+    assert str(Rule.parse(matcher, [action])) == f"matcher={matcher} action={matcher}/{action}"
+
+
+@pytest.mark.parametrize(
+    ("matcher", "action"),
     [
-        ("tracktitle:Track", "delete"),
         (r"tracktitle:\^Track", "delete"),
         (r"tracktitle:Track\$", "delete"),
         (r"tracktitle:\^Track\$", "delete"),
     ],
 )
-def test_rule_parsing_end_to_end_1(matcher: str, action: str) -> None:
-    assert str(Rule.parse(matcher, [action])) == f"matcher={matcher} action={matcher}/{action}"
+def test_rule_parsing_end_to_end_2(matcher: str, action: str) -> None:
+    assert str(Rule.parse(matcher, [action])) == f"matcher='{matcher}' action='{matcher}/{action}'"
 
 
 @pytest.mark.parametrize(
@@ -504,7 +511,7 @@ def test_rule_parsing_end_to_end_1(matcher: str, action: str) -> None:
         ("tracktitle,genre,trackartist:Track", "tracktitle,genre,artist/delete"),
     ],
 )
-def test_rule_parsing_end_to_end_2(matcher: str, action: str) -> None:
+def test_rule_parsing_end_to_end_3(matcher: str, action: str) -> None:
     assert str(Rule.parse(matcher, [action])) == f"matcher={matcher} action={action}"
 
 
