@@ -19,7 +19,7 @@ from rose.rule_parser import (
     Rule,
     SplitAction,
 )
-from rose.templates import PathTemplate, PathTemplateConfig, PathTemplatePair
+from rose.templates import PathTemplate, PathTemplateConfig, PathTemplateTriad
 
 
 def test_config_minimal() -> None:
@@ -71,22 +71,32 @@ def test_config_full() -> None:
                 [path_templates]
                 default.release = "{{{{ title }}}}"
                 default.track = "{{{{ title }}}}"
+                default.all_tracks = "{{{{ title }}}}"
                 source.release = "{{{{ title }}}}"
                 source.track = "{{{{ title }}}}"
+                source.all_tracks = "{{{{ title }}}}"
                 releases.release = "{{{{ title }}}}"
                 releases.track = "{{{{ title }}}}"
+                releases.all_tracks = "{{{{ title }}}}"
                 releases_new.release = "{{{{ title }}}}"
                 releases_new.track = "{{{{ title }}}}"
+                releases_new.all_tracks = "{{{{ title }}}}"
                 releases_added_on.release = "{{{{ title }}}}"
                 releases_added_on.track = "{{{{ title }}}}"
+                releases_added_on.all_tracks = "{{{{ title }}}}"
                 releases_released_on.release = "{{{{ title }}}}"
                 releases_released_on.track = "{{{{ title }}}}"
+                releases_released_on.all_tracks = "{{{{ title }}}}"
                 artists.release = "{{{{ title }}}}"
                 artists.track = "{{{{ title }}}}"
+                artists.all_tracks = "{{{{ title }}}}"
                 labels.release = "{{{{ title }}}}"
                 labels.track = "{{{{ title }}}}"
+                labels.all_tracks = "{{{{ title }}}}"
                 collages.release = "{{{{ title }}}}"
                 collages.track = "{{{{ title }}}}"
+                collages.all_tracks = "{{{{ title }}}}"
+                # Genres and descriptors omitted to test the defaults.
                 playlists = "{{{{ title }}}}"
 
                 [vfs]
@@ -129,35 +139,55 @@ def test_config_full() -> None:
             max_filename_bytes=255,
             rename_source_files=True,
             path_templates=PathTemplateConfig(
-                source=PathTemplatePair(
-                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                source=PathTemplateTriad(
+                    release=PathTemplate("{{ title }}"),
+                    track=PathTemplate("{{ title }}"),
+                    all_tracks=PathTemplate("{{ title }}"),
                 ),
-                releases=PathTemplatePair(
-                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                releases=PathTemplateTriad(
+                    release=PathTemplate("{{ title }}"),
+                    track=PathTemplate("{{ title }}"),
+                    all_tracks=PathTemplate("{{ title }}"),
                 ),
-                releases_new=PathTemplatePair(
-                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                releases_new=PathTemplateTriad(
+                    release=PathTemplate("{{ title }}"),
+                    track=PathTemplate("{{ title }}"),
+                    all_tracks=PathTemplate("{{ title }}"),
                 ),
-                releases_added_on=PathTemplatePair(
-                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                releases_added_on=PathTemplateTriad(
+                    release=PathTemplate("{{ title }}"),
+                    track=PathTemplate("{{ title }}"),
+                    all_tracks=PathTemplate("{{ title }}"),
                 ),
-                releases_released_on=PathTemplatePair(
-                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                releases_released_on=PathTemplateTriad(
+                    release=PathTemplate("{{ title }}"),
+                    track=PathTemplate("{{ title }}"),
+                    all_tracks=PathTemplate("{{ title }}"),
                 ),
-                artists=PathTemplatePair(
-                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                artists=PathTemplateTriad(
+                    release=PathTemplate("{{ title }}"),
+                    track=PathTemplate("{{ title }}"),
+                    all_tracks=PathTemplate("{{ title }}"),
                 ),
-                genres=PathTemplatePair(
-                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                genres=PathTemplateTriad(
+                    release=PathTemplate("{{ title }}"),
+                    track=PathTemplate("{{ title }}"),
+                    all_tracks=PathTemplate("{{ title }}"),
                 ),
-                descriptors=PathTemplatePair(
-                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                descriptors=PathTemplateTriad(
+                    release=PathTemplate("{{ title }}"),
+                    track=PathTemplate("{{ title }}"),
+                    all_tracks=PathTemplate("{{ title }}"),
                 ),
-                labels=PathTemplatePair(
-                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                labels=PathTemplateTriad(
+                    release=PathTemplate("{{ title }}"),
+                    track=PathTemplate("{{ title }}"),
+                    all_tracks=PathTemplate("{{ title }}"),
                 ),
-                collages=PathTemplatePair(
-                    release=PathTemplate("{{ title }}"), track=PathTemplate("{{ title }}")
+                collages=PathTemplateTriad(
+                    release=PathTemplate("{{ title }}"),
+                    track=PathTemplate("{{ title }}"),
+                    all_tracks=PathTemplate("{{ title }}"),
                 ),
                 playlists=PathTemplate("{{ title }}"),
             ),

@@ -508,6 +508,11 @@ class Config:
             default_templates.track = PathTemplate(data["path_templates"]["default"]["track"])
             del data["path_templates"]["default"]["track"]
         with contextlib.suppress(KeyError):
+            default_templates.all_tracks = PathTemplate(
+                data["path_templates"]["default"]["all_tracks"]
+            )
+            del data["path_templates"]["default"]["all_tracks"]
+        with contextlib.suppress(KeyError):
             if not data["path_templates"]["default"]:
                 del data["path_templates"]["default"]
 
@@ -531,6 +536,11 @@ class Config:
                 with contextlib.suppress(KeyError):
                     getattr(path_templates, key).track = PathTemplate(tmpl_config[key]["track"])
                     del tmpl_config[key]["track"]
+                with contextlib.suppress(KeyError):
+                    getattr(path_templates, key).all_tracks = PathTemplate(
+                        tmpl_config[key]["all_tracks"]
+                    )
+                    del tmpl_config[key]["all_tracks"]
                 with contextlib.suppress(KeyError):
                     if not tmpl_config[key]:
                         del tmpl_config[key]

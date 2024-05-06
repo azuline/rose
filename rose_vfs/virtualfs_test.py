@@ -11,7 +11,7 @@ import pytest
 
 from conftest import retry_for_sec
 from rose import AudioTags, Config
-from rose_vfs.virtualfs import mount_virtualfs, unmount_virtualfs
+from rose_vfs.virtualfs import ALL_TRACKS, mount_virtualfs, unmount_virtualfs
 
 R1_VNAME = "Techno Man & Bass Man - 2023. Release 1"
 R2_VNAME = "Violin Woman (feat. Conductor Woman) - 2021. Release 2 [NEW]"
@@ -132,6 +132,57 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert not (root / "7. Playlists" / "Lala Lisa" / "lalala").exists()
         assert can_read(root / "7. Playlists" / "Lala Lisa" / "1. Techno Man & Bass Man - Track 1.m4a")
         assert can_read(root / "7. Playlists" / "Lala Lisa" / "cover.jpg")
+        # fmt: on
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_virtual_filesystem_reads_all_tracks(config: Config) -> None:
+    def can_read(p: Path) -> bool:
+        with p.open("rb") as fp:
+            return fp.read(256) != b"\\x00" * 256
+
+    r1_track = "Techno Man & Bass Man - 2023. Release 1 - Track 1.m4a"
+    r2_track = "Violin Woman (feat. Conductor Woman) - 2021. Release 2 - Track 1.m4a"
+
+    root = config.vfs.mount_dir
+    with start_virtual_fs(config):
+        # fmt: off
+
+        assert (root / "1. Releases" / ALL_TRACKS).is_dir()
+        assert (root / "1. Releases" / ALL_TRACKS / r1_track).is_file()
+        assert can_read(root / "1. Releases" / ALL_TRACKS / r1_track)
+
+        assert (root / "1. Releases - New" / ALL_TRACKS).is_dir()
+        assert (root / "1. Releases - New" / ALL_TRACKS / r2_track).is_file()
+        assert can_read(root / "1. Releases - New" / ALL_TRACKS / r2_track)
+
+        assert (root / "1. Releases - Released On" / ALL_TRACKS).is_dir()
+        assert (root / "1. Releases - Released On" / ALL_TRACKS / r1_track).is_file()
+        assert can_read(root / "1. Releases - Released On" / ALL_TRACKS / r1_track)
+
+        assert (root / "1. Releases - Added On" / ALL_TRACKS).is_dir()
+        assert (root / "1. Releases - Added On" / ALL_TRACKS / r1_track).is_file()
+        assert can_read(root / "1. Releases - Added On" / ALL_TRACKS / r1_track)
+
+        assert (root / "2. Artists" / "Bass Man" / ALL_TRACKS).is_dir()
+        assert (root / "2. Artists" / "Bass Man" / ALL_TRACKS / r1_track).is_file()
+        assert can_read(root / "2. Artists" / "Bass Man" / ALL_TRACKS / r1_track)
+
+        assert (root / "3. Genres" / "Techno" / ALL_TRACKS).is_dir()
+        assert (root / "3. Genres" / "Techno" / ALL_TRACKS / r1_track).is_file()
+        assert can_read(root / "3. Genres" / "Techno" / ALL_TRACKS / r1_track)
+
+        assert (root / "4. Descriptors" / "Warm" / ALL_TRACKS).is_dir()
+        assert (root / "4. Descriptors" / "Warm" / ALL_TRACKS / r1_track).is_file()
+        assert can_read(root / "4. Descriptors" / "Warm" / ALL_TRACKS / r1_track)
+
+        assert (root / "5. Labels" / "Silk Music" / ALL_TRACKS).is_dir()
+        assert (root / "5. Labels" / "Silk Music" / ALL_TRACKS / r1_track).is_file()
+        assert can_read(root / "5. Labels" / "Silk Music" / ALL_TRACKS / r1_track)
+
+        assert (root / "6. Collages" / "Rose Gold" / ALL_TRACKS).is_dir()
+        assert (root / "6. Collages" / "Rose Gold" / ALL_TRACKS / r1_track).is_file()
+        assert can_read(root / "6. Collages" / "Rose Gold" / ALL_TRACKS / r1_track)
         # fmt: on
 
 

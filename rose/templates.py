@@ -137,9 +137,10 @@ class PathTemplate:
 
 
 @dataclasses.dataclass
-class PathTemplatePair:
+class PathTemplateTriad:
     release: PathTemplate
     track: PathTemplate
+    all_tracks: PathTemplate
 
 
 DEFAULT_RELEASE_TEMPLATE = PathTemplate(
@@ -160,53 +161,66 @@ DEFAULT_TRACK_TEMPLATE = PathTemplate(
 """
 )
 
-DEFAULT_TEMPLATE_PAIR = PathTemplatePair(
+DEFAULT_ALL_TRACKS_TEMPLATE = PathTemplate(
+    """
+{{ trackartists | artistsfmt }} -
+{% if releasedate %}{{ releasedate.year }}.{% endif %}
+{{ releasetitle }} -
+{{ tracktitle }}
+"""
+)
+
+DEFAULT_TEMPLATE_PAIR = PathTemplateTriad(
     release=DEFAULT_RELEASE_TEMPLATE,
     track=DEFAULT_TRACK_TEMPLATE,
+    all_tracks=DEFAULT_ALL_TRACKS_TEMPLATE,
 )
 
 
 @dataclasses.dataclass
 class PathTemplateConfig:
-    source: PathTemplatePair
-    releases: PathTemplatePair
-    releases_new: PathTemplatePair
-    releases_added_on: PathTemplatePair
-    releases_released_on: PathTemplatePair
-    artists: PathTemplatePair
-    genres: PathTemplatePair
-    descriptors: PathTemplatePair
-    labels: PathTemplatePair
-    collages: PathTemplatePair
+    source: PathTemplateTriad
+    releases: PathTemplateTriad
+    releases_new: PathTemplateTriad
+    releases_added_on: PathTemplateTriad
+    releases_released_on: PathTemplateTriad
+    artists: PathTemplateTriad
+    genres: PathTemplateTriad
+    descriptors: PathTemplateTriad
+    labels: PathTemplateTriad
+    collages: PathTemplateTriad
     playlists: PathTemplate
 
     @classmethod
     def with_defaults(
         cls,
-        default_pair: PathTemplatePair = DEFAULT_TEMPLATE_PAIR,
+        default_triad: PathTemplateTriad = DEFAULT_TEMPLATE_PAIR,
     ) -> PathTemplateConfig:
         return PathTemplateConfig(
-            source=deepcopy(default_pair),
-            releases=deepcopy(default_pair),
-            releases_new=deepcopy(default_pair),
-            releases_added_on=PathTemplatePair(
-                release=PathTemplate("[{{ added_at[:10] }}] " + default_pair.release.text),
-                track=deepcopy(default_pair.track),
+            source=deepcopy(default_triad),
+            releases=deepcopy(default_triad),
+            releases_new=deepcopy(default_triad),
+            releases_added_on=PathTemplateTriad(
+                release=PathTemplate("[{{ added_at[:10] }}] " + default_triad.release.text),
+                track=deepcopy(default_triad.track),
+                all_tracks=deepcopy(default_triad.all_tracks),
             ),
-            releases_released_on=PathTemplatePair(
+            releases_released_on=PathTemplateTriad(
                 release=PathTemplate(
                     "[{{ originaldate or releasedate or '0000-00-00' }}] "
-                    + default_pair.release.text
+                    + default_triad.release.text
                 ),
-                track=deepcopy(default_pair.track),
+                track=deepcopy(default_triad.track),
+                all_tracks=deepcopy(default_triad.all_tracks),
             ),
-            artists=deepcopy(default_pair),
-            genres=deepcopy(default_pair),
-            descriptors=deepcopy(default_pair),
-            labels=deepcopy(default_pair),
-            collages=PathTemplatePair(
-                release=PathTemplate("{{ position }}. " + default_pair.release.text),
-                track=deepcopy(default_pair.track),
+            artists=deepcopy(default_triad),
+            genres=deepcopy(default_triad),
+            descriptors=deepcopy(default_triad),
+            labels=deepcopy(default_triad),
+            collages=PathTemplateTriad(
+                release=PathTemplate("{{ position }}. " + default_triad.release.text),
+                track=deepcopy(default_triad.track),
+                all_tracks=deepcopy(default_triad.all_tracks),
             ),
             playlists=PathTemplate(
                 """
@@ -228,42 +242,62 @@ class PathTemplateConfig:
             _ = self.source.release.compiled
             key = "source.track"
             _ = self.source.track.compiled
+            key = "source.all_tracks"
+            _ = self.source.all_tracks.compiled
             key = "releases.release"
             _ = self.releases.release.compiled
             key = "releases.track"
             _ = self.releases.track.compiled
+            key = "releases.all_tracks"
+            _ = self.releases.all_tracks.compiled
             key = "releases_new.release"
             _ = self.releases_new.release.compiled
             key = "releases_new.track"
             _ = self.releases_new.track.compiled
+            key = "releases_new.all_tracks"
+            _ = self.releases_new.all_tracks.compiled
             key = "releases_added_on.release"
             _ = self.releases_added_on.release.compiled
             key = "releases_added_on.track"
             _ = self.releases_added_on.track.compiled
+            key = "releases_added_on.all_tracks"
+            _ = self.releases_added_on.all_tracks.compiled
             key = "releases_released_on.release"
             _ = self.releases_released_on.release.compiled
             key = "releases_released_on.track"
             _ = self.releases_released_on.track.compiled
+            key = "releases_released_on.all_tracks"
+            _ = self.releases_released_on.all_tracks.compiled
             key = "artists.release"
             _ = self.artists.release.compiled
             key = "artists.track"
             _ = self.artists.track.compiled
+            key = "artists.all_tracks"
+            _ = self.artists.all_tracks.compiled
             key = "genres.release"
             _ = self.genres.release.compiled
             key = "genres.track"
             _ = self.genres.track.compiled
+            key = "genres.all_tracks"
+            _ = self.genres.all_tracks.compiled
             key = "descriptors.release"
             _ = self.descriptors.release.compiled
             key = "descriptors.track"
             _ = self.descriptors.track.compiled
+            key = "descriptors.all_tracks"
+            _ = self.descriptors.all_tracks.compiled
             key = "labels.release"
             _ = self.labels.release.compiled
             key = "labels.track"
             _ = self.labels.track.compiled
+            key = "labels.all_tracks"
+            _ = self.labels.all_tracks.compiled
             key = "collages.release"
             _ = self.collages.release.compiled
             key = "collages.track"
             _ = self.collages.track.compiled
+            key = "collages.all_tracks"
+            _ = self.collages.all_tracks.compiled
             key = "playlists"
             _ = self.playlists.compiled
         except jinja2.exceptions.TemplateSyntaxError as e:

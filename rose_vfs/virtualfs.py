@@ -106,7 +106,7 @@ from rose import (
     track_within_release,
     update_cache_for_releases,
 )
-from rose.cache import list_releases, list_tracks
+from rose.cache import get_tracks_of_releases, list_releases, list_tracks
 from rose.releases import find_releases_matching_rule
 from rose.rule_parser import Matcher, Pattern
 from rose.tracks import find_tracks_matching_rule
@@ -545,27 +545,47 @@ class VirtualNameGenerator:
         for idx, track in enumerate(tracks):
             # Determine the proper template.
             template = None
-            if track_parent.view == "Releases":
-                template = self._config.path_templates.releases.track
-            elif track_parent.view == "New":
-                template = self._config.path_templates.releases_new.track
-            elif track_parent.view == "Added On":
-                template = self._config.path_templates.releases_added_on.track
-            elif track_parent.view == "Released On":
-                template = self._config.path_templates.releases_released_on.track
-            elif track_parent.view == "Artists":
-                template = self._config.path_templates.artists.track
-            elif track_parent.view == "Genres":
-                template = self._config.path_templates.genres.track
-            elif track_parent.view == "Descriptors":
-                template = self._config.path_templates.descriptors.track
-            elif track_parent.view == "Labels":
-                template = self._config.path_templates.labels.track
-            elif track_parent.view == "Collages":
-                template = self._config.path_templates.collages.track
-            elif track_parent.view == "Playlists":
-                template = self._config.path_templates.playlists
+            if track_parent.release == ALL_TRACKS:
+                if track_parent.view == "Releases":
+                    template = self._config.path_templates.releases.all_tracks
+                elif track_parent.view == "New":
+                    template = self._config.path_templates.releases_new.all_tracks
+                elif track_parent.view == "Added On":
+                    template = self._config.path_templates.releases_added_on.all_tracks
+                elif track_parent.view == "Released On":
+                    template = self._config.path_templates.releases_released_on.all_tracks
+                elif track_parent.view == "Artists":
+                    template = self._config.path_templates.artists.all_tracks
+                elif track_parent.view == "Genres":
+                    template = self._config.path_templates.genres.all_tracks
+                elif track_parent.view == "Descriptors":
+                    template = self._config.path_templates.descriptors.all_tracks
+                elif track_parent.view == "Labels":
+                    template = self._config.path_templates.labels.all_tracks
+                elif track_parent.view == "Collages":
+                    template = self._config.path_templates.collages.all_tracks
             else:
+                if track_parent.view == "Releases":
+                    template = self._config.path_templates.releases.track
+                elif track_parent.view == "New":
+                    template = self._config.path_templates.releases_new.track
+                elif track_parent.view == "Added On":
+                    template = self._config.path_templates.releases_added_on.track
+                elif track_parent.view == "Released On":
+                    template = self._config.path_templates.releases_released_on.track
+                elif track_parent.view == "Artists":
+                    template = self._config.path_templates.artists.track
+                elif track_parent.view == "Genres":
+                    template = self._config.path_templates.genres.track
+                elif track_parent.view == "Descriptors":
+                    template = self._config.path_templates.descriptors.track
+                elif track_parent.view == "Labels":
+                    template = self._config.path_templates.labels.track
+                elif track_parent.view == "Collages":
+                    template = self._config.path_templates.collages.track
+                elif track_parent.view == "Playlists":
+                    template = self._config.path_templates.playlists
+            if not template:
                 raise RoseError(f"VNAMES: No track template found for {track_parent=}.")
 
             logtext = make_track_logtext(
@@ -1049,6 +1069,14 @@ class RoseLogicalCore:
 
         # 1. Releases
         if p.release:
+            if p.release == ALL_TRACKS:
+                if not p.file:
+                    return self.stat("dir")
+                if (track := get_track(self.config, self._get_track_id(p))) and (
+                    p.view != "New" or track.release.new
+                ):
+                    return self.stat("file", track.source_path)
+                raise llfuse.FUSEError(errno.ENOENT)
             return self._getattr_release(p)
 
         # 0. Root
@@ -1087,7 +1115,13 @@ class RoseLogicalCore:
             ]
             return
 
-        if p.release == ALL_TRACKS:
+        if p.release == ALL_TRACKS and (
+            p.artist
+            or p.genre
+            or p.descriptor
+            or p.label
+            or p.view in ["Releases", "Released On", "Added On", "New"]
+        ):
             matcher = None
             if p.artist:
                 matcher = Matcher(["artist"], Pattern(p.artist, strict=True))
@@ -1097,6 +1131,8 @@ class RoseLogicalCore:
                 matcher = Matcher(["descriptor"], Pattern(p.descriptor, strict=True))
             if p.label:
                 matcher = Matcher(["label"], Pattern(p.label, strict=True))
+            if p.view == "New":
+                matcher = Matcher(["new"], Pattern("true", strict=True))
 
             tracks = (
                 find_tracks_matching_rule(self.config, matcher)
@@ -1105,6 +1141,13 @@ class RoseLogicalCore:
             )
             for trk, vname in self.vnames.list_track_paths(p, tracks):
                 yield vname, self.stat("file", trk.source_path)
+            return
+
+        if p.release == ALL_TRACKS and p.collage:
+            releases = get_collage_releases(self.config, p.collage)
+            for _, tracks in get_tracks_of_releases(self.config, releases):
+                for trk, vname in self.vnames.list_track_paths(p, tracks):
+                    yield vname, self.stat("file", trk.source_path)
             return
 
         if p.release:
@@ -1345,6 +1388,15 @@ class RoseLogicalCore:
             )
             add_release_to_collage(self.config, p.collage, release_id)
             return self.fhandler.dev_null
+        if p.release == ALL_TRACKS and p.file:
+            if (track_id := self.vnames.lookup_track(p)) and (
+                track := get_track(self.config, track_id)
+            ):
+                fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
+                if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
+                    self.update_release_on_fh_close[fh] = track.release.id
+                return fh
+            raise llfuse.FUSEError(err)
         if (
             p.release
             and p.file
@@ -1352,14 +1404,13 @@ class RoseLogicalCore:
             and (release := get_release(self.config, release_id))
         ):
             # If the file is a music file, handle it as a music file.
-            if track_id := self.vnames.lookup_track(p):
-                tracks = get_tracks_of_release(self.config, release)
-                for t in tracks:
-                    if t.id == track_id:
-                        fh = self.fhandler.wrap_host(os.open(str(t.source_path), flags))
-                        if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
-                            self.update_release_on_fh_close[fh] = release.id
-                        return fh
+            if (track_id := self.vnames.lookup_track(p)) and (
+                track := get_track(self.config, track_id)
+            ):
+                fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
+                if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
+                    self.update_release_on_fh_close[fh] = release.id
+                return fh
             # If the file is the datafile, pass it through.
             if p.file == f".rose.{release.id}.toml":
                 return self.fhandler.wrap_host(os.open(str(release.source_path / p.file), flags))
