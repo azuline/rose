@@ -17,7 +17,7 @@ from typing import Literal
 
 import click
 
-from rose.common import RoseError, RoseExpectedError
+from rose.common import RoseError, RoseExpectedError, uniq
 
 logger = logging.getLogger(__name__)
 
@@ -293,10 +293,10 @@ class MetadataMatcher:
         return r
 
     def __init__(self, tags: Sequence[ExpandableTag], pattern: MatcherPattern) -> None:
-        _tags: set[Tag] = set()
+        _tags: list[Tag] = []
         for t in tags:
-            _tags.update(ALL_TAGS[t])
-        self.tags = list(_tags)
+            _tags.extend(ALL_TAGS[t])
+        self.tags = uniq(_tags)
         self.pattern = pattern
 
     @classmethod
@@ -392,10 +392,10 @@ class MetadataAction:
         pattern: MatcherPattern | None = None,
     ) -> None:
         self.behavior = behavior
-        _tags: set[Tag] = set()
+        _tags: list[Tag] = []
         for t in tags:
-            _tags.update(ALL_TAGS[t])
-        self.tags = list(_tags)
+            _tags.extend(ALL_TAGS[t])
+        self.tags = uniq(_tags)
         self.pattern = pattern
 
     def __str__(self) -> str:
