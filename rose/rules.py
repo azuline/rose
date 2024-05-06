@@ -24,8 +24,8 @@ import click
 
 from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
-    CachedRelease,
-    CachedTrack,
+    Release,
+    Track,
     connect,
     list_releases,
     list_tracks,
@@ -679,8 +679,8 @@ def fast_search_for_matching_releases(
 
 def filter_track_false_positives_using_read_cache(
     matcher: MetadataMatcher,
-    tracks: list[CachedTrack],
-) -> list[CachedTrack]:
+    tracks: list[Track],
+) -> list[Track]:
     time_start = time.time()
     rval = []
     for t in tracks:
@@ -729,8 +729,8 @@ def filter_track_false_positives_using_read_cache(
 
 def filter_release_false_positives_using_read_cache(
     matcher: MetadataMatcher,
-    releases: list[CachedRelease],
-) -> list[CachedRelease]:
+    releases: list[Release],
+) -> list[Release]:
     time_start = time.time()
     rval = []
     for r in releases:

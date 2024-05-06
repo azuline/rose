@@ -58,12 +58,12 @@ from rose import (
     STORED_DATA_FILE_REGEX,
     SUPPORTED_AUDIO_EXTENSIONS,
     AudioTags,
-    CachedRelease,
-    CachedTrack,
     Config,
     PathContext,
     PathTemplate,
+    Release,
     RoseError,
+    Track,
     add_release_to_collage,
     add_track_to_playlist,
     artist_exists,
@@ -409,8 +409,8 @@ class VirtualNameGenerator:
     def list_release_paths(
         self,
         release_parent: VirtualPath,
-        releases: list[CachedRelease],
-    ) -> Iterator[tuple[CachedRelease, str]]:
+        releases: list[Release],
+    ) -> Iterator[tuple[Release, str]]:
         """
         Given a parent directory and a list of releases, calculates the virtual directory names
         for those releases, and returns a zipped iterator of the releases and their virtual
@@ -521,8 +521,8 @@ class VirtualNameGenerator:
     def list_track_paths(
         self,
         track_parent: VirtualPath,
-        tracks: list[CachedTrack],
-    ) -> Iterator[tuple[CachedTrack, str]]:
+        tracks: list[Track],
+    ) -> Iterator[tuple[Track, str]]:
         """
         Given a parent directory and a list of tracks, calculates the virtual filenames for those
         tracks, and returns a zipped iterator of the tracks and their virtual filenames.

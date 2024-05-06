@@ -201,7 +201,7 @@ def playlist_lock_name(playlist_name: str) -> str:
 
 
 @dataclass(slots=True)
-class CachedRelease:
+class Release:
     id: str
     source_path: Path
     cover_image_path: Path | None
@@ -252,10 +252,10 @@ class CachedRelease:
         }
 
 
-def cached_release_from_view(c: Config, row: dict[str, Any], aliases: bool = True) -> CachedRelease:
+def cached_release_from_view(c: Config, row: dict[str, Any], aliases: bool = True) -> Release:
     secondary_genres = _split(row["secondary_genres"]) if row["secondary_genres"] else []
     genres = _split(row["genres"]) if row["genres"] else []
-    return CachedRelease(
+    return Release(
         id=row["id"],
         source_path=Path(row["source_path"]),
         cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
@@ -284,7 +284,7 @@ def cached_release_from_view(c: Config, row: dict[str, Any], aliases: bool = Tru
 
 
 @dataclass(slots=True)
-class CachedTrack:
+class Track:
     id: str
     source_path: Path
     source_mtime: str
@@ -296,7 +296,7 @@ class CachedTrack:
     trackartists: ArtistMapping
     metahash: str
 
-    release: CachedRelease
+    release: Release
 
     def dump(self, with_release_info: bool = True) -> dict[str, Any]:
         r = {
@@ -344,10 +344,10 @@ class CachedTrack:
 def cached_track_from_view(
     c: Config,
     row: dict[str, Any],
-    release: CachedRelease,
+    release: Release,
     aliases: bool = True,
-) -> CachedTrack:
-    return CachedTrack(
+) -> Track:
+    return Track(
         id=row["id"],
         source_path=Path(row["source_path"]),
         source_mtime=row["source_mtime"],
@@ -368,14 +368,14 @@ def cached_track_from_view(
 
 
 @dataclass(slots=True)
-class CachedCollage:
+class Collage:
     name: str
     source_mtime: str
     release_ids: list[str]
 
 
 @dataclass(slots=True)
-class CachedPlaylist:
+class Playlist:
     name: str
     source_mtime: str
     cover_path: Path | None
@@ -564,7 +564,7 @@ def _update_cache_for_releases_executor(
     # 1. Fetch all releases.
     # 2. Fetch all tracks in a single query, and then associates each track with a release.
     # The tracks are stored as a dict of source_path -> Track.
-    cached_releases: dict[str, tuple[CachedRelease, dict[str, CachedTrack]]] = {}
+    cached_releases: dict[str, tuple[Release, dict[str, Track]]] = {}
     with connect(c) as conn:
         cursor = conn.execute(
             rf"""
@@ -646,7 +646,7 @@ def _update_cache_for_releases_executor(
                 f"First-time unidentified release found at release {source_path}, writing UUID and new"
             )
             release_dirty = True
-            release = CachedRelease(
+            release = Release(
                 id=preexisting_release_id or "",
                 source_path=source_path,
                 datafile_mtime="",
@@ -766,7 +766,7 @@ def _update_cache_for_releases_executor(
 
         # Now we'll switch over to processing some of the tracks. We need track metadata in
         # order to calculate some fields of the release, so we'll first compute the valid set of
-        # CachedTracks, and then we will finalize the release and execute any required database
+        # Tracks, and then we will finalize the release and execute any required database
         # operations for the release and tracks.
 
         # We want to know which cached tracks are no longer on disk. By the end of the following
@@ -777,7 +777,7 @@ def _update_cache_for_releases_executor(
         # leverage mtimes and such to avoid unnecessary recomputations. If a release has changed
         # and should be updated in the database, we add its ID to track_ids_to_insert, which
         # will be used in the database execution step.
-        tracks: list[CachedTrack] = []
+        tracks: list[Track] = []
         track_ids_to_insert: set[str] = set()
         # This value is set to true if we read an AudioTags and used it to confirm the release
         # tags.
@@ -915,7 +915,7 @@ def _update_cache_for_releases_executor(
                     continue
 
             # And now create the cached track.
-            track = CachedTrack(
+            track = Track(
                 id=track_id,
                 source_path=Path(f),
                 source_mtime=track_mtime,
@@ -1423,7 +1423,7 @@ def update_cache_for_collages(
             files.append((path.resolve(), path.stem, f))
     logger.debug(f"Refreshing the read cache for {len(files)} collages")
 
-    cached_collages: dict[str, CachedCollage] = {}
+    cached_collages: dict[str, Collage] = {}
     with connect(c) as conn:
         cursor = conn.execute(
             """
@@ -1437,7 +1437,7 @@ def update_cache_for_collages(
             """,
         )
         for row in cursor:
-            cached_collages[row["name"]] = CachedCollage(
+            cached_collages[row["name"]] = Collage(
                 name=row["name"],
                 source_mtime=row["source_mtime"],
                 release_ids=_split(row["release_ids"]) if row["release_ids"] else [],
@@ -1455,7 +1455,7 @@ def update_cache_for_collages(
                 cached_collage = cached_collages[name]
             except KeyError:
                 logger.debug(f"First-time unidentified collage found at {source_path}")
-                cached_collage = CachedCollage(
+                cached_collage = Collage(
                     name=name,
                     source_mtime="",
                     release_ids=[],
@@ -1618,7 +1618,7 @@ def update_cache_for_playlists(
             files.append((path.resolve(), path.stem, f))
     logger.debug(f"Refreshing the read cache for {len(files)} playlists")
 
-    cached_playlists: dict[str, CachedPlaylist] = {}
+    cached_playlists: dict[str, Playlist] = {}
     with connect(c) as conn:
         cursor = conn.execute(
             """
@@ -1633,7 +1633,7 @@ def update_cache_for_playlists(
             """,
         )
         for row in cursor:
-            cached_playlists[row["name"]] = CachedPlaylist(
+            cached_playlists[row["name"]] = Playlist(
                 name=row["name"],
                 source_mtime=row["source_mtime"],
                 cover_path=Path(row["cover_path"]) if row["cover_path"] else None,
@@ -1652,7 +1652,7 @@ def update_cache_for_playlists(
                 cached_playlist = cached_playlists[name]
             except KeyError:
                 logger.debug(f"First-time unidentified playlist found at {source_path}")
-                cached_playlist = CachedPlaylist(
+                cached_playlist = Playlist(
                     name=name,
                     source_mtime="",
                     cover_path=None,
@@ -1822,7 +1822,7 @@ def list_releases_delete_this(
     descriptor_filter: str | None = None,
     label_filter: str | None = None,
     new: bool | None = None,
-) -> list[CachedRelease]:
+) -> list[Release]:
     with connect(c) as conn:
         query = "SELECT * FROM releases_view WHERE 1=1"
         args: list[str | bool] = []
@@ -1876,13 +1876,13 @@ def list_releases_delete_this(
         query += " ORDER BY source_path"
 
         cursor = conn.execute(query, args)
-        releases: list[CachedRelease] = []
+        releases: list[Release] = []
         for row in cursor:
             releases.append(cached_release_from_view(c, row))
         return releases
 
 
-def list_releases(c: Config, release_ids: list[str] | None = None) -> list[CachedRelease]:
+def list_releases(c: Config, release_ids: list[str] | None = None) -> list[Release]:
     """Fetch data associated with given release IDs. Pass None to fetch all."""
     query = "SELECT * FROM releases_view"
     args = []
@@ -1892,13 +1892,13 @@ def list_releases(c: Config, release_ids: list[str] | None = None) -> list[Cache
     query += " ORDER BY source_path"
     with connect(c) as conn:
         cursor = conn.execute(query, args)
-        releases: list[CachedRelease] = []
+        releases: list[Release] = []
         for row in cursor:
             releases.append(cached_release_from_view(c, row))
         return releases
 
 
-def get_release(c: Config, release_id: str) -> CachedRelease | None:
+def get_release(c: Config, release_id: str) -> Release | None:
     with connect(c) as conn:
         cursor = conn.execute(
             "SELECT * FROM releases_view WHERE id = ?",
@@ -1939,7 +1939,7 @@ def calculate_release_logtext(
     return logtext
 
 
-def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[CachedTrack]:
+def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[Track]:
     """Fetch data associated with given track IDs. Pass None to fetch all."""
     query = "SELECT * FROM tracks_view"
     args = []
@@ -1960,7 +1960,7 @@ def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[CachedTra
             """,
             release_ids,
         )
-        releases_map: dict[str, CachedRelease] = {}
+        releases_map: dict[str, Release] = {}
         for row in cursor:
             releases_map[row["id"]] = cached_release_from_view(c, row)
 
@@ -1970,7 +1970,7 @@ def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[CachedTra
         return rval
 
 
-def get_track(c: Config, uuid: str) -> CachedTrack | None:
+def get_track(c: Config, uuid: str) -> Track | None:
     with connect(c) as conn:
         cursor = conn.execute("SELECT * FROM tracks_view WHERE id = ?", (uuid,))
         trackrow = cursor.fetchone()
@@ -1983,8 +1983,8 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
 
 def get_tracks_associated_with_release(
     c: Config,
-    release: CachedRelease,
-) -> list[CachedTrack]:
+    release: Release,
+) -> list[Track]:
     with connect(c) as conn:
         cursor = conn.execute(
             """
@@ -2003,10 +2003,10 @@ def get_tracks_associated_with_release(
 
 def get_tracks_associated_with_releases(
     c: Config,
-    releases: list[CachedRelease],
-) -> list[tuple[CachedRelease, list[CachedTrack]]]:
+    releases: list[Release],
+) -> list[tuple[Release, list[Track]]]:
     releases_map = {r.id: r for r in releases}
-    tracks_map: dict[str, list[CachedTrack]] = defaultdict(list)
+    tracks_map: dict[str, list[Track]] = defaultdict(list)
     with connect(c) as conn:
         cursor = conn.execute(
             f"""
@@ -2123,7 +2123,7 @@ def list_playlists(c: Config) -> list[str]:
         return [r["name"] for r in cursor]
 
 
-def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[CachedTrack]] | None:
+def get_playlist(c: Config, playlist_name: str) -> tuple[Playlist, list[Track]] | None:
     with connect(c) as conn:
         cursor = conn.execute(
             """
@@ -2139,7 +2139,7 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
         row = cursor.fetchone()
         if not row:
             return None
-        playlist = CachedPlaylist(
+        playlist = Playlist(
             name=row["name"],
             source_mtime=row["source_mtime"],
             cover_path=Path(row["cover_path"]) if row["cover_path"] else None,
@@ -2168,11 +2168,11 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
             """,
             release_ids,
         )
-        releases_map: dict[str, CachedRelease] = {}
+        releases_map: dict[str, Release] = {}
         for row in cursor:
             releases_map[row["id"]] = cached_release_from_view(c, row)
 
-        tracks: list[CachedTrack] = []
+        tracks: list[Track] = []
         for row in trackrows:
             playlist.track_ids.append(row["id"])
             tracks.append(cached_track_from_view(c, row, releases_map[row["release_id"]]))
@@ -2207,7 +2207,7 @@ def list_collages(c: Config) -> list[str]:
         return [r["name"] for r in cursor]
 
 
-def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[CachedRelease]] | None:
+def get_collage(c: Config, collage_name: str) -> tuple[Collage, list[Release]] | None:
     with connect(c) as conn:
         cursor = conn.execute(
             "SELECT name, source_mtime FROM collages WHERE name = ?",
@@ -2216,7 +2216,7 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
         row = cursor.fetchone()
         if not row:
             return None
-        collage = CachedCollage(
+        collage = Collage(
             name=row["name"],
             source_mtime=row["source_mtime"],
             # Accumulated below when we query the releases.
@@ -2232,7 +2232,7 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
             """,
             (collage_name,),
         )
-        releases: list[CachedRelease] = []
+        releases: list[Release] = []
         for row in cursor:
             collage.release_ids.append(row["id"])
             releases.append(cached_release_from_view(c, row))

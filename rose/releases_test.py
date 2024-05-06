@@ -10,8 +10,8 @@ import tomllib
 from conftest import TEST_RELEASE_1
 from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
-    CachedRelease,
-    CachedTrack,
+    Release,
+    Track,
     connect,
     get_release,
     get_tracks_associated_with_release,
@@ -181,7 +181,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
     edit_release(config, release_id)
     release = get_release(config, release_id)
     assert release is not None
-    assert release == CachedRelease(
+    assert release == Release(
         id=release_id,
         source_path=release_path,
         cover_image_path=None,
@@ -212,7 +212,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
     )
     tracks = get_tracks_associated_with_release(config, release)
     assert tracks == [
-        CachedTrack(
+        Track(
             id=track_ids[0],
             source_path=release_path / "01.m4a",
             source_mtime=tracks[0].source_mtime,
@@ -225,7 +225,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             metahash=tracks[0].metahash,
             release=release,
         ),
-        CachedTrack(
+        Track(
             id=track_ids[1],
             source_path=release_path / "02.m4a",
             source_mtime=tracks[1].source_mtime,
@@ -355,7 +355,7 @@ def test_edit_release_failure_and_resume(
 
     release = get_release(config, release_id)
     assert release is not None
-    assert release == CachedRelease(
+    assert release == Release(
         id=release_id,
         source_path=release_path,
         cover_image_path=None,
@@ -381,7 +381,7 @@ def test_edit_release_failure_and_resume(
     )
     tracks = get_tracks_associated_with_release(config, release)
     assert tracks == [
-        CachedTrack(
+        Track(
             id=track_ids[0],
             source_path=release_path / "01.m4a",
             source_mtime=tracks[0].source_mtime,
@@ -394,7 +394,7 @@ def test_edit_release_failure_and_resume(
             metahash=tracks[0].metahash,
             release=release,
         ),
-        CachedTrack(
+        Track(
             id=track_ids[1],
             source_path=release_path / "02.m4a",
             source_mtime=tracks[1].source_mtime,

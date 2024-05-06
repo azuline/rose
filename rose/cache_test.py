@@ -12,13 +12,13 @@ from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
     CACHE_SCHEMA_PATH,
     STORED_DATA_FILE_REGEX,
-    CachedCollage,
-    CachedPlaylist,
-    CachedRelease,
-    CachedTrack,
+    Collage,
     DescriptorEntry,
     GenreEntry,
     LabelEntry,
+    Playlist,
+    Release,
+    Track,
     _unpack,
     artist_exists,
     collage_exists,
@@ -1107,7 +1107,7 @@ def test_update_cache_playlists_on_release_rename(config: Config) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_releases(config: Config) -> None:
     expected = [
-        CachedRelease(
+        Release(
             datafile_mtime="999",
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
@@ -1142,7 +1142,7 @@ def test_list_releases(config: Config) -> None:
             releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
             metahash="1",
         ),
-        CachedRelease(
+        Release(
             datafile_mtime="999",
             id="r2",
             source_path=Path(config.music_source_dir / "r2"),
@@ -1171,7 +1171,7 @@ def test_list_releases(config: Config) -> None:
             ),
             metahash="2",
         ),
-        CachedRelease(
+        Release(
             datafile_mtime="999",
             id="r3",
             source_path=Path(config.music_source_dir / "r3"),
@@ -1205,7 +1205,7 @@ def test_list_releases(config: Config) -> None:
 def test_get_release_and_associated_tracks(config: Config) -> None:
     release = get_release(config, "r1")
     assert release is not None
-    assert release == CachedRelease(
+    assert release == Release(
         datafile_mtime="999",
         id="r1",
         source_path=Path(config.music_source_dir / "r1"),
@@ -1242,7 +1242,7 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
     )
 
     expected_tracks = [
-        CachedTrack(
+        Track(
             id="t1",
             source_path=config.music_source_dir / "r1" / "01.m4a",
             source_mtime="999",
@@ -1255,7 +1255,7 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
             metahash="1",
             release=release,
         ),
-        CachedTrack(
+        Track(
             id="t2",
             source_path=config.music_source_dir / "r1" / "02.m4a",
             source_mtime="999",
@@ -1311,7 +1311,7 @@ def test_get_release_logtext(config: Config) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_list_tracks(config: Config) -> None:
     expected = [
-        CachedTrack(
+        Track(
             id="t1",
             source_path=config.music_source_dir / "r1" / "01.m4a",
             source_mtime="999",
@@ -1322,7 +1322,7 @@ def test_list_tracks(config: Config) -> None:
             duration_seconds=120,
             trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
             metahash="1",
-            release=CachedRelease(
+            release=Release(
                 datafile_mtime="999",
                 id="r1",
                 source_path=Path(config.music_source_dir / "r1"),
@@ -1358,7 +1358,7 @@ def test_list_tracks(config: Config) -> None:
                 metahash="1",
             ),
         ),
-        CachedTrack(
+        Track(
             id="t2",
             source_path=config.music_source_dir / "r1" / "02.m4a",
             source_mtime="999",
@@ -1369,7 +1369,7 @@ def test_list_tracks(config: Config) -> None:
             duration_seconds=240,
             trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
             metahash="2",
-            release=CachedRelease(
+            release=Release(
                 datafile_mtime="999",
                 id="r1",
                 source_path=Path(config.music_source_dir / "r1"),
@@ -1405,7 +1405,7 @@ def test_list_tracks(config: Config) -> None:
                 metahash="1",
             ),
         ),
-        CachedTrack(
+        Track(
             id="t3",
             source_path=config.music_source_dir / "r2" / "01.m4a",
             source_mtime="999",
@@ -1418,7 +1418,7 @@ def test_list_tracks(config: Config) -> None:
                 main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]
             ),
             metahash="3",
-            release=CachedRelease(
+            release=Release(
                 id="r2",
                 source_path=config.music_source_dir / "r2",
                 cover_image_path=config.music_source_dir / "r2" / "cover.jpg",
@@ -1448,7 +1448,7 @@ def test_list_tracks(config: Config) -> None:
                 metahash="2",
             ),
         ),
-        CachedTrack(
+        Track(
             id="t4",
             source_path=config.music_source_dir / "r3" / "01.m4a",
             source_mtime="999",
@@ -1459,7 +1459,7 @@ def test_list_tracks(config: Config) -> None:
             duration_seconds=120,
             trackartists=ArtistMapping(),
             metahash="4",
-            release=CachedRelease(
+            release=Release(
                 id="r3",
                 source_path=config.music_source_dir / "r3",
                 cover_image_path=None,
@@ -1492,7 +1492,7 @@ def test_list_tracks(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_get_track(config: Config) -> None:
-    assert get_track(config, "t1") == CachedTrack(
+    assert get_track(config, "t1") == Track(
         id="t1",
         source_path=config.music_source_dir / "r1" / "01.m4a",
         source_mtime="999",
@@ -1503,7 +1503,7 @@ def test_get_track(config: Config) -> None:
         duration_seconds=120,
         trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
         metahash="1",
-        release=CachedRelease(
+        release=Release(
             datafile_mtime="999",
             id="r1",
             source_path=Path(config.music_source_dir / "r1"),
@@ -1630,13 +1630,13 @@ def test_get_collage(config: Config) -> None:
     cdata = get_collage(config, "Rose Gold")
     assert cdata is not None
     collage, releases = cdata
-    assert collage == CachedCollage(
+    assert collage == Collage(
         name="Rose Gold",
         source_mtime="999",
         release_ids=["r1", "r2"],
     )
     assert releases == [
-        CachedRelease(
+        Release(
             id="r1",
             source_path=config.music_source_dir / "r1",
             cover_image_path=None,
@@ -1671,7 +1671,7 @@ def test_get_collage(config: Config) -> None:
             releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
             metahash="1",
         ),
-        CachedRelease(
+        Release(
             id="r2",
             source_path=config.music_source_dir / "r2",
             cover_image_path=config.music_source_dir / "r2" / "cover.jpg",
@@ -1705,7 +1705,7 @@ def test_get_collage(config: Config) -> None:
     cdata = get_collage(config, "Ruby Red")
     assert cdata is not None
     collage, releases = cdata
-    assert collage == CachedCollage(
+    assert collage == Collage(
         name="Ruby Red",
         source_mtime="999",
         release_ids=[],
@@ -1730,14 +1730,14 @@ def test_get_playlist(config: Config) -> None:
     pdata = get_playlist(config, "Lala Lisa")
     assert pdata is not None
     playlist, tracks = pdata
-    assert playlist == CachedPlaylist(
+    assert playlist == Playlist(
         name="Lala Lisa",
         source_mtime="999",
         cover_path=config.music_source_dir / "!playlists" / "Lala Lisa.jpg",
         track_ids=["t1", "t3"],
     )
     assert tracks == [
-        CachedTrack(
+        Track(
             id="t1",
             source_path=config.music_source_dir / "r1" / "01.m4a",
             source_mtime="999",
@@ -1748,7 +1748,7 @@ def test_get_playlist(config: Config) -> None:
             duration_seconds=120,
             trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
             metahash="1",
-            release=CachedRelease(
+            release=Release(
                 datafile_mtime="999",
                 id="r1",
                 source_path=Path(config.music_source_dir / "r1"),
@@ -1784,7 +1784,7 @@ def test_get_playlist(config: Config) -> None:
                 metahash="1",
             ),
         ),
-        CachedTrack(
+        Track(
             id="t3",
             source_path=config.music_source_dir / "r2" / "01.m4a",
             source_mtime="999",
@@ -1797,7 +1797,7 @@ def test_get_playlist(config: Config) -> None:
                 main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]
             ),
             metahash="3",
-            release=CachedRelease(
+            release=Release(
                 id="r2",
                 source_path=config.music_source_dir / "r2",
                 cover_image_path=config.music_source_dir / "r2" / "cover.jpg",

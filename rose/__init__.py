@@ -5,13 +5,13 @@ from rose.audiotags import (
 )
 from rose.cache import (
     STORED_DATA_FILE_REGEX,
-    CachedCollage,
-    CachedPlaylist,
-    CachedRelease,
-    CachedTrack,
+    Collage,
     DescriptorEntry,
     GenreEntry,
     LabelEntry,
+    Playlist,
+    Release,
+    Track,
     artist_exists,
     calculate_release_logtext,
     calculate_track_logtext,
@@ -54,6 +54,8 @@ from rose.collages import (
 )
 from rose.common import (
     VERSION,
+    Artist,
+    ArtistMapping,
     RoseError,
     RoseExpectedError,
     initialize_logging,
@@ -138,7 +140,7 @@ __all__ = [
     "eval_track_template",  # TODO: Rename.
     "preview_path_templates",
     # Releases
-    "CachedRelease",
+    "Release",
     "create_single_release",
     "delete_release",
     "delete_release_cover_art",
@@ -149,12 +151,14 @@ __all__ = [
     "set_release_cover_art",
     "toggle_release_new",
     # Tracks
-    "CachedTrack",
+    "Track",
     "dump_all_tracks",
     "dump_track",
     "get_track",
     "get_tracks_associated_with_release",  # TODO: Rename: `get_tracks_of_release` / `dump_release(with_tracks=tracks)`
     # Artists
+    "Artist",
+    "ArtistMapping",
     "artist_exists",
     "list_artists",
     # Genres
@@ -170,7 +174,7 @@ __all__ = [
     "list_labels",
     "label_exists",
     # Collages
-    "CachedCollage",
+    "Collage",
     "add_release_to_collage",
     "collage_exists",
     "create_collage",
@@ -183,7 +187,7 @@ __all__ = [
     "remove_release_from_collage",
     "rename_collage",
     # Playlists
-    "CachedPlaylist",
+    "Playlist",
     "add_track_to_playlist",
     "list_playlists",
     "playlist_exists",

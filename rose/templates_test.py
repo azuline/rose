@@ -5,7 +5,7 @@ import click
 from click.testing import CliRunner
 
 from rose.audiotags import RoseDate
-from rose.cache import CachedRelease, CachedTrack
+from rose.cache import Release, Track
 from rose.common import Artist, ArtistMapping
 from rose.config import Config
 from rose.templates import (
@@ -17,7 +17,7 @@ from rose.templates import (
     preview_path_templates,
 )
 
-EMPTY_CACHED_RELEASE = CachedRelease(
+EMPTY_CACHED_RELEASE = Release(
     id="",
     source_path=Path(),
     cover_image_path=None,
@@ -42,7 +42,7 @@ EMPTY_CACHED_RELEASE = CachedRelease(
     metahash="0",
 )
 
-EMPTY_CACHED_TRACK = CachedTrack(
+EMPTY_CACHED_TRACK = Track(
     id="",
     source_path=Path("hi.m4a"),
     source_mtime="",

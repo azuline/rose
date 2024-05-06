@@ -21,8 +21,8 @@ from send2trash import send2trash
 from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
     STORED_DATA_FILE_REGEX,
-    CachedRelease,
-    CachedTrack,
+    Release,
+    Track,
     calculate_release_logtext,
     get_release,
     get_tracks_associated_with_release,
@@ -253,7 +253,7 @@ class MetadataRelease:
     tracks: dict[str, MetadataTrack]
 
     @classmethod
-    def from_cache(cls, release: CachedRelease, tracks: list[CachedTrack]) -> MetadataRelease:
+    def from_cache(cls, release: Release, tracks: list[Track]) -> MetadataRelease:
         return MetadataRelease(
             title=release.releasetitle,
             new=release.new,
