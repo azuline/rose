@@ -59,8 +59,10 @@ from rose import (
     SUPPORTED_AUDIO_EXTENSIONS,
     AudioTags,
     Config,
+    Matcher,
     PathContext,
     PathTemplate,
+    Pattern,
     Release,
     RoseError,
     Track,
@@ -76,6 +78,8 @@ from rose import (
     descriptor_exists,
     evaluate_release_template,
     evaluate_track_template,
+    find_releases_matching_rule,
+    find_tracks_matching_rule,
     genre_exists,
     get_collage,
     get_collage_releases,
@@ -84,6 +88,7 @@ from rose import (
     get_release,
     get_track,
     get_tracks_of_release,
+    get_tracks_of_releases,
     label_exists,
     list_artists,
     list_collages,
@@ -91,6 +96,8 @@ from rose import (
     list_genres,
     list_labels,
     list_playlists,
+    list_releases,
+    list_tracks,
     make_release_logtext,
     make_track_logtext,
     release_within_collage,
@@ -106,10 +113,6 @@ from rose import (
     track_within_release,
     update_cache_for_releases,
 )
-from rose.cache import get_tracks_of_releases, list_releases, list_tracks
-from rose.releases import find_releases_matching_rule
-from rose.rule_parser import Matcher, Pattern
-from rose.tracks import find_tracks_matching_rule
 
 logger = logging.getLogger(__name__)
 
