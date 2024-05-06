@@ -400,3 +400,15 @@ def test_ignore_values(config: Config, source_dir: Path) -> None:
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.tracktitle == "Track 1"
+
+
+def test_artist_matcher_on_trackartist_only(config: Config, source_dir: Path) -> None:
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    af.trackartists.main = [Artist("BIGBANG & 2NE1")]
+    af.releaseartists.main = [Artist("BIGBANG"), Artist("2NE1")]
+    af.flush()
+    update_cache(config)
+    rule = MetadataRule.parse("artist: & ", ["split: & "])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.trackartists.main == [Artist("BIGBANG"), Artist("2NE1")]
