@@ -6,4 +6,4 @@ __all__ = [
     "unmount_virtualfs",
 ]
 
-initialize_logging()
+initialize_logging(__name__)
