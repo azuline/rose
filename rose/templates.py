@@ -281,7 +281,7 @@ class PathContext:
     playlist: str | None
 
 
-def eval_release_template(
+def evaluate_release_template(
     template: PathTemplate,
     release: Release,
     context: PathContext | None = None,
@@ -292,7 +292,7 @@ def eval_release_template(
     )
 
 
-def eval_track_template(
+def evaluate_track_template(
     template: PathTemplate,
     track: Track,
     context: PathContext | None = None,
@@ -522,11 +522,11 @@ def _preview_release_template(c: Config, label: str, template: PathTemplate) -> 
     kimlip, youngforever, debussy = _get_preview_releases(c)
     click.secho(f"{label}:", dim=True, underline=True)
     click.secho("  Sample 1: ", dim=True, nl=False)
-    click.secho(eval_release_template(template, kimlip, position="1"))
+    click.secho(evaluate_release_template(template, kimlip, position="1"))
     click.secho("  Sample 2: ", dim=True, nl=False)
-    click.secho(eval_release_template(template, youngforever, position="2"))
+    click.secho(evaluate_release_template(template, youngforever, position="2"))
     click.secho("  Sample 3: ", dim=True, nl=False)
-    click.secho(eval_release_template(template, debussy, position="3"))
+    click.secho(evaluate_release_template(template, debussy, position="3"))
 
 
 def _preview_track_template(c: Config, label: str, template: PathTemplate) -> None:
@@ -551,7 +551,7 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         metahash="0",
         release=kimlip,
     )
-    click.secho(eval_track_template(template, track, position="1"))
+    click.secho(evaluate_track_template(template, track, position="1"))
 
     click.secho("  Sample 2: ", dim=True, nl=False)
     track = Track(
@@ -569,7 +569,7 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         metahash="0",
         release=youngforever,
     )
-    click.secho(eval_track_template(template, track, position="2"))
+    click.secho(evaluate_track_template(template, track, position="2"))
 
     click.secho("  Sample 3: ", dim=True, nl=False)
     track = Track(
@@ -591,4 +591,4 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         metahash="0",
         release=debussy,
     )
-    click.secho(eval_track_template(template, track, position="3"))
+    click.secho(evaluate_track_template(template, track, position="3"))

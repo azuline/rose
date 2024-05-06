@@ -14,7 +14,7 @@ from rose.cache import (
     Track,
     connect,
     get_release,
-    get_tracks_associated_with_release,
+    get_tracks_of_release,
     update_cache,
 )
 from rose.common import Artist, ArtistMapping
@@ -210,7 +210,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         releaseartists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
         metahash=release.metahash,
     )
-    tracks = get_tracks_associated_with_release(config, release)
+    tracks = get_tracks_of_release(config, release)
     assert tracks == [
         Track(
             id=track_ids[0],
@@ -379,7 +379,7 @@ def test_edit_release_failure_and_resume(
         releaseartists=ArtistMapping(main=[Artist("BLACKPINK"), Artist("JISOO")]),
         metahash=release.metahash,
     )
-    tracks = get_tracks_associated_with_release(config, release)
+    tracks = get_tracks_of_release(config, release)
     assert tracks == [
         Track(
             id=track_ids[0],

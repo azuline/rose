@@ -21,21 +21,21 @@ from rose.cache import (
     Track,
     _unpack,
     artist_exists,
-    collage_exists,
     connect,
     descriptor_exists,
     genre_exists,
     get_collage,
+    get_collage_releases,
     get_path_of_track_in_playlist,
     get_path_of_track_in_release,
     get_playlist,
-    get_playlist_cover_path,
+    get_playlist_tracks,
     get_release,
     get_release_logtext,
     get_track,
     get_track_logtext,
-    get_tracks_associated_with_release,
-    get_tracks_associated_with_releases,
+    get_tracks_of_release,
+    get_tracks_of_releases,
     label_exists,
     list_artists,
     list_collages,
@@ -47,7 +47,6 @@ from rose.cache import (
     list_tracks,
     lock,
     maybe_invalidate_cache_database,
-    playlist_exists,
     update_cache,
     update_cache_evict_nonexistent_releases,
     update_cache_for_releases,
@@ -1270,8 +1269,8 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
         ),
     ]
 
-    assert get_tracks_associated_with_release(config, release) == expected_tracks
-    assert get_tracks_associated_with_releases(config, [release]) == [(release, expected_tracks)]
+    assert get_tracks_of_release(config, release) == expected_tracks
+    assert get_tracks_of_releases(config, [release]) == [(release, expected_tracks)]
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -1291,7 +1290,7 @@ def test_get_release_applies_artist_aliases(config: Config) -> None:
             Artist("Bubble Gum", True),
         ],
     )
-    tracks = get_tracks_associated_with_release(config, release)
+    tracks = get_tracks_of_release(config, release)
     for t in tracks:
         assert t.trackartists == ArtistMapping(
             main=[
@@ -1627,15 +1626,11 @@ def test_list_collages(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_get_collage(config: Config) -> None:
-    cdata = get_collage(config, "Rose Gold")
-    assert cdata is not None
-    collage, releases = cdata
-    assert collage == Collage(
+    assert get_collage(config, "Rose Gold") == Collage(
         name="Rose Gold",
         source_mtime="999",
-        release_ids=["r1", "r2"],
     )
-    assert releases == [
+    assert get_collage_releases(config, "Rose Gold") == [
         Release(
             id="r1",
             source_path=config.music_source_dir / "r1",
@@ -1702,21 +1697,11 @@ def test_get_collage(config: Config) -> None:
         ),
     ]
 
-    cdata = get_collage(config, "Ruby Red")
-    assert cdata is not None
-    collage, releases = cdata
-    assert collage == Collage(
+    assert get_collage(config, "Ruby Red") == Collage(
         name="Ruby Red",
         source_mtime="999",
-        release_ids=[],
     )
-    assert releases == []
-
-
-@pytest.mark.usefixtures("seeded_cache")
-def test_collage_exists(config: Config) -> None:
-    assert collage_exists(config, "Rose Gold")
-    assert not collage_exists(config, "lalala")
+    assert get_collage_releases(config, "Ruby Red") == []
 
 
 @pytest.mark.usefixtures("seeded_cache")
@@ -1727,16 +1712,12 @@ def test_list_playlists(config: Config) -> None:
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_get_playlist(config: Config) -> None:
-    pdata = get_playlist(config, "Lala Lisa")
-    assert pdata is not None
-    playlist, tracks = pdata
-    assert playlist == Playlist(
+    assert get_playlist(config, "Lala Lisa") == Playlist(
         name="Lala Lisa",
         source_mtime="999",
         cover_path=config.music_source_dir / "!playlists" / "Lala Lisa.jpg",
-        track_ids=["t1", "t3"],
     )
-    assert tracks == [
+    assert get_playlist_tracks(config, "Lala Lisa") == [
         Track(
             id="t1",
             source_path=config.music_source_dir / "r1" / "01.m4a",
@@ -1828,21 +1809,6 @@ def test_get_playlist(config: Config) -> None:
             ),
         ),
     ]
-
-
-@pytest.mark.usefixtures("seeded_cache")
-def test_playlist_exists(config: Config) -> None:
-    assert playlist_exists(config, "Lala Lisa")
-    assert not playlist_exists(config, "lalala")
-
-
-@pytest.mark.usefixtures("seeded_cache")
-def test_get_playlist_cover_path(config: Config) -> None:
-    assert (
-        get_playlist_cover_path(config, "Lala Lisa")
-        == config.music_source_dir / "!playlists" / "Lala Lisa.jpg"
-    )
-    assert get_playlist_cover_path(config, "lalala") is None
 
 
 @pytest.mark.usefixtures("seeded_cache")

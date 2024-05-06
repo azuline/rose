@@ -15,6 +15,7 @@ from send2trash import send2trash
 from rose.cache import (
     collage_lock_name,
     get_collage,
+    get_collage_releases,
     get_release_logtext,
     list_collages,
     lock,
@@ -145,11 +146,12 @@ def add_release_to_collage(
 
 
 def dump_collage(c: Config, collage_name: str) -> str:
-    cdata = get_collage(c, collage_name)
-    if cdata is None:
+    collage = get_collage(c, collage_name)
+    if collage is None:
         raise CollageDoesNotExistError(f"Collage {collage_name} does not exist")
+    collage_releases = get_collage_releases(c, collage_name)
     releases: list[dict[str, Any]] = []
-    for idx, rls in enumerate(cdata[1]):
+    for idx, rls in enumerate(collage_releases):
         releases.append({"position": idx + 1, **rls.dump()})
     return json.dumps({"name": collage_name, "releases": releases})
 
@@ -157,10 +159,11 @@ def dump_collage(c: Config, collage_name: str) -> str:
 def dump_all_collages(c: Config) -> str:
     out: list[dict[str, Any]] = []
     for name in list_collages(c):
-        cdata = get_collage(c, name)
-        assert cdata is not None
+        collage = get_collage(c, name)
+        assert collage is not None
+        collage_releases = get_collage_releases(c, name)
         releases: list[dict[str, Any]] = []
-        for idx, rls in enumerate(cdata[1]):
+        for idx, rls in enumerate(collage_releases):
             releases.append({"position": idx + 1, **rls.dump()})
         out.append({"name": name, "releases": releases})
     return json.dumps(out)

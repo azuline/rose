@@ -62,7 +62,7 @@ from rose.common import (
 )
 from rose.config import Config
 from rose.genre_hierarchy import TRANSIENT_CHILD_GENRES, TRANSIENT_PARENT_GENRES
-from rose.templates import artistsfmt, eval_release_template, eval_track_template
+from rose.templates import artistsfmt, evaluate_release_template, evaluate_track_template
 
 logger = logging.getLogger(__name__)
 
@@ -371,7 +371,6 @@ def cached_track_from_view(
 class Collage:
     name: str
     source_mtime: str
-    release_ids: list[str]
 
 
 @dataclass(slots=True)
@@ -379,7 +378,6 @@ class Playlist:
     name: str
     source_mtime: str
     cover_path: Path | None
-    track_ids: list[str]
 
 
 @dataclass(slots=True)
@@ -953,7 +951,7 @@ def _update_cache_for_releases_executor(
         # And now perform directory/file renames if configured.
         if c.rename_source_files:
             if release_dirty:
-                wanted_dirname = eval_release_template(c.path_templates.source.release, release)
+                wanted_dirname = evaluate_release_template(c.path_templates.source.release, release)
                 wanted_dirname = sanitize_dirname(c, wanted_dirname, True)
                 # Iterate until we've either:
                 # 1. Realized that the name of the source path matches the desired dirname (which we
@@ -989,7 +987,7 @@ def _update_cache_for_releases_executor(
                         track.source_mtime = str(os.stat(track.source_path).st_mtime)
                         track_ids_to_insert.add(track.id)
             for track in [t for t in tracks if t.id in track_ids_to_insert]:
-                wanted_filename = eval_track_template(c.path_templates.source.track, track)
+                wanted_filename = evaluate_track_template(c.path_templates.source.track, track)
                 wanted_filename = sanitize_filename(c, wanted_filename, True)
                 # And repeat a similar process to the release rename handling. Except: we can have
                 # arbitrarily nested files here, so we need to compare more than the name.
@@ -1423,7 +1421,7 @@ def update_cache_for_collages(
             files.append((path.resolve(), path.stem, f))
     logger.debug(f"Refreshing the read cache for {len(files)} collages")
 
-    cached_collages: dict[str, Collage] = {}
+    cached_collages: dict[str, tuple[Collage, list[str]]] = {}
     with connect(c) as conn:
         cursor = conn.execute(
             """
@@ -1437,10 +1435,12 @@ def update_cache_for_collages(
             """,
         )
         for row in cursor:
-            cached_collages[row["name"]] = Collage(
-                name=row["name"],
-                source_mtime=row["source_mtime"],
-                release_ids=_split(row["release_ids"]) if row["release_ids"] else [],
+            cached_collages[row["name"]] = (
+                Collage(
+                    name=row["name"],
+                    source_mtime=row["source_mtime"],
+                ),
+                _split(row["release_ids"]) if row["release_ids"] else [],
             )
 
         # We want to validate that all release IDs exist before we write them. In order to do that,
@@ -1452,14 +1452,14 @@ def update_cache_for_collages(
     with connect(c) as conn:
         for source_path, name, f in files:
             try:
-                cached_collage = cached_collages[name]
+                cached_collage, release_ids = cached_collages[name]
             except KeyError:
                 logger.debug(f"First-time unidentified collage found at {source_path}")
                 cached_collage = Collage(
                     name=name,
                     source_mtime="",
-                    release_ids=[],
                 )
+                release_ids = []
 
             try:
                 source_mtime = str(f.stat().st_mtime)
@@ -1495,9 +1495,9 @@ def update_cache_for_collages(
                         )
                         del rls["missing"]
 
-                cached_collage.release_ids = [r["uuid"] for r in releases]
+                release_ids = [r["uuid"] for r in releases]
                 logger.debug(
-                    f"Found {len(cached_collage.release_ids)} release(s) (including missing) in {source_path}"
+                    f"Found {len(release_ids)} release(s) (including missing) in {source_path}"
                 )
 
                 # Update the description_metas.
@@ -1507,10 +1507,10 @@ def update_cache_for_collages(
                     SELECT id, releasetitle, releasedate, releaseartist_names, releaseartist_roles FROM releases_view
                     WHERE id IN ({','.join(['?']*len(releases))})
                     """,
-                    cached_collage.release_ids,
+                    release_ids,
                 )
                 for row in cursor:
-                    desc_map[row["id"]] = calculate_release_logtext(
+                    desc_map[row["id"]] = make_release_logtext(
                         title=row["releasetitle"],
                         releasedate=RoseDate.parse(row["releasedate"]),
                         artists=_unpack_artists(
@@ -1618,7 +1618,7 @@ def update_cache_for_playlists(
             files.append((path.resolve(), path.stem, f))
     logger.debug(f"Refreshing the read cache for {len(files)} playlists")
 
-    cached_playlists: dict[str, Playlist] = {}
+    cached_playlists: dict[str, tuple[Playlist, list[str]]] = {}
     with connect(c) as conn:
         cursor = conn.execute(
             """
@@ -1633,11 +1633,13 @@ def update_cache_for_playlists(
             """,
         )
         for row in cursor:
-            cached_playlists[row["name"]] = Playlist(
-                name=row["name"],
-                source_mtime=row["source_mtime"],
-                cover_path=Path(row["cover_path"]) if row["cover_path"] else None,
-                track_ids=_split(row["track_ids"]) if row["track_ids"] else [],
+            cached_playlists[row["name"]] = (
+                Playlist(
+                    name=row["name"],
+                    source_mtime=row["source_mtime"],
+                    cover_path=Path(row["cover_path"]) if row["cover_path"] else None,
+                ),
+                _split(row["track_ids"]) if row["track_ids"] else [],
             )
 
         # We want to validate that all track IDs exist before we write them. In order to do that,
@@ -1649,15 +1651,15 @@ def update_cache_for_playlists(
     with connect(c) as conn:
         for source_path, name, f in files:
             try:
-                cached_playlist = cached_playlists[name]
+                cached_playlist, track_ids = cached_playlists[name]
             except KeyError:
                 logger.debug(f"First-time unidentified playlist found at {source_path}")
                 cached_playlist = Playlist(
                     name=name,
                     source_mtime="",
                     cover_path=None,
-                    track_ids=[],
                 )
+                track_ids = []
 
             # We do a quick scan for the playlist's cover art here. We always do this check, as it
             # amounts to ~4 getattrs. If a change is detected, we ignore the mtime optimization and
@@ -1712,9 +1714,9 @@ def update_cache_for_playlists(
                         )
                         del trk["missing"]
 
-                cached_playlist.track_ids = [t["uuid"] for t in tracks]
+                track_ids = [t["uuid"] for t in tracks]
                 logger.debug(
-                    f"Found {len(cached_playlist.track_ids)} track(s) (including missing) in {source_path}"
+                    f"Found {len(track_ids)} track(s) (including missing) in {source_path}"
                 )
 
                 # Update the description_metas.
@@ -1732,10 +1734,10 @@ def update_cache_for_playlists(
                     JOIN releases_view r ON r.id = t.release_id
                     WHERE t.id IN ({','.join(['?']*len(tracks))})
                     """,
-                    cached_playlist.track_ids,
+                    track_ids,
                 )
                 for row in cursor:
-                    desc_map[row["id"]] = calculate_track_logtext(
+                    desc_map[row["id"]] = make_track_logtext(
                         title=row["tracktitle"],
                         artists=_unpack_artists(
                             c, row["trackartist_names"], row["trackartist_roles"]
@@ -1920,14 +1922,14 @@ def get_release_logtext(c: Config, release_id: str) -> str | None:
         row = cursor.fetchone()
         if not row:
             return None
-        return calculate_release_logtext(
+        return make_release_logtext(
             title=row["releasetitle"],
             releasedate=RoseDate.parse(row["releasedate"]),
             artists=_unpack_artists(c, row["releaseartist_names"], row["releaseartist_roles"]),
         )
 
 
-def calculate_release_logtext(
+def make_release_logtext(
     title: str,
     releasedate: RoseDate | None,
     artists: ArtistMapping,
@@ -1981,7 +1983,7 @@ def get_track(c: Config, uuid: str) -> Track | None:
         return cached_track_from_view(c, trackrow, release)
 
 
-def get_tracks_associated_with_release(
+def get_tracks_of_release(
     c: Config,
     release: Release,
 ) -> list[Track]:
@@ -2001,7 +2003,7 @@ def get_tracks_associated_with_release(
         return rval
 
 
-def get_tracks_associated_with_releases(
+def get_tracks_of_releases(
     c: Config,
     releases: list[Release],
 ) -> list[tuple[Release, list[Track]]]:
@@ -2096,7 +2098,7 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
         row = cursor.fetchone()
         if not row:
             return None
-        return calculate_track_logtext(
+        return make_track_logtext(
             title=row["tracktitle"],
             artists=_unpack_artists(c, row["trackartist_names"], row["trackartist_roles"]),
             releasedate=RoseDate.parse(row["releasedate"]),
@@ -2104,7 +2106,7 @@ def get_track_logtext(c: Config, track_id: str) -> str | None:
         )
 
 
-def calculate_track_logtext(
+def make_track_logtext(
     title: str,
     artists: ArtistMapping,
     releasedate: RoseDate | None,
@@ -2123,7 +2125,7 @@ def list_playlists(c: Config) -> list[str]:
         return [r["name"] for r in cursor]
 
 
-def get_playlist(c: Config, playlist_name: str) -> tuple[Playlist, list[Track]] | None:
+def get_playlist(c: Config, playlist_name: str) -> Playlist | None:
     with connect(c) as conn:
         cursor = conn.execute(
             """
@@ -2139,14 +2141,15 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[Playlist, list[Track]] 
         row = cursor.fetchone()
         if not row:
             return None
-        playlist = Playlist(
+        return Playlist(
             name=row["name"],
             source_mtime=row["source_mtime"],
             cover_path=Path(row["cover_path"]) if row["cover_path"] else None,
-            # Accumulated below when we query the tracks.
-            track_ids=[],
         )
 
+
+def get_playlist_tracks(c: Config, playlist_name: str) -> list[Track]:
+    with connect(c) as conn:
         cursor = conn.execute(
             """
             SELECT t.*
@@ -2174,31 +2177,9 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[Playlist, list[Track]] 
 
         tracks: list[Track] = []
         for row in trackrows:
-            playlist.track_ids.append(row["id"])
             tracks.append(cached_track_from_view(c, row, releases_map[row["release_id"]]))
 
-    return playlist, tracks
-
-
-def playlist_exists(c: Config, playlist_name: str) -> bool:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT EXISTS(SELECT * FROM playlists WHERE name = ?)",
-            (playlist_name,),
-        )
-        return bool(cursor.fetchone()[0])
-
-
-def get_playlist_cover_path(c: Config, playlist_name: str) -> Path | None:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT cover_path FROM playlists WHERE name = ?",
-            (playlist_name,),
-        )
-        row = cursor.fetchone()
-        if row and row["cover_path"]:
-            return Path(row["cover_path"])
-        return None
+    return tracks
 
 
 def list_collages(c: Config) -> list[str]:
@@ -2207,7 +2188,7 @@ def list_collages(c: Config) -> list[str]:
         return [r["name"] for r in cursor]
 
 
-def get_collage(c: Config, collage_name: str) -> tuple[Collage, list[Release]] | None:
+def get_collage(c: Config, collage_name: str) -> Collage | None:
     with connect(c) as conn:
         cursor = conn.execute(
             "SELECT name, source_mtime FROM collages WHERE name = ?",
@@ -2216,12 +2197,14 @@ def get_collage(c: Config, collage_name: str) -> tuple[Collage, list[Release]] |
         row = cursor.fetchone()
         if not row:
             return None
-        collage = Collage(
+        return Collage(
             name=row["name"],
             source_mtime=row["source_mtime"],
-            # Accumulated below when we query the releases.
-            release_ids=[],
         )
+
+
+def get_collage_releases(c: Config, collage_name: str) -> list[Release]:
+    with connect(c) as conn:
         cursor = conn.execute(
             """
             SELECT r.*
@@ -2234,19 +2217,9 @@ def get_collage(c: Config, collage_name: str) -> tuple[Collage, list[Release]] |
         )
         releases: list[Release] = []
         for row in cursor:
-            collage.release_ids.append(row["id"])
             releases.append(cached_release_from_view(c, row))
 
-    return (collage, releases)
-
-
-def collage_exists(c: Config, collage_name: str) -> bool:
-    with connect(c) as conn:
-        cursor = conn.execute(
-            "SELECT EXISTS(SELECT * FROM collages WHERE name = ?)",
-            (collage_name,),
-        )
-        return bool(cursor.fetchone()[0])
+    return releases
 
 
 def list_artists(c: Config) -> list[str]:

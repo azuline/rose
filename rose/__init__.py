@@ -4,7 +4,6 @@ from rose.audiotags import (
     UnsupportedFiletypeError,
 )
 from rose.cache import (
-    STORED_DATA_FILE_REGEX,
     Collage,
     DescriptorEntry,
     GenreEntry,
@@ -13,18 +12,16 @@ from rose.cache import (
     Release,
     Track,
     artist_exists,
-    calculate_release_logtext,
-    calculate_track_logtext,
-    collage_exists,
     descriptor_exists,
     genre_exists,
     get_collage,
+    get_collage_releases,
     get_path_of_track_in_playlist,
     get_playlist,
-    get_playlist_cover_path,
+    get_playlist_tracks,
     get_release,
     get_track,
-    get_tracks_associated_with_release,
+    get_tracks_of_release,
     label_exists,
     list_artists,
     list_collages,
@@ -32,8 +29,9 @@ from rose.cache import (
     list_genres,
     list_labels,
     list_playlists,
+    make_release_logtext,
+    make_track_logtext,
     maybe_invalidate_cache_database,
-    playlist_exists,
     update_cache,
     update_cache_evict_nonexistent_collages,
     update_cache_evict_nonexistent_playlists,
@@ -91,8 +89,8 @@ from rose.rules import execute_metadata_rule, execute_stored_metadata_rules
 from rose.templates import (
     PathContext,
     PathTemplate,
-    eval_release_template,
-    eval_track_template,
+    evaluate_release_template,
+    evaluate_track_template,
     preview_path_templates,
 )
 from rose.tracks import dump_all_tracks, dump_track, run_actions_on_track
@@ -100,7 +98,7 @@ from rose.tracks import dump_all_tracks, dump_track, run_actions_on_track
 __all__ = [
     # Plumbing
     "initialize_logging",
-    "VERSION",  # TODO: get_version()
+    "VERSION",
     # Errors
     "RoseError",
     "RoseExpectedError",
@@ -108,10 +106,9 @@ __all__ = [
     # Utilities
     "sanitize_dirname",
     "sanitize_filename",
-    "calculate_release_logtext",  # TODO: Rename.
-    "calculate_track_logtext",  # TODO: Rename.
-    "STORED_DATA_FILE_REGEX",  # TODO: Revise: is_release_directory() / is_track_file()
-    "SUPPORTED_AUDIO_EXTENSIONS",  # TODO: is_supported_audio_file()
+    "make_release_logtext",
+    "make_track_logtext",
+    "SUPPORTED_AUDIO_EXTENSIONS",
     # Configuration
     "Config",
     # Cache
@@ -136,8 +133,8 @@ __all__ = [
     # Path Templates
     "PathContext",
     "PathTemplate",
-    "eval_release_template",  # TODO: Rename.
-    "eval_track_template",  # TODO: Rename.
+    "evaluate_release_template",
+    "evaluate_track_template",
     "preview_path_templates",
     # Releases
     "Release",
@@ -155,7 +152,7 @@ __all__ = [
     "dump_all_tracks",
     "dump_track",
     "get_track",
-    "get_tracks_associated_with_release",  # TODO: Rename: `get_tracks_of_release` / `dump_release(with_tracks=tracks)`
+    "get_tracks_of_release",
     # Artists
     "Artist",
     "ArtistMapping",
@@ -176,13 +173,13 @@ __all__ = [
     # Collages
     "Collage",
     "add_release_to_collage",
-    "collage_exists",
     "create_collage",
     "delete_collage",
     "dump_all_collages",
     "dump_collage",
     "edit_collage_in_editor",  # TODO: Move editor part to CLI, make this file-submissions.
     "get_collage",
+    "get_collage_releases",
     "list_collages",
     "remove_release_from_collage",
     "rename_collage",
@@ -190,16 +187,15 @@ __all__ = [
     "Playlist",
     "add_track_to_playlist",
     "list_playlists",
-    "playlist_exists",
     "create_playlist",
     "delete_playlist",
     "delete_playlist_cover_art",
     "get_playlist",
+    "get_playlist_tracks",
     "dump_all_playlists",
     "dump_playlist",
     "edit_playlist_in_editor",  # TODO: Move editor part to CLI, make this file-submissions.
     "get_path_of_track_in_playlist",  # TODO: Redesign.
-    "get_playlist_cover_path",  # TODO: Remove.
     "remove_track_from_playlist",
     "rename_playlist",
     "set_playlist_cover_art",

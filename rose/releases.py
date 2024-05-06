@@ -23,12 +23,12 @@ from rose.cache import (
     STORED_DATA_FILE_REGEX,
     Release,
     Track,
-    calculate_release_logtext,
     get_release,
-    get_tracks_associated_with_release,
-    get_tracks_associated_with_releases,
+    get_tracks_of_release,
+    get_tracks_of_releases,
     list_releases,
     lock,
+    make_release_logtext,
     release_lock_name,
     update_cache_evict_nonexistent_releases,
     update_cache_for_collages,
@@ -72,7 +72,7 @@ def dump_release(c: Config, release_id: str) -> str:
     release = get_release(c, release_id)
     if not release:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
-    tracks = get_tracks_associated_with_release(c, release)
+    tracks = get_tracks_of_release(c, release)
     return json.dumps(
         {**release.dump(), "tracks": [t.dump(with_release_info=False) for t in tracks]}
     )
@@ -85,7 +85,7 @@ def dump_all_releases(c: Config, matcher: MetadataMatcher | None = None) -> str:
     releases = list_releases(c, release_ids)
     if matcher:
         releases = filter_release_false_positives_using_read_cache(matcher, releases)
-    rt_pairs = get_tracks_associated_with_releases(c, releases)
+    rt_pairs = get_tracks_of_releases(c, releases)
     return json.dumps(
         [
             {**release.dump(), "tracks": [t.dump(with_release_info=False) for t in tracks]}
@@ -100,7 +100,7 @@ def delete_release(c: Config, release_id: str) -> None:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
     with lock(c, release_lock_name(release_id)):
         send2trash(release.source_path)
-    release_logtext = calculate_release_logtext(
+    release_logtext = make_release_logtext(
         title=release.releasetitle,
         releasedate=release.releasedate,
         artists=release.releaseartists,
@@ -118,7 +118,7 @@ def toggle_release_new(c: Config, release_id: str) -> None:
     if not release:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
-    release_logtext = calculate_release_logtext(
+    release_logtext = make_release_logtext(
         title=release.releasetitle,
         releasedate=release.releasedate,
         artists=release.releaseartists,
@@ -160,7 +160,7 @@ def set_release_cover_art(
     if not release:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
-    release_logtext = calculate_release_logtext(
+    release_logtext = make_release_logtext(
         title=release.releasetitle,
         releasedate=release.releasedate,
         artists=release.releaseartists,
@@ -181,7 +181,7 @@ def delete_release_cover_art(c: Config, release_id: str) -> None:
     if not release:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
-    release_logtext = calculate_release_logtext(
+    release_logtext = make_release_logtext(
         title=release.releasetitle,
         releasedate=release.releasedate,
         artists=release.releaseartists,
@@ -338,7 +338,7 @@ def edit_release(
     # TODO: Read from tags directly to ensure that we are not writing stale data.
     with lock(c, release_lock_name(release_id)):
         assert release is not None
-        tracks = get_tracks_associated_with_release(c, release)
+        tracks = get_tracks_of_release(c, release)
 
         if resume_file is not None:
             m = FAILED_RELEASE_EDIT_FILENAME_REGEX.match(resume_file.name)
@@ -490,7 +490,7 @@ def run_actions_on_release(
     release = get_release(c, release_id)
     if release is None:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
-    tracks = get_tracks_associated_with_release(c, release)
+    tracks = get_tracks_of_release(c, release)
     audiotags = [AudioTags.from_file(t.source_path) for t in tracks]
     execute_metadata_actions(c, actions, audiotags, dry_run=dry_run, confirm_yes=confirm_yes)
 

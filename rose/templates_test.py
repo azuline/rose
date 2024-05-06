@@ -12,8 +12,8 @@ from rose.templates import (
     PathTemplate,
     PathTemplateConfig,
     _get_preview_releases,
-    eval_release_template,
-    eval_track_template,
+    evaluate_release_template,
+    evaluate_track_template,
     preview_path_templates,
 )
 
@@ -70,28 +70,28 @@ def test_default_templates() -> None:
     )
     release.releasetype = "single"
     assert (
-        eval_release_template(templates.source.release, release)
+        evaluate_release_template(templates.source.release, release)
         == "A1, A2 & A3 (feat. BB) (prod. PP) - 2023. Title - Single"
     )
     assert (
-        eval_release_template(templates.collages.release, release, position="4")
+        evaluate_release_template(templates.collages.release, release, position="4")
         == "4. A1, A2 & A3 (feat. BB) (prod. PP) - 2023. Title - Single"
     )
 
     release = deepcopy(EMPTY_CACHED_RELEASE)
     release.releasetitle = "Title"
-    assert eval_release_template(templates.source.release, release) == "Unknown Artists - Title"
+    assert evaluate_release_template(templates.source.release, release) == "Unknown Artists - Title"
     assert (
-        eval_release_template(templates.collages.release, release, position="4")
+        evaluate_release_template(templates.collages.release, release, position="4")
         == "4. Unknown Artists - Title"
     )
 
     track = deepcopy(EMPTY_CACHED_TRACK)
     track.tracknumber = "2"
     track.tracktitle = "Trick"
-    assert eval_track_template(templates.source.track, track) == "02. Trick.m4a"
+    assert evaluate_track_template(templates.source.track, track) == "02. Trick.m4a"
     assert (
-        eval_track_template(templates.playlists, track, position="4")
+        evaluate_track_template(templates.playlists, track, position="4")
         == "4. Unknown Artists - Trick.m4a"
     )
 
@@ -105,11 +105,11 @@ def test_default_templates() -> None:
         guest=[Artist("Hi"), Artist("High"), Artist("Hye")],
     )
     assert (
-        eval_track_template(templates.source.track, track)
+        evaluate_track_template(templates.source.track, track)
         == "04-02. Trick (feat. Hi, High & Hye).m4a"
     )
     assert (
-        eval_track_template(templates.playlists, track, position="4")
+        evaluate_track_template(templates.playlists, track, position="4")
         == "4. Main (feat. Hi, High & Hye) - Trick.m4a"
     )
 
@@ -238,6 +238,6 @@ def test_classical(config: Config) -> None:
 
     _, _, debussy = _get_preview_releases(config)
     assert (
-        eval_release_template(template, debussy)
+        evaluate_release_template(template, debussy)
         == "Debussy, Claude - 1907. Images performed by Cleveland Orchestra under Pierre Boulez (1992)"
     )

@@ -16,6 +16,7 @@ from send2trash import send2trash
 
 from rose.cache import (
     get_playlist,
+    get_playlist_tracks,
     get_track_logtext,
     list_playlists,
     lock,
@@ -152,16 +153,17 @@ def add_track_to_playlist(
 
 
 def dump_playlist(c: Config, playlist_name: str) -> str:
-    pdata = get_playlist(c, playlist_name)
-    if pdata is None:
+    playlist = get_playlist(c, playlist_name)
+    if playlist is None:
         raise PlaylistDoesNotExistError(f"Playlist {playlist_name} does not exist")
+    playlist_tracks = get_playlist_tracks(c, playlist_name)
     tracks: list[dict[str, Any]] = []
-    for idx, trk in enumerate(pdata[1]):
+    for idx, trk in enumerate(playlist_tracks):
         tracks.append({"position": idx + 1, **trk.dump()})
     return json.dumps(
         {
             "name": playlist_name,
-            "cover_image_path": str(pdata[0].cover_path) if pdata[0].cover_path else None,
+            "cover_image_path": str(playlist.cover_path) if playlist.cover_path else None,
             "tracks": tracks,
         }
     )
@@ -170,15 +172,16 @@ def dump_playlist(c: Config, playlist_name: str) -> str:
 def dump_all_playlists(c: Config) -> str:
     out: list[dict[str, Any]] = []
     for name in list_playlists(c):
-        pdata = get_playlist(c, name)
-        assert pdata is not None
+        playlist = get_playlist(c, name)
+        assert playlist is not None
+        playlist_tracks = get_playlist_tracks(c, name)
         tracks: list[dict[str, Any]] = []
-        for idx, trk in enumerate(pdata[1]):
+        for idx, trk in enumerate(playlist_tracks):
             tracks.append({"position": idx + 1, **trk.dump()})
         out.append(
             {
                 "name": name,
-                "cover_image_path": str(pdata[0].cover_path) if pdata[0].cover_path else None,
+                "cover_image_path": str(playlist.cover_path) if playlist.cover_path else None,
                 "tracks": tracks,
             }
         )
