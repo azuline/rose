@@ -35,6 +35,11 @@ from rose.cache import (
     maybe_invalidate_cache_database,
     playlist_exists,
     update_cache,
+    update_cache_evict_nonexistent_collages,
+    update_cache_evict_nonexistent_playlists,
+    update_cache_evict_nonexistent_releases,
+    update_cache_for_collages,
+    update_cache_for_playlists,
     update_cache_for_releases,
 )
 from rose.collages import (
@@ -89,7 +94,6 @@ from rose.templates import (
     preview_path_templates,
 )
 from rose.tracks import dump_all_tracks, dump_track, run_actions_on_track
-from rose.watcher import start_watchdog
 
 __all__ = [
     # Plumbing
@@ -111,6 +115,11 @@ __all__ = [
     # Cache
     "maybe_invalidate_cache_database",
     "update_cache",
+    "update_cache_evict_nonexistent_collages",
+    "update_cache_evict_nonexistent_playlists",
+    "update_cache_evict_nonexistent_releases",
+    "update_cache_for_collages",
+    "update_cache_for_playlists",
     "update_cache_for_releases",
     # Tagging
     "AudioTags",
@@ -128,8 +137,6 @@ __all__ = [
     "eval_release_template",  # TODO: Rename.
     "eval_track_template",  # TODO: Rename.
     "preview_path_templates",
-    # Watchdog
-    "start_watchdog",  # TODO: Move into its own separate package.
     # Releases
     "CachedRelease",
     "create_single_release",

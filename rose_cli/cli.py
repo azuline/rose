@@ -57,11 +57,11 @@ from rose import (
     run_actions_on_track,
     set_playlist_cover_art,
     set_release_cover_art,
-    start_watchdog,
     toggle_release_new,
     update_cache,
 )
 from rose_vfs import mount_virtualfs
+from rose_watchdog import start_watchdog
 
 logger = logging.getLogger(__name__)
 

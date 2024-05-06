@@ -225,37 +225,6 @@ class CachedRelease:
     releaseartists: ArtistMapping
     metahash: str
 
-    @classmethod
-    def __from_view(cls, c: Config, row: dict[str, Any], aliases: bool = True) -> CachedRelease:
-        secondary_genres = _split(row["secondary_genres"]) if row["secondary_genres"] else []
-        genres = _split(row["genres"]) if row["genres"] else []
-        return CachedRelease(
-            id=row["id"],
-            source_path=Path(row["source_path"]),
-            cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
-            added_at=row["added_at"],
-            datafile_mtime=row["datafile_mtime"],
-            releasetitle=row["releasetitle"],
-            releasetype=row["releasetype"],
-            releasedate=RoseDate.parse(row["releasedate"]),
-            originaldate=RoseDate.parse(row["originaldate"]),
-            compositiondate=RoseDate.parse(row["compositiondate"]),
-            catalognumber=row["catalognumber"],
-            edition=row["edition"],
-            disctotal=row["disctotal"],
-            new=bool(row["new"]),
-            genres=genres,
-            secondary_genres=secondary_genres,
-            parent_genres=_get_parent_genres(genres),
-            parent_secondary_genres=_get_parent_genres(secondary_genres),
-            descriptors=_split(row["descriptors"]) if row["descriptors"] else [],
-            labels=_split(row["labels"]) if row["labels"] else [],
-            releaseartists=_unpack_artists(
-                c, row["releaseartist_names"], row["releaseartist_roles"], aliases=aliases
-            ),
-            metahash=row["metahash"],
-        )
-
     def dump(self) -> dict[str, Any]:
         return {
             "id": self.id,
@@ -283,6 +252,37 @@ class CachedRelease:
         }
 
 
+def cached_release_from_view(c: Config, row: dict[str, Any], aliases: bool = True) -> CachedRelease:
+    secondary_genres = _split(row["secondary_genres"]) if row["secondary_genres"] else []
+    genres = _split(row["genres"]) if row["genres"] else []
+    return CachedRelease(
+        id=row["id"],
+        source_path=Path(row["source_path"]),
+        cover_image_path=Path(row["cover_image_path"]) if row["cover_image_path"] else None,
+        added_at=row["added_at"],
+        datafile_mtime=row["datafile_mtime"],
+        releasetitle=row["releasetitle"],
+        releasetype=row["releasetype"],
+        releasedate=RoseDate.parse(row["releasedate"]),
+        originaldate=RoseDate.parse(row["originaldate"]),
+        compositiondate=RoseDate.parse(row["compositiondate"]),
+        catalognumber=row["catalognumber"],
+        edition=row["edition"],
+        disctotal=row["disctotal"],
+        new=bool(row["new"]),
+        genres=genres,
+        secondary_genres=secondary_genres,
+        parent_genres=_get_parent_genres(genres),
+        parent_secondary_genres=_get_parent_genres(secondary_genres),
+        descriptors=_split(row["descriptors"]) if row["descriptors"] else [],
+        labels=_split(row["labels"]) if row["labels"] else [],
+        releaseartists=_unpack_artists(
+            c, row["releaseartist_names"], row["releaseartist_roles"], aliases=aliases
+        ),
+        metahash=row["metahash"],
+    )
+
+
 @dataclass(slots=True)
 class CachedTrack:
     id: str
@@ -297,33 +297,6 @@ class CachedTrack:
     metahash: str
 
     release: CachedRelease
-
-    @classmethod
-    def __from_view(
-        cls,
-        c: Config,
-        row: dict[str, Any],
-        release: CachedRelease,
-        aliases: bool = True,
-    ) -> CachedTrack:
-        return CachedTrack(
-            id=row["id"],
-            source_path=Path(row["source_path"]),
-            source_mtime=row["source_mtime"],
-            tracktitle=row["tracktitle"],
-            tracknumber=row["tracknumber"],
-            tracktotal=row["tracktotal"],
-            discnumber=row["discnumber"],
-            duration_seconds=row["duration_seconds"],
-            trackartists=_unpack_artists(
-                c,
-                row["trackartist_names"],
-                row["trackartist_roles"],
-                aliases=aliases,
-            ),
-            metahash=row["metahash"],
-            release=release,
-        )
 
     def dump(self, with_release_info: bool = True) -> dict[str, Any]:
         r = {
@@ -366,6 +339,32 @@ class CachedTrack:
                 }
             )
         return r
+
+
+def cached_track_from_view(
+    c: Config,
+    row: dict[str, Any],
+    release: CachedRelease,
+    aliases: bool = True,
+) -> CachedTrack:
+    return CachedTrack(
+        id=row["id"],
+        source_path=Path(row["source_path"]),
+        source_mtime=row["source_mtime"],
+        tracktitle=row["tracktitle"],
+        tracknumber=row["tracknumber"],
+        tracktotal=row["tracktotal"],
+        discnumber=row["discnumber"],
+        duration_seconds=row["duration_seconds"],
+        trackartists=_unpack_artists(
+            c,
+            row["trackartist_names"],
+            row["trackartist_roles"],
+            aliases=aliases,
+        ),
+        metahash=row["metahash"],
+        release=release,
+    )
 
 
 @dataclass(slots=True)
@@ -576,7 +575,7 @@ def _update_cache_for_releases_executor(
             release_uuids,
         )
         for row in cursor:
-            cached_releases[row["id"]] = (CachedRelease.__from_view(c, row, aliases=False), {})
+            cached_releases[row["id"]] = (cached_release_from_view(c, row, aliases=False), {})
 
         logger.debug(f"Found {len(cached_releases)}/{len(release_dirs)} releases in cache")
 
@@ -590,7 +589,7 @@ def _update_cache_for_releases_executor(
         )
         num_tracks_found = 0
         for row in cursor:
-            cached_releases[row["release_id"]][1][row["source_path"]] = CachedTrack.__from_view(
+            cached_releases[row["release_id"]][1][row["source_path"]] = cached_track_from_view(
                 c,
                 row,
                 cached_releases[row["release_id"]][0],
@@ -1879,7 +1878,7 @@ def list_releases_delete_this(
         cursor = conn.execute(query, args)
         releases: list[CachedRelease] = []
         for row in cursor:
-            releases.append(CachedRelease.__from_view(c, row))
+            releases.append(cached_release_from_view(c, row))
         return releases
 
 
@@ -1895,7 +1894,7 @@ def list_releases(c: Config, release_ids: list[str] | None = None) -> list[Cache
         cursor = conn.execute(query, args)
         releases: list[CachedRelease] = []
         for row in cursor:
-            releases.append(CachedRelease.__from_view(c, row))
+            releases.append(cached_release_from_view(c, row))
         return releases
 
 
@@ -1908,7 +1907,7 @@ def get_release(c: Config, release_id: str) -> CachedRelease | None:
         row = cursor.fetchone()
         if not row:
             return None
-        return CachedRelease.__from_view(c, row)
+        return cached_release_from_view(c, row)
 
 
 def get_release_logtext(c: Config, release_id: str) -> str | None:
@@ -1963,11 +1962,11 @@ def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[CachedTra
         )
         releases_map: dict[str, CachedRelease] = {}
         for row in cursor:
-            releases_map[row["id"]] = CachedRelease.__from_view(c, row)
+            releases_map[row["id"]] = cached_release_from_view(c, row)
 
         rval = []
         for row in trackrows:
-            rval.append(CachedTrack.__from_view(c, row, releases_map[row["release_id"]]))
+            rval.append(cached_track_from_view(c, row, releases_map[row["release_id"]]))
         return rval
 
 
@@ -1978,8 +1977,8 @@ def get_track(c: Config, uuid: str) -> CachedTrack | None:
         if not trackrow:
             return None
         cursor = conn.execute("SELECT * FROM releases_view WHERE id = ?", (trackrow["release_id"],))
-        release = CachedRelease.__from_view(c, cursor.fetchone())
-        return CachedTrack.__from_view(c, trackrow, release)
+        release = cached_release_from_view(c, cursor.fetchone())
+        return cached_track_from_view(c, trackrow, release)
 
 
 def get_tracks_associated_with_release(
@@ -1998,7 +1997,7 @@ def get_tracks_associated_with_release(
         )
         rval = []
         for row in cursor:
-            rval.append(CachedTrack.__from_view(c, row, release))
+            rval.append(cached_track_from_view(c, row, release))
         return rval
 
 
@@ -2020,7 +2019,7 @@ def get_tracks_associated_with_releases(
         )
         for row in cursor:
             tracks_map[row["release_id"]].append(
-                CachedTrack.__from_view(c, row, releases_map[row["release_id"]])
+                cached_track_from_view(c, row, releases_map[row["release_id"]])
             )
 
     rval = []
@@ -2171,12 +2170,12 @@ def get_playlist(c: Config, playlist_name: str) -> tuple[CachedPlaylist, list[Ca
         )
         releases_map: dict[str, CachedRelease] = {}
         for row in cursor:
-            releases_map[row["id"]] = CachedRelease.__from_view(c, row)
+            releases_map[row["id"]] = cached_release_from_view(c, row)
 
         tracks: list[CachedTrack] = []
         for row in trackrows:
             playlist.track_ids.append(row["id"])
-            tracks.append(CachedTrack.__from_view(c, row, releases_map[row["release_id"]]))
+            tracks.append(cached_track_from_view(c, row, releases_map[row["release_id"]]))
 
     return playlist, tracks
 
@@ -2236,7 +2235,7 @@ def get_collage(c: Config, collage_name: str) -> tuple[CachedCollage, list[Cache
         releases: list[CachedRelease] = []
         for row in cursor:
             collage.release_ids.append(row["id"])
-            releases.append(CachedRelease.__from_view(c, row))
+            releases.append(cached_release_from_view(c, row))
 
     return (collage, releases)
 
