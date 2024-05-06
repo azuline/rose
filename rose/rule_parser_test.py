@@ -58,8 +58,8 @@ def test_rule_parse_matcher() -> None:
     assert Matcher.parse("tracktitle:Track$") == Matcher(
         ["tracktitle"], Pattern("Track", strict_end=True)
     )
-    assert Matcher.parse(r"tracktitle:\^Track") == Matcher(["tracktitle"], Pattern("^Track"))
-    assert Matcher.parse(r"tracktitle:Track\$") == Matcher(["tracktitle"], Pattern("Track$"))
+    assert Matcher.parse(r"tracktitle:\^Track") == Matcher(["tracktitle"], Pattern(r"\^Track"))
+    assert Matcher.parse(r"tracktitle:Track\$") == Matcher(["tracktitle"], Pattern(r"Track\$"))
 
     def test_err(rule: str, err: str) -> None:
         with pytest.raises(RuleSyntaxError) as exc:
@@ -535,13 +535,13 @@ def test_rule_parsing_multi_value_validation() -> None:
 def test_rule_parsing_defaults() -> None:
     rule = Rule.parse("tracktitle:Track", ["replace:hi"])
     assert rule.actions[0].pattern is not None
-    assert rule.actions[0].pattern.pattern == "Track"
+    assert rule.actions[0].pattern.needle == "Track"
     rule = Rule.parse("tracktitle:Track", ["tracktitle/replace:hi"])
     assert rule.actions[0].pattern is not None
-    assert rule.actions[0].pattern.pattern == "Track"
+    assert rule.actions[0].pattern.needle == "Track"
     rule = Rule.parse("tracktitle:Track", ["tracktitle:Lack/replace:hi"])
     assert rule.actions[0].pattern is not None
-    assert rule.actions[0].pattern.pattern == "Lack"
+    assert rule.actions[0].pattern.needle == "Lack"
 
 
 def test_parser_take() -> None:

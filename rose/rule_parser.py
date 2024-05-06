@@ -7,12 +7,12 @@ module and the rules module.
 
 from __future__ import annotations
 
+import dataclasses
 import io
 import logging
 import re
 import shlex
 from collections.abc import Sequence
-from dataclasses import dataclass
 from typing import Literal
 
 import click
@@ -223,7 +223,7 @@ RELEASE_TAGS: list[Tag] = [
 ]
 
 
-@dataclass
+@dataclasses.dataclass
 class ReplaceAction:
     """
     Replaces the matched tag with `replacement`. For multi-valued tags, `;` is treated as a
@@ -233,7 +233,7 @@ class ReplaceAction:
     replacement: str
 
 
-@dataclass
+@dataclasses.dataclass
 class SedAction:
     """
     Executes a regex substitution on a tag value.
@@ -243,7 +243,7 @@ class SedAction:
     dst: str
 
 
-@dataclass
+@dataclasses.dataclass
 class SplitAction:
     """
     Splits a tag into multiple tags on the provided delimiter. This action is only allowed on
@@ -253,7 +253,7 @@ class SplitAction:
     delimiter: str
 
 
-@dataclass
+@dataclasses.dataclass
 class AddAction:
     """
     Adds a value to the tag. This action is only allowed on multi-value tags. If the value already
@@ -263,14 +263,14 @@ class AddAction:
     value: str
 
 
-@dataclass
+@dataclasses.dataclass
 class DeleteAction:
     """
     Deletes the tag value.
     """
 
 
-@dataclass
+@dataclasses.dataclass(slots=True)
 class Pattern:
     # Substring match with support for `^$` strict start / strict end matching.
     needle: str
@@ -314,7 +314,7 @@ class Pattern:
         return r
 
 
-@dataclass()
+@dataclasses.dataclass(slots=True)
 class Matcher:
     # Tags to test against the pattern. If any tags match the pattern, the action will be ran
     # against the track.
@@ -411,7 +411,7 @@ class Matcher:
         return matcher
 
 
-@dataclass
+@dataclasses.dataclass(slots=True)
 class Action:
     # The tags to apply the action on. Defaults to the tag that the pattern matched.
     tags: list[Tag]
@@ -727,7 +727,7 @@ class Action:
         return action
 
 
-@dataclass
+@dataclasses.dataclass
 class Rule:
     matcher: Matcher
     actions: list[Action]
