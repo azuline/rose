@@ -327,11 +327,14 @@ The rules engine supports matching and acting on the following tags:
 - `label`
 - `catalognumber`
 - `edition`
+- `new`
 
 The `trackartist[*]`, `releaseartist[*]`, `genre` (& parents), `secondarygenre` (& parents),
 `descriptor`, and `label` tags are _multi-value_ tags, which have a slightly different behavior from
 single-value tags for some of the actions. We'll explore this difference in the [Actions](#actions)
 section.
+
+The `new` tag will always be the string `true` or `false`.
 
 For convenience, the rules parser also allows you to specify _tag aliases_ in
 place of the above tags, which expand to multiple tags when matching. The

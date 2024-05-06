@@ -1243,6 +1243,7 @@ def _update_cache_for_releases_executor(
                   , label
                   , releaseartist
                   , trackartist
+                  , new
                 )
                 SELECT
                     t.rowid
@@ -1264,6 +1265,7 @@ def _update_cache_for_releases_executor(
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(rl.label, ' '), '')) AS label
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(ra.artist, ' '), '')) AS releaseartist
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(ta.artist, ' '), '')) AS trackartist
+                  , process_string_for_fts(CASE WHEN r.new THEN 'true' ELSE 'false' END) AS new
                 FROM tracks t
                 JOIN releases r ON r.id = t.release_id
                 LEFT JOIN releases_genres rg ON rg.release_id = r.id

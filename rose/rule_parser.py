@@ -7,11 +7,11 @@ module and the rules module.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 import io
 import logging
 import re
 import shlex
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -75,6 +75,7 @@ Tag = Literal[
     "secondarygenre",
     "descriptor",
     "label",
+    "new",
 ]
 
 ExpandableTag = Tag | Literal["artist", "trackartist", "releaseartist"]
@@ -130,6 +131,7 @@ ALL_TAGS: dict[ExpandableTag, list[Tag]] = {
     "secondarygenre": ["secondarygenre"],
     "descriptor": ["descriptor"],
     "label": ["label"],
+    "new": ["new"],
     "artist": [
         "trackartist[main]",
         "trackartist[guest]",
@@ -177,6 +179,7 @@ MODIFIABLE_TAGS: list[Tag] = [
     "secondarygenre",
     "descriptor",
     "label",
+    "new",
 ]
 
 SINGLE_VALUE_TAGS: list[Tag] = [
@@ -192,6 +195,7 @@ SINGLE_VALUE_TAGS: list[Tag] = [
     "compositiondate",
     "edition",
     "catalognumber",
+    "new",
 ]
 
 RELEASE_TAGS: list[Tag] = [
@@ -215,6 +219,7 @@ RELEASE_TAGS: list[Tag] = [
     "descriptor",
     "label",
     "disctotal",
+    "new",
 ]
 
 

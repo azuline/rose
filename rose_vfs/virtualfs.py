@@ -93,6 +93,7 @@ from rose import (
     list_playlists,
     make_release_logtext,
     make_track_logtext,
+    release_within_collage,
     remove_release_from_collage,
     remove_track_from_playlist,
     rename_collage,
@@ -105,10 +106,8 @@ from rose import (
     track_within_release,
     update_cache_for_releases,
 )
-from rose.cache import (
-    list_releases_delete_this,
-    release_within_collage,
-)
+from rose.cache import list_releases, list_tracks
+from rose.releases import find_releases_matching_rule
 from rose.rule_parser import MatcherPattern, MetadataMatcher
 from rose.tracks import find_tracks_matching_rule
 
@@ -1089,17 +1088,33 @@ class RoseLogicalCore:
             return
 
         if p.release == ALL_TRACKS:
+            matcher = None
             if p.artist:
-                matcher = MetadataMatcher(tags=["artist"], pattern=MatcherPattern(f"^{p.artist}$"))
+                matcher = MetadataMatcher(
+                    tags=["artist"],
+                    pattern=MatcherPattern(f"^{p.artist}$"),
+                )
             if p.genre:
-                matcher = MetadataMatcher(tags=["genre"], pattern=MatcherPattern(f"^{p.genre}$"))
+                matcher = MetadataMatcher(
+                    tags=["genre"],
+                    pattern=MatcherPattern(f"^{p.genre}$"),
+                )
             if p.descriptor:
                 matcher = MetadataMatcher(
-                    tags=["descriptor"], pattern=MatcherPattern(f"^{p.descriptor}$")
+                    tags=["descriptor"],
+                    pattern=MatcherPattern(f"^{p.descriptor}$"),
                 )
             if p.label:
-                matcher = MetadataMatcher(tags=["label"], pattern=MatcherPattern(f"^{p.label}$"))
-            tracks = find_tracks_matching_rule(self.config, matcher)
+                matcher = MetadataMatcher(
+                    tags=["label"],
+                    pattern=MatcherPattern(f"^{p.label}$"),
+                )
+
+            tracks = (
+                find_tracks_matching_rule(self.config, matcher)
+                if matcher
+                else list_tracks(self.config)
+            )
             for trk, vname in self.vnames.list_track_paths(p, tracks):
                 yield vname, self.stat("file", trk.source_path)
             return
@@ -1124,19 +1139,37 @@ class RoseLogicalCore:
             or p.label
             or p.view in ["Releases", "New", "Added On", "Released On"]
         ):
-            # fmt: off
-            releases = list_releases_delete_this(
-                self.config,
-                artist_filter=self.sanitizer.unsanitize(p.artist, p.artist_parent) if p.artist else None,
-                genre_filter=self.sanitizer.unsanitize(p.genre, p.genre_parent) if p.genre else None,
-                descriptor_filter=self.sanitizer.unsanitize(p.descriptor, p.descriptor_parent) if p.descriptor else None,
-                label_filter=self.sanitizer.unsanitize(p.label, p.label_parent) if p.label else None,
-                new=True if p.view == "New" else None,
+            matcher = None
+            if p.artist:
+                matcher = MetadataMatcher(
+                    tags=["releaseartist"],
+                    pattern=MatcherPattern(f"^{p.artist}$"),
+                )
+            if p.genre:
+                matcher = MetadataMatcher(
+                    tags=["genre"],
+                    pattern=MatcherPattern(f"^{p.genre}$"),
+                )
+            if p.descriptor:
+                matcher = MetadataMatcher(
+                    tags=["descriptor"],
+                    pattern=MatcherPattern(f"^{p.descriptor}$"),
+                )
+            if p.label:
+                matcher = MetadataMatcher(
+                    tags=["label"],
+                    pattern=MatcherPattern(f"^{p.label}$"),
+                )
+
+            releases = (
+                find_releases_matching_rule(self.config, matcher)
+                if matcher
+                else list_releases(self.config)
             )
-            # fmt: on
+            # TODO: new=True if p.view == "New" else None,
+            yield ALL_TRACKS, self.stat("dir")
             for rls, vname in self.vnames.list_release_paths(p, releases):
                 yield vname, self.stat("dir", rls.source_path)
-            yield ALL_TRACKS, self.stat("dir")
             return
 
         if p.view == "Artists":
