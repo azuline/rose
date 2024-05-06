@@ -16,16 +16,18 @@ if the virtual filesystem is currently in use, unmounting command will fail.
 
 # Directory Structure
 
-Rosé has 8 top-level directories, each of which is a different view into the library. They are:
+Rosé has 10 top-level directories, each of which is a different view into the library. They are:
 
 1. `Releases`
 2. `Releases - New`
 3. `Releases - Recently Added`
-4. `Artists`
-5. `Genres`
-6. `Labels`
-7. `Collages`
-8. `Playlists`
+4. `Releases - Added On`
+5. `Artists`
+6. `Genres`
+7. `Descriptors`
+8. `Labels`
+9. `Collages`
+10. `Playlists`
 
 Each directory should be fairly intuitive. They are numbered in the filesystem to create an
 intentional ordering.
@@ -45,10 +47,10 @@ source directory. Rosé also exposes the `.rose.{uuid}.toml` datafile in the vir
 
 # Hiding Artists, Genres, and Labels
 
-Rosé supports hiding individual artists, genres, and labels in their view directories (`4. Artists`,
-`5. Genres`, and `6. Labels`) with the `vfs.x_blacklist` and `vfs.x_whitelist` configuration
-parameters. See [Configuration](./CONFIGURATION.md) for additional documentation on configuring the
-blacklist or whitelist.
+Rosé supports hiding individual artists, genres, and labels in their view directories (`Artists`,
+`Genres`, and `Labels`) with the `vfs.x_blacklist` and `vfs.x_whitelist` configuration parameters.
+See [Configuration](./CONFIGURATION.md) for additional documentation on configuring the blacklist or
+whitelist.
 
 # Operations
 

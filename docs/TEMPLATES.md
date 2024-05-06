@@ -15,26 +15,37 @@ templates are:
 [path_templates]
 default.release = "..."
 default.track = "..."
+default.all_tracks = "..."
 source.release = "..."
 source.track = "..."
+source.all_tracks = "..."
 releases.release = "..."
 releases.track = "..."
+releases.all_tracks = "..."
 releases_new.release = "..."
 releases_new.track = "..."
+releases_new.all_tracks = "..."
 releases_added_on.release = "..."
 releases_added_on.track = "..."
+releases_added_on.all_tracks = "..."
 releases_released_on.release = "..."
 releases_released_on.track = "..."
+releases_released_on.all_tracks = "..."
 artists.release = "..."
 artists.track = "..."
+artists.all_tracks = "..."
 genres.release = "..."
 genres.track = "..."
+genres.all_tracks = "..."
 descriptors.release = "..."
 descriptors.track = "..."
+descriptors.all_tracks = "..."
 labels.release = "..."
 labels.track = "..."
+labels.all_tracks = "..."
 collages.release = "..."
 collages.track = "..."
+collages.all_tracks = "..."
 playlists = "..."
 ```
 
@@ -55,6 +66,13 @@ If set, the `default.xxx` templates are used as the default values for all other
 {% if disctotal > 1 %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
 {{ tracktitle }}
 {% if trackartists.guest %}(feat. {{ trackartists.guest | artistsarrayfmt }}){% endif %}
+
+{# "Default Default" All Tracks Template #}
+
+{{ trackartists | artistsfmt }} -
+{% if releasedate %}{{ releasedate.year }}.{% endif %}
+{{ releasetitle }} -
+{{ tracktitle }}
 ```
 
 # Template Language
