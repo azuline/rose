@@ -717,22 +717,22 @@ class CanShower:
         self._label_w = None
         self._label_b = None
 
-        if config.fuse_artists_whitelist:
-            self._artist_w = set(config.fuse_artists_whitelist)
-        if config.fuse_artists_blacklist:
-            self._artist_b = set(config.fuse_artists_blacklist)
-        if config.fuse_genres_whitelist:
-            self._genre_w = set(config.fuse_genres_whitelist)
-        if config.fuse_genres_blacklist:
-            self._genre_b = set(config.fuse_genres_blacklist)
-        if config.fuse_descriptors_whitelist:
-            self._descriptor_w = set(config.fuse_descriptors_whitelist)
-        if config.fuse_descriptors_blacklist:
-            self._descriptor_b = set(config.fuse_descriptors_blacklist)
-        if config.fuse_labels_whitelist:
-            self._label_w = set(config.fuse_labels_whitelist)
-        if config.fuse_labels_blacklist:
-            self._label_b = set(config.fuse_labels_blacklist)
+        if config.vfs.artists_whitelist:
+            self._artist_w = set(config.vfs.artists_whitelist)
+        if config.vfs.artists_blacklist:
+            self._artist_b = set(config.vfs.artists_blacklist)
+        if config.vfs.genres_whitelist:
+            self._genre_w = set(config.vfs.genres_whitelist)
+        if config.vfs.genres_blacklist:
+            self._genre_b = set(config.vfs.genres_blacklist)
+        if config.vfs.descriptors_whitelist:
+            self._descriptor_w = set(config.vfs.descriptors_whitelist)
+        if config.vfs.descriptors_blacklist:
+            self._descriptor_b = set(config.vfs.descriptors_blacklist)
+        if config.vfs.labels_whitelist:
+            self._label_w = set(config.vfs.labels_whitelist)
+        if config.vfs.labels_blacklist:
+            self._label_b = set(config.vfs.labels_blacklist)
 
     def artist(self, artist: str) -> bool:
         if self._artist_w:
@@ -1069,7 +1069,7 @@ class RoseLogicalCore:
             for e1 in list_genres(self.config):
                 if not self.can_show.genre(e1.genre):
                     continue
-                if self.config.hide_genres_with_only_new_releases and e1.only_new_releases:
+                if self.config.vfs.hide_genres_with_only_new_releases and e1.only_new_releases:
                     continue
                 yield self.sanitizer.sanitize(e1.genre), self.stat("dir")
             return
@@ -1078,7 +1078,7 @@ class RoseLogicalCore:
             for e2 in list_descriptors(self.config):
                 if not self.can_show.descriptor(e2.descriptor):
                     continue
-                if self.config.hide_descriptors_with_only_new_releases and e2.only_new_releases:
+                if self.config.vfs.hide_descriptors_with_only_new_releases and e2.only_new_releases:
                     continue
                 yield self.sanitizer.sanitize(e2.descriptor), self.stat("dir")
             return
@@ -1087,7 +1087,7 @@ class RoseLogicalCore:
             for e3 in list_labels(self.config):
                 if not self.can_show.label(e3.label):
                     continue
-                if self.config.hide_labels_with_only_new_releases and e3.only_new_releases:
+                if self.config.vfs.hide_labels_with_only_new_releases and e3.only_new_releases:
                     continue
                 yield self.sanitizer.sanitize(e3.label), self.stat("dir")
             return
@@ -1922,7 +1922,7 @@ def mount_virtualfs(c: Config, debug: bool = False) -> None:
     options.add("fsname=rose")
     if debug:
         options.add("debug")
-    llfuse.init(VirtualFS(c), str(c.fuse_mount_dir), options)
+    llfuse.init(VirtualFS(c), str(c.vfs.mount_dir), options)
     try:
         llfuse.main(workers=c.max_proc)
     except:
@@ -1932,4 +1932,4 @@ def mount_virtualfs(c: Config, debug: bool = False) -> None:
 
 
 def unmount_virtualfs(c: Config) -> None:
-    subprocess.run(["umount", str(c.fuse_mount_dir)])
+    subprocess.run(["umount", str(c.vfs.mount_dir)])

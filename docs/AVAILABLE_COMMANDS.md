@@ -6,7 +6,7 @@ First, a quick note on the structure: Rosé primarily organizes commands by the
 resource they effect. Most commands are of the structure `rose {resource} {action}`.
 
 - fs/ _(see [Browsing with the Virtual Filesystem](./VIRTUAL_FILESYSTEM.md))_
-  - `fs mount`: Mount the virtual filesystem onto the configured `$fuse_mount_dir`.
+  - `fs mount`: Mount the virtual filesystem onto the configured `$vfs_mount_dir`.
   - `fs unmount`: Unmount the virtual filesystem by invoking `umount`.
 - cache/ _(see [Maintaining the Cache](./CACHE_MAINTENANCE.md))_
   - `cache update`: Scan the source directory and update the read cache with any new metadata

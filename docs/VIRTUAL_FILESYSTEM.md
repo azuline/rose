@@ -46,7 +46,7 @@ source directory. Rosé also exposes the `.rose.{uuid}.toml` datafile in the vir
 # Hiding Artists, Genres, and Labels
 
 Rosé supports hiding individual artists, genres, and labels in their view directories (`4. Artists`,
-`5. Genres`, and `6. Labels`) with the `fuse_x_blacklist` and `fuse_x_whitelist` configuration
+`5. Genres`, and `6. Labels`) with the `vfs.x_blacklist` and `vfs.x_whitelist` configuration
 parameters. See [Configuration](./CONFIGURATION.md) for additional documentation on configuring the
 blacklist or whitelist.
 

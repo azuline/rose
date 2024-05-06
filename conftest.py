@@ -11,7 +11,7 @@ from click.testing import CliRunner
 
 from rose.cache import CACHE_SCHEMA_PATH, process_string_for_fts, update_cache
 from rose.common import VERSION
-from rose.config import Config
+from rose.config import Config, VirtualFSConfig
 from rose.templates import PathTemplateConfig
 
 logger = logging.getLogger(__name__)
@@ -70,22 +70,10 @@ def config(isolated_dir: Path) -> Config:
 
     return Config(
         music_source_dir=music_source_dir,
-        fuse_mount_dir=mount_dir,
         cache_dir=cache_dir,
         max_proc=2,
         artist_aliases_map={},
         artist_aliases_parents_map={},
-        fuse_artists_whitelist=None,
-        fuse_genres_whitelist=None,
-        fuse_descriptors_whitelist=None,
-        fuse_labels_whitelist=None,
-        fuse_artists_blacklist=None,
-        fuse_genres_blacklist=None,
-        fuse_descriptors_blacklist=None,
-        fuse_labels_blacklist=None,
-        hide_genres_with_only_new_releases=False,
-        hide_descriptors_with_only_new_releases=False,
-        hide_labels_with_only_new_releases=False,
         cover_art_stems=["cover", "folder", "art", "front"],
         valid_art_exts=["jpg", "jpeg", "png"],
         max_filename_bytes=180,
@@ -93,6 +81,20 @@ def config(isolated_dir: Path) -> Config:
         rename_source_files=False,
         ignore_release_directories=[],
         stored_metadata_rules=[],
+        vfs=VirtualFSConfig(
+            mount_dir=mount_dir,
+            artists_whitelist=None,
+            genres_whitelist=None,
+            descriptors_whitelist=None,
+            labels_whitelist=None,
+            artists_blacklist=None,
+            genres_blacklist=None,
+            descriptors_blacklist=None,
+            labels_blacklist=None,
+            hide_genres_with_only_new_releases=False,
+            hide_descriptors_with_only_new_releases=False,
+            hide_labels_with_only_new_releases=False,
+        ),
     )
 
 

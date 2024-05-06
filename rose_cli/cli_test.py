@@ -26,24 +26,22 @@ from rose_vfs.virtualfs_test import start_virtual_fs
 def test_parse_release_from_path(config: Config) -> None:
     with start_virtual_fs(config):
         # Directory is resolved.
-        path = str(
-            config.fuse_mount_dir / "1. Releases" / "Techno Man & Bass Man - 2023. Release 1"
-        )
+        path = str(config.vfs.mount_dir / "1. Releases" / "Techno Man & Bass Man - 2023. Release 1")
         assert parse_release_argument(path) == "r1"
         # UUID is no-opped.
         uuid_value = str(uuid.uuid4())
         assert parse_release_argument(uuid_value) == uuid_value
         # Non-existent path raises error.
         with pytest.raises(InvalidReleaseArgError):
-            assert parse_release_argument(str(config.fuse_mount_dir / "1. Releases" / "lalala"))
+            assert parse_release_argument(str(config.vfs.mount_dir / "1. Releases" / "lalala"))
         # Non-release directory raises error.
         with pytest.raises(InvalidReleaseArgError):
-            assert parse_release_argument(str(config.fuse_mount_dir / "1. Releases"))
+            assert parse_release_argument(str(config.vfs.mount_dir / "1. Releases"))
         # File raises error.
         with pytest.raises(InvalidReleaseArgError):
             assert parse_release_argument(
                 str(
-                    config.fuse_mount_dir
+                    config.vfs.mount_dir
                     / "1. Releases"
                     / "Techno Man & Bass Man - 2023. Release 1"
                     / "01 - Track 1.m4a"
@@ -63,7 +61,7 @@ def test_parse_track_id_from_path(config: Config, source_dir: Path) -> None:
         assert parse_track_argument(track_id) == track_id
         # Non-existent path raises error.
         with pytest.raises(InvalidTrackArgError):
-            assert parse_track_argument(str(config.fuse_mount_dir / "1. Releases" / "lalala"))
+            assert parse_track_argument(str(config.vfs.mount_dir / "1. Releases" / "lalala"))
         # Directory raises error.
         with pytest.raises(InvalidTrackArgError):
             assert parse_track_argument(str(source_dir / "Test Release 1"))
@@ -76,7 +74,7 @@ def test_parse_track_id_from_path(config: Config, source_dir: Path) -> None:
 def test_parse_collage_name_from_path(config: Config, source_dir: Path) -> None:
     with start_virtual_fs(config):
         # Directory path is resolved.
-        path = str(config.fuse_mount_dir / "6. Collages" / "Rose Gold")
+        path = str(config.vfs.mount_dir / "6. Collages" / "Rose Gold")
         assert parse_collage_argument(path) == "Rose Gold"
         # File path is resolved.
         path = str(source_dir / "!collages" / "Rose Gold.toml")
@@ -88,7 +86,7 @@ def test_parse_collage_name_from_path(config: Config, source_dir: Path) -> None:
 def test_parse_playlist_name_from_path(config: Config, source_dir: Path) -> None:
     with start_virtual_fs(config):
         # Directory path is resolved.
-        path = str(config.fuse_mount_dir / "7. Playlists" / "Lala Lisa")
+        path = str(config.vfs.mount_dir / "7. Playlists" / "Lala Lisa")
         assert parse_playlist_argument(path)
         # File path is resolved.
         path = str(source_dir / "!playlists" / "Lala Lisa.toml")

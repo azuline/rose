@@ -39,7 +39,7 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         with p.open("rb") as fp:
             return fp.read(256) != b"\x00" * 256
 
-    root = config.fuse_mount_dir
+    root = config.vfs.mount_dir
     with start_virtual_fs(config):
         # fmt: off
         assert not (root / "lalala").exists()
@@ -140,7 +140,7 @@ def test_virtual_filesystem_write_files(
     source_dir: Path,  # noqa: ARG001
 ) -> None:
     """Assert that 1. we can write files and 2. cache updates in response."""
-    root = config.fuse_mount_dir
+    root = config.vfs.mount_dir
     path = root / "1. Releases" / "BLACKPINK - 1990. I Love Blackpink [NEW]" / "01. Track 1.m4a"
     with start_virtual_fs(config):
         # Write!
@@ -160,7 +160,7 @@ def test_virtual_filesystem_write_files(
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_virtual_filesystem_collage_actions(config: Config) -> None:
-    root = config.fuse_mount_dir
+    root = config.vfs.mount_dir
     src = config.music_source_dir
 
     with start_virtual_fs(config):
@@ -199,7 +199,7 @@ def test_virtual_filesystem_collage_actions(config: Config) -> None:
 @pytest.mark.usefixtures("seeded_cache")
 def test_virtual_filesystem_add_collage_release_with_any_dirname(config: Config) -> None:
     """Test that we can add a release from the esoteric views to a collage, regardless of directory name."""
-    root = config.fuse_mount_dir
+    root = config.vfs.mount_dir
 
     with start_virtual_fs(config):
         shutil.copytree(
@@ -216,7 +216,7 @@ def test_virtual_filesystem_playlist_actions(
     config: Config,
     source_dir: Path,  # noqa: ARG001
 ) -> None:
-    root = config.fuse_mount_dir
+    root = config.vfs.mount_dir
     src = config.music_source_dir
 
     release_dir = root / "1. Releases" / "BLACKPINK - 1990. I Love Blackpink [NEW]"
@@ -263,7 +263,7 @@ def test_virtual_filesystem_release_cover_art_actions(
     config: Config,
     source_dir: Path,  # noqa: ARG001
 ) -> None:
-    root = config.fuse_mount_dir
+    root = config.vfs.mount_dir
     release_dir = root / "1. Releases" / "BLACKPINK - 1990. I Love Blackpink [NEW]"
     with start_virtual_fs(config):
         assert not (release_dir / "cover.jpg").is_file()
@@ -305,7 +305,7 @@ def test_virtual_filesystem_playlist_cover_art_actions(
     config: Config,
     source_dir: Path,  # noqa: ARG001
 ) -> None:
-    root = config.fuse_mount_dir
+    root = config.vfs.mount_dir
     playlist_dir = root / "7. Playlists" / "Lala Lisa"
     with start_virtual_fs(config):
         assert (playlist_dir / "cover.jpg").is_file()
@@ -351,7 +351,7 @@ def test_virtual_filesystem_playlist_cover_art_actions(
 
 def test_virtual_filesystem_delete_release(config: Config, source_dir: Path) -> None:
     dirname = "NewJeans - 1990. I Love NewJeans"
-    root = config.fuse_mount_dir
+    root = config.vfs.mount_dir
     with start_virtual_fs(config):
         # Fix: If we return EACCES from unlink, then `rm -r` fails despite `rmdir` succeeding. Thus
         # we no-op if we cannot unlink a file. And we test the real tool we want to use in
@@ -370,7 +370,7 @@ def test_virtual_filesystem_read_from_deleted_file(config: Config, source_dir: P
     """
     source_path = source_dir / "Test Release 1" / "01.m4a"
     fuse_path = (
-        config.fuse_mount_dir
+        config.vfs.mount_dir
         / "1. Releases"
         / "BLACKPINK - 1990. I Love Blackpink [NEW]"
         / "01. Track 1.m4a"
@@ -382,19 +382,22 @@ def test_virtual_filesystem_read_from_deleted_file(config: Config, source_dir: P
             fuse_path.open("rb")
         # Assert that the virtual fs did not crash. It needs some time to propagate the crash.
         time.sleep(0.05)
-        assert (config.fuse_mount_dir / "1. Releases").is_dir()
+        assert (config.vfs.mount_dir / "1. Releases").is_dir()
 
 
 @pytest.mark.usefixtures("seeded_cache")
 def test_virtual_filesystem_blacklist(config: Config) -> None:
     new_config = dataclasses.replace(
         config,
-        fuse_artists_blacklist=["Bass Man"],
-        fuse_genres_blacklist=["Techno"],
-        fuse_descriptors_blacklist=["Warm"],
-        fuse_labels_blacklist=["Silk Music"],
+        vfs=dataclasses.replace(
+            config.vfs,
+            artists_blacklist=["Bass Man"],
+            genres_blacklist=["Techno"],
+            descriptors_blacklist=["Warm"],
+            labels_blacklist=["Silk Music"],
+        ),
     )
-    root = config.fuse_mount_dir
+    root = config.vfs.mount_dir
     with start_virtual_fs(new_config):
         assert (root / "2. Artists" / "Techno Man").is_dir()
         assert (root / "3. Genres" / "Deep House").is_dir()
@@ -410,12 +413,15 @@ def test_virtual_filesystem_blacklist(config: Config) -> None:
 def test_virtual_filesystem_whitelist(config: Config) -> None:
     new_config = dataclasses.replace(
         config,
-        fuse_artists_whitelist=["Bass Man"],
-        fuse_genres_whitelist=["Techno"],
-        fuse_descriptors_whitelist=["Warm"],
-        fuse_labels_whitelist=["Silk Music"],
+        vfs=dataclasses.replace(
+            config.vfs,
+            artists_whitelist=["Bass Man"],
+            genres_whitelist=["Techno"],
+            descriptors_whitelist=["Warm"],
+            labels_whitelist=["Silk Music"],
+        ),
     )
-    root = config.fuse_mount_dir
+    root = config.vfs.mount_dir
     with start_virtual_fs(new_config):
         assert not (root / "2. Artists" / "Techno Man").exists()
         assert not (root / "3. Genres" / "Deep House").exists()
@@ -431,11 +437,14 @@ def test_virtual_filesystem_whitelist(config: Config) -> None:
 def test_virtual_filesystem_hide_new_release_classifiers(config: Config) -> None:
     new_config = dataclasses.replace(
         config,
-        hide_genres_with_only_new_releases=True,
-        hide_descriptors_with_only_new_releases=True,
-        hide_labels_with_only_new_releases=True,
+        vfs=dataclasses.replace(
+            config.vfs,
+            hide_genres_with_only_new_releases=True,
+            hide_descriptors_with_only_new_releases=True,
+            hide_labels_with_only_new_releases=True,
+        ),
     )
-    root = config.fuse_mount_dir
+    root = config.vfs.mount_dir
     with start_virtual_fs(new_config):
         assert not (root / "3. Genres" / "Modern Classical").exists()
         assert not (root / "4. Descriptors" / "Wet").exists()

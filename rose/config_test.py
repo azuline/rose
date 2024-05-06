@@ -9,6 +9,7 @@ from rose.config import (
     ConfigNotFoundError,
     InvalidConfigValueError,
     MissingConfigKeyError,
+    VirtualFSConfig,
 )
 from rose.rule_parser import (
     MatcherPattern,
@@ -28,13 +29,13 @@ def test_config_minimal() -> None:
             fp.write(
                 """
                 music_source_dir = "~/.music-src"
-                fuse_mount_dir = "~/music"
+                vfs.mount_dir = "~/music"
                 """
             )
 
         c = Config.parse(config_path_override=path)
         assert c.music_source_dir == Path.home() / ".music-src"
-        assert c.fuse_mount_dir == Path.home() / "music"
+        assert c.vfs.mount_dir == Path.home() / "music"
 
 
 def test_config_full() -> None:
@@ -45,22 +46,12 @@ def test_config_full() -> None:
             fp.write(
                 f"""
                 music_source_dir = "~/.music-src"
-                fuse_mount_dir = "~/music"
                 cache_dir = "{cache_dir}"
                 max_proc = 8
                 artist_aliases = [
                   {{ artist = "Abakus", aliases = ["Cinnamon Chasers"] }},
                   {{ artist = "tripleS", aliases = ["EVOLution", "LOVElution", "+(KR)ystal Eyes", "Acid Angel From Asia", "Acid Eyes"] }},
                 ]
-
-                fuse_artists_blacklist = [ "www" ]
-                fuse_genres_blacklist = [ "xxx" ]
-                fuse_descriptors_blacklist = [ "yyy" ]
-                fuse_labels_blacklist = [ "zzz" ]
-
-                hide_genres_with_only_new_releases = true
-                hide_descriptors_with_only_new_releases = true
-                hide_labels_with_only_new_releases = true
 
                 cover_art_stems = [ "aa", "bb" ]
                 valid_art_exts = [ "tiff" ]
@@ -97,13 +88,22 @@ def test_config_full() -> None:
                 collages.release = "{{{{ title }}}}"
                 collages.track = "{{{{ title }}}}"
                 playlists = "{{{{ title }}}}"
+
+                [vfs]
+                mount_dir = "~/music"
+                artists_blacklist = [ "www" ]
+                genres_blacklist = [ "xxx" ]
+                descriptors_blacklist = [ "yyy" ]
+                labels_blacklist = [ "zzz" ]
+                hide_genres_with_only_new_releases = true
+                hide_descriptors_with_only_new_releases = true
+                hide_labels_with_only_new_releases = true
                 """
             )
 
         c = Config.parse(config_path_override=path)
         assert c == Config(
             music_source_dir=Path.home() / ".music-src",
-            fuse_mount_dir=Path.home() / "music",
             cache_dir=cache_dir,
             max_proc=8,
             artist_aliases_map={
@@ -124,17 +124,6 @@ def test_config_full() -> None:
                 "Acid Angel From Asia": ["tripleS"],
                 "Acid Eyes": ["tripleS"],
             },
-            fuse_artists_whitelist=None,
-            fuse_genres_whitelist=None,
-            fuse_descriptors_whitelist=None,
-            fuse_labels_whitelist=None,
-            hide_genres_with_only_new_releases=True,
-            hide_descriptors_with_only_new_releases=True,
-            hide_labels_with_only_new_releases=True,
-            fuse_artists_blacklist=["www"],
-            fuse_genres_blacklist=["xxx"],
-            fuse_descriptors_blacklist=["yyy"],
-            fuse_labels_blacklist=["zzz"],
             cover_art_stems=["aa", "bb"],
             valid_art_exts=["tiff"],
             max_filename_bytes=255,
@@ -206,6 +195,20 @@ def test_config_full() -> None:
                     ],
                 ),
             ],
+            vfs=VirtualFSConfig(
+                mount_dir=Path.home() / "music",
+                artists_whitelist=None,
+                genres_whitelist=None,
+                descriptors_whitelist=None,
+                labels_whitelist=None,
+                hide_genres_with_only_new_releases=True,
+                hide_descriptors_with_only_new_releases=True,
+                hide_labels_with_only_new_releases=True,
+                artists_blacklist=["www"],
+                genres_blacklist=["xxx"],
+                descriptors_blacklist=["yyy"],
+                labels_blacklist=["zzz"],
+            ),
         )
 
 
@@ -217,23 +220,23 @@ def test_config_whitelist() -> None:
             fp.write(
                 """
                 music_source_dir = "~/.music-src"
-                fuse_mount_dir = "~/music"
-                fuse_artists_whitelist = [ "www" ]
-                fuse_genres_whitelist = [ "xxx" ]
-                fuse_descriptors_whitelist = [ "yyy" ]
-                fuse_labels_whitelist = [ "zzz" ]
+                vfs.mount_dir = "~/music"
+                vfs.artists_whitelist = [ "www" ]
+                vfs.genres_whitelist = [ "xxx" ]
+                vfs.descriptors_whitelist = [ "yyy" ]
+                vfs.labels_whitelist = [ "zzz" ]
                 """
             )
 
         c = Config.parse(config_path_override=path)
-        assert c.fuse_artists_whitelist == ["www"]
-        assert c.fuse_genres_whitelist == ["xxx"]
-        assert c.fuse_descriptors_whitelist == ["yyy"]
-        assert c.fuse_labels_whitelist == ["zzz"]
-        assert c.fuse_artists_blacklist is None
-        assert c.fuse_genres_blacklist is None
-        assert c.fuse_descriptors_blacklist is None
-        assert c.fuse_labels_blacklist is None
+        assert c.vfs.artists_whitelist == ["www"]
+        assert c.vfs.genres_whitelist == ["xxx"]
+        assert c.vfs.descriptors_whitelist == ["yyy"]
+        assert c.vfs.labels_whitelist == ["zzz"]
+        assert c.vfs.artists_blacklist is None
+        assert c.vfs.genres_blacklist is None
+        assert c.vfs.descriptors_blacklist is None
+        assert c.vfs.labels_blacklist is None
 
 
 def test_config_not_found() -> None:
@@ -255,11 +258,10 @@ def test_config_missing_key_validation() -> None:
         append('music_source_dir = "/"')
         with pytest.raises(MissingConfigKeyError) as excinfo:
             Config.parse(config_path_override=path)
-        assert str(excinfo.value) == f"Missing key fuse_mount_dir in configuration file ({path})"
+        assert str(excinfo.value) == f"Missing key vfs.mount_dir in configuration file ({path})"
 
 
 def test_config_value_validation() -> None:
-    config = ""
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "config.toml"
         path.touch()
@@ -267,6 +269,8 @@ def test_config_value_validation() -> None:
         def write(x: str) -> None:
             with path.open("w") as fp:
                 fp.write(x)
+
+        config = ""
 
         # music_source_dir
         write("music_source_dir = 123")
@@ -277,16 +281,6 @@ def test_config_value_validation() -> None:
             == f"Invalid value for music_source_dir in configuration file ({path}): must be a path"
         )
         config += '\nmusic_source_dir = "~/.music-src"'
-
-        # fuse_mount_dir
-        write(config + "\nfuse_mount_dir = 123")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_mount_dir in configuration file ({path}): must be a path"
-        )
-        config += '\nfuse_mount_dir = "~/music"'
 
         # cache_dir
         write(config + "\ncache_dir = 123")
@@ -345,145 +339,6 @@ def test_config_value_validation() -> None:
             == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"
         )
         config += '\nartist_aliases = [{artist="tripleS", aliases=["EVOLution"]}]'
-
-        # fuse_artists_whitelist
-        write(config + '\nfuse_artists_whitelist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_artists_whitelist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\nfuse_artists_whitelist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_artists_whitelist in configuration file ({path}): Each artist must be of type str: got <class 'int'>"
-        )
-
-        # fuse_genres_whitelist
-        write(config + '\nfuse_genres_whitelist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_genres_whitelist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\nfuse_genres_whitelist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_genres_whitelist in configuration file ({path}): Each genre must be of type str: got <class 'int'>"
-        )
-
-        # fuse_labels_whitelist
-        write(config + '\nfuse_labels_whitelist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_labels_whitelist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\nfuse_labels_whitelist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_labels_whitelist in configuration file ({path}): Each label must be of type str: got <class 'int'>"
-        )
-
-        # fuse_artists_blacklist
-        write(config + '\nfuse_artists_blacklist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_artists_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\nfuse_artists_blacklist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_artists_blacklist in configuration file ({path}): Each artist must be of type str: got <class 'int'>"
-        )
-
-        # fuse_genres_blacklist
-        write(config + '\nfuse_genres_blacklist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_genres_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\nfuse_genres_blacklist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_genres_blacklist in configuration file ({path}): Each genre must be of type str: got <class 'int'>"
-        )
-
-        # fuse_descriptors_blacklist
-        write(config + '\nfuse_descriptors_blacklist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_descriptors_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\nfuse_descriptors_blacklist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_descriptors_blacklist in configuration file ({path}): Each descriptor must be of type str: got <class 'int'>"
-        )
-
-        # fuse_labels_blacklist
-        write(config + '\nfuse_labels_blacklist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_labels_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\nfuse_labels_blacklist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for fuse_labels_blacklist in configuration file ({path}): Each label must be of type str: got <class 'int'>"
-        )
-
-        # fuse_artists_whitelist + fuse_artists_blacklist
-        write(config + '\nfuse_artists_whitelist = ["a"]\nfuse_artists_blacklist = ["b"]')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Cannot specify both fuse_artists_whitelist and fuse_artists_blacklist in configuration file ({path}): must specify only one or the other"
-        )
-
-        # fuse_genres_whitelist + fuse_genres_blacklist
-        write(config + '\nfuse_genres_whitelist = ["a"]\nfuse_genres_blacklist = ["b"]')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Cannot specify both fuse_genres_whitelist and fuse_genres_blacklist in configuration file ({path}): must specify only one or the other"
-        )
-
-        # fuse_labels_whitelist + fuse_labels_blacklist
-        write(config + '\nfuse_labels_whitelist = ["a"]\nfuse_labels_blacklist = ["b"]')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Cannot specify both fuse_labels_whitelist and fuse_labels_blacklist in configuration file ({path}): must specify only one or the other"
-        )
 
         # cover_art_stems
         write(config + '\ncover_art_stems = "lalala"')
@@ -605,13 +460,175 @@ Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'ma
             == f"Invalid value for rename_source_files in configuration file ({path}): Must be a bool: got <class 'str'>"
         )
 
+
+def test_vfs_config_value_validation() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / "config.toml"
+        path.touch()
+
+        def write(x: str) -> None:
+            with path.open("w") as fp:
+                fp.write(x)
+
+        config = 'music_source_dir = "~/.music-src"\n[vfs]\n'
+        write(config)
+
+        # mount_dir
+        write(config + "\nmount_dir = 123")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.mount_dir in configuration file ({path}): must be a path"
+        )
+        config += '\nmount_dir = "~/music"'
+
+        # artists_whitelist
+        write(config + '\nartists_whitelist = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.artists_whitelist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
+        )
+        write(config + "\nartists_whitelist = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.artists_whitelist in configuration file ({path}): Each artist must be of type str: got <class 'int'>"
+        )
+
+        # genres_whitelist
+        write(config + '\ngenres_whitelist = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.genres_whitelist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
+        )
+        write(config + "\ngenres_whitelist = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.genres_whitelist in configuration file ({path}): Each genre must be of type str: got <class 'int'>"
+        )
+
+        # labels_whitelist
+        write(config + '\nlabels_whitelist = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.labels_whitelist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
+        )
+        write(config + "\nlabels_whitelist = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.labels_whitelist in configuration file ({path}): Each label must be of type str: got <class 'int'>"
+        )
+
+        # artists_blacklist
+        write(config + '\nartists_blacklist = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.artists_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
+        )
+        write(config + "\nartists_blacklist = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.artists_blacklist in configuration file ({path}): Each artist must be of type str: got <class 'int'>"
+        )
+
+        # genres_blacklist
+        write(config + '\ngenres_blacklist = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.genres_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
+        )
+        write(config + "\ngenres_blacklist = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.genres_blacklist in configuration file ({path}): Each genre must be of type str: got <class 'int'>"
+        )
+
+        # descriptors_blacklist
+        write(config + '\ndescriptors_blacklist = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.descriptors_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
+        )
+        write(config + "\ndescriptors_blacklist = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.descriptors_blacklist in configuration file ({path}): Each descriptor must be of type str: got <class 'int'>"
+        )
+
+        # labels_blacklist
+        write(config + '\nlabels_blacklist = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.labels_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
+        )
+        write(config + "\nlabels_blacklist = [123]")
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for vfs.labels_blacklist in configuration file ({path}): Each label must be of type str: got <class 'int'>"
+        )
+
+        # artists_whitelist + artists_blacklist
+        write(config + '\nartists_whitelist = ["a"]\nartists_blacklist = ["b"]')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Cannot specify both vfs.artists_whitelist and vfs.artists_blacklist in configuration file ({path}): must specify only one or the other"
+        )
+
+        # genres_whitelist + genres_blacklist
+        write(config + '\ngenres_whitelist = ["a"]\ngenres_blacklist = ["b"]')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Cannot specify both vfs.genres_whitelist and vfs.genres_blacklist in configuration file ({path}): must specify only one or the other"
+        )
+
+        # labels_whitelist + labels_blacklist
+        write(config + '\nlabels_whitelist = ["a"]\nlabels_blacklist = ["b"]')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Cannot specify both vfs.labels_whitelist and vfs.labels_blacklist in configuration file ({path}): must specify only one or the other"
+        )
+
         # hide_genres_with_only_new_releases
         write(config + '\nhide_genres_with_only_new_releases = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for hide_genres_with_only_new_releases in configuration file ({path}): Must be a bool: got <class 'str'>"
+            == f"Invalid value for vfs.hide_genres_with_only_new_releases in configuration file ({path}): Must be a bool: got <class 'str'>"
         )
 
         # hide_descriptors_with_only_new_releases
@@ -620,7 +637,7 @@ Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'ma
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for hide_descriptors_with_only_new_releases in configuration file ({path}): Must be a bool: got <class 'str'>"
+            == f"Invalid value for vfs.hide_descriptors_with_only_new_releases in configuration file ({path}): Must be a bool: got <class 'str'>"
         )
 
         # hide_labels_with_only_new_releases
@@ -629,5 +646,5 @@ Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'ma
             Config.parse(config_path_override=path)
         assert (
             str(excinfo.value)
-            == f"Invalid value for hide_labels_with_only_new_releases in configuration file ({path}): Must be a bool: got <class 'str'>"
+            == f"Invalid value for vfs.hide_labels_with_only_new_releases in configuration file ({path}): Must be a bool: got <class 'str'>"
         )

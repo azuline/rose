@@ -56,41 +56,248 @@ class InvalidConfigValueError(RoseExpectedError, ValueError):
 
 
 @dataclass(frozen=True)
+class VirtualFSConfig:
+    mount_dir: Path
+
+    artists_whitelist: list[str] | None
+    genres_whitelist: list[str] | None
+    descriptors_whitelist: list[str] | None
+    labels_whitelist: list[str] | None
+    artists_blacklist: list[str] | None
+    genres_blacklist: list[str] | None
+    descriptors_blacklist: list[str] | None
+    labels_blacklist: list[str] | None
+
+    hide_genres_with_only_new_releases: bool
+    hide_descriptors_with_only_new_releases: bool
+    hide_labels_with_only_new_releases: bool
+
+    @classmethod
+    def parse(cls, cfgpath: Path, data: dict[str, Any]) -> VirtualFSConfig:
+        """Modifies `config` by deleting any keys read."""
+        try:
+            mount_dir = Path(data["mount_dir"]).expanduser()
+            del data["mount_dir"]
+        except KeyError as e:
+            raise MissingConfigKeyError(
+                f"Missing key vfs.mount_dir in configuration file ({cfgpath})"
+            ) from e
+        except (ValueError, TypeError) as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for vfs.mount_dir in configuration file ({cfgpath}): must be a path"
+            ) from e
+
+        try:
+            artists_whitelist = data["artists_whitelist"]
+            del data["artists_whitelist"]
+            if not isinstance(artists_whitelist, list):
+                raise ValueError(f"Must be a list[str]: got {type(artists_whitelist)}")
+            for s in artists_whitelist:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each artist must be of type str: got {type(s)}")
+        except KeyError:
+            artists_whitelist = None
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for vfs.artists_whitelist in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
+            genres_whitelist = data["genres_whitelist"]
+            del data["genres_whitelist"]
+            if not isinstance(genres_whitelist, list):
+                raise ValueError(f"Must be a list[str]: got {type(genres_whitelist)}")
+            for s in genres_whitelist:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each genre must be of type str: got {type(s)}")
+        except KeyError:
+            genres_whitelist = None
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for vfs.genres_whitelist in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
+            descriptors_whitelist = data["descriptors_whitelist"]
+            del data["descriptors_whitelist"]
+            if not isinstance(descriptors_whitelist, list):
+                raise ValueError(f"Must be a list[str]: got {type(descriptors_whitelist)}")
+            for s in descriptors_whitelist:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each descriptor must be of type str: got {type(s)}")
+        except KeyError:
+            descriptors_whitelist = None
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for vfs.descriptors_whitelist in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
+            labels_whitelist = data["labels_whitelist"]
+            del data["labels_whitelist"]
+            if not isinstance(labels_whitelist, list):
+                raise ValueError(f"Must be a list[str]: got {type(labels_whitelist)}")
+            for s in labels_whitelist:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each label must be of type str: got {type(s)}")
+        except KeyError:
+            labels_whitelist = None
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for vfs.labels_whitelist in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
+            artists_blacklist = data["artists_blacklist"]
+            del data["artists_blacklist"]
+            if not isinstance(artists_blacklist, list):
+                raise ValueError(f"Must be a list[str]: got {type(artists_blacklist)}")
+            for s in artists_blacklist:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each artist must be of type str: got {type(s)}")
+        except KeyError:
+            artists_blacklist = None
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for vfs.artists_blacklist in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
+            genres_blacklist = data["genres_blacklist"]
+            del data["genres_blacklist"]
+            if not isinstance(genres_blacklist, list):
+                raise ValueError(f"Must be a list[str]: got {type(genres_blacklist)}")
+            for s in genres_blacklist:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each genre must be of type str: got {type(s)}")
+        except KeyError:
+            genres_blacklist = None
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for vfs.genres_blacklist in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
+            descriptors_blacklist = data["descriptors_blacklist"]
+            del data["descriptors_blacklist"]
+            if not isinstance(descriptors_blacklist, list):
+                raise ValueError(f"Must be a list[str]: got {type(descriptors_blacklist)}")
+            for s in descriptors_blacklist:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each descriptor must be of type str: got {type(s)}")
+        except KeyError:
+            descriptors_blacklist = None
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for vfs.descriptors_blacklist in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
+            labels_blacklist = data["labels_blacklist"]
+            del data["labels_blacklist"]
+            if not isinstance(labels_blacklist, list):
+                raise ValueError(f"Must be a list[str]: got {type(labels_blacklist)}")
+            for s in labels_blacklist:
+                if not isinstance(s, str):
+                    raise ValueError(f"Each label must be of type str: got {type(s)}")
+        except KeyError:
+            labels_blacklist = None
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for vfs.labels_blacklist in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        if artists_whitelist and artists_blacklist:
+            raise InvalidConfigValueError(
+                f"Cannot specify both vfs.artists_whitelist and vfs.artists_blacklist in configuration file ({cfgpath}): must specify only one or the other"
+            )
+        if genres_whitelist and genres_blacklist:
+            raise InvalidConfigValueError(
+                f"Cannot specify both vfs.genres_whitelist and vfs.genres_blacklist in configuration file ({cfgpath}): must specify only one or the other"
+            )
+        if labels_whitelist and labels_blacklist:
+            raise InvalidConfigValueError(
+                f"Cannot specify both vfs.labels_whitelist and vfs.labels_blacklist in configuration file ({cfgpath}): must specify only one or the other"
+            )
+
+        try:
+            hide_genres_with_only_new_releases = data["hide_genres_with_only_new_releases"]
+            del data["hide_genres_with_only_new_releases"]
+            if not isinstance(hide_genres_with_only_new_releases, bool):
+                raise ValueError(f"Must be a bool: got {type(hide_genres_with_only_new_releases)}")
+        except KeyError:
+            hide_genres_with_only_new_releases = False
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for vfs.hide_genres_with_only_new_releases in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
+            hide_descriptors_with_only_new_releases = data[
+                "hide_descriptors_with_only_new_releases"
+            ]
+            del data["hide_descriptors_with_only_new_releases"]
+            if not isinstance(hide_descriptors_with_only_new_releases, bool):
+                raise ValueError(
+                    f"Must be a bool: got {type(hide_descriptors_with_only_new_releases)}"
+                )
+        except KeyError:
+            hide_descriptors_with_only_new_releases = False
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for vfs.hide_descriptors_with_only_new_releases in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        try:
+            hide_labels_with_only_new_releases = data["hide_labels_with_only_new_releases"]
+            del data["hide_labels_with_only_new_releases"]
+            if not isinstance(hide_labels_with_only_new_releases, bool):
+                raise ValueError(f"Must be a bool: got {type(hide_labels_with_only_new_releases)}")
+        except KeyError:
+            hide_labels_with_only_new_releases = False
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for vfs.hide_labels_with_only_new_releases in configuration file ({cfgpath}): {e}"
+            ) from e
+
+        return VirtualFSConfig(
+            mount_dir=mount_dir,
+            artists_whitelist=artists_whitelist,
+            genres_whitelist=genres_whitelist,
+            descriptors_whitelist=descriptors_whitelist,
+            labels_whitelist=labels_whitelist,
+            artists_blacklist=artists_blacklist,
+            genres_blacklist=genres_blacklist,
+            descriptors_blacklist=descriptors_blacklist,
+            labels_blacklist=labels_blacklist,
+            hide_genres_with_only_new_releases=hide_genres_with_only_new_releases,
+            hide_descriptors_with_only_new_releases=hide_descriptors_with_only_new_releases,
+            hide_labels_with_only_new_releases=hide_labels_with_only_new_releases,
+        )
+
+
+@dataclass(frozen=True)
 class Config:
     music_source_dir: Path
-    fuse_mount_dir: Path
     cache_dir: Path
     # Maximum parallel processes for cache updates. Defaults to nproc/2.
     max_proc: int
     ignore_release_directories: list[str]
+
+    rename_source_files: bool
+    max_filename_bytes: int
+    cover_art_stems: list[str]
+    valid_art_exts: list[str]
 
     # A map from parent artist -> subartists.
     artist_aliases_map: dict[str, list[str]]
     # A map from subartist -> parent artists.
     artist_aliases_parents_map: dict[str, list[str]]
 
-    fuse_artists_whitelist: list[str] | None
-    fuse_genres_whitelist: list[str] | None
-    fuse_descriptors_whitelist: list[str] | None
-    fuse_labels_whitelist: list[str] | None
-    fuse_artists_blacklist: list[str] | None
-    fuse_genres_blacklist: list[str] | None
-    fuse_descriptors_blacklist: list[str] | None
-    fuse_labels_blacklist: list[str] | None
-
-    hide_genres_with_only_new_releases: bool
-    hide_descriptors_with_only_new_releases: bool
-    hide_labels_with_only_new_releases: bool
-
-    cover_art_stems: list[str]
-    valid_art_exts: list[str]
-
-    max_filename_bytes: int
-
-    rename_source_files: bool
     path_templates: PathTemplateConfig
-
     stored_metadata_rules: list[MetadataRule]
+
+    vfs: VirtualFSConfig
 
     @classmethod
     def parse(cls, config_path_override: Path | None = None) -> Config:
@@ -119,18 +326,6 @@ class Config:
         except (ValueError, TypeError) as e:
             raise InvalidConfigValueError(
                 f"Invalid value for music_source_dir in configuration file ({cfgpath}): must be a path"
-            ) from e
-
-        try:
-            fuse_mount_dir = Path(data["fuse_mount_dir"]).expanduser()
-            del data["fuse_mount_dir"]
-        except KeyError as e:
-            raise MissingConfigKeyError(
-                f"Missing key fuse_mount_dir in configuration file ({cfgpath})"
-            ) from e
-        except (ValueError, TypeError) as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for fuse_mount_dir in configuration file ({cfgpath}): must be a path"
             ) from e
 
         try:
@@ -176,179 +371,6 @@ class Config:
         except (ValueError, TypeError, KeyError) as e:
             raise InvalidConfigValueError(
                 f"Invalid value for artist_aliases in configuration file ({cfgpath}): must be a list of {{ artist = str, aliases = list[str] }} records"
-            ) from e
-
-        try:
-            fuse_artists_whitelist = data["fuse_artists_whitelist"]
-            del data["fuse_artists_whitelist"]
-            if not isinstance(fuse_artists_whitelist, list):
-                raise ValueError(f"Must be a list[str]: got {type(fuse_artists_whitelist)}")
-            for s in fuse_artists_whitelist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each artist must be of type str: got {type(s)}")
-        except KeyError:
-            fuse_artists_whitelist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for fuse_artists_whitelist in configuration file ({cfgpath}): {e}"
-            ) from e
-
-        try:
-            fuse_genres_whitelist = data["fuse_genres_whitelist"]
-            del data["fuse_genres_whitelist"]
-            if not isinstance(fuse_genres_whitelist, list):
-                raise ValueError(f"Must be a list[str]: got {type(fuse_genres_whitelist)}")
-            for s in fuse_genres_whitelist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each genre must be of type str: got {type(s)}")
-        except KeyError:
-            fuse_genres_whitelist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for fuse_genres_whitelist in configuration file ({cfgpath}): {e}"
-            ) from e
-
-        try:
-            fuse_descriptors_whitelist = data["fuse_descriptors_whitelist"]
-            del data["fuse_descriptors_whitelist"]
-            if not isinstance(fuse_descriptors_whitelist, list):
-                raise ValueError(f"Must be a list[str]: got {type(fuse_descriptors_whitelist)}")
-            for s in fuse_descriptors_whitelist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each descriptor must be of type str: got {type(s)}")
-        except KeyError:
-            fuse_descriptors_whitelist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for fuse_descriptors_whitelist in configuration file ({cfgpath}): {e}"
-            ) from e
-
-        try:
-            fuse_labels_whitelist = data["fuse_labels_whitelist"]
-            del data["fuse_labels_whitelist"]
-            if not isinstance(fuse_labels_whitelist, list):
-                raise ValueError(f"Must be a list[str]: got {type(fuse_labels_whitelist)}")
-            for s in fuse_labels_whitelist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each label must be of type str: got {type(s)}")
-        except KeyError:
-            fuse_labels_whitelist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for fuse_labels_whitelist in configuration file ({cfgpath}): {e}"
-            ) from e
-
-        try:
-            fuse_artists_blacklist = data["fuse_artists_blacklist"]
-            del data["fuse_artists_blacklist"]
-            if not isinstance(fuse_artists_blacklist, list):
-                raise ValueError(f"Must be a list[str]: got {type(fuse_artists_blacklist)}")
-            for s in fuse_artists_blacklist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each artist must be of type str: got {type(s)}")
-        except KeyError:
-            fuse_artists_blacklist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for fuse_artists_blacklist in configuration file ({cfgpath}): {e}"
-            ) from e
-
-        try:
-            fuse_genres_blacklist = data["fuse_genres_blacklist"]
-            del data["fuse_genres_blacklist"]
-            if not isinstance(fuse_genres_blacklist, list):
-                raise ValueError(f"Must be a list[str]: got {type(fuse_genres_blacklist)}")
-            for s in fuse_genres_blacklist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each genre must be of type str: got {type(s)}")
-        except KeyError:
-            fuse_genres_blacklist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for fuse_genres_blacklist in configuration file ({cfgpath}): {e}"
-            ) from e
-
-        try:
-            fuse_descriptors_blacklist = data["fuse_descriptors_blacklist"]
-            del data["fuse_descriptors_blacklist"]
-            if not isinstance(fuse_descriptors_blacklist, list):
-                raise ValueError(f"Must be a list[str]: got {type(fuse_descriptors_blacklist)}")
-            for s in fuse_descriptors_blacklist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each descriptor must be of type str: got {type(s)}")
-        except KeyError:
-            fuse_descriptors_blacklist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for fuse_descriptors_blacklist in configuration file ({cfgpath}): {e}"
-            ) from e
-
-        try:
-            fuse_labels_blacklist = data["fuse_labels_blacklist"]
-            del data["fuse_labels_blacklist"]
-            if not isinstance(fuse_labels_blacklist, list):
-                raise ValueError(f"Must be a list[str]: got {type(fuse_labels_blacklist)}")
-            for s in fuse_labels_blacklist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each label must be of type str: got {type(s)}")
-        except KeyError:
-            fuse_labels_blacklist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for fuse_labels_blacklist in configuration file ({cfgpath}): {e}"
-            ) from e
-
-        if fuse_artists_whitelist and fuse_artists_blacklist:
-            raise InvalidConfigValueError(
-                f"Cannot specify both fuse_artists_whitelist and fuse_artists_blacklist in configuration file ({cfgpath}): must specify only one or the other"
-            )
-        if fuse_genres_whitelist and fuse_genres_blacklist:
-            raise InvalidConfigValueError(
-                f"Cannot specify both fuse_genres_whitelist and fuse_genres_blacklist in configuration file ({cfgpath}): must specify only one or the other"
-            )
-        if fuse_labels_whitelist and fuse_labels_blacklist:
-            raise InvalidConfigValueError(
-                f"Cannot specify both fuse_labels_whitelist and fuse_labels_blacklist in configuration file ({cfgpath}): must specify only one or the other"
-            )
-
-        try:
-            hide_genres_with_only_new_releases = data["hide_genres_with_only_new_releases"]
-            del data["hide_genres_with_only_new_releases"]
-            if not isinstance(hide_genres_with_only_new_releases, bool):
-                raise ValueError(f"Must be a bool: got {type(hide_genres_with_only_new_releases)}")
-        except KeyError:
-            hide_genres_with_only_new_releases = False
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for hide_genres_with_only_new_releases in configuration file ({cfgpath}): {e}"
-            ) from e
-
-        try:
-            hide_descriptors_with_only_new_releases = data[
-                "hide_descriptors_with_only_new_releases"
-            ]
-            del data["hide_descriptors_with_only_new_releases"]
-            if not isinstance(hide_descriptors_with_only_new_releases, bool):
-                raise ValueError(
-                    f"Must be a bool: got {type(hide_descriptors_with_only_new_releases)}"
-                )
-        except KeyError:
-            hide_descriptors_with_only_new_releases = False
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for hide_descriptors_with_only_new_releases in configuration file ({cfgpath}): {e}"
-            ) from e
-
-        try:
-            hide_labels_with_only_new_releases = data["hide_labels_with_only_new_releases"]
-            del data["hide_labels_with_only_new_releases"]
-            if not isinstance(hide_labels_with_only_new_releases, bool):
-                raise ValueError(f"Must be a bool: got {type(hide_labels_with_only_new_releases)}")
-        except KeyError:
-            hide_labels_with_only_new_releases = False
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for hide_labels_with_only_new_releases in configuration file ({cfgpath}): {e}"
             ) from e
 
         try:
@@ -527,6 +549,8 @@ class Config:
                 f"Invalid path template in configuration file ({cfgpath}) for template {e.key}: {e}"
             ) from e
 
+        vfs_config = VirtualFSConfig.parse(cfgpath, data.get("vfs", {}))
+
         if data:
             unrecognized_accessors: list[str] = []
             # Do a DFS over the data keys to assemble the map of unknown keys. State is a tuple of
@@ -546,22 +570,10 @@ class Config:
 
         return Config(
             music_source_dir=music_source_dir,
-            fuse_mount_dir=fuse_mount_dir,
             cache_dir=cache_dir,
             max_proc=max_proc,
             artist_aliases_map=artist_aliases_map,
             artist_aliases_parents_map=artist_aliases_parents_map,
-            fuse_artists_whitelist=fuse_artists_whitelist,
-            fuse_genres_whitelist=fuse_genres_whitelist,
-            fuse_descriptors_whitelist=fuse_descriptors_whitelist,
-            fuse_labels_whitelist=fuse_labels_whitelist,
-            fuse_artists_blacklist=fuse_artists_blacklist,
-            fuse_genres_blacklist=fuse_genres_blacklist,
-            fuse_descriptors_blacklist=fuse_descriptors_blacklist,
-            fuse_labels_blacklist=fuse_labels_blacklist,
-            hide_genres_with_only_new_releases=hide_genres_with_only_new_releases,
-            hide_descriptors_with_only_new_releases=hide_descriptors_with_only_new_releases,
-            hide_labels_with_only_new_releases=hide_labels_with_only_new_releases,
             cover_art_stems=cover_art_stems,
             valid_art_exts=valid_art_exts,
             max_filename_bytes=max_filename_bytes,
@@ -569,6 +581,7 @@ class Config:
             rename_source_files=rename_source_files,
             ignore_release_directories=ignore_release_directories,
             stored_metadata_rules=stored_metadata_rules,
+            vfs=vfs_config,
         )
 
     @functools.cached_property

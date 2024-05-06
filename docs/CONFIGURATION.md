@@ -26,7 +26,7 @@ The configuration parameters, with examples, are:
 music_source_dir = "~/.music-source"
 
 # The directory to mount the virtual filesystem on.
-fuse_mount_dir = "~/music"
+vfs.mount_dir = "~/music"
 
 # =======================
 # === Optional values ===
@@ -64,31 +64,31 @@ artist_aliases = [
 # and labels are shown. However, if this configuration parameter is specified,
 # the list can be restricted to a specific few values. This is useful if you
 # only care about a few specific genres and labels.
-fuse_artists_whitelist = [ "xxx", "yyy" ]
-fuse_genres_whitelist = [ "xxx", "yyy" ]
-fuse_descriptors_whitelist = [ "xxx", "yyy" ]
-fuse_labels_whitelist = [ "xxx", "yyy" ]
+vfs.artists_whitelist = [ "xxx", "yyy" ]
+vfs.genres_whitelist = [ "xxx", "yyy" ]
+vfs.descriptors_whitelist = [ "xxx", "yyy" ]
+vfs.labels_whitelist = [ "xxx", "yyy" ]
 # Artists, genres, descriptors, and labels to hide from the virtual filesystem
 # navigation. These options remove specific entities from their respective
 # top-level virtual filesystem directories. This is useful if there are a few
 # values you don't find useful, e.g. a random featuring artist or one super
 # niche genre.
 #
-# These options are mutually exclusive with the fuse_*_whitelist options; if
+# These options are mutually exclusive with the *_whitelist options; if
 # both are specified for a given entity type, the configuration will not
 # validate.
-fuse_artists_blacklist = [ "xxx" ]
-fuse_genres_blacklist = [ "xxx" ]
-fuse_descriptors_blacklist = [ "xxx" ]
-fuse_labels_blacklist = [ "xxx" ]
+vfs.artists_blacklist = [ "xxx" ]
+vfs.genres_blacklist = [ "xxx" ]
+vfs.descriptors_blacklist = [ "xxx" ]
+vfs.labels_blacklist = [ "xxx" ]
 
 # Whether to hide the genres, descriptors, and labels from new releases from
 # being returned in when listing genres/descriptors/labels. This is useful new
 # releases are improperly tagged, as those tags tend to be very incorrect by
 # default.
-hide_genres_with_only_new_releases = true
-hide_descriptors_with_only_new_releases = true
-hide_labels_with_only_new_releases = true
+vfs.hide_genres_with_only_new_releases = true
+vfs.hide_descriptors_with_only_new_releases = true
+vfs.hide_labels_with_only_new_releases = true
 
 # When Rosé scans a release directory, it looks for cover art that matches:
 #

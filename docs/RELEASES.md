@@ -75,7 +75,7 @@ are supported as well.
 This operation is only supported on the command line.
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ rose releases toggle-new "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [21:47:52] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
@@ -105,7 +105,7 @@ _The filename of the cover art in the virtual filesystem will always appear as
 Command line:
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ rose releases set-cover "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP" ./cover.jpg
 [20:43:50] INFO: Set the cover of release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match to cover.jpg
@@ -128,7 +128,7 @@ filenames. The valid cover art filenames are controlled by and documented in
 [Configuration](./CONFIGURATION.md)._
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ mv ~/downloads/cover.jpg "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/cover.jpg"
 
@@ -147,7 +147,7 @@ $ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/"
 This operation is only supported on the command line.
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ rose releases delete-cover "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [02:13:17] INFO: Deleted cover arts of release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
@@ -171,7 +171,7 @@ the deletion was accidental._
 Command line:
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ rose releases delete "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [21:56:25] INFO: Trashed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP
@@ -191,7 +191,7 @@ $ tree "1. Releases/"
 Virtual filesystem:
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ rmdir "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 
@@ -286,7 +286,7 @@ rid of the release while keeping the track(s) you liked.
 To demonstrate:
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ rose releases create-single "1. Releases/ITZY - 2022. CHECKMATE/01.\ SNEAKERS.opus"
 [12:16:06] INFO: Created phony single release ITZY - 2022. SNEAKERS

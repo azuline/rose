@@ -19,7 +19,7 @@ command accepts a Release ID or a Release's virtual filesystem directory name.
 So for example:
 
 ```bash
-$ rose releases edit "$fuse_mount_dir/1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+$ rose releases edit "$vfs_mount_dir/1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 $ rose releases edit "018b4ff1-acdf-7ff1-bcd6-67757aea0fed"
 ```
 

@@ -110,7 +110,7 @@ $ rose playlists create "Evening"
 Virtual filesystem:
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ mkdir "7. Collages/Morning"
 
@@ -135,7 +135,7 @@ _Releases and tracks can be added by UUID or path. Rosé accepts both source dir
 virtual filesystem paths._
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ rose collages add-release "Morning" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [17:59:38] INFO: Added release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP to collage Morning
@@ -157,7 +157,7 @@ $ rose playlists add-track "Evening" "018b6514-6fb7-7cc6-9d23-8eaf0b1beee8"
 Virtual filesystem:
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ cp -r "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP" "7. Collages/Morning/"
 
@@ -181,7 +181,7 @@ _Releases and tracks can be removed by UUID or path. Rosé accepts both source d
 virtual filesystem paths._
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 $ rose collages remove-release "Morning" "7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [18:11:43] INFO: Removed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP from collage Morning
 [18:11:43] INFO: Updating cache for collage Morning
@@ -202,7 +202,7 @@ $ rose playlists remove-track "Evening" "018b6514-6fb7-7cc6-9d23-8eaf0b1beee8"
 Virtual filesystem:
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ rmdir "7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 
@@ -281,7 +281,7 @@ $ rose playlists create "Evening"
 Virtual filesystem:
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ rmdir "7. Collages/Morning"
 
@@ -327,7 +327,7 @@ $ tree "8. Playlists/"
 Virtual filesystem:
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ mv "7. Collages/Road Trip/" "7. Collages/Long Flight"
 
@@ -352,7 +352,7 @@ regardless of the cover art name in the source directory._
 Command line:
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ rose playlists set-cover "Shower" ./cover.jpg
 [20:51:59] INFO: Set the cover of playlist Shower to cover.jpg
@@ -372,7 +372,7 @@ filenames. The valid cover art filenames are controlled by and documented in
 [Configuration](./CONFIGURATION.md)._
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfsvfs_t_dir
 
 $ mv ~/downloads/cover.jpg "8. Playlists/Shower/cover.jpg"
 
@@ -390,7 +390,7 @@ _This operation is playlist-only, as collages do not have their own cover art._
 Command line:
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ rose playlists delete-cover "Shower"
 [02:10:34] INFO: Deleted cover arts of playlist Lounge
@@ -405,7 +405,7 @@ $ tree "8. Playlists/Shower/"
 Virtual filesystem:
 
 ```bash
-$ cd $fuse_mount_dir
+$ cd $vfs_mount_dir
 
 $ rm "8. Playlists/Shower/cover.jpg"
 

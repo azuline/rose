@@ -250,7 +250,7 @@ Great! Next, we'll (1) configure Rosé, (2) mount the virtual filesystem, and fi
    # WARNING: The files in this directory WILL be modified by Rosé!
    music_source_dir = "~/.music-source"
    # The mountpoint for the virtual filesystem.
-   fuse_mount_dir = "~/music"
+   vfs.mount_dir = "~/music"
    ```
 
    The full configuration specification is documented in [Configuration](./docs/CONFIGURATION.md).
@@ -279,10 +279,10 @@ Great! Next, we'll (1) configure Rosé, (2) mount the virtual filesystem, and fi
    synchronization.
 
    Now that the virtual filesystem is mounted, let's go take a look! Navigate to the configured
-   `fuse_mount_dir`, and you should see your music available in the virtual filesystem!
+   `vfs.mount_dir`, and you should see your music available in the virtual filesystem!
 
    ```bash
-   $ cd $fuse_mount_dir
+   $ cd $vfs_mount_dir
 
    $ ls -1
    '1. Releases'
