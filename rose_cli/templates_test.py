@@ -1,7 +1,7 @@
 import click
 from click.testing import CliRunner
 
-from rose.config import Config
+from rose import Config
 from rose_cli.templates import (
     preview_path_templates,
 )

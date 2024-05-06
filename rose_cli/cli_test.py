@@ -6,8 +6,7 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
-from rose.audiotags import AudioTags
-from rose.config import Config
+from rose import AudioTags, Config
 from rose_cli.cli import (
     Context,
     InvalidReleaseArgError,

@@ -34,21 +34,12 @@ from rose import (
     delete_playlist_cover_art,
     delete_release,
     delete_release_cover_art,
-    dump_all_collages,
-    dump_all_playlists,
-    dump_all_releases,
-    dump_all_tracks,
-    dump_collage,
-    dump_playlist,
-    dump_release,
-    dump_track,
     edit_collage_in_editor,
     edit_playlist_in_editor,
     edit_release,
     execute_metadata_rule,
     execute_stored_metadata_rules,
     maybe_invalidate_cache_database,
-    preview_path_templates,
     remove_release_from_collage,
     remove_track_from_playlist,
     rename_collage,
@@ -60,6 +51,17 @@ from rose import (
     toggle_release_new,
     update_cache,
 )
+from rose_cli.dump import (
+    dump_all_collages,
+    dump_all_playlists,
+    dump_all_releases,
+    dump_all_tracks,
+    dump_collage,
+    dump_playlist,
+    dump_release,
+    dump_track,
+)
+from rose_cli.templates import preview_path_templates
 from rose_vfs import mount_virtualfs
 from rose_watchdog import start_watchdog
 

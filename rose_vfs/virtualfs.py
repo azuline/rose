@@ -78,7 +78,9 @@ from rose import (
     evaluate_track_template,
     genre_exists,
     get_collage,
+    get_collage_releases,
     get_playlist,
+    get_playlist_tracks,
     get_release,
     get_track,
     get_tracks_of_release,
@@ -99,14 +101,12 @@ from rose import (
     sanitize_filename,
     set_playlist_cover_art,
     set_release_cover_art,
+    track_within_playlist,
+    track_within_release,
     update_cache_for_releases,
 )
 from rose.cache import (
-    get_collage_releases,
-    get_playlist_tracks,
     list_releases_delete_this,
-    track_within_playlist,
-    track_within_release,
 )
 
 logger = logging.getLogger(__name__)

@@ -2,7 +2,6 @@
 The collages module provides functions for interacting with collages.
 """
 
-import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -14,16 +13,14 @@ from send2trash import send2trash
 
 from rose.cache import (
     collage_lock_name,
-    get_collage,
-    get_collage_releases,
     get_release_logtext,
-    list_collages,
     lock,
     update_cache_evict_nonexistent_collages,
     update_cache_for_collages,
 )
 from rose.common import RoseExpectedError
 from rose.config import Config
+from rose.releases import ReleaseDoesNotExistError
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +34,6 @@ class CollageDoesNotExistError(RoseExpectedError):
 
 
 class CollageAlreadyExistsError(RoseExpectedError):
-    pass
-
-
-class ReleaseDoesNotExistError(RoseExpectedError):
     pass
 
 
@@ -143,30 +136,6 @@ def add_release_to_collage(
             tomli_w.dump(data, fp)
     logger.info(f"Added release {release_logtext} to collage {collage_name}")
     update_cache_for_collages(c, [collage_name], force=True)
-
-
-def dump_collage(c: Config, collage_name: str) -> str:
-    collage = get_collage(c, collage_name)
-    if collage is None:
-        raise CollageDoesNotExistError(f"Collage {collage_name} does not exist")
-    collage_releases = get_collage_releases(c, collage_name)
-    releases: list[dict[str, Any]] = []
-    for idx, rls in enumerate(collage_releases):
-        releases.append({"position": idx + 1, **rls.dump()})
-    return json.dumps({"name": collage_name, "releases": releases})
-
-
-def dump_all_collages(c: Config) -> str:
-    out: list[dict[str, Any]] = []
-    for name in list_collages(c):
-        collage = get_collage(c, name)
-        assert collage is not None
-        collage_releases = get_collage_releases(c, name)
-        releases: list[dict[str, Any]] = []
-        for idx, rls in enumerate(collage_releases):
-            releases.append({"position": idx + 1, **rls.dump()})
-        out.append({"name": name, "releases": releases})
-    return json.dumps(out)
 
 
 def edit_collage_in_editor(c: Config, collage_name: str) -> None:

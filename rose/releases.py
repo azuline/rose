@@ -5,7 +5,6 @@ The releases module provides functions for interacting with releases.
 from __future__ import annotations
 
 import dataclasses
-import json
 import logging
 import re
 import shlex
@@ -25,7 +24,6 @@ from rose.cache import (
     Track,
     get_release,
     get_tracks_of_release,
-    get_tracks_of_releases,
     list_releases,
     lock,
     make_release_logtext,
@@ -66,32 +64,6 @@ class InvalidReleaseEditResumeFileError(RoseExpectedError):
 
 class UnknownArtistRoleError(RoseExpectedError):
     pass
-
-
-def dump_release(c: Config, release_id: str) -> str:
-    release = get_release(c, release_id)
-    if not release:
-        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
-    tracks = get_tracks_of_release(c, release)
-    return json.dumps(
-        {**release.dump(), "tracks": [t.dump(with_release_info=False) for t in tracks]}
-    )
-
-
-def dump_all_releases(c: Config, matcher: MetadataMatcher | None = None) -> str:
-    release_ids = None
-    if matcher:
-        release_ids = [x.id for x in fast_search_for_matching_releases(c, matcher)]
-    releases = list_releases(c, release_ids)
-    if matcher:
-        releases = filter_release_false_positives_using_read_cache(matcher, releases)
-    rt_pairs = get_tracks_of_releases(c, releases)
-    return json.dumps(
-        [
-            {**release.dump(), "tracks": [t.dump(with_release_info=False) for t in tracks]}
-            for release, tracks in rt_pairs
-        ]
-    )
 
 
 def delete_release(c: Config, release_id: str) -> None:
@@ -475,6 +447,12 @@ You can reattempt the release edit and fix the metadata file with the command:
         resume_file.unlink()
 
     update_cache_for_releases(c, [release.source_path], force=True)
+
+
+def find_releases_matching_rule(c: Config, matcher: MetadataMatcher) -> list[Release]:
+    release_ids = [x.id for x in fast_search_for_matching_releases(c, matcher)]
+    releases = list_releases(c, release_ids)
+    return filter_release_false_positives_using_read_cache(matcher, releases)
 
 
 def run_actions_on_release(

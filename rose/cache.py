@@ -225,32 +225,6 @@ class Release:
     releaseartists: ArtistMapping
     metahash: str
 
-    def dump(self) -> dict[str, Any]:
-        return {
-            "id": self.id,
-            "source_path": str(self.source_path.resolve()),
-            "cover_image_path": str(self.cover_image_path.resolve())
-            if self.cover_image_path
-            else None,
-            "added_at": self.added_at,
-            "releasetitle": self.releasetitle,
-            "releasetype": self.releasetype,
-            "releasedate": str(self.releasedate) if self.releasedate else None,
-            "originaldate": str(self.originaldate) if self.originaldate else None,
-            "compositiondate": str(self.compositiondate) if self.compositiondate else None,
-            "catalognumber": self.catalognumber,
-            "edition": self.edition,
-            "new": self.new,
-            "disctotal": self.disctotal,
-            "genres": self.genres,
-            "parent_genres": self.parent_genres,
-            "secondary_genres": self.secondary_genres,
-            "parent_secondary_genres": self.parent_secondary_genres,
-            "descriptors": self.descriptors,
-            "labels": self.labels,
-            "releaseartists": self.releaseartists.dump(),
-        }
-
 
 def cached_release_from_view(c: Config, row: dict[str, Any], aliases: bool = True) -> Release:
     secondary_genres = _split(row["secondary_genres"]) if row["secondary_genres"] else []
@@ -297,48 +271,6 @@ class Track:
     metahash: str
 
     release: Release
-
-    def dump(self, with_release_info: bool = True) -> dict[str, Any]:
-        r = {
-            "id": self.id,
-            "source_path": str(self.source_path.resolve()),
-            "tracktitle": self.tracktitle,
-            "tracknumber": self.tracknumber,
-            "tracktotal": self.tracktotal,
-            "discnumber": self.discnumber,
-            "duration_seconds": self.duration_seconds,
-            "trackartists": self.trackartists.dump(),
-        }
-        if with_release_info:
-            r.update(
-                {
-                    "release_id": self.release.id,
-                    "added_at": self.release.added_at,
-                    "releasetitle": self.release.releasetitle,
-                    "releasetype": self.release.releasetype,
-                    "disctotal": self.release.disctotal,
-                    "releasedate": str(self.release.releasedate)
-                    if self.release.releasedate
-                    else None,
-                    "originaldate": str(self.release.originaldate)
-                    if self.release.originaldate
-                    else None,
-                    "compositiondate": str(self.release.compositiondate)
-                    if self.release.compositiondate
-                    else None,
-                    "catalognumber": self.release.catalognumber,
-                    "edition": self.release.edition,
-                    "new": self.release.new,
-                    "genres": self.release.genres,
-                    "parent_genres": self.release.parent_genres,
-                    "secondary_genres": self.release.secondary_genres,
-                    "parent_secondary_genres": self.release.parent_secondary_genres,
-                    "descriptors": self.release.descriptors,
-                    "labels": self.release.labels,
-                    "releaseartists": self.release.releaseartists.dump(),
-                }
-            )
-        return r
 
 
 def cached_track_from_view(

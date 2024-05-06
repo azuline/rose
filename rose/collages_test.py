@@ -1,8 +1,6 @@
-import json
 from pathlib import Path
 from typing import Any
 
-import pytest
 import tomllib
 
 from rose.cache import connect, update_cache
@@ -10,8 +8,6 @@ from rose.collages import (
     add_release_to_collage,
     create_collage,
     delete_collage,
-    dump_all_collages,
-    dump_collage,
     edit_collage_in_editor,
     remove_release_from_collage,
     rename_collage,
@@ -116,187 +112,6 @@ def test_rename_collage(config: Config, source_dir: Path) -> None:
         assert cursor.fetchone()[0]
         cursor = conn.execute("SELECT EXISTS(SELECT * FROM collages WHERE name = 'Rose Gold')")
         assert not cursor.fetchone()[0]
-
-
-@pytest.mark.usefixtures("seeded_cache")
-def test_dump_collage(config: Config) -> None:
-    out = dump_collage(config, "Rose Gold")
-    assert json.loads(out) == {
-        "name": "Rose Gold",
-        "releases": [
-            {
-                "position": 1,
-                "id": "r1",
-                "source_path": f"{config.music_source_dir}/r1",
-                "cover_image_path": None,
-                "added_at": "0000-01-01T00:00:00+00:00",
-                "releasetitle": "Release 1",
-                "releasetype": "album",
-                "releasedate": "2023",
-                "compositiondate": None,
-                "catalognumber": None,
-                "new": False,
-                "disctotal": 1,
-                "genres": ["Techno", "Deep House"],
-                "parent_genres": [
-                    "Dance",
-                    "Electronic",
-                    "Electronic Dance Music",
-                    "House",
-                ],
-                "labels": ["Silk Music"],
-                "originaldate": None,
-                "edition": None,
-                "secondary_genres": ["Rominimal", "Ambient"],
-                "parent_secondary_genres": [
-                    "Dance",
-                    "Electronic",
-                    "Electronic Dance Music",
-                    "House",
-                    "Tech House",
-                ],
-                "descriptors": ["Warm", "Hot"],
-                "releaseartists": {
-                    "main": [
-                        {"name": "Techno Man", "alias": False},
-                        {"name": "Bass Man", "alias": False},
-                    ],
-                    "guest": [],
-                    "remixer": [],
-                    "conductor": [],
-                    "producer": [],
-                    "composer": [],
-                    "djmixer": [],
-                },
-            },
-            {
-                "position": 2,
-                "id": "r2",
-                "source_path": f"{config.music_source_dir}/r2",
-                "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
-                "added_at": "0000-01-01T00:00:00+00:00",
-                "releasetitle": "Release 2",
-                "releasetype": "album",
-                "releasedate": "2021",
-                "compositiondate": None,
-                "catalognumber": "DG-001",
-                "new": True,
-                "disctotal": 1,
-                "genres": ["Modern Classical"],
-                "parent_genres": ["Classical Music", "Western Classical Music"],
-                "labels": ["Native State"],
-                "originaldate": "2019",
-                "edition": "Deluxe",
-                "secondary_genres": ["Orchestral"],
-                "parent_secondary_genres": [
-                    "Classical Music",
-                    "Western Classical Music",
-                ],
-                "descriptors": ["Wet"],
-                "releaseartists": {
-                    "main": [{"name": "Violin Woman", "alias": False}],
-                    "guest": [{"name": "Conductor Woman", "alias": False}],
-                    "remixer": [],
-                    "conductor": [],
-                    "producer": [],
-                    "composer": [],
-                    "djmixer": [],
-                },
-            },
-        ],
-    }
-
-
-@pytest.mark.usefixtures("seeded_cache")
-def test_dump_collages(config: Config) -> None:
-    out = dump_all_collages(config)
-    assert json.loads(out) == [
-        {
-            "name": "Rose Gold",
-            "releases": [
-                {
-                    "position": 1,
-                    "id": "r1",
-                    "source_path": f"{config.music_source_dir}/r1",
-                    "cover_image_path": None,
-                    "added_at": "0000-01-01T00:00:00+00:00",
-                    "releasetitle": "Release 1",
-                    "releasetype": "album",
-                    "releasedate": "2023",
-                    "compositiondate": None,
-                    "catalognumber": None,
-                    "new": False,
-                    "disctotal": 1,
-                    "genres": ["Techno", "Deep House"],
-                    "parent_genres": [
-                        "Dance",
-                        "Electronic",
-                        "Electronic Dance Music",
-                        "House",
-                    ],
-                    "labels": ["Silk Music"],
-                    "originaldate": None,
-                    "edition": None,
-                    "secondary_genres": ["Rominimal", "Ambient"],
-                    "parent_secondary_genres": [
-                        "Dance",
-                        "Electronic",
-                        "Electronic Dance Music",
-                        "House",
-                        "Tech House",
-                    ],
-                    "descriptors": ["Warm", "Hot"],
-                    "releaseartists": {
-                        "main": [
-                            {"name": "Techno Man", "alias": False},
-                            {"name": "Bass Man", "alias": False},
-                        ],
-                        "guest": [],
-                        "remixer": [],
-                        "conductor": [],
-                        "producer": [],
-                        "composer": [],
-                        "djmixer": [],
-                    },
-                },
-                {
-                    "position": 2,
-                    "id": "r2",
-                    "source_path": f"{config.music_source_dir}/r2",
-                    "cover_image_path": f"{config.music_source_dir}/r2/cover.jpg",
-                    "added_at": "0000-01-01T00:00:00+00:00",
-                    "releasetitle": "Release 2",
-                    "releasetype": "album",
-                    "releasedate": "2021",
-                    "compositiondate": None,
-                    "catalognumber": "DG-001",
-                    "new": True,
-                    "disctotal": 1,
-                    "genres": ["Modern Classical"],
-                    "parent_genres": ["Classical Music", "Western Classical Music"],
-                    "labels": ["Native State"],
-                    "originaldate": "2019",
-                    "edition": "Deluxe",
-                    "secondary_genres": ["Orchestral"],
-                    "parent_secondary_genres": [
-                        "Classical Music",
-                        "Western Classical Music",
-                    ],
-                    "descriptors": ["Wet"],
-                    "releaseartists": {
-                        "main": [{"name": "Violin Woman", "alias": False}],
-                        "guest": [{"name": "Conductor Woman", "alias": False}],
-                        "remixer": [],
-                        "conductor": [],
-                        "producer": [],
-                        "composer": [],
-                        "djmixer": [],
-                    },
-                },
-            ],
-        },
-        {"name": "Ruby Red", "releases": []},
-    ]
 
 
 def test_edit_collages_ordering(monkeypatch: Any, config: Config, source_dir: Path) -> None:

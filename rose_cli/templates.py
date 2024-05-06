@@ -1,7 +1,12 @@
 import click
 
-from rose import Config, PathTemplate, evaluate_release_template, evaluate_track_template
-from rose.templates import get_sample_music
+from rose import (
+    Config,
+    PathTemplate,
+    evaluate_release_template,
+    evaluate_track_template,
+    get_sample_music,
+)
 
 
 def preview_path_templates(c: Config) -> None:
