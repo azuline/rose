@@ -33,7 +33,7 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-TAG_SPLITTER_REGEX = re.compile(r" \\\\ | / |; ?| vs\. ")
+TAG_SPLITTER_REGEX = re.compile(r"\\\\| / |; ?| vs\. ")
 YEAR_REGEX = re.compile(r"\d{4}$")
 DATE_REGEX = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
 
