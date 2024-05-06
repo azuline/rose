@@ -78,7 +78,6 @@ from rose import (
     evaluate_track_template,
     genre_exists,
     get_collage,
-    get_path_of_track_in_playlist,
     get_playlist,
     get_release,
     get_track,
@@ -102,7 +101,13 @@ from rose import (
     set_release_cover_art,
     update_cache_for_releases,
 )
-from rose.cache import get_collage_releases, get_playlist_tracks, list_releases_delete_this
+from rose.cache import (
+    get_collage_releases,
+    get_playlist_tracks,
+    list_releases_delete_this,
+    track_within_playlist,
+    track_within_release,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -915,12 +920,14 @@ class RoseLogicalCore:
         if p.file == f".rose.{release.id}.toml":
             return self.stat("file")
         track_id = self._get_track_id(p)
-        tracks = get_tracks_of_release(self.config, release)
-        for t in tracks:
-            if t.id == track_id:
-                return self.stat("file", t.source_path)
-        logger.debug("LOGICAL: Resolved track_id not found in the given tracklist")
-        raise llfuse.FUSEError(errno.ENOENT)
+        if not track_within_release(self.config, track_id, release.id):
+            logger.debug("LOGICAL: Resolved track_id not found in the given release")
+            raise llfuse.FUSEError(errno.ENOENT)
+        if track := get_track(self.config, track_id):
+            return self.stat("file", track.source_path)
+        raise RoseError(
+            "Impossible: Resolved track_id after track_within_release check does not exist"
+        )
 
     def getattr(self, p: VirtualPath) -> dict[str, Any]:
         logger.debug(f"LOGICAL: Received getattr for {p=}")
@@ -934,16 +941,20 @@ class RoseLogicalCore:
                 if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
                     return self.stat("file", playlist.cover_path)
                 track_id = self._get_track_id(p)
-                if source_path := get_path_of_track_in_playlist(self.config, track_id, p.playlist):
-                    return self.stat("file", source_path)
-                raise llfuse.FUSEError(errno.ENOENT)
+                if not track_within_playlist(self.config, track_id, p.playlist):
+                    raise llfuse.FUSEError(errno.ENOENT)
+                if track := get_track(self.config, track_id):
+                    return self.stat("file", track.source_path)
+                raise RoseError(
+                    "Impossible: Resolved track_id after track_within_playlist check does not exist"
+                )
             return self.stat("dir")
 
         # 6. Collages
         if p.collage:
             if not get_collage(self.config, p.collage):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:
+            if p.release:  # TODO: Validate existence of release in collage.
                 return self._getattr_release(p)
             return self.stat("dir")
 
@@ -952,7 +963,7 @@ class RoseLogicalCore:
             la = self.sanitizer.unsanitize(p.label, p.label_parent)
             if not label_exists(self.config, la) or not self.can_show.label(la):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:
+            if p.release:  # TODO: Validate existence of release in label.
                 return self._getattr_release(p)
             return self.stat("dir")
 
@@ -961,7 +972,7 @@ class RoseLogicalCore:
             d = self.sanitizer.unsanitize(p.descriptor, p.descriptor_parent)
             if not descriptor_exists(self.config, d) or not self.can_show.descriptor(d):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:
+            if p.release:  # TODO: Validate existence of release in descriptor.
                 return self._getattr_release(p)
             return self.stat("dir")
 
@@ -970,7 +981,7 @@ class RoseLogicalCore:
             g = self.sanitizer.unsanitize(p.genre, p.genre_parent)
             if not genre_exists(self.config, g) or not self.can_show.genre(g):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:
+            if p.release:  # TODO: Validate existence of release in genre.
                 return self._getattr_release(p)
             return self.stat("dir")
 
@@ -979,7 +990,7 @@ class RoseLogicalCore:
             a = self.sanitizer.unsanitize(p.artist, p.artist_parent)
             if not artist_exists(self.config, a) or not self.can_show.artist(a):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:
+            if p.release:  # TODO: Validate existence of release in artist.
                 return self._getattr_release(p)
             return self.stat("dir")
 

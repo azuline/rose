@@ -2031,51 +2031,57 @@ def get_tracks_of_releases(
     return rval
 
 
-def get_path_of_track_in_release(
+def track_within_release(
     c: Config,
     track_id: str,
     release_id: str,
-) -> Path | None:
+) -> bool | None:
     with connect(c) as conn:
         cursor = conn.execute(
             """
-            SELECT source_path
+            SELECT 1
             FROM tracks
             WHERE id = ? AND release_id = ?
             """,
-            (
-                track_id,
-                release_id,
-            ),
+            (track_id, release_id),
         )
-        row = cursor.fetchone()
-        if row:
-            return Path(row["source_path"])
-        return None
+        return bool(cursor.fetchone())
 
 
-def get_path_of_track_in_playlist(
+def track_within_playlist(
     c: Config,
     track_id: str,
     playlist_name: str,
-) -> Path | None:
+) -> bool:
     with connect(c) as conn:
         cursor = conn.execute(
             """
-            SELECT t.source_path
+            SELECT 1
             FROM tracks t
             JOIN playlists_tracks pt ON pt.track_id = t.id AND pt.playlist_name = ?
             WHERE t.id = ?
             """,
-            (
-                playlist_name,
-                track_id,
-            ),
+            (playlist_name, track_id),
         )
-        row = cursor.fetchone()
-        if row:
-            return Path(row["source_path"])
-        return None
+        return bool(cursor.fetchone())
+
+
+def release_within_collage(
+    c: Config,
+    release_id: str,
+    collage_name: str,
+) -> bool:
+    with connect(c) as conn:
+        cursor = conn.execute(
+            """
+            SELECT 1
+            FROM releases t
+            JOIN collages_releases pt ON pt.release_id = t.id AND pt.collage_name = ?
+            WHERE t.id = ?
+            """,
+            (collage_name, release_id),
+        )
+        return bool(cursor.fetchone())
 
 
 def get_track_logtext(c: Config, track_id: str) -> str | None:

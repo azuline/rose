@@ -16,7 +16,6 @@ from rose.cache import (
     genre_exists,
     get_collage,
     get_collage_releases,
-    get_path_of_track_in_playlist,
     get_playlist,
     get_playlist_tracks,
     get_release,
@@ -32,6 +31,9 @@ from rose.cache import (
     make_release_logtext,
     make_track_logtext,
     maybe_invalidate_cache_database,
+    release_within_collage,
+    track_within_playlist,
+    track_within_release,
     update_cache,
     update_cache_evict_nonexistent_collages,
     update_cache_evict_nonexistent_playlists,
@@ -153,6 +155,7 @@ __all__ = [
     "dump_track",
     "get_track",
     "get_tracks_of_release",
+    "track_within_release",
     # Artists
     "Artist",
     "ArtistMapping",
@@ -182,6 +185,7 @@ __all__ = [
     "get_collage_releases",
     "list_collages",
     "remove_release_from_collage",
+    "release_within_collage",
     "rename_collage",
     # Playlists
     "Playlist",
@@ -195,7 +199,7 @@ __all__ = [
     "dump_all_playlists",
     "dump_playlist",
     "edit_playlist_in_editor",  # TODO: Move editor part to CLI, make this file-submissions.
-    "get_path_of_track_in_playlist",  # TODO: Redesign.
+    "track_within_playlist",
     "remove_track_from_playlist",
     "rename_playlist",
     "set_playlist_cover_art",

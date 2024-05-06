@@ -26,8 +26,6 @@ from rose.cache import (
     genre_exists,
     get_collage,
     get_collage_releases,
-    get_path_of_track_in_playlist,
-    get_path_of_track_in_release,
     get_playlist,
     get_playlist_tracks,
     get_release,
@@ -47,6 +45,9 @@ from rose.cache import (
     list_tracks,
     lock,
     maybe_invalidate_cache_database,
+    release_within_collage,
+    track_within_playlist,
+    track_within_release,
     update_cache,
     update_cache_evict_nonexistent_releases,
     update_cache_for_releases,
@@ -1541,25 +1542,27 @@ def test_get_track(config: Config) -> None:
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_path_of_track_in_release(config: Config) -> None:
-    assert (
-        get_path_of_track_in_release(config, "t1", "r1")
-        == config.music_source_dir / "r1" / "01.m4a"
-    )
-    assert get_path_of_track_in_release(config, "t3", "r1") is None
-    assert get_path_of_track_in_release(config, "lalala", "r1") is None
-    assert get_path_of_track_in_release(config, "t1", "lalala") is None
+def test_track_within_release(config: Config) -> None:
+    assert track_within_release(config, "t1", "r1")
+    assert not track_within_release(config, "t3", "r1")
+    assert not track_within_release(config, "lalala", "r1")
+    assert not track_within_release(config, "t1", "lalala")
 
 
 @pytest.mark.usefixtures("seeded_cache")
-def test_get_path_of_track_in_playlist(config: Config) -> None:
-    assert (
-        get_path_of_track_in_playlist(config, "t1", "Lala Lisa")
-        == config.music_source_dir / "r1" / "01.m4a"
-    )
-    assert get_path_of_track_in_playlist(config, "t2", "Lala Lisa") is None
-    assert get_path_of_track_in_playlist(config, "lalala", "Lala Lisa") is None
-    assert get_path_of_track_in_playlist(config, "t1", "lalala") is None
+def test_track_within_playlist(config: Config) -> None:
+    assert track_within_playlist(config, "t1", "Lala Lisa")
+    assert not track_within_playlist(config, "t2", "Lala Lisa")
+    assert not track_within_playlist(config, "lalala", "Lala Lisa")
+    assert not track_within_playlist(config, "t1", "lalala")
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_release_within_collage(config: Config) -> None:
+    assert release_within_collage(config, "r1", "Rose Gold")
+    assert not release_within_collage(config, "r1", "Ruby Red")
+    assert not release_within_collage(config, "lalala", "Rose Gold")
+    assert not release_within_collage(config, "r1", "lalala")
 
 
 @pytest.mark.usefixtures("seeded_cache")
