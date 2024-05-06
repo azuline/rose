@@ -11,6 +11,9 @@ test-seq:
 	pytest .
 	coverage html
 
+snapshot:
+	pytest --snapshot-update .
+
 lintcheck:
 	ruff format --check .
 	ruff check .
