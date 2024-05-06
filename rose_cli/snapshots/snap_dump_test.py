@@ -7,6 +7,424 @@ from snapshottest import Snapshot
 
 snapshots = Snapshot()
 
+snapshots['test_dump_artist 1'] = {
+    'name': 'Bass Man',
+    'roles': {
+        'composer': [
+        ],
+        'conductor': [
+        ],
+        'djmixer': [
+        ],
+        'guest': [
+        ],
+        'main': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': None,
+                'compositiondate': None,
+                'cover_image_path': None,
+                'descriptors': [
+                    'Warm',
+                    'Hot'
+                ],
+                'disctotal': 1,
+                'edition': None,
+                'genres': [
+                    'Techno',
+                    'Deep House'
+                ],
+                'id': 'r1',
+                'labels': [
+                    'Silk Music'
+                ],
+                'new': False,
+                'originaldate': None,
+                'parent_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House'
+                ],
+                'parent_secondary_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House',
+                    'Tech House'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Techno Man'
+                        },
+                        {
+                            'alias': False,
+                            'name': 'Bass Man'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2023',
+                'releasetitle': 'Release 1',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Rominimal',
+                    'Ambient'
+                ],
+                'source_path': '/dummy/r1'
+            }
+        ],
+        'producer': [
+        ],
+        'remixer': [
+        ]
+    }
+}
+
+snapshots['test_dump_artists 1'] = [
+    {
+        'name': 'Bass Man',
+        'roles': {
+            'composer': [
+            ],
+            'conductor': [
+            ],
+            'djmixer': [
+            ],
+            'guest': [
+            ],
+            'main': [
+                {
+                    'added_at': '0000-01-01T00:00:00+00:00',
+                    'catalognumber': None,
+                    'compositiondate': None,
+                    'cover_image_path': None,
+                    'descriptors': [
+                        'Warm',
+                        'Hot'
+                    ],
+                    'disctotal': 1,
+                    'edition': None,
+                    'genres': [
+                        'Techno',
+                        'Deep House'
+                    ],
+                    'id': 'r1',
+                    'labels': [
+                        'Silk Music'
+                    ],
+                    'new': False,
+                    'originaldate': None,
+                    'parent_genres': [
+                        'Dance',
+                        'Electronic',
+                        'Electronic Dance Music',
+                        'House'
+                    ],
+                    'parent_secondary_genres': [
+                        'Dance',
+                        'Electronic',
+                        'Electronic Dance Music',
+                        'House',
+                        'Tech House'
+                    ],
+                    'releaseartists': {
+                        'composer': [
+                        ],
+                        'conductor': [
+                        ],
+                        'djmixer': [
+                        ],
+                        'guest': [
+                        ],
+                        'main': [
+                            {
+                                'alias': False,
+                                'name': 'Techno Man'
+                            },
+                            {
+                                'alias': False,
+                                'name': 'Bass Man'
+                            }
+                        ],
+                        'producer': [
+                        ],
+                        'remixer': [
+                        ]
+                    },
+                    'releasedate': '2023',
+                    'releasetitle': 'Release 1',
+                    'releasetype': 'album',
+                    'secondary_genres': [
+                        'Rominimal',
+                        'Ambient'
+                    ],
+                    'source_path': '/dummy/r1'
+                }
+            ],
+            'producer': [
+            ],
+            'remixer': [
+            ]
+        }
+    },
+    {
+        'name': 'Conductor Woman',
+        'roles': {
+            'composer': [
+            ],
+            'conductor': [
+            ],
+            'djmixer': [
+            ],
+            'guest': [
+                {
+                    'added_at': '0000-01-01T00:00:00+00:00',
+                    'catalognumber': 'DG-001',
+                    'compositiondate': None,
+                    'cover_image_path': '/dummy/r2/cover.jpg',
+                    'descriptors': [
+                        'Wet'
+                    ],
+                    'disctotal': 1,
+                    'edition': 'Deluxe',
+                    'genres': [
+                        'Modern Classical'
+                    ],
+                    'id': 'r2',
+                    'labels': [
+                        'Native State'
+                    ],
+                    'new': True,
+                    'originaldate': '2019',
+                    'parent_genres': [
+                        'Classical Music',
+                        'Western Classical Music'
+                    ],
+                    'parent_secondary_genres': [
+                        'Classical Music',
+                        'Western Classical Music'
+                    ],
+                    'releaseartists': {
+                        'composer': [
+                        ],
+                        'conductor': [
+                        ],
+                        'djmixer': [
+                        ],
+                        'guest': [
+                            {
+                                'alias': False,
+                                'name': 'Conductor Woman'
+                            }
+                        ],
+                        'main': [
+                            {
+                                'alias': False,
+                                'name': 'Violin Woman'
+                            }
+                        ],
+                        'producer': [
+                        ],
+                        'remixer': [
+                        ]
+                    },
+                    'releasedate': '2021',
+                    'releasetitle': 'Release 2',
+                    'releasetype': 'album',
+                    'secondary_genres': [
+                        'Orchestral'
+                    ],
+                    'source_path': '/dummy/r2'
+                }
+            ],
+            'main': [
+            ],
+            'producer': [
+            ],
+            'remixer': [
+            ]
+        }
+    },
+    {
+        'name': 'Techno Man',
+        'roles': {
+            'composer': [
+            ],
+            'conductor': [
+            ],
+            'djmixer': [
+            ],
+            'guest': [
+            ],
+            'main': [
+                {
+                    'added_at': '0000-01-01T00:00:00+00:00',
+                    'catalognumber': None,
+                    'compositiondate': None,
+                    'cover_image_path': None,
+                    'descriptors': [
+                        'Warm',
+                        'Hot'
+                    ],
+                    'disctotal': 1,
+                    'edition': None,
+                    'genres': [
+                        'Techno',
+                        'Deep House'
+                    ],
+                    'id': 'r1',
+                    'labels': [
+                        'Silk Music'
+                    ],
+                    'new': False,
+                    'originaldate': None,
+                    'parent_genres': [
+                        'Dance',
+                        'Electronic',
+                        'Electronic Dance Music',
+                        'House'
+                    ],
+                    'parent_secondary_genres': [
+                        'Dance',
+                        'Electronic',
+                        'Electronic Dance Music',
+                        'House',
+                        'Tech House'
+                    ],
+                    'releaseartists': {
+                        'composer': [
+                        ],
+                        'conductor': [
+                        ],
+                        'djmixer': [
+                        ],
+                        'guest': [
+                        ],
+                        'main': [
+                            {
+                                'alias': False,
+                                'name': 'Techno Man'
+                            },
+                            {
+                                'alias': False,
+                                'name': 'Bass Man'
+                            }
+                        ],
+                        'producer': [
+                        ],
+                        'remixer': [
+                        ]
+                    },
+                    'releasedate': '2023',
+                    'releasetitle': 'Release 1',
+                    'releasetype': 'album',
+                    'secondary_genres': [
+                        'Rominimal',
+                        'Ambient'
+                    ],
+                    'source_path': '/dummy/r1'
+                }
+            ],
+            'producer': [
+            ],
+            'remixer': [
+            ]
+        }
+    },
+    {
+        'name': 'Violin Woman',
+        'roles': {
+            'composer': [
+            ],
+            'conductor': [
+            ],
+            'djmixer': [
+            ],
+            'guest': [
+            ],
+            'main': [
+                {
+                    'added_at': '0000-01-01T00:00:00+00:00',
+                    'catalognumber': 'DG-001',
+                    'compositiondate': None,
+                    'cover_image_path': '/dummy/r2/cover.jpg',
+                    'descriptors': [
+                        'Wet'
+                    ],
+                    'disctotal': 1,
+                    'edition': 'Deluxe',
+                    'genres': [
+                        'Modern Classical'
+                    ],
+                    'id': 'r2',
+                    'labels': [
+                        'Native State'
+                    ],
+                    'new': True,
+                    'originaldate': '2019',
+                    'parent_genres': [
+                        'Classical Music',
+                        'Western Classical Music'
+                    ],
+                    'parent_secondary_genres': [
+                        'Classical Music',
+                        'Western Classical Music'
+                    ],
+                    'releaseartists': {
+                        'composer': [
+                        ],
+                        'conductor': [
+                        ],
+                        'djmixer': [
+                        ],
+                        'guest': [
+                            {
+                                'alias': False,
+                                'name': 'Conductor Woman'
+                            }
+                        ],
+                        'main': [
+                            {
+                                'alias': False,
+                                'name': 'Violin Woman'
+                            }
+                        ],
+                        'producer': [
+                        ],
+                        'remixer': [
+                        ]
+                    },
+                    'releasedate': '2021',
+                    'releasetitle': 'Release 2',
+                    'releasetype': 'album',
+                    'secondary_genres': [
+                        'Orchestral'
+                    ],
+                    'source_path': '/dummy/r2'
+                }
+            ],
+            'producer': [
+            ],
+            'remixer': [
+            ]
+        }
+    }
+]
+
 snapshots['test_dump_collage 1'] = {
     'name': 'Rose Gold',
     'releases': [
@@ -278,6 +696,1216 @@ snapshots['test_dump_collages 1'] = [
     {
         'name': 'Ruby Red',
         'releases': [
+        ]
+    }
+]
+
+snapshots['test_dump_descriptor 1'] = {
+    'name': 'Warm',
+    'releases': [
+        {
+            'added_at': '0000-01-01T00:00:00+00:00',
+            'catalognumber': None,
+            'compositiondate': None,
+            'cover_image_path': None,
+            'descriptors': [
+                'Warm',
+                'Hot'
+            ],
+            'disctotal': 1,
+            'edition': None,
+            'genres': [
+                'Techno',
+                'Deep House'
+            ],
+            'id': 'r1',
+            'labels': [
+                'Silk Music'
+            ],
+            'new': False,
+            'originaldate': None,
+            'parent_genres': [
+                'Dance',
+                'Electronic',
+                'Electronic Dance Music',
+                'House'
+            ],
+            'parent_secondary_genres': [
+                'Dance',
+                'Electronic',
+                'Electronic Dance Music',
+                'House',
+                'Tech House'
+            ],
+            'releaseartists': {
+                'composer': [
+                ],
+                'conductor': [
+                ],
+                'djmixer': [
+                ],
+                'guest': [
+                ],
+                'main': [
+                    {
+                        'alias': False,
+                        'name': 'Techno Man'
+                    },
+                    {
+                        'alias': False,
+                        'name': 'Bass Man'
+                    }
+                ],
+                'producer': [
+                ],
+                'remixer': [
+                ]
+            },
+            'releasedate': '2023',
+            'releasetitle': 'Release 1',
+            'releasetype': 'album',
+            'secondary_genres': [
+                'Rominimal',
+                'Ambient'
+            ],
+            'source_path': '/dummy/r1'
+        }
+    ]
+}
+
+snapshots['test_dump_descriptors 1'] = [
+    {
+        'name': 'Hot',
+        'only_new_releases': False,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': None,
+                'compositiondate': None,
+                'cover_image_path': None,
+                'descriptors': [
+                    'Warm',
+                    'Hot'
+                ],
+                'disctotal': 1,
+                'edition': None,
+                'genres': [
+                    'Techno',
+                    'Deep House'
+                ],
+                'id': 'r1',
+                'labels': [
+                    'Silk Music'
+                ],
+                'new': False,
+                'originaldate': None,
+                'parent_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House'
+                ],
+                'parent_secondary_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House',
+                    'Tech House'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Techno Man'
+                        },
+                        {
+                            'alias': False,
+                            'name': 'Bass Man'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2023',
+                'releasetitle': 'Release 1',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Rominimal',
+                    'Ambient'
+                ],
+                'source_path': '/dummy/r1'
+            }
+        ]
+    },
+    {
+        'name': 'Warm',
+        'only_new_releases': False,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': None,
+                'compositiondate': None,
+                'cover_image_path': None,
+                'descriptors': [
+                    'Warm',
+                    'Hot'
+                ],
+                'disctotal': 1,
+                'edition': None,
+                'genres': [
+                    'Techno',
+                    'Deep House'
+                ],
+                'id': 'r1',
+                'labels': [
+                    'Silk Music'
+                ],
+                'new': False,
+                'originaldate': None,
+                'parent_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House'
+                ],
+                'parent_secondary_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House',
+                    'Tech House'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Techno Man'
+                        },
+                        {
+                            'alias': False,
+                            'name': 'Bass Man'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2023',
+                'releasetitle': 'Release 1',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Rominimal',
+                    'Ambient'
+                ],
+                'source_path': '/dummy/r1'
+            }
+        ]
+    },
+    {
+        'name': 'Wet',
+        'only_new_releases': True,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': 'DG-001',
+                'compositiondate': None,
+                'cover_image_path': '/dummy/r2/cover.jpg',
+                'descriptors': [
+                    'Wet'
+                ],
+                'disctotal': 1,
+                'edition': 'Deluxe',
+                'genres': [
+                    'Modern Classical'
+                ],
+                'id': 'r2',
+                'labels': [
+                    'Native State'
+                ],
+                'new': True,
+                'originaldate': '2019',
+                'parent_genres': [
+                    'Classical Music',
+                    'Western Classical Music'
+                ],
+                'parent_secondary_genres': [
+                    'Classical Music',
+                    'Western Classical Music'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                        {
+                            'alias': False,
+                            'name': 'Conductor Woman'
+                        }
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Violin Woman'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2021',
+                'releasetitle': 'Release 2',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Orchestral'
+                ],
+                'source_path': '/dummy/r2'
+            }
+        ]
+    }
+]
+
+snapshots['test_dump_genre 1'] = {
+    'name': 'Deep House',
+    'releases': [
+        {
+            'added_at': '0000-01-01T00:00:00+00:00',
+            'catalognumber': None,
+            'compositiondate': None,
+            'cover_image_path': None,
+            'descriptors': [
+                'Warm',
+                'Hot'
+            ],
+            'disctotal': 1,
+            'edition': None,
+            'genres': [
+                'Techno',
+                'Deep House'
+            ],
+            'id': 'r1',
+            'labels': [
+                'Silk Music'
+            ],
+            'new': False,
+            'originaldate': None,
+            'parent_genres': [
+                'Dance',
+                'Electronic',
+                'Electronic Dance Music',
+                'House'
+            ],
+            'parent_secondary_genres': [
+                'Dance',
+                'Electronic',
+                'Electronic Dance Music',
+                'House',
+                'Tech House'
+            ],
+            'releaseartists': {
+                'composer': [
+                ],
+                'conductor': [
+                ],
+                'djmixer': [
+                ],
+                'guest': [
+                ],
+                'main': [
+                    {
+                        'alias': False,
+                        'name': 'Techno Man'
+                    },
+                    {
+                        'alias': False,
+                        'name': 'Bass Man'
+                    }
+                ],
+                'producer': [
+                ],
+                'remixer': [
+                ]
+            },
+            'releasedate': '2023',
+            'releasetitle': 'Release 1',
+            'releasetype': 'album',
+            'secondary_genres': [
+                'Rominimal',
+                'Ambient'
+            ],
+            'source_path': '/dummy/r1'
+        }
+    ]
+}
+
+snapshots['test_dump_genres 1'] = [
+    {
+        'name': 'Deep House',
+        'only_new_releases': False,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': None,
+                'compositiondate': None,
+                'cover_image_path': None,
+                'descriptors': [
+                    'Warm',
+                    'Hot'
+                ],
+                'disctotal': 1,
+                'edition': None,
+                'genres': [
+                    'Techno',
+                    'Deep House'
+                ],
+                'id': 'r1',
+                'labels': [
+                    'Silk Music'
+                ],
+                'new': False,
+                'originaldate': None,
+                'parent_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House'
+                ],
+                'parent_secondary_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House',
+                    'Tech House'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Techno Man'
+                        },
+                        {
+                            'alias': False,
+                            'name': 'Bass Man'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2023',
+                'releasetitle': 'Release 1',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Rominimal',
+                    'Ambient'
+                ],
+                'source_path': '/dummy/r1'
+            }
+        ]
+    },
+    {
+        'name': 'Dance',
+        'only_new_releases': False,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': None,
+                'compositiondate': None,
+                'cover_image_path': None,
+                'descriptors': [
+                    'Warm',
+                    'Hot'
+                ],
+                'disctotal': 1,
+                'edition': None,
+                'genres': [
+                    'Techno',
+                    'Deep House'
+                ],
+                'id': 'r1',
+                'labels': [
+                    'Silk Music'
+                ],
+                'new': False,
+                'originaldate': None,
+                'parent_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House'
+                ],
+                'parent_secondary_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House',
+                    'Tech House'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Techno Man'
+                        },
+                        {
+                            'alias': False,
+                            'name': 'Bass Man'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2023',
+                'releasetitle': 'Release 1',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Rominimal',
+                    'Ambient'
+                ],
+                'source_path': '/dummy/r1'
+            }
+        ]
+    },
+    {
+        'name': 'Electronic',
+        'only_new_releases': False,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': None,
+                'compositiondate': None,
+                'cover_image_path': None,
+                'descriptors': [
+                    'Warm',
+                    'Hot'
+                ],
+                'disctotal': 1,
+                'edition': None,
+                'genres': [
+                    'Techno',
+                    'Deep House'
+                ],
+                'id': 'r1',
+                'labels': [
+                    'Silk Music'
+                ],
+                'new': False,
+                'originaldate': None,
+                'parent_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House'
+                ],
+                'parent_secondary_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House',
+                    'Tech House'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Techno Man'
+                        },
+                        {
+                            'alias': False,
+                            'name': 'Bass Man'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2023',
+                'releasetitle': 'Release 1',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Rominimal',
+                    'Ambient'
+                ],
+                'source_path': '/dummy/r1'
+            }
+        ]
+    },
+    {
+        'name': 'Electronic Dance Music',
+        'only_new_releases': False,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': None,
+                'compositiondate': None,
+                'cover_image_path': None,
+                'descriptors': [
+                    'Warm',
+                    'Hot'
+                ],
+                'disctotal': 1,
+                'edition': None,
+                'genres': [
+                    'Techno',
+                    'Deep House'
+                ],
+                'id': 'r1',
+                'labels': [
+                    'Silk Music'
+                ],
+                'new': False,
+                'originaldate': None,
+                'parent_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House'
+                ],
+                'parent_secondary_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House',
+                    'Tech House'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Techno Man'
+                        },
+                        {
+                            'alias': False,
+                            'name': 'Bass Man'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2023',
+                'releasetitle': 'Release 1',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Rominimal',
+                    'Ambient'
+                ],
+                'source_path': '/dummy/r1'
+            }
+        ]
+    },
+    {
+        'name': 'House',
+        'only_new_releases': False,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': None,
+                'compositiondate': None,
+                'cover_image_path': None,
+                'descriptors': [
+                    'Warm',
+                    'Hot'
+                ],
+                'disctotal': 1,
+                'edition': None,
+                'genres': [
+                    'Techno',
+                    'Deep House'
+                ],
+                'id': 'r1',
+                'labels': [
+                    'Silk Music'
+                ],
+                'new': False,
+                'originaldate': None,
+                'parent_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House'
+                ],
+                'parent_secondary_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House',
+                    'Tech House'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Techno Man'
+                        },
+                        {
+                            'alias': False,
+                            'name': 'Bass Man'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2023',
+                'releasetitle': 'Release 1',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Rominimal',
+                    'Ambient'
+                ],
+                'source_path': '/dummy/r1'
+            }
+        ]
+    },
+    {
+        'name': 'Modern Classical',
+        'only_new_releases': True,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': 'DG-001',
+                'compositiondate': None,
+                'cover_image_path': '/dummy/r2/cover.jpg',
+                'descriptors': [
+                    'Wet'
+                ],
+                'disctotal': 1,
+                'edition': 'Deluxe',
+                'genres': [
+                    'Modern Classical'
+                ],
+                'id': 'r2',
+                'labels': [
+                    'Native State'
+                ],
+                'new': True,
+                'originaldate': '2019',
+                'parent_genres': [
+                    'Classical Music',
+                    'Western Classical Music'
+                ],
+                'parent_secondary_genres': [
+                    'Classical Music',
+                    'Western Classical Music'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                        {
+                            'alias': False,
+                            'name': 'Conductor Woman'
+                        }
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Violin Woman'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2021',
+                'releasetitle': 'Release 2',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Orchestral'
+                ],
+                'source_path': '/dummy/r2'
+            }
+        ]
+    },
+    {
+        'name': 'Classical Music',
+        'only_new_releases': True,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': 'DG-001',
+                'compositiondate': None,
+                'cover_image_path': '/dummy/r2/cover.jpg',
+                'descriptors': [
+                    'Wet'
+                ],
+                'disctotal': 1,
+                'edition': 'Deluxe',
+                'genres': [
+                    'Modern Classical'
+                ],
+                'id': 'r2',
+                'labels': [
+                    'Native State'
+                ],
+                'new': True,
+                'originaldate': '2019',
+                'parent_genres': [
+                    'Classical Music',
+                    'Western Classical Music'
+                ],
+                'parent_secondary_genres': [
+                    'Classical Music',
+                    'Western Classical Music'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                        {
+                            'alias': False,
+                            'name': 'Conductor Woman'
+                        }
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Violin Woman'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2021',
+                'releasetitle': 'Release 2',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Orchestral'
+                ],
+                'source_path': '/dummy/r2'
+            }
+        ]
+    },
+    {
+        'name': 'Western Classical Music',
+        'only_new_releases': True,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': 'DG-001',
+                'compositiondate': None,
+                'cover_image_path': '/dummy/r2/cover.jpg',
+                'descriptors': [
+                    'Wet'
+                ],
+                'disctotal': 1,
+                'edition': 'Deluxe',
+                'genres': [
+                    'Modern Classical'
+                ],
+                'id': 'r2',
+                'labels': [
+                    'Native State'
+                ],
+                'new': True,
+                'originaldate': '2019',
+                'parent_genres': [
+                    'Classical Music',
+                    'Western Classical Music'
+                ],
+                'parent_secondary_genres': [
+                    'Classical Music',
+                    'Western Classical Music'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                        {
+                            'alias': False,
+                            'name': 'Conductor Woman'
+                        }
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Violin Woman'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2021',
+                'releasetitle': 'Release 2',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Orchestral'
+                ],
+                'source_path': '/dummy/r2'
+            }
+        ]
+    },
+    {
+        'name': 'Techno',
+        'only_new_releases': False,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': None,
+                'compositiondate': None,
+                'cover_image_path': None,
+                'descriptors': [
+                    'Warm',
+                    'Hot'
+                ],
+                'disctotal': 1,
+                'edition': None,
+                'genres': [
+                    'Techno',
+                    'Deep House'
+                ],
+                'id': 'r1',
+                'labels': [
+                    'Silk Music'
+                ],
+                'new': False,
+                'originaldate': None,
+                'parent_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House'
+                ],
+                'parent_secondary_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House',
+                    'Tech House'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Techno Man'
+                        },
+                        {
+                            'alias': False,
+                            'name': 'Bass Man'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2023',
+                'releasetitle': 'Release 1',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Rominimal',
+                    'Ambient'
+                ],
+                'source_path': '/dummy/r1'
+            }
+        ]
+    }
+]
+
+snapshots['test_dump_label 1'] = {
+    'name': 'Silk Music',
+    'releases': [
+        {
+            'added_at': '0000-01-01T00:00:00+00:00',
+            'catalognumber': None,
+            'compositiondate': None,
+            'cover_image_path': None,
+            'descriptors': [
+                'Warm',
+                'Hot'
+            ],
+            'disctotal': 1,
+            'edition': None,
+            'genres': [
+                'Techno',
+                'Deep House'
+            ],
+            'id': 'r1',
+            'labels': [
+                'Silk Music'
+            ],
+            'new': False,
+            'originaldate': None,
+            'parent_genres': [
+                'Dance',
+                'Electronic',
+                'Electronic Dance Music',
+                'House'
+            ],
+            'parent_secondary_genres': [
+                'Dance',
+                'Electronic',
+                'Electronic Dance Music',
+                'House',
+                'Tech House'
+            ],
+            'releaseartists': {
+                'composer': [
+                ],
+                'conductor': [
+                ],
+                'djmixer': [
+                ],
+                'guest': [
+                ],
+                'main': [
+                    {
+                        'alias': False,
+                        'name': 'Techno Man'
+                    },
+                    {
+                        'alias': False,
+                        'name': 'Bass Man'
+                    }
+                ],
+                'producer': [
+                ],
+                'remixer': [
+                ]
+            },
+            'releasedate': '2023',
+            'releasetitle': 'Release 1',
+            'releasetype': 'album',
+            'secondary_genres': [
+                'Rominimal',
+                'Ambient'
+            ],
+            'source_path': '/dummy/r1'
+        }
+    ]
+}
+
+snapshots['test_dump_labels 1'] = [
+    {
+        'name': 'Native State',
+        'only_new_releases': True,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': 'DG-001',
+                'compositiondate': None,
+                'cover_image_path': '/dummy/r2/cover.jpg',
+                'descriptors': [
+                    'Wet'
+                ],
+                'disctotal': 1,
+                'edition': 'Deluxe',
+                'genres': [
+                    'Modern Classical'
+                ],
+                'id': 'r2',
+                'labels': [
+                    'Native State'
+                ],
+                'new': True,
+                'originaldate': '2019',
+                'parent_genres': [
+                    'Classical Music',
+                    'Western Classical Music'
+                ],
+                'parent_secondary_genres': [
+                    'Classical Music',
+                    'Western Classical Music'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                        {
+                            'alias': False,
+                            'name': 'Conductor Woman'
+                        }
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Violin Woman'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2021',
+                'releasetitle': 'Release 2',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Orchestral'
+                ],
+                'source_path': '/dummy/r2'
+            }
+        ]
+    },
+    {
+        'name': 'Silk Music',
+        'only_new_releases': False,
+        'releases': [
+            {
+                'added_at': '0000-01-01T00:00:00+00:00',
+                'catalognumber': None,
+                'compositiondate': None,
+                'cover_image_path': None,
+                'descriptors': [
+                    'Warm',
+                    'Hot'
+                ],
+                'disctotal': 1,
+                'edition': None,
+                'genres': [
+                    'Techno',
+                    'Deep House'
+                ],
+                'id': 'r1',
+                'labels': [
+                    'Silk Music'
+                ],
+                'new': False,
+                'originaldate': None,
+                'parent_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House'
+                ],
+                'parent_secondary_genres': [
+                    'Dance',
+                    'Electronic',
+                    'Electronic Dance Music',
+                    'House',
+                    'Tech House'
+                ],
+                'releaseartists': {
+                    'composer': [
+                    ],
+                    'conductor': [
+                    ],
+                    'djmixer': [
+                    ],
+                    'guest': [
+                    ],
+                    'main': [
+                        {
+                            'alias': False,
+                            'name': 'Techno Man'
+                        },
+                        {
+                            'alias': False,
+                            'name': 'Bass Man'
+                        }
+                    ],
+                    'producer': [
+                    ],
+                    'remixer': [
+                    ]
+                },
+                'releasedate': '2023',
+                'releasetitle': 'Release 1',
+                'releasetype': 'album',
+                'secondary_genres': [
+                    'Rominimal',
+                    'Ambient'
+                ],
+                'source_path': '/dummy/r1'
+            }
         ]
     }
 ]

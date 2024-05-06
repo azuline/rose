@@ -188,10 +188,12 @@ def dump_genre(c: Config, genre_name: str) -> str:
 
 def dump_all_genres(c: Config) -> str:
     out: list[dict[str, Any]] = []
-    for name in list_genres(c):
-        genre_releases = list_releases_delete_this(c, genre_filter=name.genre)
+    for e in list_genres(c):
+        genre_releases = list_releases_delete_this(c, genre_filter=e.genre)
         releases = [release_to_json(r) for r in genre_releases]
-        out.append({"name": name, "releases": releases})
+        out.append(
+            {"name": e.genre, "only_new_releases": e.only_new_releases, "releases": releases}
+        )
     return json.dumps(out)
 
 
@@ -205,10 +207,12 @@ def dump_label(c: Config, label_name: str) -> str:
 
 def dump_all_labels(c: Config) -> str:
     out: list[dict[str, Any]] = []
-    for name in list_labels(c):
-        label_releases = list_releases_delete_this(c, label_filter=name.label)
+    for e in list_labels(c):
+        label_releases = list_releases_delete_this(c, label_filter=e.label)
         releases = [release_to_json(r) for r in label_releases]
-        out.append({"name": name, "releases": releases})
+        out.append(
+            {"name": e.label, "only_new_releases": e.only_new_releases, "releases": releases}
+        )
     return json.dumps(out)
 
 
@@ -222,10 +226,12 @@ def dump_descriptor(c: Config, descriptor_name: str) -> str:
 
 def dump_all_descriptors(c: Config) -> str:
     out: list[dict[str, Any]] = []
-    for name in list_descriptors(c):
-        descriptor_releases = list_releases_delete_this(c, descriptor_filter=name.descriptor)
+    for e in list_descriptors(c):
+        descriptor_releases = list_releases_delete_this(c, descriptor_filter=e.descriptor)
         releases = [release_to_json(r) for r in descriptor_releases]
-        out.append({"name": name, "releases": releases})
+        out.append(
+            {"name": e.descriptor, "only_new_releases": e.only_new_releases, "releases": releases}
+        )
     return json.dumps(out)
 
 
