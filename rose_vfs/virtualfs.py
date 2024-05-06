@@ -43,6 +43,7 @@ import errno
 import logging
 import os
 import random
+import re
 import stat
 import subprocess
 import tempfile
@@ -55,21 +56,17 @@ from typing import Any, Generic, Literal, TypeVar
 import llfuse
 
 from rose import (
-    STORED_DATA_FILE_REGEX,
     SUPPORTED_AUDIO_EXTENSIONS,
     AudioTags,
-    CachedRelease,
-    CachedTrack,
     Config,
     PathContext,
     PathTemplate,
+    Release,
     RoseError,
+    Track,
     add_release_to_collage,
     add_track_to_playlist,
     artist_exists,
-    calculate_release_logtext,
-    calculate_track_logtext,
-    collage_exists,
     create_collage,
     create_playlist,
     delete_collage,
@@ -77,16 +74,14 @@ from rose import (
     delete_playlist_cover_art,
     delete_release,
     descriptor_exists,
-    eval_release_template,
-    eval_track_template,
+    evaluate_release_template,
+    evaluate_track_template,
     genre_exists,
     get_collage,
-    get_path_of_track_in_playlist,
     get_playlist,
-    get_playlist_cover_path,
     get_release,
     get_track,
-    get_tracks_associated_with_release,
+    get_tracks_of_release,
     label_exists,
     list_artists,
     list_collages,
@@ -94,7 +89,8 @@ from rose import (
     list_genres,
     list_labels,
     list_playlists,
-    playlist_exists,
+    make_release_logtext,
+    make_track_logtext,
     remove_release_from_collage,
     remove_track_from_playlist,
     rename_collage,
@@ -105,9 +101,17 @@ from rose import (
     set_release_cover_art,
     update_cache_for_releases,
 )
-from rose.cache import list_releases_delete_this
+from rose.cache import (
+    get_collage_releases,
+    get_playlist_tracks,
+    list_releases_delete_this,
+    track_within_playlist,
+    track_within_release,
+)
 
 logger = logging.getLogger(__name__)
+
+STORED_DATA_FILE_REGEX = re.compile(r"\.rose\.([^.]+)\.toml")
 
 K = TypeVar("K")
 V = TypeVar("V")
@@ -409,8 +413,8 @@ class VirtualNameGenerator:
     def list_release_paths(
         self,
         release_parent: VirtualPath,
-        releases: list[CachedRelease],
-    ) -> Iterator[tuple[CachedRelease, str]]:
+        releases: list[Release],
+    ) -> Iterator[tuple[Release, str]]:
         """
         Given a parent directory and a list of releases, calculates the virtual directory names
         for those releases, and returns a zipped iterator of the releases and their virtual
@@ -443,7 +447,7 @@ class VirtualNameGenerator:
             else:
                 raise RoseError(f"VNAMES: No release template found for {release_parent=}.")
 
-            logtext = calculate_release_logtext(
+            logtext = make_release_logtext(
                 title=release.releasetitle,
                 releasedate=release.releasedate,
                 artists=release.releaseartists,
@@ -491,7 +495,7 @@ class VirtualNameGenerator:
                     collage=release_parent.collage,
                     playlist=None,
                 )
-                vname = eval_release_template(template, release, context, position)
+                vname = evaluate_release_template(template, release, context, position)
                 vname = sanitize_dirname(self._config, vname, False)
                 self._release_template_eval_cache[cachekey] = vname
                 logger.debug(
@@ -521,8 +525,8 @@ class VirtualNameGenerator:
     def list_track_paths(
         self,
         track_parent: VirtualPath,
-        tracks: list[CachedTrack],
-    ) -> Iterator[tuple[CachedTrack, str]]:
+        tracks: list[Track],
+    ) -> Iterator[tuple[Track, str]]:
         """
         Given a parent directory and a list of tracks, calculates the virtual filenames for those
         tracks, and returns a zipped iterator of the tracks and their virtual filenames.
@@ -556,7 +560,7 @@ class VirtualNameGenerator:
             else:
                 raise RoseError(f"VNAMES: No track template found for {track_parent=}.")
 
-            logtext = calculate_track_logtext(
+            logtext = make_track_logtext(
                 title=track.tracktitle,
                 artists=track.trackartists,
                 releasedate=track.release.releasedate,
@@ -601,7 +605,7 @@ class VirtualNameGenerator:
                     collage=track_parent.collage,
                     playlist=track_parent.playlist,
                 )
-                vname = eval_track_template(template, track, context, position)
+                vname = evaluate_track_template(template, track, context, position)
                 vname = sanitize_filename(self._config, vname, False)
                 logger.debug(
                     f"VNAMES: Generated virtual filename {vname} for track {logtext} in {time.time() - time_start} seconds"
@@ -916,35 +920,41 @@ class RoseLogicalCore:
         if p.file == f".rose.{release.id}.toml":
             return self.stat("file")
         track_id = self._get_track_id(p)
-        tracks = get_tracks_associated_with_release(self.config, release)
-        for t in tracks:
-            if t.id == track_id:
-                return self.stat("file", t.source_path)
-        logger.debug("LOGICAL: Resolved track_id not found in the given tracklist")
-        raise llfuse.FUSEError(errno.ENOENT)
+        if not track_within_release(self.config, track_id, release.id):
+            logger.debug("LOGICAL: Resolved track_id not found in the given release")
+            raise llfuse.FUSEError(errno.ENOENT)
+        if track := get_track(self.config, track_id):
+            return self.stat("file", track.source_path)
+        raise RoseError(
+            "Impossible: Resolved track_id after track_within_release check does not exist"
+        )
 
     def getattr(self, p: VirtualPath) -> dict[str, Any]:
         logger.debug(f"LOGICAL: Received getattr for {p=}")
 
         # 7. Playlists
         if p.playlist:
-            if not playlist_exists(self.config, p.playlist):
+            playlist = get_playlist(self.config, p.playlist)
+            if not playlist:
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.file:
-                cover_path = get_playlist_cover_path(self.config, p.playlist)
-                if cover_path and f"cover{cover_path.suffix}" == p.file:
-                    return self.stat("file", cover_path)
+                if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
+                    return self.stat("file", playlist.cover_path)
                 track_id = self._get_track_id(p)
-                if source_path := get_path_of_track_in_playlist(self.config, track_id, p.playlist):
-                    return self.stat("file", source_path)
-                raise llfuse.FUSEError(errno.ENOENT)
+                if not track_within_playlist(self.config, track_id, p.playlist):
+                    raise llfuse.FUSEError(errno.ENOENT)
+                if track := get_track(self.config, track_id):
+                    return self.stat("file", track.source_path)
+                raise RoseError(
+                    "Impossible: Resolved track_id after track_within_playlist check does not exist"
+                )
             return self.stat("dir")
 
         # 6. Collages
         if p.collage:
-            if not collage_exists(self.config, p.collage):
+            if not get_collage(self.config, p.collage):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:
+            if p.release:  # TODO: Validate existence of release in collage.
                 return self._getattr_release(p)
             return self.stat("dir")
 
@@ -953,7 +963,7 @@ class RoseLogicalCore:
             la = self.sanitizer.unsanitize(p.label, p.label_parent)
             if not label_exists(self.config, la) or not self.can_show.label(la):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:
+            if p.release:  # TODO: Validate existence of release in label.
                 return self._getattr_release(p)
             return self.stat("dir")
 
@@ -962,7 +972,7 @@ class RoseLogicalCore:
             d = self.sanitizer.unsanitize(p.descriptor, p.descriptor_parent)
             if not descriptor_exists(self.config, d) or not self.can_show.descriptor(d):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:
+            if p.release:  # TODO: Validate existence of release in descriptor.
                 return self._getattr_release(p)
             return self.stat("dir")
 
@@ -971,7 +981,7 @@ class RoseLogicalCore:
             g = self.sanitizer.unsanitize(p.genre, p.genre_parent)
             if not genre_exists(self.config, g) or not self.can_show.genre(g):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:
+            if p.release:  # TODO: Validate existence of release in genre.
                 return self._getattr_release(p)
             return self.stat("dir")
 
@@ -980,7 +990,7 @@ class RoseLogicalCore:
             a = self.sanitizer.unsanitize(p.artist, p.artist_parent)
             if not artist_exists(self.config, a) or not self.can_show.artist(a):
                 raise llfuse.FUSEError(errno.ENOENT)
-            if p.release:
+            if p.release:  # TODO: Validate existence of release in artist.
                 return self._getattr_release(p)
             return self.stat("dir")
 
@@ -1028,7 +1038,7 @@ class RoseLogicalCore:
             if (release_id := self.vnames.lookup_release(p)) and (
                 release := get_release(self.config, release_id)
             ):
-                tracks = get_tracks_associated_with_release(self.config, release)
+                tracks = get_tracks_of_release(self.config, release)
                 for trk, vname in self.vnames.list_track_paths(p, tracks):
                     yield vname, self.stat("file", trk.source_path)
                 if release.cover_image_path:
@@ -1093,7 +1103,7 @@ class RoseLogicalCore:
             return
 
         if p.view == "Collages" and p.collage:
-            _, releases = get_collage(self.config, p.collage)  # type: ignore
+            releases = get_collage_releases(self.config, p.collage)
             for rls, vname in self.vnames.list_release_paths(p, releases):
                 yield vname, self.stat("dir", rls.source_path)
             return
@@ -1105,15 +1115,15 @@ class RoseLogicalCore:
             return
 
         if p.view == "Playlists" and p.playlist:
-            pdata = get_playlist(self.config, p.playlist)
-            if pdata is None:
+            playlist = get_playlist(self.config, p.playlist)
+            if playlist is None:
                 raise llfuse.FUSEError(errno.ENOENT)
-            playlist, tracks = pdata
-            for trk, vname in self.vnames.list_track_paths(p, tracks):
-                yield vname, self.stat("file", trk.source_path)
             if playlist.cover_path:
                 v = f"cover{playlist.cover_path.suffix}"
                 yield v, self.stat("file", playlist.cover_path)
+            tracks = get_playlist_tracks(self.config, p.playlist)
+            for trk, vname in self.vnames.list_track_paths(p, tracks):
+                yield vname, self.stat("file", trk.source_path)
             return
 
         if p.view == "Playlists":
@@ -1140,15 +1150,15 @@ class RoseLogicalCore:
             and p.playlist
             and p.file
             and p.file.lower() in self.config.valid_cover_arts
-            and (pdata := get_playlist(self.config, p.playlist))
+            and (playlist := get_playlist(self.config, p.playlist))
         ):
-            delete_playlist_cover_art(self.config, pdata[0].name)
+            delete_playlist_cover_art(self.config, playlist.name)
             return
         if (
             p.view == "Playlists"
             and p.playlist
             and p.file
-            and (pdata := get_playlist(self.config, p.playlist))
+            and get_playlist(self.config, p.playlist) is not None
             and (track_id := self.vnames.lookup_track(p))
         ):
             remove_track_from_playlist(self.config, p.playlist, track_id)
@@ -1260,7 +1270,7 @@ class RoseLogicalCore:
         ):
             # If the file is a music file, handle it as a music file.
             if track_id := self.vnames.lookup_track(p):
-                tracks = get_tracks_associated_with_release(self.config, release)
+                tracks = get_tracks_of_release(self.config, release)
                 for t in tracks:
                     if t.id == track_id:
                         fh = self.fhandler.wrap_host(os.open(str(t.source_path), flags))
@@ -1277,7 +1287,7 @@ class RoseLogicalCore:
             # sequence.
             if p.file.lower() in self.config.valid_cover_arts and flags & os.O_CREAT == os.O_CREAT:
                 fh = self.fhandler.next()
-                logtext = calculate_release_logtext(
+                logtext = make_release_logtext(
                     title=release.releasetitle,
                     releasedate=release.releasedate,
                     artists=release.releaseartists,
@@ -1295,10 +1305,9 @@ class RoseLogicalCore:
                 return fh
             raise llfuse.FUSEError(err)
         if p.playlist and p.file:
-            try:
-                playlist, tracks = get_playlist(self.config, p.playlist)  # type: ignore
-            except TypeError as e:
-                raise llfuse.FUSEError(errno.ENOENT) from e
+            playlist = get_playlist(self.config, p.playlist)
+            if not playlist:
+                raise llfuse.FUSEError(errno.ENOENT)
             # If we are trying to create an audio file in the playlist, enter the
             # "add-track-to-playlist" operation sequence. See the __init__ for more details.
             pf = Path(p.file)

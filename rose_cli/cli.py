@@ -6,6 +6,7 @@ dedicated to parsing, resolving arguments, and delegating to the appropriate mod
 import contextlib
 import logging
 import os
+import re
 import signal
 import subprocess
 import uuid
@@ -16,7 +17,6 @@ from pathlib import Path
 import click
 
 from rose import (
-    STORED_DATA_FILE_REGEX,
     VERSION,
     AudioTags,
     Config,
@@ -57,13 +57,15 @@ from rose import (
     run_actions_on_track,
     set_playlist_cover_art,
     set_release_cover_art,
-    start_watchdog,
     toggle_release_new,
     update_cache,
 )
 from rose_vfs import mount_virtualfs
+from rose_watchdog import start_watchdog
 
 logger = logging.getLogger(__name__)
+
+STORED_DATA_FILE_REGEX = re.compile(r"\.rose\.([^.]+)\.toml")
 
 
 class CliExpectedError(Exception):

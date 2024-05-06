@@ -21,7 +21,7 @@ from rose.audiotags import RoseDate
 from rose.common import Artist, ArtistMapping, RoseExpectedError
 
 if typing.TYPE_CHECKING:
-    from rose.cache import CachedRelease, CachedTrack
+    from rose.cache import Release, Track
     from rose.config import Config
 
 RELEASE_TYPE_FORMATTER = {
@@ -281,9 +281,9 @@ class PathContext:
     playlist: str | None
 
 
-def eval_release_template(
+def evaluate_release_template(
     template: PathTemplate,
-    release: CachedRelease,
+    release: Release,
     context: PathContext | None = None,
     position: str | None = None,
 ) -> str:
@@ -292,9 +292,9 @@ def eval_release_template(
     )
 
 
-def eval_track_template(
+def evaluate_track_template(
     template: PathTemplate,
-    track: CachedTrack,
+    track: Track,
     context: PathContext | None = None,
     position: str | None = None,
 ) -> str:
@@ -306,7 +306,7 @@ def eval_track_template(
     )
 
 
-def _calc_release_variables(release: CachedRelease, position: str | None) -> dict[str, Any]:
+def _calc_release_variables(release: Release, position: str | None) -> dict[str, Any]:
     return {
         "added_at": release.added_at,
         "releasetitle": release.releasetitle,
@@ -329,7 +329,7 @@ def _calc_release_variables(release: CachedRelease, position: str | None) -> dic
     }
 
 
-def _calc_track_variables(track: CachedTrack, position: str | None) -> dict[str, Any]:
+def _calc_track_variables(track: Track, position: str | None) -> dict[str, Any]:
     return {
         "added_at": track.release.added_at,
         "tracktitle": track.tracktitle,
@@ -402,10 +402,10 @@ def preview_path_templates(c: Config) -> None:
     # fmt: on
 
 
-def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease, CachedRelease]:
-    from rose.cache import CachedRelease
+def _get_preview_releases(c: Config) -> tuple[Release, Release, Release]:
+    from rose.cache import Release
 
-    kimlip = CachedRelease(
+    kimlip = Release(
         id="018b268e-ff1e-7a0c-9ac8-7bbb282761f2",
         source_path=c.music_source_dir / "LOONA - 2017. Kim Lip",
         cover_image_path=None,
@@ -443,7 +443,7 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease, Cach
         metahash="0",
     )
 
-    youngforever = CachedRelease(
+    youngforever = Release(
         id="018b6021-f1e5-7d4b-b796-440fbbea3b13",
         source_path=c.music_source_dir / "BTS - 2016. Young Forever (花樣年華)",
         cover_image_path=None,
@@ -484,7 +484,7 @@ def _get_preview_releases(c: Config) -> tuple[CachedRelease, CachedRelease, Cach
         metahash="0",
     )
 
-    debussy = CachedRelease(
+    debussy = Release(
         id="018b268e-de0c-7cb2-8ffa-bcc2083c94e6",
         source_path=c.music_source_dir
         / "Debussy - 1907. Images performed by Cleveland Orchestra under Pierre Boulez (1992)",
@@ -522,23 +522,23 @@ def _preview_release_template(c: Config, label: str, template: PathTemplate) -> 
     kimlip, youngforever, debussy = _get_preview_releases(c)
     click.secho(f"{label}:", dim=True, underline=True)
     click.secho("  Sample 1: ", dim=True, nl=False)
-    click.secho(eval_release_template(template, kimlip, position="1"))
+    click.secho(evaluate_release_template(template, kimlip, position="1"))
     click.secho("  Sample 2: ", dim=True, nl=False)
-    click.secho(eval_release_template(template, youngforever, position="2"))
+    click.secho(evaluate_release_template(template, youngforever, position="2"))
     click.secho("  Sample 3: ", dim=True, nl=False)
-    click.secho(eval_release_template(template, debussy, position="3"))
+    click.secho(evaluate_release_template(template, debussy, position="3"))
 
 
 def _preview_track_template(c: Config, label: str, template: PathTemplate) -> None:
     # Import cycle trick :)
-    from rose.cache import CachedTrack
+    from rose.cache import Track
 
     kimlip, youngforever, debussy = _get_preview_releases(c)
 
     click.secho(f"{label}:", dim=True, underline=True)
 
     click.secho("  Sample 1: ", dim=True, nl=False)
-    track = CachedTrack(
+    track = Track(
         id="018b268e-ff1e-7a0c-9ac8-7bbb282761f1",
         source_path=c.music_source_dir / "LOONA - 2017. Kim Lip" / "01. Eclipse.opus",
         source_mtime="999",
@@ -551,10 +551,10 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         metahash="0",
         release=kimlip,
     )
-    click.secho(eval_track_template(template, track, position="1"))
+    click.secho(evaluate_track_template(template, track, position="1"))
 
     click.secho("  Sample 2: ", dim=True, nl=False)
-    track = CachedTrack(
+    track = Track(
         id="018b6021-f1e5-7d4b-b796-440fbbea3b15",
         source_path=c.music_source_dir
         / "BTS - 2016. Young Forever (花樣年華)"
@@ -569,10 +569,10 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         metahash="0",
         release=youngforever,
     )
-    click.secho(eval_track_template(template, track, position="2"))
+    click.secho(evaluate_track_template(template, track, position="2"))
 
     click.secho("  Sample 3: ", dim=True, nl=False)
-    track = CachedTrack(
+    track = Track(
         id="018b6514-6e65-78cc-94a5-fdb17418f090",
         source_path=c.music_source_dir
         / "Debussy - 1907. Images performed by Cleveland Orchestra under Pierre Boulez (1992)"
@@ -591,4 +591,4 @@ def _preview_track_template(c: Config, label: str, template: PathTemplate) -> No
         metahash="0",
         release=debussy,
     )
-    click.secho(eval_track_template(template, track, position="3"))
+    click.secho(evaluate_track_template(template, track, position="3"))
