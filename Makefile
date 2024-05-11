@@ -24,4 +24,7 @@ lint:
 	ruff check --fix .
 	prettier --write .
 
-.PHONY: check test typecheck lintcheck lint
+clean:
+	git clean -xdf
+
+.PHONY: check test typecheck lintcheck lint clean

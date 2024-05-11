@@ -1,9 +1,19 @@
+# Testing
+db.sqlite3
+
+# Nix
+result
+# Python
 .direnv
 __pycache__
 .ruff_cache
 .mypy_cache
 .coverage
 .coverage.*
-result
-db.sqlite3
 htmlcov
+
+# Zig
+*.so
+*.so.o
+zig-cache
+zig-out

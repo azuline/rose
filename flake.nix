@@ -26,8 +26,9 @@
         };
         doCheck = false;
       };
-      prod-deps = with python.pkgs; [
+      prod-py-deps = with python.pkgs; [
         appdirs
+        cffi
         click
         jinja2
         llfuse
@@ -38,7 +39,7 @@
         uuid6-python
         watchdog
       ];
-      dev-deps = with python.pkgs; [
+      dev-py-deps = with python.pkgs; [
         mypy
         pytest
         pytest-timeout
@@ -46,10 +47,7 @@
         pytest-xdist
         snapshottest
       ];
-      dev-cli = pkgs.writeShellScriptBin "rose" ''
-        cd $ROSE_ROOT
-        python -m rose_cli "$@"
-      '';
+      version = nixpkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./rose/.version);
     in
     {
       devShells.default = pkgs.mkShell {
@@ -67,24 +65,44 @@
           (pkgs.buildEnv {
             name = "rose-devshell";
             paths = with pkgs; [
-              (python.withPackages (_: prod-deps ++ dev-deps))
+              (python.withPackages (_: prod-py-deps ++ dev-py-deps))
               ruff
-              dev-cli
               nodePackages.pyright
               nodePackages.prettier
+              zig
+              zls
             ];
           })
         ];
       };
       packages = rec {
-        rose = python.pkgs.buildPythonPackage {
+        rose-zig = pkgs.stdenv.mkDerivation {
           pname = "rose";
-          version = nixpkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./rose/.version);
+          version = version;
+          src = ./rose_zig;
+          nativeBuildInputs = [ pkgs.zig.hook ];
+        };
+        # TODO: Split up into multiple packages.
+        rose-py = python.pkgs.buildPythonPackage {
+          pname = "rose";
+          version = version;
           src = ./.;
-          propagatedBuildInputs = prod-deps;
+          propagatedBuildInputs = prod-py-deps ++ [ rose-zig ];
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          postInstall = ''
+            wrapProgram $out/bin/rose \
+              --prefix LD_LIBRARY_PATH : "${pkgs.lib.makeLibraryPath [ rose-zig ]}"
+          '';
           doCheck = false;
         };
-        default = rose;
+        # Mainly for building everything in CI.
+        all = pkgs.buildEnv {
+          name = "rose-all";
+          paths = [
+            rose-zig
+            rose-py
+          ];
+        };
       };
     });
 }
