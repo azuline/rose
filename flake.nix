@@ -80,6 +80,7 @@
               nodePackages.prettier
               zig
               zls
+              zon2nix
             ];
           })
         ];

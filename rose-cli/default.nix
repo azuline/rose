@@ -6,8 +6,8 @@
 , rose-watch
 }:
 
-python-pin.pkgs.buildPythonPackage {
-  pname = "rose-cli";
+python-pin.pkgs.buildPythonApplication {
+  pname = "rose";
   version = version;
   src = ./.;
   propagatedBuildInputs = [
