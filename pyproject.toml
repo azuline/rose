@@ -61,6 +61,9 @@ unfixable = [
 strict = true
 strict_optional = true
 explicit_package_bases = true
+exclude = [
+    "setup.py"
+]
 
 [[tool.mypy.overrides]]
 module = "fuse"
@@ -85,6 +88,9 @@ module = "setuptools"
 ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "snapshottest"
+ignore_missing_imports = true
+[[tool.mypy.overrides]]
+module = "cffi"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

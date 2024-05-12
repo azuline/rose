@@ -25,4 +25,4 @@ jobs:
         run: nix develop --command make lintcheck
       - name: Build
         if: success() || failure()
-        run: nix build .
+        run: nix build .#all

@@ -1,5 +1,4 @@
 import click
-
 from rose import (
     Config,
     PathTemplate,

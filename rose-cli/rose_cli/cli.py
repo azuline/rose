@@ -15,7 +15,6 @@ from multiprocessing import Process
 from pathlib import Path
 
 import click
-
 from rose import (
     VERSION,
     Action,
@@ -51,6 +50,9 @@ from rose import (
     toggle_release_new,
     update_cache,
 )
+from rose_vfs import mount_virtualfs
+from rose_watchdog import start_watchdog
+
 from rose_cli.dump import (
     dump_all_artists,
     dump_all_collages,
@@ -70,8 +72,6 @@ from rose_cli.dump import (
     dump_track,
 )
 from rose_cli.templates import preview_path_templates
-from rose_vfs import mount_virtualfs
-from rose_watchdog import start_watchdog
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +119,14 @@ def version() -> None:
     """Print version."""
 
     click.echo(VERSION)
+
+
+@cli.command()
+def tmp() -> None:
+    """Temporary development command for FFI testing. If you see this, it's a bug."""
+    from rose.ffi import get_release
+
+    print(get_release())
 
 
 @cli.group()
