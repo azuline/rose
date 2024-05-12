@@ -20,5 +20,7 @@ pub fn getTrack(allocator: std.mem.Allocator) void {
 }
 
 test "basic add functionality" {
-    try testing.expect(std.mem.eql(u8, try getRelease(testing.allocator), "hello"));
+    const message = try getRelease(testing.allocator);
+    try testing.expect(std.mem.eql(u8, message, "hello"));
+    testing.allocator.free(message);
 }

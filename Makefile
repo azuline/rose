@@ -4,16 +4,17 @@ check: typecheck test lintcheck
 build-zig:
 	cd rose-zig && zig build -Doptimize=Debug
 
-typecheck:
+typecheck: build-zig
 	mypy .
 
-test: build-zig
+test-py: build-zig
 	pytest -n logical .
 	coverage html
 
-test-seq: build-zig
-	pytest .
-	coverage html
+test-zig:
+	cd rose-zig && zig build test --summary all
+
+test: test-zig test-py 
 
 snapshot: build-zig
 	pytest --snapshot-update .
