@@ -9,7 +9,7 @@ message="$2"
 # Fail if the branch is dirty.
 git diff --exit-code
 
-echo "$version" > "$ROSE_ROOT/rose/.version"
+fd -u '^.version$' | xargs -I{} sh -c "echo $version > "'"$1"' -- {}
 git add .
 git commit -am "[Release] v$version - $message"
 git tag "v$version" HEAD -m "v$version"

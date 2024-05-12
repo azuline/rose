@@ -1,26 +1,21 @@
 import setuptools
 
-with open("rose/.version") as f:
+with open(".version") as f:
     version = f.read().strip()
 
 setuptools.setup(
-    name="rose",
+    name="rose-cli",
     version=version,
     python_requires=">=3.11.0",
     author="blissful",
     author_email="blissful@sunsetglow.net",
     license="Apache-2.0",
     entry_points={"console_scripts": ["rose = rose_cli.__main__:main"]},
-    packages=setuptools.find_namespace_packages(where="."),
-    package_data={"rose": ["*.sql", ".version"]},
+    packages=["rose_cli"],
     install_requires=[
-        "appdirs",
         "click",
-        "jinja2",
-        "llfuse",
-        "mutagen",
-        "send2trash",
-        "tomli-w",
-        "uuid6",
+        "rose",
+        "rose-vfs",
+        "rose-watchdog",
     ],
 )

@@ -2,7 +2,7 @@ check: typecheck test lintcheck
 
 # Build the Zig library for development.
 build-zig:
-	cd rose_zig && zig build -Doptimize=Debug
+	cd rose-zig && zig build -Doptimize=Debug
 
 typecheck:
 	mypy .
