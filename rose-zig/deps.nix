@@ -4,6 +4,55 @@
 
 linkFarm "zig-packages" [
   {
+    name = "122004fa7e2ff0b3d472049743358f8fdf065cdf63bc0e5e3d54c6bb8d81d93e40da";
+    path = fetchzip {
+      url = "https://github.com/andrewrk/nasm/archive/b5f62392d56baf6aa02567f28e0da70664609262.tar.gz";
+      hash = "sha256-tPBQixxG+phvEfRHeOLHMjY1Ynp7r9zNSgRy4R/ILQM=";
+    };
+  }
+  {
+    name = "1220138f4aba0c01e66b68ed9e1e1e74614c06e4743d88bc58af4f1c3dd0aae5fea7";
+    path = fetchzip {
+      url = "https://github.com/allyourcodebase/zlib/archive/refs/tags/1.3.1-3.tar.gz";
+      hash = "sha256-R1tB+ORO3qeV/cNxsp5GqsiOyKUXjaj4Pd1v5AfWYz4=";
+    };
+  }
+  {
+    name = "122074e0bf09c3622780e697c11c6744e763dd63777e480baf2b583ee3ab6a02ff14";
+    path = fetchzip {
+      url = "https://github.com/andrewrk/libvorbis/archive/refs/tags/1.3.8-3.tar.gz";
+      hash = "sha256-KHKYT3tmab9qYu8N2iJwm1rS+mU7Cwnn8Jp0cfOdnIg=";
+    };
+  }
+  {
+    name = "12207d353609d95cee9da7891919e6d9582e97b7aa2831bd50f33bf523a582a08547";
+    path = fetchzip {
+      url = "https://github.com/madler/zlib/archive/refs/tags/v1.3.tar.gz";
+      hash = "sha256-eUuXV5zfy+fmiMNdWw5QCqDloBkaxy1tgi7by9nYHNA=";
+    };
+  }
+  {
+    name = "1220b3e1fb33317c92f9ead09630f6b4be59e80d0a8780754f8aa4ee7da61cb7b47a";
+    path = fetchzip {
+      url = "https://github.com/andrewrk/libogg/archive/refs/tags/1.3.6-2.tar.gz";
+      hash = "sha256-3dFDBo4Af58bW8Gf+sHLigwo8CO2siwzWWtAoYe5opI=";
+    };
+  }
+  {
+    name = "1220bee0fcf98bf6ad75b7bb09ff1f873ca38547a15b1e7a4532d20d94107d8d330a";
+    path = fetchzip {
+      url = "https://github.com/andrewrk/libmp3lame/archive/refs/tags/3.100.1-3.tar.gz";
+      hash = "sha256-kMI7JACnIVAdUHp5DUKx2XfKgIb1ftr6x/oYJdsTKyI=";
+    };
+  }
+  {
+    name = "1220dd6f0bbf4614f338d632473e4b0a879ec26eca445ed305dcdbc6b5cb6405e3cd";
+    path = fetchzip {
+      url = "https://github.com/andrewrk/ffmpeg/archive/1704e8898ea6217df91e6afc2a2de3f2b82a98d9.tar.gz";
+      hash = "sha256-6EYu1QT76cJQMW9F41DvXsVLulH1YwGrkhwSV6IsBes=";
+    };
+  }
+  {
     name = "1220e0961c135c5aa3af77a043dbc5890a18235a157238df0e2882fe84a8c8439c7a";
     path = fetchzip {
       url = "https://github.com/vrischmann/zig-sqlite/archive/dc339b7cf3bca82a12c2169231dd247587766781.tar.gz";

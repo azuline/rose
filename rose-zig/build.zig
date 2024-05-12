@@ -9,6 +9,10 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const ffmpeg = b.dependency("ffmpeg", .{
+        .target = target,
+        .optimize = optimize,
+    });
 
     // Specify the core library module.
     const rose = b.addModule("rose", .{
@@ -16,6 +20,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
         .imports = &[_]std.Build.Module.Import{
+            .{ .name = "av", .module = ffmpeg.module("av") },
             .{ .name = "sqlite", .module = sqlite.module("sqlite") },
         },
     });
