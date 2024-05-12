@@ -7,6 +7,7 @@ import pytest
 from click.testing import CliRunner
 
 from rose import AudioTags, Config
+from rose.ffi import get_release
 from rose_cli.cli import (
     Context,
     InvalidReleaseArgError,
@@ -125,3 +126,7 @@ def test_cache_watch_unwatch(monkeypatch: Any, config: Config) -> None:
     # Assert that we can't kill a non-existent watchdog.
     res = runner.invoke(unwatch, obj=ctx)
     assert res.exit_code == 1
+
+
+def test_ffi() -> None:
+    assert get_release() == "hello"

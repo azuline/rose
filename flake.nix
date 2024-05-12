@@ -60,6 +60,7 @@
             echo "$path"
           }
           export ROSE_ROOT="$(find-up flake.nix)"
+          export ROSE_SO_PATH="$ROSE_ROOT/rose_zig/zig-out/lib/librose.so"
         '';
         buildInputs = [
           (pkgs.buildEnv {
@@ -76,12 +77,7 @@
         ];
       };
       packages = rec {
-        rose-zig = pkgs.stdenv.mkDerivation {
-          pname = "rose";
-          version = version;
-          src = ./rose_zig;
-          nativeBuildInputs = [ pkgs.zig.hook ];
-        };
+        rose-zig = pkgs.callPackage ./rose_zig { inherit version; };
         # TODO: Split up into multiple packages.
         rose-py = python.pkgs.buildPythonPackage {
           pname = "rose";
@@ -90,17 +86,19 @@
           propagatedBuildInputs = prod-py-deps ++ [ rose-zig ];
           nativeBuildInputs = [ pkgs.makeWrapper ];
           postInstall = ''
-            wrapProgram $out/bin/rose \
-              --prefix LD_LIBRARY_PATH : "${pkgs.lib.makeLibraryPath [ rose-zig ]}"
+            wrapProgram $out/bin/rose --set ROSE_SO_PATH "${rose-zig}/lib/librose.so"
           '';
           doCheck = false;
         };
+        # CLI is currently rose-py...
+        rose-cli = rose-py;
         # Mainly for building everything in CI.
         all = pkgs.buildEnv {
           name = "rose-all";
           paths = [
             rose-zig
             rose-py
+            rose-cli
           ];
         };
       };
