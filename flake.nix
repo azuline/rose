@@ -66,7 +66,7 @@
           export ROSE_ROOT="$(find-up flake.nix)"
           export ROSE_SO_PATH="$ROSE_ROOT/rose-zig/zig-out/lib/librose.so"
           export PYTHONPATH="$ROSE_ROOT/rose-py:''${PYTHONPATH:-}"
-          export PYTHONPATH="$ROSE_ROOT/rose-watchdog:$PYTHONPATH"
+          export PYTHONPATH="$ROSE_ROOT/rose-watch:$PYTHONPATH"
           export PYTHONPATH="$ROSE_ROOT/rose-vfs:$PYTHONPATH"
           export PYTHONPATH="$ROSE_ROOT/rose-cli:$PYTHONPATH"
         '';
@@ -87,12 +87,12 @@
       packages = rec {
         rose-zig = pkgs.callPackage ./rose-zig { inherit version; };
         rose-py = pkgs.callPackage ./rose-py { inherit version python-pin py-deps rose-zig; };
-        rose-watchdog = pkgs.callPackage ./rose-watchdog { inherit version python-pin py-deps rose-py; };
+        rose-watch = pkgs.callPackage ./rose-watch { inherit version python-pin py-deps rose-py; };
         rose-vfs = pkgs.callPackage ./rose-vfs { inherit version python-pin py-deps rose-py; };
-        rose-cli = pkgs.callPackage ./rose-cli { inherit version python-pin py-deps rose-py rose-vfs rose-watchdog; };
+        rose-cli = pkgs.callPackage ./rose-cli { inherit version python-pin py-deps rose-py rose-vfs rose-watch; };
         all = pkgs.buildEnv {
           name = "rose-all";
-          paths = [ rose-zig rose-py rose-watchdog rose-vfs rose-cli ];
+          paths = [ rose-zig rose-py rose-watch rose-vfs rose-cli ];
         };
       };
     });

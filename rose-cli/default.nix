@@ -3,7 +3,7 @@
 , py-deps
 , rose-py
 , rose-vfs
-, rose-watchdog
+, rose-watch
 }:
 
 python-pin.pkgs.buildPythonPackage {
@@ -13,7 +13,7 @@ python-pin.pkgs.buildPythonPackage {
   propagatedBuildInputs = [
     rose-py
     rose-vfs
-    rose-watchdog
+    rose-watch
     py-deps.click
   ];
   doCheck = false;

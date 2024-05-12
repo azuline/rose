@@ -17,6 +17,6 @@ setuptools.setup(
         "click",
         "rose",
         "rose-vfs",
-        "rose-watchdog",
+        "rose-watch",
     ],
 )

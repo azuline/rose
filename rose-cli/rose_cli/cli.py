@@ -51,7 +51,7 @@ from rose import (
     update_cache,
 )
 from rose_vfs import mount_virtualfs
-from rose_watchdog import start_watchdog
+from rose_watch import start_watchdog
 
 from rose_cli.dump import (
     dump_all_artists,

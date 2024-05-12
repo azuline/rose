@@ -5,7 +5,7 @@
 }:
 
 python-pin.pkgs.buildPythonPackage {
-  pname = "rose-watchdog";
+  pname = "rose-watch";
   version = version;
   src = ./.;
   propagatedBuildInputs = [

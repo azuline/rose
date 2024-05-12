@@ -8,7 +8,7 @@ from rose import Config
 from rose.cache import connect
 
 from conftest import TEST_COLLAGE_1, TEST_PLAYLIST_1, TEST_RELEASE_2, TEST_RELEASE_3, retry_for_sec
-from rose_watchdog.watcher import start_watchdog
+from rose_watch.watcher import start_watchdog
 
 
 @contextmanager
