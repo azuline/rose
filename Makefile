@@ -31,4 +31,7 @@ lint:
 clean:
 	git clean -xdf
 
-.PHONY: build-zig check test typecheck lintcheck lint clean
+nixify-zig-deps:
+	cd rose-zig && nix run 'github:Cloudef/zig2nix#zon2nix' -- build.zig.zon > deps.nix
+
+.PHONY: build-zig check test typecheck lintcheck lint clean nixify-zig-deps

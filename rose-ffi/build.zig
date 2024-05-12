@@ -4,17 +4,18 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const sqlite = b.dependency("sqlite", .{
+    const rose = b.dependency("rose", .{
         .target = target,
         .optimize = optimize,
     });
 
-    _ = b.addModule("rose", .{
-        .root_source_file = b.path("rose/root.zig"),
+    const librose = b.addSharedLibrary(.{
+        .name = "rose",
+        .root_source_file = .{ .path = "src/root.zig" },
         .target = target,
         .optimize = optimize,
-        .imports = &[_]std.Build.Module.Import{
-            .{ .name = "sqlite", .module = sqlite.module("sqlite") },
-        },
     });
+    // TODO: Doesn't work. How do I depend?
+    librose.linkLibrary(rose.artifact("rose"));
+    b.installArtifact(librose);
 }

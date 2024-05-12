@@ -1,5 +1,5 @@
 const std = @import("std");
-const rose = @import("rose.zig");
+const rose = @import("rose");
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
