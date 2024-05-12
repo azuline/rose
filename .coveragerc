@@ -2,9 +2,10 @@
 branch = True
 source = .
 omit =
-    rose/__main__.py
-    rose/virtualfs.py
-    setup.py
+    rose-cli/rose_cli/__main__.py
+    rose-vfs/rose_vfs/virtualfs.py
+    **/snapshots/*.py
+    **/*/setup.py
     result/*
     /nix/store/*
 # Multiprocessing/multithreading is borked; I give up.
