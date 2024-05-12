@@ -9,7 +9,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    _ = b.addModule("rose", .{
+    const rose = b.addModule("rose", .{
         .root_source_file = b.path("rose/root.zig"),
         .target = target,
         .optimize = optimize,
@@ -17,4 +17,13 @@ pub fn build(b: *std.Build) void {
             .{ .name = "sqlite", .module = sqlite.module("sqlite") },
         },
     });
+
+    const librose = b.addSharedLibrary(.{
+        .name = "rose",
+        .root_source_file = .{ .path = "ffi/root.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    librose.root_module.addImport("rose", rose);
+    b.installArtifact(librose);
 }

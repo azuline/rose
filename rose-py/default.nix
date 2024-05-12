@@ -11,6 +11,7 @@ python-pin.pkgs.buildPythonPackage {
   propagatedBuildInputs = [
     rose-zig
     py-deps.appdirs
+    py-deps.cffi
     py-deps.click
     py-deps.jinja2
     py-deps.mutagen
