@@ -8,7 +8,7 @@
         },
         .ffmpeg = .{
             .url = "https://github.com/andrewrk/ffmpeg/archive/1704e8898ea6217df91e6afc2a2de3f2b82a98d9.tar.gz",
-            .hash = "1220dd6f0bbf4614f338d632473e4b0a879ec26eca445ed305dcdbc6b5cb6405e3cd",
+            .hash = "122032707cdf94da394e309978146ee33c61a285300eeb916928af376ec1638a95f1",
         },
     },
     .paths = .{""},
