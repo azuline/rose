@@ -11,6 +11,7 @@ setuptools.setup(
     author_email="blissful@sunsetglow.net",
     license="Apache-2.0",
     packages=["rose_watchdog"],
+    package_data={"rose_watchdog": ["py.typed"]},
     install_requires=[
         "rose",
         "watchdog",

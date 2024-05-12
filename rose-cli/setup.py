@@ -12,6 +12,7 @@ setuptools.setup(
     license="Apache-2.0",
     entry_points={"console_scripts": ["rose = rose_cli.__main__:main"]},
     packages=["rose_cli"],
+    package_data={"rose_cli": ["py.typed"]},
     install_requires=[
         "click",
         "rose",

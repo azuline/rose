@@ -11,6 +11,7 @@ setuptools.setup(
     author_email="blissful@sunsetglow.net",
     license="Apache-2.0",
     packages=["rose_vfs"],
+    package_data={"rose_vfs": ["py.typed"]},
     install_requires=[
         "rose",
         "llfuse",

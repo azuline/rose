@@ -11,7 +11,7 @@ setuptools.setup(
     author_email="blissful@sunsetglow.net",
     license="Apache-2.0",
     packages=["rose"],
-    package_data={"rose": ["*.sql", ".version"]},
+    package_data={"rose": ["*.sql", ".version", "py.typed"]},
     install_requires=[
         "appdirs",
         "click",
