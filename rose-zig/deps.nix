@@ -18,6 +18,13 @@ linkFarm "zig-packages" [
     };
   }
   {
+    name = "122032707cdf94da394e309978146ee33c61a285300eeb916928af376ec1638a95f1";
+    path = fetchzip {
+      url = "https://github.com/andrewrk/ffmpeg/archive/1704e8898ea6217df91e6afc2a2de3f2b82a98d9.tar.gz";
+      hash = "sha256-6EYu1QT76cJQMW9F41DvXsVLulH1YwGrkhwSV6IsBes=";
+    };
+  }
+  {
     name = "122074e0bf09c3622780e697c11c6744e763dd63777e480baf2b583ee3ab6a02ff14";
     path = fetchzip {
       url = "https://github.com/andrewrk/libvorbis/archive/refs/tags/1.3.8-3.tar.gz";
@@ -43,13 +50,6 @@ linkFarm "zig-packages" [
     path = fetchzip {
       url = "https://github.com/andrewrk/libmp3lame/archive/refs/tags/3.100.1-3.tar.gz";
       hash = "sha256-kMI7JACnIVAdUHp5DUKx2XfKgIb1ftr6x/oYJdsTKyI=";
-    };
-  }
-  {
-    name = "1220dd6f0bbf4614f338d632473e4b0a879ec26eca445ed305dcdbc6b5cb6405e3cd";
-    path = fetchzip {
-      url = "https://github.com/andrewrk/ffmpeg/archive/1704e8898ea6217df91e6afc2a2de3f2b82a98d9.tar.gz";
-      hash = "sha256-6EYu1QT76cJQMW9F41DvXsVLulH1YwGrkhwSV6IsBes=";
     };
   }
   {
