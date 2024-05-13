@@ -1,7 +1,6 @@
 { python-pin
 , version
 , py-deps
-, rose-zig
 }:
 
 python-pin.pkgs.buildPythonPackage {
@@ -9,9 +8,7 @@ python-pin.pkgs.buildPythonPackage {
   version = version;
   src = ./.;
   propagatedBuildInputs = [
-    rose-zig
     py-deps.appdirs
-    py-deps.cffi
     py-deps.click
     py-deps.jinja2
     py-deps.mutagen
@@ -20,5 +17,4 @@ python-pin.pkgs.buildPythonPackage {
     py-deps.uuid6
   ];
   doCheck = false;
-  ROSE_SO_PATH = "${rose-zig}/lib/librose.so";
 }

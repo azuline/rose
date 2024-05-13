@@ -119,14 +119,6 @@ def version() -> None:
     click.echo(VERSION)
 
 
-@cli.command()
-def tmp() -> None:
-    """Temporary development command for FFI testing. If you see this, it's a bug."""
-    from rose.ffi import get_release
-
-    print(get_release())
-
-
 @cli.group()
 def config() -> None:
     """Utilites for configuring Rosé."""

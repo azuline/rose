@@ -14,12 +14,6 @@ jobs:
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
       - name: Build Nix
         run: nix build -j8 .#devShells.x86_64-linux.default
-      - name: Zig Cache
-        uses: actions/cache@v4
-        with:
-          path: rose-zig/zig-cache
-          key: ${{ runner.os }}-rose-zig
-          save-always: true
       - name: Typecheck
         if: success() || failure() # Means that we run all steps even if one fails.
         run: nix develop --command make typecheck

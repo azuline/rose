@@ -1,22 +1,13 @@
 check: typecheck test lintcheck
 
-# Build the Zig library for development.
-build-zig:
-	cd rose-zig && zig build -Doptimize=Debug
-
-typecheck: build-zig
+typecheck:
 	mypy .
 
-test-py: build-zig
+test:
 	pytest -n logical .
 	coverage html
 
-test-zig:
-	cd rose-zig && zig build test --summary all
-
-test: test-zig test-py 
-
-snapshot: build-zig
+snapshot:
 	pytest --snapshot-update .
 
 lintcheck:
@@ -32,7 +23,4 @@ lint:
 clean:
 	git clean -xdf
 
-nixify-zig-deps:
-	cd rose-zig && zon2nix > deps.nix
-
-.PHONY: check build-zig test-py test-zig test typecheck lintcheck lint clean nixify-zig-deps
+.PHONY: check test typecheck lintcheck lint clean
