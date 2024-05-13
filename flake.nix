@@ -31,6 +31,7 @@
         inherit
           # Runtime deps.
           appdirs
+          cffi
           click
           jinja2
           llfuse
@@ -63,6 +64,7 @@
             echo "$path"
           }
           export ROSE_ROOT="$(find-up flake.nix)"
+          export ROSE_SO_PATH="$ROSE_ROOT/rose-zig/zig-out/lib/librose.so"
           export PYTHONPATH="$ROSE_ROOT/rose-py:''${PYTHONPATH:-}"
           export PYTHONPATH="$ROSE_ROOT/rose-watch:$PYTHONPATH"
           export PYTHONPATH="$ROSE_ROOT/rose-vfs:$PYTHONPATH"
@@ -75,19 +77,22 @@
               pkgs.ruff
               pkgs.nodePackages.pyright
               pkgs.nodePackages.prettier
+              pkgs.zig
+              pkgs.zls
               python-with-deps
             ];
           })
         ];
       };
       packages = rec {
-        rose-py = pkgs.callPackage ./rose-py { inherit version python-pin py-deps; };
+        rose-zig = pkgs.callPackage ./rose-zig { inherit version; };
+        rose-py = pkgs.callPackage ./rose-py { inherit version python-pin py-deps rose-zig; };
         rose-watch = pkgs.callPackage ./rose-watch { inherit version python-pin py-deps rose-py; };
         rose-vfs = pkgs.callPackage ./rose-vfs { inherit version python-pin py-deps rose-py; };
         rose-cli = pkgs.callPackage ./rose-cli { inherit version python-pin py-deps rose-py rose-vfs rose-watch; };
         all = pkgs.buildEnv {
           name = "rose-all";
-          paths = [ rose-py rose-watch rose-vfs rose-cli ];
+          paths = [ rose-zig rose-py rose-watch rose-vfs rose-cli ];
         };
       };
     });

@@ -89,6 +89,9 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "snapshottest"
 ignore_missing_imports = true
+[[tool.mypy.overrides]]
+module = "cffi"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 addopts = [
