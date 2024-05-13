@@ -35,4 +35,4 @@ clean:
 nixify-zig-deps:
 	cd rose-zig && zon2nix > deps.nix
 
-.PHONY: help check build-zig test-py test-zig test typecheck lintcheck lint clean nixify-zig-deps
+.PHONY: check build-zig test-py test-zig test typecheck lintcheck lint clean nixify-zig-deps

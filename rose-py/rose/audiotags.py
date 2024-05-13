@@ -17,14 +17,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, no_type_check
 
-import mutagen
-import mutagen.flac
-import mutagen.id3
-import mutagen.mp3
-import mutagen.mp4
-import mutagen.oggopus
-import mutagen.oggvorbis
-
 from rose.common import Artist, ArtistMapping, RoseError, RoseExpectedError, uniq
 
 if typing.TYPE_CHECKING:
@@ -135,6 +127,14 @@ class AudioTags:
     @classmethod
     def from_file(cls, p: Path) -> AudioTags:
         """Read the tags of an audio file on disk."""
+        import mutagen
+        import mutagen.flac
+        import mutagen.id3
+        import mutagen.mp3
+        import mutagen.mp4
+        import mutagen.oggopus
+        import mutagen.oggvorbis
+
         if not any(p.suffix.lower() == ext for ext in SUPPORTED_AUDIO_EXTENSIONS):
             raise UnsupportedFiletypeError(f"{p.suffix} not a supported filetype")
         try:
@@ -310,6 +310,14 @@ class AudioTags:
     @no_type_check
     def flush(self, *, validate: bool = True) -> None:
         """Flush the current tags to the file on disk."""
+        import mutagen
+        import mutagen.flac
+        import mutagen.id3
+        import mutagen.mp3
+        import mutagen.mp4
+        import mutagen.oggopus
+        import mutagen.oggvorbis
+
         m = mutagen.File(self.path)
         if not validate and "pytest" not in sys.modules:
             raise Exception("Validate can only be turned off by tests.")
@@ -477,6 +485,8 @@ def _split_tag(t: str | None) -> list[str]:
 
 
 def _get_tag(t: Any, keys: list[str], *, split: bool = False, first: bool = False) -> str | None:
+    import mutagen.id3
+
     if not t:
         return None
     for k in keys:
@@ -503,6 +513,8 @@ def _get_tag(t: Any, keys: list[str], *, split: bool = False, first: bool = Fals
 
 
 def _get_tuple_tag(t: Any, keys: list[str]) -> tuple[str, str] | tuple[None, None]:
+    import mutagen.id3
+
     if not t:
         return None, None
     for k in keys:

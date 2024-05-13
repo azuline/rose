@@ -14,12 +14,12 @@ from copy import deepcopy
 from functools import cached_property
 from typing import Any
 
-import jinja2
-
 from rose.audiotags import RoseDate
 from rose.common import Artist, ArtistMapping, RoseExpectedError
 
 if typing.TYPE_CHECKING:
+    import jinja2
+
     from rose.cache import Release, Track
     from rose.config import Config
 
@@ -96,13 +96,26 @@ def lastname(x: str) -> str:
         return x
 
 
-ENVIRONMENT = jinja2.Environment()
-ENVIRONMENT.filters["arrayfmt"] = arrayfmt
-ENVIRONMENT.filters["artistsarrayfmt"] = artistsarrayfmt
-ENVIRONMENT.filters["artistsfmt"] = artistsfmt
-ENVIRONMENT.filters["releasetypefmt"] = releasetypefmt
-ENVIRONMENT.filters["sortorder"] = sortorder
-ENVIRONMENT.filters["lastname"] = lastname
+# Global variable cache for a lazy initialization. We lazily initialize the Jinja environment to
+# improve the CLI startup time.
+__environment: jinja2.Environment | None = None
+
+
+def get_environment() -> jinja2.Environment:
+    global __environment
+    if __environment:
+        return __environment
+
+    import jinja2
+
+    __environment = jinja2.Environment()
+    __environment.filters["arrayfmt"] = arrayfmt
+    __environment.filters["artistsarrayfmt"] = artistsarrayfmt
+    __environment.filters["artistsfmt"] = artistsfmt
+    __environment.filters["releasetypefmt"] = releasetypefmt
+    __environment.filters["sortorder"] = sortorder
+    __environment.filters["lastname"] = lastname
+    return __environment
 
 
 class InvalidPathTemplateError(RoseExpectedError):
@@ -122,7 +135,7 @@ class PathTemplate:
 
     @cached_property
     def compiled(self) -> jinja2.Template:
-        return ENVIRONMENT.from_string(self.text)
+        return get_environment().from_string(self.text)
 
     def __hash__(self) -> int:
         return hash(self.text)
@@ -236,6 +249,8 @@ class PathTemplateConfig:
         Attempt to parse all the templates into Jinja templates (which will be cached on the
         cached properties). This will raise an InvalidPathTemplateError if a template is invalid.
         """
+        import jinja2
+
         key = ""
         try:
             key = "source.release"

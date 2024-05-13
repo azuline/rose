@@ -50,8 +50,6 @@ from rose import (
     toggle_release_new,
     update_cache,
 )
-from rose_vfs import mount_virtualfs
-from rose_watch import start_watchdog
 
 from rose_cli.dump import (
     dump_all_artists,
@@ -169,6 +167,7 @@ def update(ctx: Context, force: bool) -> None:
 @click.pass_obj
 def watch(ctx: Context, foreground: bool) -> None:
     """Start a watchdog to auto-update the cache when the source directory changes."""
+    from rose_watch import start_watchdog
 
     if not foreground:
         daemonize(pid_path=ctx.config.watchdog_pid_path)
@@ -203,6 +202,10 @@ def fs() -> None:
 @click.pass_obj
 def mount(ctx: Context, foreground: bool) -> None:
     """Mount the virtual filesystem."""
+    from rose_vfs import mount_virtualfs
+
+    ctx.config.validate_path_templates_expensive()
+
     if not foreground:
         daemonize()
 

@@ -468,15 +468,6 @@ Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'ma
 """
         )
 
-        # path_templates
-        write(config + '\npath_templates.source.release = "{% if hi %}{{"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid path template in configuration file ({path}) for template source.release: Failed to compile template: unexpected 'end of template'"
-        )
-
         # rename_source_files
         write(config + '\nrename_source_files = "lalala"')
         with pytest.raises(InvalidConfigValueError) as excinfo:

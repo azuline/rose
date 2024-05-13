@@ -552,13 +552,6 @@ class Config:
             if not data["path_templates"]:
                 del data["path_templates"]
 
-        try:
-            path_templates.parse()
-        except InvalidPathTemplateError as e:
-            raise InvalidConfigValueError(
-                f"Invalid path template in configuration file ({cfgpath}) for template {e.key}: {e}"
-            ) from e
-
         vfs_config = VirtualFSConfig.parse(cfgpath, data.get("vfs", {}))
 
         if data:
@@ -606,3 +599,15 @@ class Config:
     @functools.cached_property
     def watchdog_pid_path(self) -> Path:
         return self.cache_dir / "watchdog.pid"
+
+    def validate_path_templates_expensive(self) -> None:
+        """
+        Validate all the path templates. This is expensive, so we don't do it when reading the
+        configuration, only on demand.
+        """
+        try:
+            self.path_templates.parse()
+        except InvalidPathTemplateError as e:
+            raise InvalidConfigValueError(
+                f"Invalid path template in for template {e.key}: {e}"
+            ) from e
