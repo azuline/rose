@@ -246,7 +246,7 @@ snapshots['test_dump_artists 1'] = [
                     'releasetitle': 'Release 2',
                     'releasetype': 'album',
                     'secondary_genres': [
-                        'Orchestral'
+                        'Orchestral Music'
                     ],
                     'source_path': '/dummy/r2'
                 }
@@ -412,7 +412,7 @@ snapshots['test_dump_artists 1'] = [
                     'releasetitle': 'Release 2',
                     'releasetype': 'album',
                     'secondary_genres': [
-                        'Orchestral'
+                        'Orchestral Music'
                     ],
                     'source_path': '/dummy/r2'
                 }
@@ -552,7 +552,7 @@ snapshots['test_dump_collage 1'] = {
             'releasetitle': 'Release 2',
             'releasetype': 'album',
             'secondary_genres': [
-                'Orchestral'
+                'Orchestral Music'
             ],
             'source_path': '/dummy/r2'
         }
@@ -687,7 +687,7 @@ snapshots['test_dump_collages 1'] = [
                 'releasetitle': 'Release 2',
                 'releasetype': 'album',
                 'secondary_genres': [
-                    'Orchestral'
+                    'Orchestral Music'
                 ],
                 'source_path': '/dummy/r2'
             }
@@ -979,7 +979,7 @@ snapshots['test_dump_descriptors 1'] = [
                 'releasetitle': 'Release 2',
                 'releasetype': 'album',
                 'secondary_genres': [
-                    'Orchestral'
+                    'Orchestral Music'
                 ],
                 'source_path': '/dummy/r2'
             }
@@ -1485,7 +1485,7 @@ snapshots['test_dump_genres 1'] = [
                 'releasetitle': 'Release 2',
                 'releasetype': 'album',
                 'secondary_genres': [
-                    'Orchestral'
+                    'Orchestral Music'
                 ],
                 'source_path': '/dummy/r2'
             }
@@ -1550,7 +1550,7 @@ snapshots['test_dump_genres 1'] = [
                 'releasetitle': 'Release 2',
                 'releasetype': 'album',
                 'secondary_genres': [
-                    'Orchestral'
+                    'Orchestral Music'
                 ],
                 'source_path': '/dummy/r2'
             }
@@ -1615,7 +1615,7 @@ snapshots['test_dump_genres 1'] = [
                 'releasetitle': 'Release 2',
                 'releasetype': 'album',
                 'secondary_genres': [
-                    'Orchestral'
+                    'Orchestral Music'
                 ],
                 'source_path': '/dummy/r2'
             }
@@ -1829,7 +1829,7 @@ snapshots['test_dump_labels 1'] = [
                 'releasetitle': 'Release 2',
                 'releasetype': 'album',
                 'secondary_genres': [
-                    'Orchestral'
+                    'Orchestral Music'
                 ],
                 'source_path': '/dummy/r2'
             }
@@ -2069,7 +2069,7 @@ snapshots['test_dump_playlist 1'] = {
             'releasetitle': 'Release 2',
             'releasetype': 'album',
             'secondary_genres': [
-                'Orchestral'
+                'Orchestral Music'
             ],
             'source_path': '/dummy/r2/01.m4a',
             'trackartists': {
@@ -2263,7 +2263,7 @@ snapshots['test_dump_playlists 1'] = [
                 'releasetitle': 'Release 2',
                 'releasetype': 'album',
                 'secondary_genres': [
-                    'Orchestral'
+                    'Orchestral Music'
                 ],
                 'source_path': '/dummy/r2/01.m4a',
                 'trackartists': {
@@ -2631,7 +2631,7 @@ snapshots['test_dump_releases 1'] = [
         'releasetitle': 'Release 2',
         'releasetype': 'album',
         'secondary_genres': [
-            'Orchestral'
+            'Orchestral Music'
         ],
         'source_path': '/dummy/r2',
         'tracks': [
@@ -2798,7 +2798,7 @@ snapshots['test_dump_releases_matcher 1'] = [
         'releasetitle': 'Release 2',
         'releasetype': 'album',
         'secondary_genres': [
-            'Orchestral'
+            'Orchestral Music'
         ],
         'source_path': '/dummy/r2',
         'tracks': [
@@ -3186,7 +3186,7 @@ snapshots['test_dump_tracks 1'] = [
         'releasetitle': 'Release 2',
         'releasetype': 'album',
         'secondary_genres': [
-            'Orchestral'
+            'Orchestral Music'
         ],
         'source_path': '/dummy/r2/01.m4a',
         'trackartists': {

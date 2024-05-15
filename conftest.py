@@ -143,10 +143,10 @@ VALUES ('r1'      , 'Techno'          , 1)
      , ('r2'      , 'Modern Classical', 1);
 
 INSERT INTO releases_secondary_genres
-       (release_id, genre       , position)
-VALUES ('r1'      , 'Rominimal' , 1)
-     , ('r1'      , 'Ambient'   , 2)
-     , ('r2'      , 'Orchestral', 1);
+       (release_id, genre             , position)
+VALUES ('r1'      , 'Rominimal'       , 1)
+     , ('r1'      , 'Ambient'         , 2)
+     , ('r2'      , 'Orchestral Music', 1);
 
 INSERT INTO releases_descriptors
        (release_id, descriptor, position)

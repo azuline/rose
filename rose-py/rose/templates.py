@@ -515,8 +515,8 @@ def get_sample_music(
         genres=["Impressionism, Orchestral"],
         parent_genres=["Modern Classical"],
         secondary_genres=["Tone Poem"],
-        parent_secondary_genres=["Orchestral"],
-        descriptors=["Orchestral"],
+        parent_secondary_genres=["Orchestral Music"],
+        descriptors=["Orchestral Music"],
         labels=["Deustche Grammophon"],
         releaseartists=ArtistMapping(
             main=[Artist("Cleveland Orchestra")],

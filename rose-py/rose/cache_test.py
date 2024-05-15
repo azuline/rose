@@ -1160,7 +1160,7 @@ def test_list_releases(config: Config) -> None:
             labels=["Native State"],
             originaldate=RoseDate(2019),
             edition="Deluxe",
-            secondary_genres=["Orchestral"],
+            secondary_genres=["Orchestral Music"],
             parent_secondary_genres=[
                 "Classical Music",
                 "Western Classical Music",
@@ -1436,7 +1436,7 @@ def test_list_tracks(config: Config) -> None:
                 labels=["Native State"],
                 originaldate=RoseDate(2019),
                 edition="Deluxe",
-                secondary_genres=["Orchestral"],
+                secondary_genres=["Orchestral Music"],
                 parent_secondary_genres=[
                     "Classical Music",
                     "Western Classical Music",
@@ -1687,7 +1687,7 @@ def test_get_collage(config: Config) -> None:
             labels=["Native State"],
             originaldate=RoseDate(2019),
             edition="Deluxe",
-            secondary_genres=["Orchestral"],
+            secondary_genres=["Orchestral Music"],
             parent_secondary_genres=[
                 "Classical Music",
                 "Western Classical Music",
@@ -1799,7 +1799,7 @@ def test_get_playlist(config: Config) -> None:
                 labels=["Native State"],
                 originaldate=RoseDate(2019),
                 edition="Deluxe",
-                secondary_genres=["Orchestral"],
+                secondary_genres=["Orchestral Music"],
                 parent_secondary_genres=[
                     "Classical Music",
                     "Western Classical Music",
