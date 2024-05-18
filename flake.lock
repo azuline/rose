@@ -1,5 +1,26 @@
 {
   "nodes": {
+    "flake-parts": {
+      "inputs": {
+        "nixpkgs-lib": [
+          "zon2nix-src",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1698882062,
+        "narHash": "sha256-HkhafUayIqxXyHH1X8d9RDl1M2CkFgZLjKD3MzabiEo=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "8c9fa2545007b49a5db5f650ae91f227672c3877",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -37,7 +58,8 @@
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "zon2nix-src": "zon2nix-src"
       }
     },
     "systems": {
@@ -52,6 +74,27 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "zon2nix-src": {
+      "inputs": {
+        "flake-parts": "flake-parts",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1715536407,
+        "narHash": "sha256-ow/4w6dV2fpi/dY2SHksDg2pZZwam3dH29bCyR92pmI=",
+        "owner": "azuline",
+        "repo": "zon2nix",
+        "rev": "88a009e478480c313ed9c013d3efac411557c9ae",
+        "type": "github"
+      },
+      "original": {
+        "owner": "azuline",
+        "repo": "zon2nix",
         "type": "github"
       }
     }

@@ -4,12 +4,16 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    # Bug in upstream: https://github.com/nix-community/zon2nix/pull/8.
+    zon2nix-src.url = "github:azuline/zon2nix";
+    zon2nix-src.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
     { self
     , nixpkgs
     , flake-utils
+    , zon2nix-src
     }:
     flake-utils.lib.eachDefaultSystem (system:
     let
@@ -52,6 +56,7 @@
       python-with-deps = python-pin.withPackages (_:
         pkgs.lib.attrsets.mapAttrsToList (a: b: b) py-deps
       );
+      zon2nix = zon2nix-src.packages.${system}.default;
     in
     {
       devShells.default = pkgs.mkShell {
@@ -80,6 +85,7 @@
               pkgs.zig
               pkgs.zls
               python-with-deps
+              zon2nix
             ];
           })
         ];
