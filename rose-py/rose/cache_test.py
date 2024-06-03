@@ -1041,8 +1041,8 @@ def test_update_tracks_updates_playlists_description_meta(
             fp.read()
             == """\
 tracks = [
-    { uuid = "iloveloona", description_meta = "Carly Rae Jepsen - Track 1 [1990].m4a" },
-    { uuid = "ilovetwice", description_meta = "Carly Rae Jepsen - Track 2 [1990].m4a" },
+    { uuid = "iloveloona", description_meta = "Carly Rae Jepsen - Track 1" },
+    { uuid = "ilovetwice", description_meta = "Carly Rae Jepsen - Track 2" },
 ]
 """
         )
@@ -1069,8 +1069,8 @@ description_meta = "hahaha"
             fp.read()
             == """\
 tracks = [
-    { uuid = "iloveloona", description_meta = "Carly Rae Jepsen - Track 1 [1990].m4a" },
-    { uuid = "ilovetwice", description_meta = "Carly Rae Jepsen - Track 2 [1990].m4a" },
+    { uuid = "iloveloona", description_meta = "Carly Rae Jepsen - Track 1" },
+    { uuid = "ilovetwice", description_meta = "Carly Rae Jepsen - Track 2" },
 ]
 """
         )

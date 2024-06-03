@@ -1674,14 +1674,9 @@ def update_cache_for_playlists(
                     track_ids,
                 )
                 for row in cursor:
-                    desc_map[row["id"]] = make_track_logtext(
-                        title=row["tracktitle"],
-                        artists=_unpack_artists(
-                            c, row["trackartist_names"], row["trackartist_roles"]
-                        ),
-                        releasedate=RoseDate.parse(row["releasedate"]),
-                        suffix=Path(row["source_path"]).suffix,
-                    )
+                    title = row["tracktitle"]
+                    artists = _unpack_artists(c, row["trackartist_names"], row["trackartist_roles"])
+                    desc_map[row["id"]] = f"{artistsfmt(artists)} - {title}"
                 for trk in tracks:
                     with contextlib.suppress(KeyError):
                         trk["description_meta"] = desc_map[trk["uuid"]]

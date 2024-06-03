@@ -14,8 +14,10 @@ import tomllib
 from send2trash import send2trash
 
 from rose.cache import (
+    get_track,
     get_track_logtext,
     lock,
+    make_track_logtext,
     playlist_lock_name,
     update_cache_evict_nonexistent_playlists,
     update_cache_for_playlists,
@@ -24,6 +26,7 @@ from rose.collages import DescriptionMismatchError
 from rose.common import RoseExpectedError
 from rose.config import Config
 from rose.releases import InvalidCoverArtFileError
+from rose.templates import artistsfmt
 from rose.tracks import TrackDoesNotExistError
 
 logger = logging.getLogger(__name__)
@@ -116,8 +119,8 @@ def add_track_to_playlist(
     playlist_name: str,
     track_id: str,
 ) -> None:
-    track_logtext = get_track_logtext(c, track_id)
-    if not track_logtext:
+    track = get_track(c, track_id)
+    if not track:
         raise TrackDoesNotExistError(f"Track {track_id} does not exist")
     path = playlist_path(c, playlist_name)
     if not path.exists():
@@ -130,11 +133,19 @@ def add_track_to_playlist(
         # duplicate playlist entries.
         for r in data["tracks"]:
             if r["uuid"] == track_id:
-                logger.info(f"No-Op: Track {track_logtext} already in playlist {playlist_name}")
+                logger.info(f"No-Op: Track {track} already in playlist {playlist_name}")
                 return
-        data["tracks"].append({"uuid": track_id, "description_meta": track_logtext})
+
+        desc = f"{artistsfmt(track.trackartists)} - {track.tracktitle}"
+        data["tracks"].append({"uuid": track_id, "description_meta": desc})
         with path.open("wb") as fp:
             tomli_w.dump(data, fp)
+    track_logtext = make_track_logtext(
+        title=track.tracktitle,
+        artists=track.trackartists,
+        releasedate=track.release.releasedate,
+        suffix=track.source_path.suffix,
+    )
     logger.info(f"Added track {track_logtext} to playlist {playlist_name}")
     update_cache_for_playlists(c, [playlist_name], force=True)
 
