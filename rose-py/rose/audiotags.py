@@ -426,6 +426,11 @@ class AudioTags:
             except (KeyError, IndexError):
                 prev_disctotal = 1
             try:
+                # Not sure why they can be a None string, but whatever...
+                if self.tracknumber == "None":
+                    self.tracknumber = None
+                if self.discnumber == "None":
+                    self.discnumber = None
                 m.tags["trkn"] = [(int(self.tracknumber or "0"), prev_tracktotal)]
                 m.tags["disk"] = [(int(self.discnumber or "0"), prev_disctotal)]
             except ValueError as e:
