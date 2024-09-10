@@ -54,6 +54,7 @@ from pathlib import Path
 from typing import Any, Generic, Literal, TypeVar
 
 import llfuse
+
 from rose import (
     SUPPORTED_AUDIO_EXTENSIONS,
     AudioTags,
@@ -1160,7 +1161,10 @@ class RoseLogicalCore:
                 for trk, vname in self.vnames.list_track_paths(p, tracks):
                     yield vname, self.stat("file", trk.source_path)
                 if release.cover_image_path:
-                    yield release.cover_image_path.name, self.stat("file", release.cover_image_path)
+                    yield (
+                        f"cover{release.cover_image_path.suffix}",
+                        self.stat("file", release.cover_image_path),
+                    )
                 yield f".rose.{release.id}.toml", self.stat("file")
                 return
             raise llfuse.FUSEError(errno.ENOENT)
