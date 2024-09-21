@@ -29,13 +29,6 @@ from pathlib import Path
 from queue import Empty, Queue
 from typing import Literal
 
-from watchdog.events import (
-    FileSystemEvent,
-    FileSystemEventHandler,
-    FileSystemMovedEvent,
-)
-from watchdog.observers import Observer
-
 from rose import (
     Config,
     update_cache_evict_nonexistent_collages,
@@ -45,6 +38,12 @@ from rose import (
     update_cache_for_playlists,
     update_cache_for_releases,
 )
+from watchdog.events import (
+    FileSystemEvent,
+    FileSystemEventHandler,
+    FileSystemMovedEvent,
+)
+from watchdog.observers import Observer
 
 logger = logging.getLogger(__name__)
 

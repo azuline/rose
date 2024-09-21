@@ -2,8 +2,8 @@ import json
 from typing import Any
 
 import pytest
-
 from rose import Config, Matcher
+
 from rose_cli.dump import (
     dump_all_artists,
     dump_all_collages,

@@ -54,7 +54,6 @@ from pathlib import Path
 from typing import Any, Generic, Literal, TypeVar
 
 import llfuse
-
 from rose import (
     SUPPORTED_AUDIO_EXTENSIONS,
     AudioTags,

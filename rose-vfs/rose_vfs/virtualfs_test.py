@@ -8,9 +8,9 @@ from multiprocessing import Process
 from pathlib import Path
 
 import pytest
+from rose import AudioTags, Config
 
 from conftest import retry_for_sec
-from rose import AudioTags, Config
 from rose_vfs.virtualfs import ALL_TRACKS, mount_virtualfs, unmount_virtualfs
 
 R1_VNAME = "Techno Man & Bass Man - 2023. Release 1"
