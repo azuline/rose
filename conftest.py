@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+
 from rose.cache import CACHE_SCHEMA_PATH, process_string_for_fts, update_cache
 from rose.common import VERSION
 from rose.config import Config, VirtualFSConfig
