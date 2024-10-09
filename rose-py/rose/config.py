@@ -11,6 +11,7 @@ import contextlib
 import functools
 import logging
 import multiprocessing
+import tomllib
 from collections import defaultdict, deque
 from copy import deepcopy
 from dataclasses import dataclass
@@ -18,7 +19,6 @@ from pathlib import Path
 from typing import Any
 
 import appdirs
-import tomllib
 
 from rose.common import RoseExpectedError
 from rose.rule_parser import Rule, RuleSyntaxError

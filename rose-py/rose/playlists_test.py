@@ -1,8 +1,7 @@
 import shutil
+import tomllib
 from pathlib import Path
 from typing import Any
-
-import tomllib
 
 from conftest import TEST_PLAYLIST_1, TEST_RELEASE_1
 from rose.cache import connect, update_cache

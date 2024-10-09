@@ -30,13 +30,13 @@ def debug_logging() -> None:
     logging.getLogger().setLevel(logging.DEBUG)
 
 
-@pytest.fixture()
+@pytest.fixture
 def isolated_dir() -> Iterator[Path]:
     with CliRunner().isolated_filesystem():
         yield Path.cwd()
 
 
-@pytest.fixture()
+@pytest.fixture
 def config(isolated_dir: Path) -> Config:
     cache_dir = isolated_dir / "cache"
     cache_dir.mkdir()
@@ -98,12 +98,12 @@ def config(isolated_dir: Path) -> Config:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def seeded_cache(config: Config) -> None:
     _seed_cache(config, True)
 
 
-@pytest.fixture()
+@pytest.fixture
 def static_cache(config: Config) -> None:
     """A variant of the seeded cache with static hardcoded (fake) paths. Useful for snapshot tests."""
     config = dataclasses.replace(config, music_source_dir=Path("/dummy"))
@@ -274,7 +274,7 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
             (config.music_source_dir / "!playlists" / f"{pn}.toml").touch()
 
 
-@pytest.fixture()
+@pytest.fixture
 def source_dir(config: Config) -> Path:
     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)

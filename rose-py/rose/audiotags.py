@@ -259,7 +259,7 @@ class AudioTags:
                 duration_sec=round(m.info.length),  # type: ignore
                 path=p,
             )
-        if isinstance(m, (mutagen.flac.FLAC, mutagen.oggvorbis.OggVorbis, mutagen.oggopus.OggOpus)):
+        if isinstance(m, mutagen.flac.FLAC | mutagen.oggvorbis.OggVorbis | mutagen.oggopus.OggOpus):
             return AudioTags(
                 id=_get_tag(m.tags, ["roseid"]),
                 release_id=_get_tag(m.tags, ["rosereleaseid"]),
@@ -425,7 +425,7 @@ class AudioTags:
 
             m.save()
             return
-        if isinstance(m, (mutagen.flac.FLAC, mutagen.oggvorbis.OggVorbis, mutagen.oggopus.OggOpus)):
+        if isinstance(m, mutagen.flac.FLAC | mutagen.oggvorbis.OggVorbis | mutagen.oggopus.OggOpus):
             if m.tags is None:
                 if isinstance(m, mutagen.flac.FLAC):
                     m.tags = mutagen.flac.VCFLACDict()

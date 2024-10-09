@@ -38,6 +38,7 @@ import os.path
 import re
 import sqlite3
 import time
+import tomllib
 from collections import Counter, defaultdict
 from collections.abc import Iterator
 from datetime import datetime
@@ -46,7 +47,6 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 import tomli_w
-import tomllib
 import uuid6
 
 from rose.audiotags import SUPPORTED_AUDIO_EXTENSIONS, AudioTags, RoseDate
@@ -2438,8 +2438,8 @@ def _unpack(*xxs: str) -> Iterator[tuple[str, ...]]:
     # If the strings are empty, then split will resolve to `[""]`. But we don't want to loop over an
     # empty string, so we specially exit if we hit that case.
     if all(not xs for xs in xxs):
-        return []
-    yield from zip(*[_split(xs) for xs in xxs])
+        return
+    yield from zip(*[_split(xs) for xs in xxs], strict=False)
 
 
 def process_string_for_fts(x: str) -> str:

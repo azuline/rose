@@ -18,12 +18,12 @@ import logging
 import re
 import shlex
 import time
+import tomllib
 from datetime import datetime
 from pathlib import Path
 
 import click
 import tomli_w
-import tomllib
 
 from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (

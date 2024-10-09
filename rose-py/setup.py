@@ -6,7 +6,7 @@ with open("rose/.version") as f:
 setuptools.setup(
     name="rose",
     version=version,
-    python_requires=">=3.11.0",
+    python_requires=">=3.12.0",
     author="blissful",
     author_email="blissful@sunsetglow.net",
     license="Apache-2.0",

@@ -9,12 +9,12 @@ import logging
 import re
 import shlex
 import shutil
+import tomllib
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import click
 import tomli_w
-import tomllib
 from send2trash import send2trash
 
 from rose.audiotags import AudioTags, RoseDate

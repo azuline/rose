@@ -1,10 +1,10 @@
 import re
 import shutil
+import tomllib
 from pathlib import Path
 from typing import Any
 
 import pytest
-import tomllib
 
 from conftest import TEST_RELEASE_1
 from rose.audiotags import AudioTags, RoseDate

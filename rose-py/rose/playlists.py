@@ -4,13 +4,13 @@ The playlists module provides functions for interacting with playlists.
 
 import logging
 import shutil
+import tomllib
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
 import click
 import tomli_w
-import tomllib
 from send2trash import send2trash
 
 from rose.cache import (

@@ -2,10 +2,10 @@ import dataclasses
 import hashlib
 import shutil
 import time
+import tomllib
 from pathlib import Path
 
 import pytest
-import tomllib
 
 from conftest import TEST_COLLAGE_1, TEST_PLAYLIST_1, TEST_RELEASE_1, TEST_RELEASE_2, TEST_RELEASE_3
 from rose.audiotags import AudioTags, RoseDate

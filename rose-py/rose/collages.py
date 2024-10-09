@@ -3,12 +3,12 @@ The collages module provides functions for interacting with collages.
 """
 
 import logging
+import tomllib
 from pathlib import Path
 from typing import Any
 
 import click
 import tomli_w
-import tomllib
 from send2trash import send2trash
 
 from rose.cache import (
