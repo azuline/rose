@@ -1,0 +1,3490 @@
+# serializer version: 1
+# name: test_dump_artist
+  dict({
+    'name': 'Bass Man',
+    'roles': dict({
+      'composer': list([
+      ]),
+      'conductor': list([
+      ]),
+      'djmixer': list([
+      ]),
+      'guest': list([
+      ]),
+      'main': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': None,
+          'compositiondate': None,
+          'cover_image_path': None,
+          'descriptors': list([
+            'Warm',
+            'Hot',
+          ]),
+          'disctotal': 1,
+          'edition': None,
+          'genres': list([
+            'Techno',
+            'Deep House',
+          ]),
+          'id': 'r1',
+          'labels': list([
+            'Silk Music',
+          ]),
+          'new': False,
+          'originaldate': None,
+          'parent_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+          ]),
+          'parent_secondary_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Tech House',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2023',
+          'releasetitle': 'Release 1',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Rominimal',
+            'Ambient',
+          ]),
+          'source_path': '/dummy/r1',
+        }),
+      ]),
+      'producer': list([
+      ]),
+      'remixer': list([
+      ]),
+    }),
+  })
+# ---
+# name: test_dump_artists
+  list([
+    dict({
+      'name': 'Bass Man',
+      'roles': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+          dict({
+            'added_at': '0000-01-01T00:00:00+00:00',
+            'catalognumber': None,
+            'compositiondate': None,
+            'cover_image_path': None,
+            'descriptors': list([
+              'Warm',
+              'Hot',
+            ]),
+            'disctotal': 1,
+            'edition': None,
+            'genres': list([
+              'Techno',
+              'Deep House',
+            ]),
+            'id': 'r1',
+            'labels': list([
+              'Silk Music',
+            ]),
+            'new': False,
+            'originaldate': None,
+            'parent_genres': list([
+              'Dance',
+              'Electronic',
+              'Electronic Dance Music',
+              'House',
+            ]),
+            'parent_secondary_genres': list([
+              'Dance',
+              'Electronic',
+              'Electronic Dance Music',
+              'House',
+              'Tech House',
+            ]),
+            'releaseartists': dict({
+              'composer': list([
+              ]),
+              'conductor': list([
+              ]),
+              'djmixer': list([
+              ]),
+              'guest': list([
+              ]),
+              'main': list([
+                dict({
+                  'alias': False,
+                  'name': 'Techno Man',
+                }),
+                dict({
+                  'alias': False,
+                  'name': 'Bass Man',
+                }),
+              ]),
+              'producer': list([
+              ]),
+              'remixer': list([
+              ]),
+            }),
+            'releasedate': '2023',
+            'releasetitle': 'Release 1',
+            'releasetype': 'album',
+            'secondary_genres': list([
+              'Rominimal',
+              'Ambient',
+            ]),
+            'source_path': '/dummy/r1',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+    }),
+    dict({
+      'name': 'Conductor Woman',
+      'roles': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+          dict({
+            'added_at': '0000-01-01T00:00:00+00:00',
+            'catalognumber': 'DG-001',
+            'compositiondate': None,
+            'cover_image_path': '/dummy/r2/cover.jpg',
+            'descriptors': list([
+              'Wet',
+            ]),
+            'disctotal': 1,
+            'edition': 'Deluxe',
+            'genres': list([
+              'Modern Classical',
+            ]),
+            'id': 'r2',
+            'labels': list([
+              'Native State',
+            ]),
+            'new': True,
+            'originaldate': '2019',
+            'parent_genres': list([
+              'Classical Music',
+              'Western Classical Music',
+            ]),
+            'parent_secondary_genres': list([
+              'Classical Music',
+              'Western Classical Music',
+            ]),
+            'releaseartists': dict({
+              'composer': list([
+              ]),
+              'conductor': list([
+              ]),
+              'djmixer': list([
+              ]),
+              'guest': list([
+                dict({
+                  'alias': False,
+                  'name': 'Conductor Woman',
+                }),
+              ]),
+              'main': list([
+                dict({
+                  'alias': False,
+                  'name': 'Violin Woman',
+                }),
+              ]),
+              'producer': list([
+              ]),
+              'remixer': list([
+              ]),
+            }),
+            'releasedate': '2021',
+            'releasetitle': 'Release 2',
+            'releasetype': 'album',
+            'secondary_genres': list([
+              'Orchestral Music',
+            ]),
+            'source_path': '/dummy/r2',
+          }),
+        ]),
+        'main': list([
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+    }),
+    dict({
+      'name': 'Techno Man',
+      'roles': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+          dict({
+            'added_at': '0000-01-01T00:00:00+00:00',
+            'catalognumber': None,
+            'compositiondate': None,
+            'cover_image_path': None,
+            'descriptors': list([
+              'Warm',
+              'Hot',
+            ]),
+            'disctotal': 1,
+            'edition': None,
+            'genres': list([
+              'Techno',
+              'Deep House',
+            ]),
+            'id': 'r1',
+            'labels': list([
+              'Silk Music',
+            ]),
+            'new': False,
+            'originaldate': None,
+            'parent_genres': list([
+              'Dance',
+              'Electronic',
+              'Electronic Dance Music',
+              'House',
+            ]),
+            'parent_secondary_genres': list([
+              'Dance',
+              'Electronic',
+              'Electronic Dance Music',
+              'House',
+              'Tech House',
+            ]),
+            'releaseartists': dict({
+              'composer': list([
+              ]),
+              'conductor': list([
+              ]),
+              'djmixer': list([
+              ]),
+              'guest': list([
+              ]),
+              'main': list([
+                dict({
+                  'alias': False,
+                  'name': 'Techno Man',
+                }),
+                dict({
+                  'alias': False,
+                  'name': 'Bass Man',
+                }),
+              ]),
+              'producer': list([
+              ]),
+              'remixer': list([
+              ]),
+            }),
+            'releasedate': '2023',
+            'releasetitle': 'Release 1',
+            'releasetype': 'album',
+            'secondary_genres': list([
+              'Rominimal',
+              'Ambient',
+            ]),
+            'source_path': '/dummy/r1',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+    }),
+    dict({
+      'name': 'Violin Woman',
+      'roles': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+          dict({
+            'added_at': '0000-01-01T00:00:00+00:00',
+            'catalognumber': 'DG-001',
+            'compositiondate': None,
+            'cover_image_path': '/dummy/r2/cover.jpg',
+            'descriptors': list([
+              'Wet',
+            ]),
+            'disctotal': 1,
+            'edition': 'Deluxe',
+            'genres': list([
+              'Modern Classical',
+            ]),
+            'id': 'r2',
+            'labels': list([
+              'Native State',
+            ]),
+            'new': True,
+            'originaldate': '2019',
+            'parent_genres': list([
+              'Classical Music',
+              'Western Classical Music',
+            ]),
+            'parent_secondary_genres': list([
+              'Classical Music',
+              'Western Classical Music',
+            ]),
+            'releaseartists': dict({
+              'composer': list([
+              ]),
+              'conductor': list([
+              ]),
+              'djmixer': list([
+              ]),
+              'guest': list([
+                dict({
+                  'alias': False,
+                  'name': 'Conductor Woman',
+                }),
+              ]),
+              'main': list([
+                dict({
+                  'alias': False,
+                  'name': 'Violin Woman',
+                }),
+              ]),
+              'producer': list([
+              ]),
+              'remixer': list([
+              ]),
+            }),
+            'releasedate': '2021',
+            'releasetitle': 'Release 2',
+            'releasetype': 'album',
+            'secondary_genres': list([
+              'Orchestral Music',
+            ]),
+            'source_path': '/dummy/r2',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+    }),
+  ])
+# ---
+# name: test_dump_collage
+  dict({
+    'name': 'Rose Gold',
+    'releases': list([
+      dict({
+        'added_at': '0000-01-01T00:00:00+00:00',
+        'catalognumber': None,
+        'compositiondate': None,
+        'cover_image_path': None,
+        'descriptors': list([
+          'Warm',
+          'Hot',
+        ]),
+        'disctotal': 1,
+        'edition': None,
+        'genres': list([
+          'Techno',
+          'Deep House',
+        ]),
+        'id': 'r1',
+        'labels': list([
+          'Silk Music',
+        ]),
+        'new': False,
+        'originaldate': None,
+        'parent_genres': list([
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+        ]),
+        'parent_secondary_genres': list([
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+          'Tech House',
+        ]),
+        'position': 1,
+        'releaseartists': dict({
+          'composer': list([
+          ]),
+          'conductor': list([
+          ]),
+          'djmixer': list([
+          ]),
+          'guest': list([
+          ]),
+          'main': list([
+            dict({
+              'alias': False,
+              'name': 'Techno Man',
+            }),
+            dict({
+              'alias': False,
+              'name': 'Bass Man',
+            }),
+          ]),
+          'producer': list([
+          ]),
+          'remixer': list([
+          ]),
+        }),
+        'releasedate': '2023',
+        'releasetitle': 'Release 1',
+        'releasetype': 'album',
+        'secondary_genres': list([
+          'Rominimal',
+          'Ambient',
+        ]),
+        'source_path': '/dummy/r1',
+      }),
+      dict({
+        'added_at': '0000-01-01T00:00:00+00:00',
+        'catalognumber': 'DG-001',
+        'compositiondate': None,
+        'cover_image_path': '/dummy/r2/cover.jpg',
+        'descriptors': list([
+          'Wet',
+        ]),
+        'disctotal': 1,
+        'edition': 'Deluxe',
+        'genres': list([
+          'Modern Classical',
+        ]),
+        'id': 'r2',
+        'labels': list([
+          'Native State',
+        ]),
+        'new': True,
+        'originaldate': '2019',
+        'parent_genres': list([
+          'Classical Music',
+          'Western Classical Music',
+        ]),
+        'parent_secondary_genres': list([
+          'Classical Music',
+          'Western Classical Music',
+        ]),
+        'position': 2,
+        'releaseartists': dict({
+          'composer': list([
+          ]),
+          'conductor': list([
+          ]),
+          'djmixer': list([
+          ]),
+          'guest': list([
+            dict({
+              'alias': False,
+              'name': 'Conductor Woman',
+            }),
+          ]),
+          'main': list([
+            dict({
+              'alias': False,
+              'name': 'Violin Woman',
+            }),
+          ]),
+          'producer': list([
+          ]),
+          'remixer': list([
+          ]),
+        }),
+        'releasedate': '2021',
+        'releasetitle': 'Release 2',
+        'releasetype': 'album',
+        'secondary_genres': list([
+          'Orchestral Music',
+        ]),
+        'source_path': '/dummy/r2',
+      }),
+    ]),
+  })
+# ---
+# name: test_dump_collages
+  list([
+    dict({
+      'name': 'Rose Gold',
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': None,
+          'compositiondate': None,
+          'cover_image_path': None,
+          'descriptors': list([
+            'Warm',
+            'Hot',
+          ]),
+          'disctotal': 1,
+          'edition': None,
+          'genres': list([
+            'Techno',
+            'Deep House',
+          ]),
+          'id': 'r1',
+          'labels': list([
+            'Silk Music',
+          ]),
+          'new': False,
+          'originaldate': None,
+          'parent_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+          ]),
+          'parent_secondary_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Tech House',
+          ]),
+          'position': 1,
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2023',
+          'releasetitle': 'Release 1',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Rominimal',
+            'Ambient',
+          ]),
+          'source_path': '/dummy/r1',
+        }),
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': 'DG-001',
+          'compositiondate': None,
+          'cover_image_path': '/dummy/r2/cover.jpg',
+          'descriptors': list([
+            'Wet',
+          ]),
+          'disctotal': 1,
+          'edition': 'Deluxe',
+          'genres': list([
+            'Modern Classical',
+          ]),
+          'id': 'r2',
+          'labels': list([
+            'Native State',
+          ]),
+          'new': True,
+          'originaldate': '2019',
+          'parent_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'parent_secondary_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'position': 2,
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+              dict({
+                'alias': False,
+                'name': 'Conductor Woman',
+              }),
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Violin Woman',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2021',
+          'releasetitle': 'Release 2',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Orchestral Music',
+          ]),
+          'source_path': '/dummy/r2',
+        }),
+      ]),
+    }),
+    dict({
+      'name': 'Ruby Red',
+      'releases': list([
+      ]),
+    }),
+  ])
+# ---
+# name: test_dump_descriptor
+  dict({
+    'name': 'Warm',
+    'releases': list([
+      dict({
+        'added_at': '0000-01-01T00:00:00+00:00',
+        'catalognumber': None,
+        'compositiondate': None,
+        'cover_image_path': None,
+        'descriptors': list([
+          'Warm',
+          'Hot',
+        ]),
+        'disctotal': 1,
+        'edition': None,
+        'genres': list([
+          'Techno',
+          'Deep House',
+        ]),
+        'id': 'r1',
+        'labels': list([
+          'Silk Music',
+        ]),
+        'new': False,
+        'originaldate': None,
+        'parent_genres': list([
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+        ]),
+        'parent_secondary_genres': list([
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+          'Tech House',
+        ]),
+        'releaseartists': dict({
+          'composer': list([
+          ]),
+          'conductor': list([
+          ]),
+          'djmixer': list([
+          ]),
+          'guest': list([
+          ]),
+          'main': list([
+            dict({
+              'alias': False,
+              'name': 'Techno Man',
+            }),
+            dict({
+              'alias': False,
+              'name': 'Bass Man',
+            }),
+          ]),
+          'producer': list([
+          ]),
+          'remixer': list([
+          ]),
+        }),
+        'releasedate': '2023',
+        'releasetitle': 'Release 1',
+        'releasetype': 'album',
+        'secondary_genres': list([
+          'Rominimal',
+          'Ambient',
+        ]),
+        'source_path': '/dummy/r1',
+      }),
+    ]),
+  })
+# ---
+# name: test_dump_descriptors
+  list([
+    dict({
+      'name': 'Hot',
+      'only_new_releases': False,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': None,
+          'compositiondate': None,
+          'cover_image_path': None,
+          'descriptors': list([
+            'Warm',
+            'Hot',
+          ]),
+          'disctotal': 1,
+          'edition': None,
+          'genres': list([
+            'Techno',
+            'Deep House',
+          ]),
+          'id': 'r1',
+          'labels': list([
+            'Silk Music',
+          ]),
+          'new': False,
+          'originaldate': None,
+          'parent_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+          ]),
+          'parent_secondary_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Tech House',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2023',
+          'releasetitle': 'Release 1',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Rominimal',
+            'Ambient',
+          ]),
+          'source_path': '/dummy/r1',
+        }),
+      ]),
+    }),
+    dict({
+      'name': 'Warm',
+      'only_new_releases': False,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': None,
+          'compositiondate': None,
+          'cover_image_path': None,
+          'descriptors': list([
+            'Warm',
+            'Hot',
+          ]),
+          'disctotal': 1,
+          'edition': None,
+          'genres': list([
+            'Techno',
+            'Deep House',
+          ]),
+          'id': 'r1',
+          'labels': list([
+            'Silk Music',
+          ]),
+          'new': False,
+          'originaldate': None,
+          'parent_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+          ]),
+          'parent_secondary_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Tech House',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2023',
+          'releasetitle': 'Release 1',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Rominimal',
+            'Ambient',
+          ]),
+          'source_path': '/dummy/r1',
+        }),
+      ]),
+    }),
+    dict({
+      'name': 'Wet',
+      'only_new_releases': True,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': 'DG-001',
+          'compositiondate': None,
+          'cover_image_path': '/dummy/r2/cover.jpg',
+          'descriptors': list([
+            'Wet',
+          ]),
+          'disctotal': 1,
+          'edition': 'Deluxe',
+          'genres': list([
+            'Modern Classical',
+          ]),
+          'id': 'r2',
+          'labels': list([
+            'Native State',
+          ]),
+          'new': True,
+          'originaldate': '2019',
+          'parent_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'parent_secondary_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+              dict({
+                'alias': False,
+                'name': 'Conductor Woman',
+              }),
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Violin Woman',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2021',
+          'releasetitle': 'Release 2',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Orchestral Music',
+          ]),
+          'source_path': '/dummy/r2',
+        }),
+      ]),
+    }),
+  ])
+# ---
+# name: test_dump_genre
+  dict({
+    'name': 'Deep House',
+    'releases': list([
+      dict({
+        'added_at': '0000-01-01T00:00:00+00:00',
+        'catalognumber': None,
+        'compositiondate': None,
+        'cover_image_path': None,
+        'descriptors': list([
+          'Warm',
+          'Hot',
+        ]),
+        'disctotal': 1,
+        'edition': None,
+        'genres': list([
+          'Techno',
+          'Deep House',
+        ]),
+        'id': 'r1',
+        'labels': list([
+          'Silk Music',
+        ]),
+        'new': False,
+        'originaldate': None,
+        'parent_genres': list([
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+        ]),
+        'parent_secondary_genres': list([
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+          'Tech House',
+        ]),
+        'releaseartists': dict({
+          'composer': list([
+          ]),
+          'conductor': list([
+          ]),
+          'djmixer': list([
+          ]),
+          'guest': list([
+          ]),
+          'main': list([
+            dict({
+              'alias': False,
+              'name': 'Techno Man',
+            }),
+            dict({
+              'alias': False,
+              'name': 'Bass Man',
+            }),
+          ]),
+          'producer': list([
+          ]),
+          'remixer': list([
+          ]),
+        }),
+        'releasedate': '2023',
+        'releasetitle': 'Release 1',
+        'releasetype': 'album',
+        'secondary_genres': list([
+          'Rominimal',
+          'Ambient',
+        ]),
+        'source_path': '/dummy/r1',
+      }),
+    ]),
+  })
+# ---
+# name: test_dump_genres
+  list([
+    dict({
+      'name': 'Deep House',
+      'only_new_releases': False,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': None,
+          'compositiondate': None,
+          'cover_image_path': None,
+          'descriptors': list([
+            'Warm',
+            'Hot',
+          ]),
+          'disctotal': 1,
+          'edition': None,
+          'genres': list([
+            'Techno',
+            'Deep House',
+          ]),
+          'id': 'r1',
+          'labels': list([
+            'Silk Music',
+          ]),
+          'new': False,
+          'originaldate': None,
+          'parent_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+          ]),
+          'parent_secondary_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Tech House',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2023',
+          'releasetitle': 'Release 1',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Rominimal',
+            'Ambient',
+          ]),
+          'source_path': '/dummy/r1',
+        }),
+      ]),
+    }),
+    dict({
+      'name': 'Dance',
+      'only_new_releases': False,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': None,
+          'compositiondate': None,
+          'cover_image_path': None,
+          'descriptors': list([
+            'Warm',
+            'Hot',
+          ]),
+          'disctotal': 1,
+          'edition': None,
+          'genres': list([
+            'Techno',
+            'Deep House',
+          ]),
+          'id': 'r1',
+          'labels': list([
+            'Silk Music',
+          ]),
+          'new': False,
+          'originaldate': None,
+          'parent_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+          ]),
+          'parent_secondary_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Tech House',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2023',
+          'releasetitle': 'Release 1',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Rominimal',
+            'Ambient',
+          ]),
+          'source_path': '/dummy/r1',
+        }),
+      ]),
+    }),
+    dict({
+      'name': 'Electronic',
+      'only_new_releases': False,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': None,
+          'compositiondate': None,
+          'cover_image_path': None,
+          'descriptors': list([
+            'Warm',
+            'Hot',
+          ]),
+          'disctotal': 1,
+          'edition': None,
+          'genres': list([
+            'Techno',
+            'Deep House',
+          ]),
+          'id': 'r1',
+          'labels': list([
+            'Silk Music',
+          ]),
+          'new': False,
+          'originaldate': None,
+          'parent_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+          ]),
+          'parent_secondary_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Tech House',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2023',
+          'releasetitle': 'Release 1',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Rominimal',
+            'Ambient',
+          ]),
+          'source_path': '/dummy/r1',
+        }),
+      ]),
+    }),
+    dict({
+      'name': 'Electronic Dance Music',
+      'only_new_releases': False,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': None,
+          'compositiondate': None,
+          'cover_image_path': None,
+          'descriptors': list([
+            'Warm',
+            'Hot',
+          ]),
+          'disctotal': 1,
+          'edition': None,
+          'genres': list([
+            'Techno',
+            'Deep House',
+          ]),
+          'id': 'r1',
+          'labels': list([
+            'Silk Music',
+          ]),
+          'new': False,
+          'originaldate': None,
+          'parent_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+          ]),
+          'parent_secondary_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Tech House',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2023',
+          'releasetitle': 'Release 1',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Rominimal',
+            'Ambient',
+          ]),
+          'source_path': '/dummy/r1',
+        }),
+      ]),
+    }),
+    dict({
+      'name': 'House',
+      'only_new_releases': False,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': None,
+          'compositiondate': None,
+          'cover_image_path': None,
+          'descriptors': list([
+            'Warm',
+            'Hot',
+          ]),
+          'disctotal': 1,
+          'edition': None,
+          'genres': list([
+            'Techno',
+            'Deep House',
+          ]),
+          'id': 'r1',
+          'labels': list([
+            'Silk Music',
+          ]),
+          'new': False,
+          'originaldate': None,
+          'parent_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+          ]),
+          'parent_secondary_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Tech House',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2023',
+          'releasetitle': 'Release 1',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Rominimal',
+            'Ambient',
+          ]),
+          'source_path': '/dummy/r1',
+        }),
+      ]),
+    }),
+    dict({
+      'name': 'Modern Classical',
+      'only_new_releases': True,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': 'DG-001',
+          'compositiondate': None,
+          'cover_image_path': '/dummy/r2/cover.jpg',
+          'descriptors': list([
+            'Wet',
+          ]),
+          'disctotal': 1,
+          'edition': 'Deluxe',
+          'genres': list([
+            'Modern Classical',
+          ]),
+          'id': 'r2',
+          'labels': list([
+            'Native State',
+          ]),
+          'new': True,
+          'originaldate': '2019',
+          'parent_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'parent_secondary_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+              dict({
+                'alias': False,
+                'name': 'Conductor Woman',
+              }),
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Violin Woman',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2021',
+          'releasetitle': 'Release 2',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Orchestral Music',
+          ]),
+          'source_path': '/dummy/r2',
+        }),
+      ]),
+    }),
+    dict({
+      'name': 'Classical Music',
+      'only_new_releases': True,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': 'DG-001',
+          'compositiondate': None,
+          'cover_image_path': '/dummy/r2/cover.jpg',
+          'descriptors': list([
+            'Wet',
+          ]),
+          'disctotal': 1,
+          'edition': 'Deluxe',
+          'genres': list([
+            'Modern Classical',
+          ]),
+          'id': 'r2',
+          'labels': list([
+            'Native State',
+          ]),
+          'new': True,
+          'originaldate': '2019',
+          'parent_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'parent_secondary_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+              dict({
+                'alias': False,
+                'name': 'Conductor Woman',
+              }),
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Violin Woman',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2021',
+          'releasetitle': 'Release 2',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Orchestral Music',
+          ]),
+          'source_path': '/dummy/r2',
+        }),
+      ]),
+    }),
+    dict({
+      'name': 'Western Classical Music',
+      'only_new_releases': True,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': 'DG-001',
+          'compositiondate': None,
+          'cover_image_path': '/dummy/r2/cover.jpg',
+          'descriptors': list([
+            'Wet',
+          ]),
+          'disctotal': 1,
+          'edition': 'Deluxe',
+          'genres': list([
+            'Modern Classical',
+          ]),
+          'id': 'r2',
+          'labels': list([
+            'Native State',
+          ]),
+          'new': True,
+          'originaldate': '2019',
+          'parent_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'parent_secondary_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+              dict({
+                'alias': False,
+                'name': 'Conductor Woman',
+              }),
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Violin Woman',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2021',
+          'releasetitle': 'Release 2',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Orchestral Music',
+          ]),
+          'source_path': '/dummy/r2',
+        }),
+      ]),
+    }),
+    dict({
+      'name': 'Techno',
+      'only_new_releases': False,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': None,
+          'compositiondate': None,
+          'cover_image_path': None,
+          'descriptors': list([
+            'Warm',
+            'Hot',
+          ]),
+          'disctotal': 1,
+          'edition': None,
+          'genres': list([
+            'Techno',
+            'Deep House',
+          ]),
+          'id': 'r1',
+          'labels': list([
+            'Silk Music',
+          ]),
+          'new': False,
+          'originaldate': None,
+          'parent_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+          ]),
+          'parent_secondary_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Tech House',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2023',
+          'releasetitle': 'Release 1',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Rominimal',
+            'Ambient',
+          ]),
+          'source_path': '/dummy/r1',
+        }),
+      ]),
+    }),
+  ])
+# ---
+# name: test_dump_label
+  dict({
+    'name': 'Silk Music',
+    'releases': list([
+      dict({
+        'added_at': '0000-01-01T00:00:00+00:00',
+        'catalognumber': None,
+        'compositiondate': None,
+        'cover_image_path': None,
+        'descriptors': list([
+          'Warm',
+          'Hot',
+        ]),
+        'disctotal': 1,
+        'edition': None,
+        'genres': list([
+          'Techno',
+          'Deep House',
+        ]),
+        'id': 'r1',
+        'labels': list([
+          'Silk Music',
+        ]),
+        'new': False,
+        'originaldate': None,
+        'parent_genres': list([
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+        ]),
+        'parent_secondary_genres': list([
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+          'Tech House',
+        ]),
+        'releaseartists': dict({
+          'composer': list([
+          ]),
+          'conductor': list([
+          ]),
+          'djmixer': list([
+          ]),
+          'guest': list([
+          ]),
+          'main': list([
+            dict({
+              'alias': False,
+              'name': 'Techno Man',
+            }),
+            dict({
+              'alias': False,
+              'name': 'Bass Man',
+            }),
+          ]),
+          'producer': list([
+          ]),
+          'remixer': list([
+          ]),
+        }),
+        'releasedate': '2023',
+        'releasetitle': 'Release 1',
+        'releasetype': 'album',
+        'secondary_genres': list([
+          'Rominimal',
+          'Ambient',
+        ]),
+        'source_path': '/dummy/r1',
+      }),
+    ]),
+  })
+# ---
+# name: test_dump_labels
+  list([
+    dict({
+      'name': 'Native State',
+      'only_new_releases': True,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': 'DG-001',
+          'compositiondate': None,
+          'cover_image_path': '/dummy/r2/cover.jpg',
+          'descriptors': list([
+            'Wet',
+          ]),
+          'disctotal': 1,
+          'edition': 'Deluxe',
+          'genres': list([
+            'Modern Classical',
+          ]),
+          'id': 'r2',
+          'labels': list([
+            'Native State',
+          ]),
+          'new': True,
+          'originaldate': '2019',
+          'parent_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'parent_secondary_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+              dict({
+                'alias': False,
+                'name': 'Conductor Woman',
+              }),
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Violin Woman',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2021',
+          'releasetitle': 'Release 2',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Orchestral Music',
+          ]),
+          'source_path': '/dummy/r2',
+        }),
+      ]),
+    }),
+    dict({
+      'name': 'Silk Music',
+      'only_new_releases': False,
+      'releases': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': None,
+          'compositiondate': None,
+          'cover_image_path': None,
+          'descriptors': list([
+            'Warm',
+            'Hot',
+          ]),
+          'disctotal': 1,
+          'edition': None,
+          'genres': list([
+            'Techno',
+            'Deep House',
+          ]),
+          'id': 'r1',
+          'labels': list([
+            'Silk Music',
+          ]),
+          'new': False,
+          'originaldate': None,
+          'parent_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+          ]),
+          'parent_secondary_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Tech House',
+          ]),
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2023',
+          'releasetitle': 'Release 1',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Rominimal',
+            'Ambient',
+          ]),
+          'source_path': '/dummy/r1',
+        }),
+      ]),
+    }),
+  ])
+# ---
+# name: test_dump_playlist
+  dict({
+    'cover_image_path': '/dummy/!playlists/Lala Lisa.jpg',
+    'name': 'Lala Lisa',
+    'tracks': list([
+      dict({
+        'added_at': '0000-01-01T00:00:00+00:00',
+        'catalognumber': None,
+        'compositiondate': None,
+        'descriptors': list([
+          'Warm',
+          'Hot',
+        ]),
+        'discnumber': '01',
+        'disctotal': 1,
+        'duration_seconds': 120,
+        'edition': None,
+        'genres': list([
+          'Techno',
+          'Deep House',
+        ]),
+        'id': 't1',
+        'labels': list([
+          'Silk Music',
+        ]),
+        'new': False,
+        'originaldate': None,
+        'parent_genres': list([
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+        ]),
+        'parent_secondary_genres': list([
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+          'Tech House',
+        ]),
+        'position': 1,
+        'release_id': 'r1',
+        'releaseartists': dict({
+          'composer': list([
+          ]),
+          'conductor': list([
+          ]),
+          'djmixer': list([
+          ]),
+          'guest': list([
+          ]),
+          'main': list([
+            dict({
+              'alias': False,
+              'name': 'Techno Man',
+            }),
+            dict({
+              'alias': False,
+              'name': 'Bass Man',
+            }),
+          ]),
+          'producer': list([
+          ]),
+          'remixer': list([
+          ]),
+        }),
+        'releasedate': '2023',
+        'releasetitle': 'Release 1',
+        'releasetype': 'album',
+        'secondary_genres': list([
+          'Rominimal',
+          'Ambient',
+        ]),
+        'source_path': '/dummy/r1/01.m4a',
+        'trackartists': dict({
+          'composer': list([
+          ]),
+          'conductor': list([
+          ]),
+          'djmixer': list([
+          ]),
+          'guest': list([
+          ]),
+          'main': list([
+            dict({
+              'alias': False,
+              'name': 'Techno Man',
+            }),
+            dict({
+              'alias': False,
+              'name': 'Bass Man',
+            }),
+          ]),
+          'producer': list([
+          ]),
+          'remixer': list([
+          ]),
+        }),
+        'tracknumber': '01',
+        'tracktitle': 'Track 1',
+        'tracktotal': 2,
+      }),
+      dict({
+        'added_at': '0000-01-01T00:00:00+00:00',
+        'catalognumber': 'DG-001',
+        'compositiondate': None,
+        'descriptors': list([
+          'Wet',
+        ]),
+        'discnumber': '01',
+        'disctotal': 1,
+        'duration_seconds': 120,
+        'edition': 'Deluxe',
+        'genres': list([
+          'Modern Classical',
+        ]),
+        'id': 't3',
+        'labels': list([
+          'Native State',
+        ]),
+        'new': True,
+        'originaldate': '2019',
+        'parent_genres': list([
+          'Classical Music',
+          'Western Classical Music',
+        ]),
+        'parent_secondary_genres': list([
+          'Classical Music',
+          'Western Classical Music',
+        ]),
+        'position': 2,
+        'release_id': 'r2',
+        'releaseartists': dict({
+          'composer': list([
+          ]),
+          'conductor': list([
+          ]),
+          'djmixer': list([
+          ]),
+          'guest': list([
+            dict({
+              'alias': False,
+              'name': 'Conductor Woman',
+            }),
+          ]),
+          'main': list([
+            dict({
+              'alias': False,
+              'name': 'Violin Woman',
+            }),
+          ]),
+          'producer': list([
+          ]),
+          'remixer': list([
+          ]),
+        }),
+        'releasedate': '2021',
+        'releasetitle': 'Release 2',
+        'releasetype': 'album',
+        'secondary_genres': list([
+          'Orchestral Music',
+        ]),
+        'source_path': '/dummy/r2/01.m4a',
+        'trackartists': dict({
+          'composer': list([
+          ]),
+          'conductor': list([
+          ]),
+          'djmixer': list([
+          ]),
+          'guest': list([
+            dict({
+              'alias': False,
+              'name': 'Conductor Woman',
+            }),
+          ]),
+          'main': list([
+            dict({
+              'alias': False,
+              'name': 'Violin Woman',
+            }),
+          ]),
+          'producer': list([
+          ]),
+          'remixer': list([
+          ]),
+        }),
+        'tracknumber': '01',
+        'tracktitle': 'Track 1',
+        'tracktotal': 1,
+      }),
+    ]),
+  })
+# ---
+# name: test_dump_playlists
+  list([
+    dict({
+      'cover_image_path': '/dummy/!playlists/Lala Lisa.jpg',
+      'name': 'Lala Lisa',
+      'tracks': list([
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': None,
+          'compositiondate': None,
+          'descriptors': list([
+            'Warm',
+            'Hot',
+          ]),
+          'discnumber': '01',
+          'disctotal': 1,
+          'duration_seconds': 120,
+          'edition': None,
+          'genres': list([
+            'Techno',
+            'Deep House',
+          ]),
+          'id': 't1',
+          'labels': list([
+            'Silk Music',
+          ]),
+          'new': False,
+          'originaldate': None,
+          'parent_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+          ]),
+          'parent_secondary_genres': list([
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Tech House',
+          ]),
+          'position': 1,
+          'release_id': 'r1',
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2023',
+          'releasetitle': 'Release 1',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Rominimal',
+            'Ambient',
+          ]),
+          'source_path': '/dummy/r1/01.m4a',
+          'trackartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'tracknumber': '01',
+          'tracktitle': 'Track 1',
+          'tracktotal': 2,
+        }),
+        dict({
+          'added_at': '0000-01-01T00:00:00+00:00',
+          'catalognumber': 'DG-001',
+          'compositiondate': None,
+          'descriptors': list([
+            'Wet',
+          ]),
+          'discnumber': '01',
+          'disctotal': 1,
+          'duration_seconds': 120,
+          'edition': 'Deluxe',
+          'genres': list([
+            'Modern Classical',
+          ]),
+          'id': 't3',
+          'labels': list([
+            'Native State',
+          ]),
+          'new': True,
+          'originaldate': '2019',
+          'parent_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'parent_secondary_genres': list([
+            'Classical Music',
+            'Western Classical Music',
+          ]),
+          'position': 2,
+          'release_id': 'r2',
+          'releaseartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+              dict({
+                'alias': False,
+                'name': 'Conductor Woman',
+              }),
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Violin Woman',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'releasedate': '2021',
+          'releasetitle': 'Release 2',
+          'releasetype': 'album',
+          'secondary_genres': list([
+            'Orchestral Music',
+          ]),
+          'source_path': '/dummy/r2/01.m4a',
+          'trackartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+              dict({
+                'alias': False,
+                'name': 'Conductor Woman',
+              }),
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Violin Woman',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'tracknumber': '01',
+          'tracktitle': 'Track 1',
+          'tracktotal': 1,
+        }),
+      ]),
+    }),
+    dict({
+      'cover_image_path': None,
+      'name': 'Turtle Rabbit',
+      'tracks': list([
+      ]),
+    }),
+  ])
+# ---
+# name: test_dump_release
+  dict({
+    'added_at': '0000-01-01T00:00:00+00:00',
+    'catalognumber': None,
+    'compositiondate': None,
+    'cover_image_path': None,
+    'descriptors': list([
+      'Warm',
+      'Hot',
+    ]),
+    'disctotal': 1,
+    'edition': None,
+    'genres': list([
+      'Techno',
+      'Deep House',
+    ]),
+    'id': 'r1',
+    'labels': list([
+      'Silk Music',
+    ]),
+    'new': False,
+    'originaldate': None,
+    'parent_genres': list([
+      'Dance',
+      'Electronic',
+      'Electronic Dance Music',
+      'House',
+    ]),
+    'parent_secondary_genres': list([
+      'Dance',
+      'Electronic',
+      'Electronic Dance Music',
+      'House',
+      'Tech House',
+    ]),
+    'releaseartists': dict({
+      'composer': list([
+      ]),
+      'conductor': list([
+      ]),
+      'djmixer': list([
+      ]),
+      'guest': list([
+      ]),
+      'main': list([
+        dict({
+          'alias': False,
+          'name': 'Techno Man',
+        }),
+        dict({
+          'alias': False,
+          'name': 'Bass Man',
+        }),
+      ]),
+      'producer': list([
+      ]),
+      'remixer': list([
+      ]),
+    }),
+    'releasedate': '2023',
+    'releasetitle': 'Release 1',
+    'releasetype': 'album',
+    'secondary_genres': list([
+      'Rominimal',
+      'Ambient',
+    ]),
+    'source_path': '/dummy/r1',
+    'tracks': list([
+      dict({
+        'discnumber': '01',
+        'duration_seconds': 120,
+        'id': 't1',
+        'source_path': '/dummy/r1/01.m4a',
+        'trackartists': dict({
+          'composer': list([
+          ]),
+          'conductor': list([
+          ]),
+          'djmixer': list([
+          ]),
+          'guest': list([
+          ]),
+          'main': list([
+            dict({
+              'alias': False,
+              'name': 'Techno Man',
+            }),
+            dict({
+              'alias': False,
+              'name': 'Bass Man',
+            }),
+          ]),
+          'producer': list([
+          ]),
+          'remixer': list([
+          ]),
+        }),
+        'tracknumber': '01',
+        'tracktitle': 'Track 1',
+        'tracktotal': 2,
+      }),
+      dict({
+        'discnumber': '01',
+        'duration_seconds': 240,
+        'id': 't2',
+        'source_path': '/dummy/r1/02.m4a',
+        'trackartists': dict({
+          'composer': list([
+          ]),
+          'conductor': list([
+          ]),
+          'djmixer': list([
+          ]),
+          'guest': list([
+          ]),
+          'main': list([
+            dict({
+              'alias': False,
+              'name': 'Techno Man',
+            }),
+            dict({
+              'alias': False,
+              'name': 'Bass Man',
+            }),
+          ]),
+          'producer': list([
+          ]),
+          'remixer': list([
+          ]),
+        }),
+        'tracknumber': '02',
+        'tracktitle': 'Track 2',
+        'tracktotal': 2,
+      }),
+    ]),
+  })
+# ---
+# name: test_dump_releases
+  list([
+    dict({
+      'added_at': '0000-01-01T00:00:00+00:00',
+      'catalognumber': None,
+      'compositiondate': None,
+      'cover_image_path': None,
+      'descriptors': list([
+        'Warm',
+        'Hot',
+      ]),
+      'disctotal': 1,
+      'edition': None,
+      'genres': list([
+        'Techno',
+        'Deep House',
+      ]),
+      'id': 'r1',
+      'labels': list([
+        'Silk Music',
+      ]),
+      'new': False,
+      'originaldate': None,
+      'parent_genres': list([
+        'Dance',
+        'Electronic',
+        'Electronic Dance Music',
+        'House',
+      ]),
+      'parent_secondary_genres': list([
+        'Dance',
+        'Electronic',
+        'Electronic Dance Music',
+        'House',
+        'Tech House',
+      ]),
+      'releaseartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+          dict({
+            'alias': False,
+            'name': 'Techno Man',
+          }),
+          dict({
+            'alias': False,
+            'name': 'Bass Man',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'releasedate': '2023',
+      'releasetitle': 'Release 1',
+      'releasetype': 'album',
+      'secondary_genres': list([
+        'Rominimal',
+        'Ambient',
+      ]),
+      'source_path': '/dummy/r1',
+      'tracks': list([
+        dict({
+          'discnumber': '01',
+          'duration_seconds': 120,
+          'id': 't1',
+          'source_path': '/dummy/r1/01.m4a',
+          'trackartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'tracknumber': '01',
+          'tracktitle': 'Track 1',
+          'tracktotal': 2,
+        }),
+        dict({
+          'discnumber': '01',
+          'duration_seconds': 240,
+          'id': 't2',
+          'source_path': '/dummy/r1/02.m4a',
+          'trackartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Techno Man',
+              }),
+              dict({
+                'alias': False,
+                'name': 'Bass Man',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'tracknumber': '02',
+          'tracktitle': 'Track 2',
+          'tracktotal': 2,
+        }),
+      ]),
+    }),
+    dict({
+      'added_at': '0000-01-01T00:00:00+00:00',
+      'catalognumber': 'DG-001',
+      'compositiondate': None,
+      'cover_image_path': '/dummy/r2/cover.jpg',
+      'descriptors': list([
+        'Wet',
+      ]),
+      'disctotal': 1,
+      'edition': 'Deluxe',
+      'genres': list([
+        'Modern Classical',
+      ]),
+      'id': 'r2',
+      'labels': list([
+        'Native State',
+      ]),
+      'new': True,
+      'originaldate': '2019',
+      'parent_genres': list([
+        'Classical Music',
+        'Western Classical Music',
+      ]),
+      'parent_secondary_genres': list([
+        'Classical Music',
+        'Western Classical Music',
+      ]),
+      'releaseartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+          dict({
+            'alias': False,
+            'name': 'Conductor Woman',
+          }),
+        ]),
+        'main': list([
+          dict({
+            'alias': False,
+            'name': 'Violin Woman',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'releasedate': '2021',
+      'releasetitle': 'Release 2',
+      'releasetype': 'album',
+      'secondary_genres': list([
+        'Orchestral Music',
+      ]),
+      'source_path': '/dummy/r2',
+      'tracks': list([
+        dict({
+          'discnumber': '01',
+          'duration_seconds': 120,
+          'id': 't3',
+          'source_path': '/dummy/r2/01.m4a',
+          'trackartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+              dict({
+                'alias': False,
+                'name': 'Conductor Woman',
+              }),
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Violin Woman',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'tracknumber': '01',
+          'tracktitle': 'Track 1',
+          'tracktotal': 1,
+        }),
+      ]),
+    }),
+    dict({
+      'added_at': '0000-01-01T00:00:00+00:00',
+      'catalognumber': 'DG-002',
+      'compositiondate': '1780',
+      'cover_image_path': None,
+      'descriptors': list([
+      ]),
+      'disctotal': 1,
+      'edition': None,
+      'genres': list([
+      ]),
+      'id': 'r3',
+      'labels': list([
+      ]),
+      'new': False,
+      'originaldate': None,
+      'parent_genres': list([
+      ]),
+      'parent_secondary_genres': list([
+      ]),
+      'releaseartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'releasedate': '2021-04-20',
+      'releasetitle': 'Release 3',
+      'releasetype': 'album',
+      'secondary_genres': list([
+      ]),
+      'source_path': '/dummy/r3',
+      'tracks': list([
+        dict({
+          'discnumber': '01',
+          'duration_seconds': 120,
+          'id': 't4',
+          'source_path': '/dummy/r3/01.m4a',
+          'trackartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+            ]),
+            'main': list([
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'tracknumber': '01',
+          'tracktitle': 'Track 1',
+          'tracktotal': 1,
+        }),
+      ]),
+    }),
+  ])
+# ---
+# name: test_dump_releases_matcher
+  list([
+    dict({
+      'added_at': '0000-01-01T00:00:00+00:00',
+      'catalognumber': 'DG-001',
+      'compositiondate': None,
+      'cover_image_path': '/dummy/r2/cover.jpg',
+      'descriptors': list([
+        'Wet',
+      ]),
+      'disctotal': 1,
+      'edition': 'Deluxe',
+      'genres': list([
+        'Modern Classical',
+      ]),
+      'id': 'r2',
+      'labels': list([
+        'Native State',
+      ]),
+      'new': True,
+      'originaldate': '2019',
+      'parent_genres': list([
+        'Classical Music',
+        'Western Classical Music',
+      ]),
+      'parent_secondary_genres': list([
+        'Classical Music',
+        'Western Classical Music',
+      ]),
+      'releaseartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+          dict({
+            'alias': False,
+            'name': 'Conductor Woman',
+          }),
+        ]),
+        'main': list([
+          dict({
+            'alias': False,
+            'name': 'Violin Woman',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'releasedate': '2021',
+      'releasetitle': 'Release 2',
+      'releasetype': 'album',
+      'secondary_genres': list([
+        'Orchestral Music',
+      ]),
+      'source_path': '/dummy/r2',
+      'tracks': list([
+        dict({
+          'discnumber': '01',
+          'duration_seconds': 120,
+          'id': 't3',
+          'source_path': '/dummy/r2/01.m4a',
+          'trackartists': dict({
+            'composer': list([
+            ]),
+            'conductor': list([
+            ]),
+            'djmixer': list([
+            ]),
+            'guest': list([
+              dict({
+                'alias': False,
+                'name': 'Conductor Woman',
+              }),
+            ]),
+            'main': list([
+              dict({
+                'alias': False,
+                'name': 'Violin Woman',
+              }),
+            ]),
+            'producer': list([
+            ]),
+            'remixer': list([
+            ]),
+          }),
+          'tracknumber': '01',
+          'tracktitle': 'Track 1',
+          'tracktotal': 1,
+        }),
+      ]),
+    }),
+  ])
+# ---
+# name: test_dump_track
+  dict({
+    'added_at': '0000-01-01T00:00:00+00:00',
+    'catalognumber': None,
+    'compositiondate': None,
+    'descriptors': list([
+      'Warm',
+      'Hot',
+    ]),
+    'discnumber': '01',
+    'disctotal': 1,
+    'duration_seconds': 120,
+    'edition': None,
+    'genres': list([
+      'Techno',
+      'Deep House',
+    ]),
+    'id': 't1',
+    'labels': list([
+      'Silk Music',
+    ]),
+    'new': False,
+    'originaldate': None,
+    'parent_genres': list([
+      'Dance',
+      'Electronic',
+      'Electronic Dance Music',
+      'House',
+    ]),
+    'parent_secondary_genres': list([
+      'Dance',
+      'Electronic',
+      'Electronic Dance Music',
+      'House',
+      'Tech House',
+    ]),
+    'release_id': 'r1',
+    'releaseartists': dict({
+      'composer': list([
+      ]),
+      'conductor': list([
+      ]),
+      'djmixer': list([
+      ]),
+      'guest': list([
+      ]),
+      'main': list([
+        dict({
+          'alias': False,
+          'name': 'Techno Man',
+        }),
+        dict({
+          'alias': False,
+          'name': 'Bass Man',
+        }),
+      ]),
+      'producer': list([
+      ]),
+      'remixer': list([
+      ]),
+    }),
+    'releasedate': '2023',
+    'releasetitle': 'Release 1',
+    'releasetype': 'album',
+    'secondary_genres': list([
+      'Rominimal',
+      'Ambient',
+    ]),
+    'source_path': '/dummy/r1/01.m4a',
+    'trackartists': dict({
+      'composer': list([
+      ]),
+      'conductor': list([
+      ]),
+      'djmixer': list([
+      ]),
+      'guest': list([
+      ]),
+      'main': list([
+        dict({
+          'alias': False,
+          'name': 'Techno Man',
+        }),
+        dict({
+          'alias': False,
+          'name': 'Bass Man',
+        }),
+      ]),
+      'producer': list([
+      ]),
+      'remixer': list([
+      ]),
+    }),
+    'tracknumber': '01',
+    'tracktitle': 'Track 1',
+    'tracktotal': 2,
+  })
+# ---
+# name: test_dump_tracks
+  list([
+    dict({
+      'added_at': '0000-01-01T00:00:00+00:00',
+      'catalognumber': None,
+      'compositiondate': None,
+      'descriptors': list([
+        'Warm',
+        'Hot',
+      ]),
+      'discnumber': '01',
+      'disctotal': 1,
+      'duration_seconds': 120,
+      'edition': None,
+      'genres': list([
+        'Techno',
+        'Deep House',
+      ]),
+      'id': 't1',
+      'labels': list([
+        'Silk Music',
+      ]),
+      'new': False,
+      'originaldate': None,
+      'parent_genres': list([
+        'Dance',
+        'Electronic',
+        'Electronic Dance Music',
+        'House',
+      ]),
+      'parent_secondary_genres': list([
+        'Dance',
+        'Electronic',
+        'Electronic Dance Music',
+        'House',
+        'Tech House',
+      ]),
+      'release_id': 'r1',
+      'releaseartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+          dict({
+            'alias': False,
+            'name': 'Techno Man',
+          }),
+          dict({
+            'alias': False,
+            'name': 'Bass Man',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'releasedate': '2023',
+      'releasetitle': 'Release 1',
+      'releasetype': 'album',
+      'secondary_genres': list([
+        'Rominimal',
+        'Ambient',
+      ]),
+      'source_path': '/dummy/r1/01.m4a',
+      'trackartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+          dict({
+            'alias': False,
+            'name': 'Techno Man',
+          }),
+          dict({
+            'alias': False,
+            'name': 'Bass Man',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'tracknumber': '01',
+      'tracktitle': 'Track 1',
+      'tracktotal': 2,
+    }),
+    dict({
+      'added_at': '0000-01-01T00:00:00+00:00',
+      'catalognumber': None,
+      'compositiondate': None,
+      'descriptors': list([
+        'Warm',
+        'Hot',
+      ]),
+      'discnumber': '01',
+      'disctotal': 1,
+      'duration_seconds': 240,
+      'edition': None,
+      'genres': list([
+        'Techno',
+        'Deep House',
+      ]),
+      'id': 't2',
+      'labels': list([
+        'Silk Music',
+      ]),
+      'new': False,
+      'originaldate': None,
+      'parent_genres': list([
+        'Dance',
+        'Electronic',
+        'Electronic Dance Music',
+        'House',
+      ]),
+      'parent_secondary_genres': list([
+        'Dance',
+        'Electronic',
+        'Electronic Dance Music',
+        'House',
+        'Tech House',
+      ]),
+      'release_id': 'r1',
+      'releaseartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+          dict({
+            'alias': False,
+            'name': 'Techno Man',
+          }),
+          dict({
+            'alias': False,
+            'name': 'Bass Man',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'releasedate': '2023',
+      'releasetitle': 'Release 1',
+      'releasetype': 'album',
+      'secondary_genres': list([
+        'Rominimal',
+        'Ambient',
+      ]),
+      'source_path': '/dummy/r1/02.m4a',
+      'trackartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+          dict({
+            'alias': False,
+            'name': 'Techno Man',
+          }),
+          dict({
+            'alias': False,
+            'name': 'Bass Man',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'tracknumber': '02',
+      'tracktitle': 'Track 2',
+      'tracktotal': 2,
+    }),
+    dict({
+      'added_at': '0000-01-01T00:00:00+00:00',
+      'catalognumber': 'DG-001',
+      'compositiondate': None,
+      'descriptors': list([
+        'Wet',
+      ]),
+      'discnumber': '01',
+      'disctotal': 1,
+      'duration_seconds': 120,
+      'edition': 'Deluxe',
+      'genres': list([
+        'Modern Classical',
+      ]),
+      'id': 't3',
+      'labels': list([
+        'Native State',
+      ]),
+      'new': True,
+      'originaldate': '2019',
+      'parent_genres': list([
+        'Classical Music',
+        'Western Classical Music',
+      ]),
+      'parent_secondary_genres': list([
+        'Classical Music',
+        'Western Classical Music',
+      ]),
+      'release_id': 'r2',
+      'releaseartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+          dict({
+            'alias': False,
+            'name': 'Conductor Woman',
+          }),
+        ]),
+        'main': list([
+          dict({
+            'alias': False,
+            'name': 'Violin Woman',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'releasedate': '2021',
+      'releasetitle': 'Release 2',
+      'releasetype': 'album',
+      'secondary_genres': list([
+        'Orchestral Music',
+      ]),
+      'source_path': '/dummy/r2/01.m4a',
+      'trackartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+          dict({
+            'alias': False,
+            'name': 'Conductor Woman',
+          }),
+        ]),
+        'main': list([
+          dict({
+            'alias': False,
+            'name': 'Violin Woman',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'tracknumber': '01',
+      'tracktitle': 'Track 1',
+      'tracktotal': 1,
+    }),
+    dict({
+      'added_at': '0000-01-01T00:00:00+00:00',
+      'catalognumber': 'DG-002',
+      'compositiondate': '1780',
+      'descriptors': list([
+      ]),
+      'discnumber': '01',
+      'disctotal': 1,
+      'duration_seconds': 120,
+      'edition': None,
+      'genres': list([
+      ]),
+      'id': 't4',
+      'labels': list([
+      ]),
+      'new': False,
+      'originaldate': None,
+      'parent_genres': list([
+      ]),
+      'parent_secondary_genres': list([
+      ]),
+      'release_id': 'r3',
+      'releaseartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'releasedate': '2021-04-20',
+      'releasetitle': 'Release 3',
+      'releasetype': 'album',
+      'secondary_genres': list([
+      ]),
+      'source_path': '/dummy/r3/01.m4a',
+      'trackartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'tracknumber': '01',
+      'tracktitle': 'Track 1',
+      'tracktotal': 1,
+    }),
+  ])
+# ---
+# name: test_dump_tracks_with_matcher
+  list([
+    dict({
+      'added_at': '0000-01-01T00:00:00+00:00',
+      'catalognumber': None,
+      'compositiondate': None,
+      'descriptors': list([
+        'Warm',
+        'Hot',
+      ]),
+      'discnumber': '01',
+      'disctotal': 1,
+      'duration_seconds': 120,
+      'edition': None,
+      'genres': list([
+        'Techno',
+        'Deep House',
+      ]),
+      'id': 't1',
+      'labels': list([
+        'Silk Music',
+      ]),
+      'new': False,
+      'originaldate': None,
+      'parent_genres': list([
+        'Dance',
+        'Electronic',
+        'Electronic Dance Music',
+        'House',
+      ]),
+      'parent_secondary_genres': list([
+        'Dance',
+        'Electronic',
+        'Electronic Dance Music',
+        'House',
+        'Tech House',
+      ]),
+      'release_id': 'r1',
+      'releaseartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+          dict({
+            'alias': False,
+            'name': 'Techno Man',
+          }),
+          dict({
+            'alias': False,
+            'name': 'Bass Man',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'releasedate': '2023',
+      'releasetitle': 'Release 1',
+      'releasetype': 'album',
+      'secondary_genres': list([
+        'Rominimal',
+        'Ambient',
+      ]),
+      'source_path': '/dummy/r1/01.m4a',
+      'trackartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+          dict({
+            'alias': False,
+            'name': 'Techno Man',
+          }),
+          dict({
+            'alias': False,
+            'name': 'Bass Man',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'tracknumber': '01',
+      'tracktitle': 'Track 1',
+      'tracktotal': 2,
+    }),
+    dict({
+      'added_at': '0000-01-01T00:00:00+00:00',
+      'catalognumber': None,
+      'compositiondate': None,
+      'descriptors': list([
+        'Warm',
+        'Hot',
+      ]),
+      'discnumber': '01',
+      'disctotal': 1,
+      'duration_seconds': 240,
+      'edition': None,
+      'genres': list([
+        'Techno',
+        'Deep House',
+      ]),
+      'id': 't2',
+      'labels': list([
+        'Silk Music',
+      ]),
+      'new': False,
+      'originaldate': None,
+      'parent_genres': list([
+        'Dance',
+        'Electronic',
+        'Electronic Dance Music',
+        'House',
+      ]),
+      'parent_secondary_genres': list([
+        'Dance',
+        'Electronic',
+        'Electronic Dance Music',
+        'House',
+        'Tech House',
+      ]),
+      'release_id': 'r1',
+      'releaseartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+          dict({
+            'alias': False,
+            'name': 'Techno Man',
+          }),
+          dict({
+            'alias': False,
+            'name': 'Bass Man',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'releasedate': '2023',
+      'releasetitle': 'Release 1',
+      'releasetype': 'album',
+      'secondary_genres': list([
+        'Rominimal',
+        'Ambient',
+      ]),
+      'source_path': '/dummy/r1/02.m4a',
+      'trackartists': dict({
+        'composer': list([
+        ]),
+        'conductor': list([
+        ]),
+        'djmixer': list([
+        ]),
+        'guest': list([
+        ]),
+        'main': list([
+          dict({
+            'alias': False,
+            'name': 'Techno Man',
+          }),
+          dict({
+            'alias': False,
+            'name': 'Bass Man',
+          }),
+        ]),
+        'producer': list([
+        ]),
+        'remixer': list([
+        ]),
+      }),
+      'tracknumber': '02',
+      'tracktitle': 'Track 2',
+      'tracktotal': 2,
+    }),
+  ])
+# ---

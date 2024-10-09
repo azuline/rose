@@ -9,7 +9,7 @@ exclude = [
   ".mypy_cache",
   ".ruff_cache",
   ".venv",
-  "snapshots",
+  "__snapshot__",
 ]
 
 [tool.ruff.lint]
@@ -85,9 +85,6 @@ module = "watchdog.*"
 ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "setuptools"
-ignore_missing_imports = true
-[[tool.mypy.overrides]]
-module = "snapshottest"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
