@@ -964,12 +964,14 @@ def test_update_releases_updates_collages_description_meta(config: Config, multi
     # TOML.
     update_cache(config)
     with cpath.open("r") as fp:
+        cfg = fp.read()
+        print(cfg)
         assert (
-            fp.read()
+            cfg
             == """\
 releases = [
-    { uuid = "ilovecarly", description_meta = "Carly Rae Jepsen - 1990. I Love Carly" },
-    { uuid = "ilovenewjeans", description_meta = "NewJeans - 1990. I Love NewJeans" },
+    { uuid = "ilovecarly", description_meta = "[1990-02-05] Carly Rae Jepsen - I Love Carly" },
+    { uuid = "ilovenewjeans", description_meta = "[1990-02-05] NewJeans - I Love NewJeans" },
 ]
 """
         )
@@ -992,12 +994,14 @@ description_meta = "hahaha"
     # trigger a metadata update.
     update_cache_for_releases(config, force=True, force_multiprocessing=multiprocessing)
     with cpath.open("r") as fp:
+        cfg = fp.read()
+        print(cfg)
         assert (
-            fp.read()
+            cfg
             == """\
 releases = [
-    { uuid = "ilovecarly", description_meta = "Carly Rae Jepsen - 1990. I Love Carly" },
-    { uuid = "ilovenewjeans", description_meta = "NewJeans - 1990. I Love NewJeans" },
+    { uuid = "ilovecarly", description_meta = "[1990-02-05] Carly Rae Jepsen - I Love Carly" },
+    { uuid = "ilovenewjeans", description_meta = "[1990-02-05] NewJeans - I Love NewJeans" },
 ]
 """
         )
@@ -1013,12 +1017,14 @@ def test_update_tracks_updates_playlists_description_meta(config: Config, multip
     # TOML.
     update_cache(config)
     with ppath.open("r") as fp:
+        cfg = fp.read()
+        print(cfg)
         assert (
-            fp.read()
+            cfg
             == """\
 tracks = [
-    { uuid = "iloveloona", description_meta = "Carly Rae Jepsen - Track 1" },
-    { uuid = "ilovetwice", description_meta = "Carly Rae Jepsen - Track 2" },
+    { uuid = "iloveloona", description_meta = "[1990-02-05] Carly Rae Jepsen - Track 1" },
+    { uuid = "ilovetwice", description_meta = "[1990-02-05] Carly Rae Jepsen - Track 2" },
 ]
 """
         )
@@ -1041,12 +1047,14 @@ description_meta = "hahaha"
     # trigger a metadata update.
     update_cache_for_releases(config, force=True, force_multiprocessing=multiprocessing)
     with ppath.open("r") as fp:
+        cfg = fp.read()
+        print(cfg)
         assert (
-            fp.read()
+            cfg
             == """\
 tracks = [
-    { uuid = "iloveloona", description_meta = "Carly Rae Jepsen - Track 1" },
-    { uuid = "ilovetwice", description_meta = "Carly Rae Jepsen - Track 2" },
+    { uuid = "iloveloona", description_meta = "[1990-02-05] Carly Rae Jepsen - Track 1" },
+    { uuid = "ilovetwice", description_meta = "[1990-02-05] Carly Rae Jepsen - Track 2" },
 ]
 """
         )

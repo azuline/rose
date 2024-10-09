@@ -1410,10 +1410,9 @@ def update_cache_for_collages(
                     release_ids,
                 )
                 for row in cursor:
+                    meta = f"[{releasedate}]" if (releasedate := RoseDate.parse(row["releasedate"])) else "[0000-00-00]"
                     artists = _unpack_artists(c, row["releaseartist_names"], row["releaseartist_roles"])
-                    meta = f"{artistsfmt(artists)} - "
-                    if releasedate := RoseDate.parse(row["releasedate"]):
-                        meta += f"{releasedate.year}. "
+                    meta += f" {artistsfmt(artists)} - "
                     meta += row["releasetitle"]
                     desc_map[row["id"]] = meta
                 for i, rls in enumerate(releases):
@@ -1628,9 +1627,10 @@ def update_cache_for_playlists(
                     track_ids,
                 )
                 for row in cursor:
-                    title = row["tracktitle"]
+                    meta = f"[{releasedate}]" if (releasedate := RoseDate.parse(row["releasedate"])) else "[0000-00-00]"
                     artists = _unpack_artists(c, row["trackartist_names"], row["trackartist_roles"])
-                    desc_map[row["id"]] = f"{artistsfmt(artists)} - {title}"
+                    meta += f" {artistsfmt(artists)} - {row["tracktitle"]}"
+                    desc_map[row["id"]] = meta
                 for trk in tracks:
                     with contextlib.suppress(KeyError):
                         trk["description_meta"] = desc_map[trk["uuid"]]
