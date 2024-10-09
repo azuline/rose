@@ -14,7 +14,7 @@
     flake-utils.lib.eachDefaultSystem (system:
     let
       pkgs = import nixpkgs { inherit system; };
-      python-pin = pkgs.python311;
+      python-pin = pkgs.python312;
       version = nixpkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./rose-py/rose/.version);
       uuid6 = python-pin.pkgs.buildPythonPackage {
         pname = "uuid6-python";
@@ -46,7 +46,7 @@
           pytest-timeout
           pytest-cov
           pytest-xdist
-          snapshottest;
+          syrupy;
       };
       python-with-deps = python-pin.withPackages (_:
         pkgs.lib.attrsets.mapAttrsToList (a: b: b) py-deps
@@ -73,8 +73,8 @@
             name = "rose-devshell";
             paths = [
               pkgs.ruff
-              pkgs.nodePackages.pyright
               pkgs.nodePackages.prettier
+              pkgs.pyright
               python-with-deps
             ];
           })
