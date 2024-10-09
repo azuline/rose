@@ -744,13 +744,11 @@ def test_update_cache_releases_updates_full_text_search(config: Config) -> None:
             SELECT rowid, * FROM rules_engine_fts
             """
         )
-        print([dict(x) for x in cursor])
         cursor = conn.execute(
             """
             SELECT rowid, * FROM tracks
             """
         )
-        print([dict(x) for x in cursor])
     with connect(config) as conn:
         cursor = conn.execute(
             """
@@ -965,7 +963,6 @@ def test_update_releases_updates_collages_description_meta(config: Config, multi
     update_cache(config)
     with cpath.open("r") as fp:
         cfg = fp.read()
-        print(cfg)
         assert (
             cfg
             == """\
@@ -995,7 +992,6 @@ description_meta = "hahaha"
     update_cache_for_releases(config, force=True, force_multiprocessing=multiprocessing)
     with cpath.open("r") as fp:
         cfg = fp.read()
-        print(cfg)
         assert (
             cfg
             == """\
@@ -1018,7 +1014,6 @@ def test_update_tracks_updates_playlists_description_meta(config: Config, multip
     update_cache(config)
     with ppath.open("r") as fp:
         cfg = fp.read()
-        print(cfg)
         assert (
             cfg
             == """\
@@ -1048,7 +1043,6 @@ description_meta = "hahaha"
     update_cache_for_releases(config, force=True, force_multiprocessing=multiprocessing)
     with ppath.open("r") as fp:
         cfg = fp.read()
-        print(cfg)
         assert (
             cfg
             == """\
