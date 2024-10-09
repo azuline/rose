@@ -194,9 +194,7 @@ class MetadataArtist:
             try:
                 getattr(m, a.role.lower()).append(Artist(name=a.name))
             except AttributeError as e:
-                raise UnknownArtistRoleError(
-                    f"Failed to write tags: Unknown role for artist {a.name}: {a.role}"
-                ) from e
+                raise UnknownArtistRoleError(f"Failed to write tags: Unknown role for artist {a.name}: {a.role}") from e
         return m
 
 
@@ -315,14 +313,10 @@ def edit_release(
         if resume_file is not None:
             m = FAILED_RELEASE_EDIT_FILENAME_REGEX.match(resume_file.name)
             if not m:
-                raise InvalidReleaseEditResumeFileError(
-                    f"{resume_file.name} is not a valid release edit resume file"
-                )
+                raise InvalidReleaseEditResumeFileError(f"{resume_file.name} is not a valid release edit resume file")
             resume_uuid = m[1]
             if resume_uuid != release_id:
-                raise InvalidReleaseEditResumeFileError(
-                    f"{resume_file.name} is not associated with this release"
-                )
+                raise InvalidReleaseEditResumeFileError(f"{resume_file.name} is not associated with this release")
             with resume_file.open("r") as fp:
                 original_toml = fp.read()
         else:
@@ -539,7 +533,5 @@ def create_single_release(c: Config, track_path: Path) -> None:
             release_id = m[1]
             break
     else:
-        raise RoseError(
-            f"Impossible: Failed to parse release ID from newly created single directory {source_path}"
-        )
+        raise RoseError(f"Impossible: Failed to parse release ID from newly created single directory {source_path}")
     toggle_release_new(c, release_id)

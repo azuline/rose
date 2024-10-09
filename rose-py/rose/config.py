@@ -79,9 +79,7 @@ class VirtualFSConfig:
             mount_dir = Path(data["mount_dir"]).expanduser()
             del data["mount_dir"]
         except KeyError as e:
-            raise MissingConfigKeyError(
-                f"Missing key vfs.mount_dir in configuration file ({cfgpath})"
-            ) from e
+            raise MissingConfigKeyError(f"Missing key vfs.mount_dir in configuration file ({cfgpath})") from e
         except (ValueError, TypeError) as e:
             raise InvalidConfigValueError(
                 f"Invalid value for vfs.mount_dir in configuration file ({cfgpath}): must be a path"
@@ -233,14 +231,10 @@ class VirtualFSConfig:
             ) from e
 
         try:
-            hide_descriptors_with_only_new_releases = data[
-                "hide_descriptors_with_only_new_releases"
-            ]
+            hide_descriptors_with_only_new_releases = data["hide_descriptors_with_only_new_releases"]
             del data["hide_descriptors_with_only_new_releases"]
             if not isinstance(hide_descriptors_with_only_new_releases, bool):
-                raise ValueError(
-                    f"Must be a bool: got {type(hide_descriptors_with_only_new_releases)}"
-                )
+                raise ValueError(f"Must be a bool: got {type(hide_descriptors_with_only_new_releases)}")
         except KeyError:
             hide_descriptors_with_only_new_releases = False
         except ValueError as e:
@@ -312,17 +306,13 @@ class Config:
         except FileNotFoundError as e:
             raise ConfigNotFoundError(f"Configuration file not found ({cfgpath})") from e
         except tomllib.TOMLDecodeError as e:
-            raise ConfigDecodeError(
-                f"Failed to decode configuration file: invalid TOML: {e}"
-            ) from e
+            raise ConfigDecodeError(f"Failed to decode configuration file: invalid TOML: {e}") from e
 
         try:
             music_source_dir = Path(data["music_source_dir"]).expanduser()
             del data["music_source_dir"]
         except KeyError as e:
-            raise MissingConfigKeyError(
-                f"Missing key music_source_dir in configuration file ({cfgpath})"
-            ) from e
+            raise MissingConfigKeyError(f"Missing key music_source_dir in configuration file ({cfgpath})") from e
         except (ValueError, TypeError) as e:
             raise InvalidConfigValueError(
                 f"Invalid value for music_source_dir in configuration file ({cfgpath}): must be a path"
@@ -359,9 +349,7 @@ class Config:
                     raise ValueError(f"Artists must be of type str: got {type(entry['artist'])}")
                 artist_aliases_map[entry["artist"]] = entry["aliases"]
                 if not isinstance(entry["aliases"], list):
-                    raise ValueError(
-                        f"Aliases must be of type list[str]: got {type(entry['aliases'])}"
-                    )
+                    raise ValueError(f"Aliases must be of type list[str]: got {type(entry['aliases'])}")
                 for s in entry["aliases"]:
                     if not isinstance(s, str):
                         raise ValueError(f"Each alias must be of type str: got {type(s)}")
@@ -508,9 +496,7 @@ class Config:
             default_templates.track = PathTemplate(data["path_templates"]["default"]["track"])
             del data["path_templates"]["default"]["track"]
         with contextlib.suppress(KeyError):
-            default_templates.all_tracks = PathTemplate(
-                data["path_templates"]["default"]["all_tracks"]
-            )
+            default_templates.all_tracks = PathTemplate(data["path_templates"]["default"]["all_tracks"])
             del data["path_templates"]["default"]["all_tracks"]
         with contextlib.suppress(KeyError):
             if not data["path_templates"]["default"]:
@@ -537,9 +523,7 @@ class Config:
                     getattr(path_templates, key).track = PathTemplate(tmpl_config[key]["track"])
                     del tmpl_config[key]["track"]
                 with contextlib.suppress(KeyError):
-                    getattr(path_templates, key).all_tracks = PathTemplate(
-                        tmpl_config[key]["all_tracks"]
-                    )
+                    getattr(path_templates, key).all_tracks = PathTemplate(tmpl_config[key]["all_tracks"])
                     del tmpl_config[key]["all_tracks"]
                 with contextlib.suppress(KeyError):
                     if not tmpl_config[key]:
@@ -568,9 +552,7 @@ class Config:
                     continue
                 unrecognized_accessors.append(accessor)
             if unrecognized_accessors:
-                logger.warning(
-                    f"Unrecognized options found in configuration file: {', '.join(unrecognized_accessors)}"
-                )
+                logger.warning(f"Unrecognized options found in configuration file: {', '.join(unrecognized_accessors)}")
 
         return Config(
             music_source_dir=music_source_dir,
@@ -608,6 +590,4 @@ class Config:
         try:
             self.path_templates.parse()
         except InvalidPathTemplateError as e:
-            raise InvalidConfigValueError(
-                f"Invalid path template in for template {e.key}: {e}"
-            ) from e
+            raise InvalidConfigValueError(f"Invalid path template in for template {e.key}: {e}") from e

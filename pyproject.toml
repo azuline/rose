@@ -1,8 +1,8 @@
 [tool.black]
-line-length = 100
+line-length = 120
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 src = ["."]
 exclude = [
   ".git",

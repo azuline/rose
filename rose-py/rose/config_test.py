@@ -303,8 +303,7 @@ def test_config_value_validation() -> None:
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
-            str(excinfo.value)
-            == f"Invalid value for music_source_dir in configuration file ({path}): must be a path"
+            str(excinfo.value) == f"Invalid value for music_source_dir in configuration file ({path}): must be a path"
         )
         config += '\nmusic_source_dir = "~/.music-src"'
 
@@ -312,10 +311,7 @@ def test_config_value_validation() -> None:
         write(config + "\ncache_dir = 123")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for cache_dir in configuration file ({path}): must be a path"
-        )
+        assert str(excinfo.value) == f"Invalid value for cache_dir in configuration file ({path}): must be a path"
         config += '\ncache_dir = "~/.cache/rose"'
 
         # max_proc
@@ -435,10 +431,7 @@ def test_config_value_validation() -> None:
             str(excinfo.value)
             == f"Invalid value in stored_metadata_rules in configuration file ({path}): list values must be a dict: got <class 'str'>"
         )
-        write(
-            config
-            + '\nstored_metadata_rules = [{ matcher = "tracktitle:hi", actions = ["delete:hi"] }]'
-        )
+        write(config + '\nstored_metadata_rules = [{ matcher = "tracktitle:hi", actions = ["delete:hi"] }]')
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
         assert (
@@ -494,10 +487,7 @@ def test_vfs_config_value_validation() -> None:
         write(config + "\nmount_dir = 123")
         with pytest.raises(InvalidConfigValueError) as excinfo:
             Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.mount_dir in configuration file ({path}): must be a path"
-        )
+        assert str(excinfo.value) == f"Invalid value for vfs.mount_dir in configuration file ({path}): must be a path"
         config += '\nmount_dir = "~/music"'
 
         # artists_whitelist

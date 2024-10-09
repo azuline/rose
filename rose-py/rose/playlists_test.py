@@ -30,9 +30,7 @@ def test_remove_track_from_playlist(config: Config, source_dir: Path) -> None:
 
     # Assert cache is updated.
     with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT track_id FROM playlists_tracks WHERE playlist_name = 'Lala Lisa'"
-        )
+        cursor = conn.execute("SELECT track_id FROM playlists_tracks WHERE playlist_name = 'Lala Lisa'")
         ids = [r["track_id"] for r in cursor]
         assert ids == ["ilovetwice"]
 
@@ -54,9 +52,7 @@ def test_playlist_lifecycle(config: Config, source_dir: Path) -> None:
         diskdata = tomllib.load(fp)
         assert {r["uuid"] for r in diskdata["tracks"]} == {"iloveloona"}
     with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT track_id FROM playlists_tracks WHERE playlist_name = 'You & Me'"
-        )
+        cursor = conn.execute("SELECT track_id FROM playlists_tracks WHERE playlist_name = 'You & Me'")
         assert {r["track_id"] for r in cursor} == {"iloveloona"}
 
     # Add another track.
@@ -65,9 +61,7 @@ def test_playlist_lifecycle(config: Config, source_dir: Path) -> None:
         diskdata = tomllib.load(fp)
         assert {r["uuid"] for r in diskdata["tracks"]} == {"iloveloona", "ilovetwice"}
     with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT track_id FROM playlists_tracks WHERE playlist_name = 'You & Me'"
-        )
+        cursor = conn.execute("SELECT track_id FROM playlists_tracks WHERE playlist_name = 'You & Me'")
         assert {r["track_id"] for r in cursor} == {"iloveloona", "ilovetwice"}
 
     # Delete one track.
@@ -76,9 +70,7 @@ def test_playlist_lifecycle(config: Config, source_dir: Path) -> None:
         diskdata = tomllib.load(fp)
         assert {r["uuid"] for r in diskdata["tracks"]} == {"iloveloona"}
     with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT track_id FROM playlists_tracks WHERE playlist_name = 'You & Me'"
-        )
+        cursor = conn.execute("SELECT track_id FROM playlists_tracks WHERE playlist_name = 'You & Me'")
         assert {r["track_id"] for r in cursor} == {"iloveloona"}
 
     # And delete the playlist.
@@ -203,9 +195,7 @@ missing = true
         assert {r["uuid"] for r in diskdata["tracks"]} == {"ghost", "iloveloona", "ilovetwice"}
         assert next(r for r in diskdata["tracks"] if r["uuid"] == "ghost")["missing"]
     with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT track_id FROM playlists_tracks WHERE playlist_name = 'You & Me'"
-        )
+        cursor = conn.execute("SELECT track_id FROM playlists_tracks WHERE playlist_name = 'You & Me'")
         assert {r["track_id"] for r in cursor} == {"ghost", "iloveloona", "ilovetwice"}
 
     # Delete that track.
@@ -215,9 +205,7 @@ missing = true
         assert {r["uuid"] for r in diskdata["tracks"]} == {"ghost", "iloveloona"}
         assert next(r for r in diskdata["tracks"] if r["uuid"] == "ghost")["missing"]
     with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT track_id FROM playlists_tracks WHERE playlist_name = 'You & Me'"
-        )
+        cursor = conn.execute("SELECT track_id FROM playlists_tracks WHERE playlist_name = 'You & Me'")
         assert {r["track_id"] for r in cursor} == {"ghost", "iloveloona"}
 
     # And delete the playlist.

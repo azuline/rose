@@ -530,21 +530,13 @@ def test_update_cache_releases_evicts_relations(config: Config) -> None:
     update_cache_for_releases(config, [release_dir], force=True)
     # Assert that all of the above were evicted.
     with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT EXISTS (SELECT * FROM releases_genres WHERE genre = 'lalala')"
-        )
+        cursor = conn.execute("SELECT EXISTS (SELECT * FROM releases_genres WHERE genre = 'lalala')")
         assert not cursor.fetchone()[0]
-        cursor = conn.execute(
-            "SELECT EXISTS (SELECT * FROM releases_labels WHERE label = 'lalala')"
-        )
+        cursor = conn.execute("SELECT EXISTS (SELECT * FROM releases_labels WHERE label = 'lalala')")
         assert not cursor.fetchone()[0]
-        cursor = conn.execute(
-            "SELECT EXISTS (SELECT * FROM releases_artists WHERE artist = 'lalala')"
-        )
+        cursor = conn.execute("SELECT EXISTS (SELECT * FROM releases_artists WHERE artist = 'lalala')")
         assert not cursor.fetchone()[0]
-        cursor = conn.execute(
-            "SELECT EXISTS (SELECT * FROM tracks_artists WHERE artist = 'lalala')"
-        )
+        cursor = conn.execute("SELECT EXISTS (SELECT * FROM tracks_artists WHERE artist = 'lalala')")
         assert not cursor.fetchone()[0]
 
 
@@ -712,12 +704,8 @@ def test_update_cache_rename_source_files_collisions(config: Config) -> None:
         config.music_source_dir / TEST_RELEASE_1.name / "01.m4a",
         config.music_source_dir / TEST_RELEASE_1.name / "haha.m4a",
     )
-    shutil.copytree(
-        config.music_source_dir / TEST_RELEASE_1.name, config.music_source_dir / "Number 2"
-    )
-    shutil.copytree(
-        config.music_source_dir / TEST_RELEASE_1.name, config.music_source_dir / "Number 3"
-    )
+    shutil.copytree(config.music_source_dir / TEST_RELEASE_1.name, config.music_source_dir / "Number 2")
+    shutil.copytree(config.music_source_dir / TEST_RELEASE_1.name, config.music_source_dir / "Number 3")
     update_cache(config)
 
     release_dirs = list(config.music_source_dir.iterdir())
@@ -734,14 +722,10 @@ def test_update_cache_rename_source_files_collisions(config: Config) -> None:
         assert expected_dir / "02. Track 2.m4a" in files_in_dir
 
         with connect(config) as conn:
-            cursor = conn.execute(
-                "SELECT id FROM releases WHERE source_path = ?", (str(expected_dir),)
-            )
+            cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(expected_dir),))
             release_id = cursor.fetchone()[0]
             assert release_id
-            cursor = conn.execute(
-                "SELECT source_path FROM tracks WHERE release_id = ?", (release_id,)
-            )
+            cursor = conn.execute("SELECT source_path FROM tracks WHERE release_id = ?", (release_id,))
             assert {Path(r[0]) for r in cursor} == {
                 expected_dir / "01. Track 1.m4a",
                 expected_dir / "01. Track 1 [2].m4a",
@@ -825,9 +809,7 @@ def test_update_cache_collages(config: Config) -> None:
         assert row["name"] == "Rose Gold"
         assert row["source_mtime"]
 
-        cursor = conn.execute(
-            "SELECT collage_name, release_id, position FROM collages_releases WHERE NOT missing"
-        )
+        cursor = conn.execute("SELECT collage_name, release_id, position FROM collages_releases WHERE NOT missing")
         rows = cursor.fetchall()
         assert len(rows) == 1
         row = rows[0]
@@ -936,9 +918,7 @@ def test_update_cache_playlists(config: Config) -> None:
         assert row["source_mtime"] is not None
         assert row["cover_path"] == str(config.music_source_dir / "!playlists" / "Lala Lisa.jpg")
 
-        cursor = conn.execute(
-            "SELECT playlist_name, track_id, position FROM playlists_tracks ORDER BY position"
-        )
+        cursor = conn.execute("SELECT playlist_name, track_id, position FROM playlists_tracks ORDER BY position")
         assert [dict(r) for r in cursor] == [
             {"playlist_name": "Lala Lisa", "track_id": "iloveloona", "position": 1},
             {"playlist_name": "Lala Lisa", "track_id": "ilovetwice", "position": 2},
@@ -973,9 +953,7 @@ def test_update_cache_playlists_missing_track_id(config: Config) -> None:
 
 
 @pytest.mark.parametrize("multiprocessing", [True, False])
-def test_update_releases_updates_collages_description_meta(
-    config: Config, multiprocessing: bool
-) -> None:
+def test_update_releases_updates_collages_description_meta(config: Config, multiprocessing: bool) -> None:
     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
     shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
@@ -1026,9 +1004,7 @@ releases = [
 
 
 @pytest.mark.parametrize("multiprocessing", [True, False])
-def test_update_tracks_updates_playlists_description_meta(
-    config: Config, multiprocessing: bool
-) -> None:
+def test_update_tracks_updates_playlists_description_meta(config: Config, multiprocessing: bool) -> None:
     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
     shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
     ppath = config.music_source_dir / "!playlists" / "Lala Lisa.toml"
@@ -1166,9 +1142,7 @@ def test_list_releases(config: Config) -> None:
                 "Western Classical Music",
             ],
             descriptors=["Wet"],
-            releaseartists=ArtistMapping(
-                main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]
-            ),
+            releaseartists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
             metahash="2",
         ),
         Release(
@@ -1414,9 +1388,7 @@ def test_list_tracks(config: Config) -> None:
             tracktotal=1,
             discnumber="01",
             duration_seconds=120,
-            trackartists=ArtistMapping(
-                main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]
-            ),
+            trackartists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
             metahash="3",
             release=Release(
                 id="r2",
@@ -1442,9 +1414,7 @@ def test_list_tracks(config: Config) -> None:
                     "Western Classical Music",
                 ],
                 descriptors=["Wet"],
-                releaseartists=ArtistMapping(
-                    main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]
-                ),
+                releaseartists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
                 metahash="2",
             ),
         ),
@@ -1585,9 +1555,7 @@ def test_list_artists(config: Config) -> None:
 def test_list_genres(config: Config) -> None:
     # Test the accumulator too.
     with connect(config) as conn:
-        conn.execute(
-            "INSERT INTO releases_genres (release_id, genre, position) VALUES ('r3', 'Classical Music', 1)"
-        )
+        conn.execute("INSERT INTO releases_genres (release_id, genre, position) VALUES ('r3', 'Classical Music', 1)")
     genres = list_genres(config)
     assert set(genres) == {
         GenreEntry("Techno", False),
@@ -1693,9 +1661,7 @@ def test_get_collage(config: Config) -> None:
                 "Western Classical Music",
             ],
             descriptors=["Wet"],
-            releaseartists=ArtistMapping(
-                main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]
-            ),
+            releaseartists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
             metahash="2",
         ),
     ]
@@ -1777,9 +1743,7 @@ def test_get_playlist(config: Config) -> None:
             tracktotal=1,
             discnumber="01",
             duration_seconds=120,
-            trackartists=ArtistMapping(
-                main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]
-            ),
+            trackartists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
             metahash="3",
             release=Release(
                 id="r2",
@@ -1805,9 +1769,7 @@ def test_get_playlist(config: Config) -> None:
                     "Western Classical Music",
                 ],
                 descriptors=["Wet"],
-                releaseartists=ArtistMapping(
-                    main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]
-                ),
+                releaseartists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
                 metahash="2",
             ),
         ),

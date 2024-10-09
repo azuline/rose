@@ -207,10 +207,7 @@ def test_format_artist_string() -> None:
         )
         == "A;B feat. C;D"
     )
-    assert (
-        format_artist_string(ArtistMapping(djmixer=[Artist("A")], main=[Artist("C"), Artist("D")]))
-        == "A pres. C;D"
-    )
+    assert format_artist_string(ArtistMapping(djmixer=[Artist("A")], main=[Artist("C"), Artist("D")])) == "A pres. C;D"
     assert (
         format_artist_string(ArtistMapping(composer=[Artist("A")], main=[Artist("C"), Artist("D")]))
         == "A performed by C;D"

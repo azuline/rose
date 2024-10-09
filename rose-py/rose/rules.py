@@ -106,9 +106,7 @@ def execute_metadata_rule(
     if len(fast_search_results) > 400:
         time_start = time.time()
         tracks = list_tracks(c, [t.id for t in fast_search_results])
-        logger.debug(
-            f"Fetched tracks from cache for filtering in {time.time() - time_start} seconds"
-        )
+        logger.debug(f"Fetched tracks from cache for filtering in {time.time() - time_start} seconds")
         tracks = filter_track_false_positives_using_read_cache(rule.matcher, tracks)
         track_ids = {x.id for x in tracks}
         fast_search_results = [t for t in fast_search_results if t.id in track_ids]
@@ -189,9 +187,7 @@ def fast_search_for_matching_tracks(
                     path=Path(row["source_path"]).resolve(),
                 )
             )
-    logger.debug(
-        f"Matched {len(results)} tracks from the read cache in {time.time() - time_start} seconds"
-    )
+    logger.debug(f"Matched {len(results)} tracks from the read cache in {time.time() - time_start} seconds")
     return results
 
 
@@ -326,9 +322,7 @@ def _get_release_datafile_of_directory(d: Path) -> StoredDataFile:
             diskdata = tomllib.load(fp)
         return StoredDataFile(
             new=diskdata.get("new", True),
-            added_at=diskdata.get(
-                "added_at", datetime.now().astimezone().replace(microsecond=0).isoformat()
-            ),
+            added_at=diskdata.get("added_at", datetime.now().astimezone().replace(microsecond=0).isoformat()),
         )
     raise RoseError(f"Release data file not found in {d}. How is it in the library?")
 
@@ -529,9 +523,7 @@ def execute_metadata_actions(
             datafile_changes.extend(potential_datafile_changes)
 
         if not tag_changes and not (datafile and potential_datafile_changes):
-            logger.debug(
-                f"Skipping matched track {tags.path}: no changes calculated off tags and datafile"
-            )
+            logger.debug(f"Skipping matched track {tags.path}: no changes calculated off tags and datafile")
 
     if not actionable_audiotags and not actionable_datafiles:
         click.secho("No matching tracks found", dim=True, italic=True)
@@ -601,9 +593,7 @@ def execute_metadata_actions(
 
     # === Step 5: Flush writes to disk ===
 
-    logger.info(
-        f"Writing tag changes for actions {' '.join([shlex.quote(str(a)) for a in actions])}"
-    )
+    logger.info(f"Writing tag changes for actions {' '.join([shlex.quote(str(a)) for a in actions])}")
     changed_release_ids: set[str] = set()
     for tags, tag_changes in actionable_audiotags:
         if tags.release_id:
@@ -686,9 +676,7 @@ def execute_single_action(
         return bhv.src.sub(bhv.dst, strvalue)
     elif isinstance(bhv, DeleteAction):
         return None
-    raise RoseError(
-        f"Invalid action {type(bhv)} for single-value tag: Should have been caught in parsing"
-    )
+    raise RoseError(f"Invalid action {type(bhv)} for single-value tag: Should have been caught in parsing")
 
 
 def execute_multi_value_action(
@@ -767,9 +755,7 @@ def fast_search_for_matching_releases(
     with connect(c) as conn:
         for row in conn.execute(query):
             results.append(FastSearchResult(id=row["id"], path=Path(row["source_path"]).resolve()))
-    logger.debug(
-        f"Matched {len(results)} releases from the read cache in {time.time() - time_start} seconds"
-    )
+    logger.debug(f"Matched {len(results)} releases from the read cache in {time.time() - time_start} seconds")
     return results
 
 
@@ -818,9 +804,7 @@ def filter_track_false_positives_using_read_cache(
             if match:
                 rval.append(t)
                 break
-    logger.debug(
-        f"Filtered {len(tracks)} tracks down to {len(rval)} tracks in {time.time() - time_start} seconds"
-    )
+    logger.debug(f"Filtered {len(tracks)} tracks down to {len(rval)} tracks in {time.time() - time_start} seconds")
     return rval
 
 

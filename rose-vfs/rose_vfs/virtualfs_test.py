@@ -420,12 +420,7 @@ def test_virtual_filesystem_read_from_deleted_file(config: Config, source_dir: P
     FUSEError translations.
     """
     source_path = source_dir / "Test Release 1" / "01.m4a"
-    fuse_path = (
-        config.vfs.mount_dir
-        / "1. Releases"
-        / "BLACKPINK - 1990. I Love Blackpink [NEW]"
-        / "01. Track 1.m4a"
-    )
+    fuse_path = config.vfs.mount_dir / "1. Releases" / "BLACKPINK - 1990. I Love Blackpink [NEW]" / "01. Track 1.m4a"
 
     source_path.unlink()
     with start_virtual_fs(config):

@@ -75,15 +75,11 @@ def rename_playlist(c: Config, old_name: str, new_name: str) -> None:
         for old_adjacent_file in (c.music_source_dir / "!playlists").iterdir():
             if old_adjacent_file.stem != old_path.stem:
                 continue
-            new_adjacent_file = old_adjacent_file.with_name(
-                new_path.stem + old_adjacent_file.suffix
-            )
+            new_adjacent_file = old_adjacent_file.with_name(new_path.stem + old_adjacent_file.suffix)
             if new_adjacent_file.exists():
                 continue
             old_adjacent_file.rename(new_adjacent_file)
-            logger.debug(
-                "Renaming playlist-adjacent file {old_adjacent_file} to {new_adjacent_file}"
-            )
+            logger.debug("Renaming playlist-adjacent file {old_adjacent_file} to {new_adjacent_file}")
     update_cache_for_playlists(c, [new_name], force=True)
     update_cache_evict_nonexistent_playlists(c)
 
@@ -183,8 +179,7 @@ def edit_playlist_in_editor(c: Config, playlist_name: str) -> None:
                 uuid = uuid_mapping[desc]
             except KeyError as e:
                 raise DescriptionMismatchError(
-                    f"Track {desc} does not match a known track in the playlist. "
-                    "Was the line edited?"
+                    f"Track {desc} does not match a known track in the playlist. Was the line edited?"
                 ) from e
             edited_tracks.append({"uuid": uuid, "description_meta": desc})
         data["tracks"] = edited_tracks

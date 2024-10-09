@@ -74,13 +74,7 @@ class ArtistMapping:
     @property
     def all(self) -> list[Artist]:
         return uniq(
-            self.main
-            + self.guest
-            + self.remixer
-            + self.producer
-            + self.composer
-            + self.conductor
-            + self.djmixer
+            self.main + self.guest + self.remixer + self.producer + self.composer + self.conductor + self.djmixer
         )
 
     def dump(self) -> dict[str, Any]:
@@ -199,9 +193,7 @@ def initialize_logging(logger_name: str) -> None:
         )
 
         stream_handler = logging.StreamHandler(sys.stderr)
-        stream_handler.setFormatter(
-            simple_formatter if not log_despite_testing else verbose_formatter
-        )
+        stream_handler.setFormatter(simple_formatter if not log_despite_testing else verbose_formatter)
         logger.addHandler(stream_handler)
 
         file_handler = logging.handlers.RotatingFileHandler(

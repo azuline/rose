@@ -336,9 +336,7 @@ class VirtualPath:
             if len(parts) == 3:
                 return VirtualPath(view="Descriptors", descriptor=parts[1], release=parts[2])
             if len(parts) == 4:
-                return VirtualPath(
-                    view="Descriptors", descriptor=parts[1], release=parts[2], file=parts[3]
-                )
+                return VirtualPath(view="Descriptors", descriptor=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "5. Labels":
@@ -360,9 +358,7 @@ class VirtualPath:
             if len(parts) == 3:
                 return VirtualPath(view="Collages", collage=parts[1], release=parts[2])
             if len(parts) == 4:
-                return VirtualPath(
-                    view="Collages", collage=parts[1], release=parts[2], file=parts[3]
-                )
+                return VirtualPath(view="Collages", collage=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "7. Playlists":
@@ -526,9 +522,7 @@ class VirtualNameGenerator:
             time_start = time.time()
             self._release_store[(release_parent, vname)] = release.id
             seen.add(vname)
-            logger.debug(
-                f"VNAMES: Time cost of storing the virtual dirname: {time.time()-time_start=} seconds"
-            )
+            logger.debug(f"VNAMES: Time cost of storing the virtual dirname: {time.time()-time_start=} seconds")
 
             yield release, vname
 
@@ -660,9 +654,7 @@ class VirtualNameGenerator:
             time_start = time.time()
             self._track_store[(track_parent, vname)] = track.id
             seen.add(vname)
-            logger.debug(
-                f"VNAMES: Time cost of storing the virtual filename: {time.time()-time_start=} seconds"
-            )
+            logger.debug(f"VNAMES: Time cost of storing the virtual filename: {time.time()-time_start=} seconds")
 
             yield track, vname
 
@@ -717,17 +709,11 @@ class Sanitizer:
             return self._to_unsanitized[sanitized]
 
         # This should never happen for a valid path.
-        logger.debug(
-            f"SANITIZER: Failed to find corresponding unsanitized string for '{sanitized}'."
-        )
-        logger.debug(
-            f"SANITIZER: Invoking readdir before retrying unsanitized resolution on {sanitized}"
-        )
+        logger.debug(f"SANITIZER: Failed to find corresponding unsanitized string for '{sanitized}'.")
+        logger.debug(f"SANITIZER: Invoking readdir before retrying unsanitized resolution on {sanitized}")
         # Performant way to consume an iterator completely.
         collections.deque(self._rose.readdir(parent), maxlen=0)
-        logger.debug(
-            f"SANITIZER: Finished readdir call: retrying file virtual name resolution on {sanitized}"
-        )
+        logger.debug(f"SANITIZER: Finished readdir call: retrying file virtual name resolution on {sanitized}")
         try:
             return self._to_unsanitized[sanitized]
         except KeyError as e:
@@ -869,9 +855,7 @@ class RoseLogicalCore:
         #
         # The state is a mapping of fh -> (operation, identifier, ext, bytes). Identifier is typed
         # based on the operation, and is used to identify the playlist/release being modified.
-        self.file_creation_special_ops: dict[
-            int, tuple[FileCreationSpecialOp, Any, str, bytearray]
-        ] = {}
+        self.file_creation_special_ops: dict[int, tuple[FileCreationSpecialOp, Any, str, bytearray]] = {}
         # We want to trigger a cache update whenever we notice that a file has been updated through
         # the virtual filesystem. To do this, we insert the file handle and release ID on open, and
         # then trigger the cache update on release. We use this variable to transport that state
@@ -905,14 +889,10 @@ class RoseLogicalCore:
         """Common logic that gets called for each track."""
         track_id = self.vnames.lookup_track(p)
         if not track_id:
-            logger.debug(
-                f"LOGICAL: Invoking readdir before retrying file virtual name resolution on {p}"
-            )
+            logger.debug(f"LOGICAL: Invoking readdir before retrying file virtual name resolution on {p}")
             # Performant way to consume an iterator completely.
             collections.deque(self.readdir(p.track_parent), maxlen=0)
-            logger.debug(
-                f"LOGICAL: Finished readdir call: retrying file virtual name resolution on {p}"
-            )
+            logger.debug(f"LOGICAL: Finished readdir call: retrying file virtual name resolution on {p}")
             track_id = self.vnames.lookup_track(p)
             if not track_id:
                 raise llfuse.FUSEError(errno.ENOENT)
@@ -923,14 +903,10 @@ class RoseLogicalCore:
         """Common logic that gets called for each release."""
         release_id = self.vnames.lookup_release(p)
         if not release_id:
-            logger.debug(
-                f"LOGICAL: Invoking readdir before retrying release virtual name resolution on {p}"
-            )
+            logger.debug(f"LOGICAL: Invoking readdir before retrying release virtual name resolution on {p}")
             # Performant way to consume an iterator completely.
             collections.deque(self.readdir(p.release_parent), maxlen=0)
-            logger.debug(
-                f"LOGICAL: Finished readdir call: retrying release virtual name resolution on {p}"
-            )
+            logger.debug(f"LOGICAL: Finished readdir call: retrying release virtual name resolution on {p}")
             release_id = self.vnames.lookup_release(p)
             if not release_id:
                 raise llfuse.FUSEError(errno.ENOENT)
@@ -955,9 +931,7 @@ class RoseLogicalCore:
             raise llfuse.FUSEError(errno.ENOENT)
         if track := get_track(self.config, track_id):
             return self.stat("file", track.source_path)
-        raise RoseError(
-            "Impossible: Resolved track_id after track_within_release check does not exist"
-        )
+        raise RoseError("Impossible: Resolved track_id after track_within_release check does not exist")
 
     def getattr(self, p: VirtualPath) -> dict[str, Any]:
         logger.debug(f"LOGICAL: Received getattr for {p=}")
@@ -975,9 +949,7 @@ class RoseLogicalCore:
                     raise llfuse.FUSEError(errno.ENOENT)
                 if track := get_track(self.config, track_id):
                     return self.stat("file", track.source_path)
-                raise RoseError(
-                    "Impossible: Resolved track_id after track_within_playlist check does not exist"
-                )
+                raise RoseError("Impossible: Resolved track_id after track_within_playlist check does not exist")
             return self.stat("dir")
 
         # 6. Collages
@@ -1004,9 +976,7 @@ class RoseLogicalCore:
             if p.release == ALL_TRACKS:
                 if not p.file:
                     return self.stat("dir")
-                if (track := get_track(self.config, self._get_track_id(p))) and (
-                    p.label in track.release.labels
-                ):
+                if (track := get_track(self.config, self._get_track_id(p))) and (p.label in track.release.labels):
                     return self.stat("file", track.source_path)
                 raise llfuse.FUSEError(errno.ENOENT)
             if p.release:
@@ -1059,9 +1029,7 @@ class RoseLogicalCore:
                 if not p.file:
                     return self.stat("dir")
                 if (track := get_track(self.config, self._get_track_id(p))) and any(
-                    p.artist == a.name
-                    for _, artists in track.release.releaseartists.items()
-                    for a in artists
+                    p.artist == a.name for _, artists in track.release.releaseartists.items() for a in artists
                 ):
                     return self.stat("file", track.source_path)
                 raise llfuse.FUSEError(errno.ENOENT)
@@ -1074,9 +1042,7 @@ class RoseLogicalCore:
             if p.release == ALL_TRACKS:
                 if not p.file:
                     return self.stat("dir")
-                if (track := get_track(self.config, self._get_track_id(p))) and (
-                    p.view != "New" or track.release.new
-                ):
+                if (track := get_track(self.config, self._get_track_id(p))) and (p.view != "New" or track.release.new):
                     return self.stat("file", track.source_path)
                 raise llfuse.FUSEError(errno.ENOENT)
             return self._getattr_release(p)
@@ -1118,11 +1084,7 @@ class RoseLogicalCore:
             return
 
         if p.release == ALL_TRACKS and (
-            p.artist
-            or p.genre
-            or p.descriptor
-            or p.label
-            or p.view in ["Releases", "Released On", "Added On", "New"]
+            p.artist or p.genre or p.descriptor or p.label or p.view in ["Releases", "Released On", "Added On", "New"]
         ):
             matcher = None
             if p.artist:
@@ -1136,11 +1098,7 @@ class RoseLogicalCore:
             if p.view == "New":
                 matcher = Matcher(["new"], Pattern("true", strict=True))
 
-            tracks = (
-                find_tracks_matching_rule(self.config, matcher)
-                if matcher
-                else list_tracks(self.config)
-            )
+            tracks = find_tracks_matching_rule(self.config, matcher) if matcher else list_tracks(self.config)
             for trk, vname in self.vnames.list_track_paths(p, tracks):
                 yield vname, self.stat("file", trk.source_path)
             return
@@ -1153,9 +1111,7 @@ class RoseLogicalCore:
             return
 
         if p.release:
-            if (release_id := self.vnames.lookup_release(p)) and (
-                release := get_release(self.config, release_id)
-            ):
+            if (release_id := self.vnames.lookup_release(p)) and (release := get_release(self.config, release_id)):
                 tracks = get_tracks_of_release(self.config, release)
                 for trk, vname in self.vnames.list_track_paths(p, tracks):
                     yield vname, self.stat("file", trk.source_path)
@@ -1168,13 +1124,7 @@ class RoseLogicalCore:
                 return
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if (
-            p.artist
-            or p.genre
-            or p.descriptor
-            or p.label
-            or p.view in ["Releases", "New", "Added On", "Released On"]
-        ):
+        if p.artist or p.genre or p.descriptor or p.label or p.view in ["Releases", "New", "Added On", "Released On"]:
             matcher = None
             if p.artist:
                 matcher = Matcher(["releaseartist"], Pattern(p.artist, strict=True))
@@ -1187,11 +1137,7 @@ class RoseLogicalCore:
             if p.view == "New":
                 matcher = Matcher(["new"], Pattern("true", strict=True))
 
-            releases = (
-                find_releases_matching_rule(self.config, matcher)
-                if matcher
-                else list_releases(self.config)
-            )
+            releases = find_releases_matching_rule(self.config, matcher) if matcher else list_releases(self.config)
 
             yield ALL_TRACKS, self.stat("dir")
             for rls, vname in self.vnames.list_release_paths(p, releases):
@@ -1323,12 +1269,7 @@ class RoseLogicalCore:
         if p.view == "Collages" and p.collage and p.release is None:
             delete_collage(self.config, p.collage)
             return
-        if (
-            p.view == "Collages"
-            and p.collage
-            and p.release
-            and (release_id := self.vnames.lookup_release(p))
-        ):
+        if p.view == "Collages" and p.collage and p.release and (release_id := self.vnames.lookup_release(p)):
             remove_release_from_collage(self.config, p.collage, release_id)
             return
         if p.view == "Playlists" and p.playlist and p.file is None:
@@ -1394,9 +1335,7 @@ class RoseLogicalCore:
             add_release_to_collage(self.config, p.collage, release_id)
             return self.fhandler.dev_null
         if p.release == ALL_TRACKS and p.file:
-            if (track_id := self.vnames.lookup_track(p)) and (
-                track := get_track(self.config, track_id)
-            ):
+            if (track_id := self.vnames.lookup_track(p)) and (track := get_track(self.config, track_id)):
                 fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
                 if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
                     self.update_release_on_fh_close[fh] = track.release.id
@@ -1409,9 +1348,7 @@ class RoseLogicalCore:
             and (release := get_release(self.config, release_id))
         ):
             # If the file is a music file, handle it as a music file.
-            if (track_id := self.vnames.lookup_track(p)) and (
-                track := get_track(self.config, track_id)
-            ):
+            if (track_id := self.vnames.lookup_track(p)) and (track := get_track(self.config, track_id)):
                 fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
                 if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
                     self.update_release_on_fh_close[fh] = release.id
@@ -1431,10 +1368,7 @@ class RoseLogicalCore:
                     releasedate=release.releasedate,
                     artists=release.releaseartists,
                 )
-                logger.debug(
-                    f"LOGICAL: Begin new cover art sequence for release "
-                    f"{logtext=}, {p.file=}, and {fh=}"
-                )
+                logger.debug(f"LOGICAL: Begin new cover art sequence for release " f"{logtext=}, {p.file=}, and {fh=}")
                 self.file_creation_special_ops[fh] = (
                     "new-cover-art",
                     ("release", release.id),
@@ -1468,8 +1402,7 @@ class RoseLogicalCore:
             if p.file.lower() in self.config.valid_cover_arts and flags & os.O_CREAT == os.O_CREAT:
                 fh = self.fhandler.next()
                 logger.debug(
-                    f"LOGICAL: Begin new cover art sequence for playlist"
-                    f"{playlist.name=}, {p.file=}, and {fh=}"
+                    f"LOGICAL: Begin new cover art sequence for playlist" f"{playlist.name=}, {p.file=}, and {fh=}"
                 )
                 self.file_creation_special_ops[fh] = (
                     "new-cover-art",
@@ -1479,9 +1412,7 @@ class RoseLogicalCore:
                 )
                 return fh
             # Otherwise, continue on...
-            if (track_id := self.vnames.lookup_track(p)) and (
-                track := get_track(self.config, track_id)
-            ):
+            if (track_id := self.vnames.lookup_track(p)) and (track := get_track(self.config, track_id)):
                 fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
                 if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
                     self.update_release_on_fh_close[fh] = track.release.id
@@ -1543,9 +1474,7 @@ class RoseLogicalCore:
             if operation == "new-cover-art":
                 entity_type, entity_id = ident
                 if entity_type == "release":
-                    logger.debug(
-                        "LOGICAL: Narrowed file creation special op to write release cover art"
-                    )
+                    logger.debug("LOGICAL: Narrowed file creation special op to write release cover art")
                     with tempfile.TemporaryDirectory() as tmpdir:
                         imagepath = Path(tmpdir) / f"f{ext}"
                         with imagepath.open("wb") as fp:
@@ -1554,9 +1483,7 @@ class RoseLogicalCore:
                     del self.file_creation_special_ops[fh]
                     return
                 if entity_type == "playlist":
-                    logger.debug(
-                        "LOGICAL: Narrowed file creation special op to write playlist cover art"
-                    )
+                    logger.debug("LOGICAL: Narrowed file creation special op to write playlist cover art")
                     with tempfile.TemporaryDirectory() as tmpdir:
                         imagepath = Path(tmpdir) / f"f{ext}"
                         with imagepath.open("wb") as fp:
@@ -1566,9 +1493,7 @@ class RoseLogicalCore:
                     return
             raise RoseError(f"Impossible: unknown file creation special op: {operation=} {ident=}")
         if release_id := self.update_release_on_fh_close.get(fh, None):
-            logger.debug(
-                f"LOGICAL: Triggering cache update for release {release_id} after release syscall"
-            )
+            logger.debug(f"LOGICAL: Triggering cache update for release {release_id} after release syscall")
             if release := get_release(self.config, release_id):
                 update_cache_for_releases(self.config, [release.source_path])
         fh = self.fhandler.unwrap_host(fh)
@@ -1759,9 +1684,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         # For performance, pull from the lookup cache if possible.
         with contextlib.suppress(KeyError):
             attrs = self.lookup_cache[(parent_inode, name)]
-            logger.debug(
-                f"FUSE: Resolved lookup {parent_inode=}/{name=} to {attrs.__getstate__()=}"
-            )
+            logger.debug(f"FUSE: Resolved lookup {parent_inode=}/{name=} to {attrs.__getstate__()=}")
             return attrs
         spath = self.inodes.get_path(parent_inode, name)
         inode = self.inodes.calc_inode(spath)
@@ -1849,9 +1772,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         # We black hole all files written to an in-progress collage addition, EXCEPT for the Rose
         # datafile, which we pass through to RoseLogicalCore.
         if self.in_progress_collage_additions.get(str(spath.parent), False) and not (
-            vpath.file
-            and STORED_DATA_FILE_REGEX.match(vpath.file)
-            and flags & os.O_CREAT == os.O_CREAT
+            vpath.file and STORED_DATA_FILE_REGEX.match(vpath.file) and flags & os.O_CREAT == os.O_CREAT
         ):
             logger.debug(f"FUSE: Resolved open for {spath=} as in progress collage addition")
             self.ghost_existing_files[str(spath)] = True
@@ -1954,9 +1875,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             # If we're creating a release in a collage, then this is the collage addition sequence.
             # Flag the directory and exit with the standard response. See the comment in __init__ to
             # learn more.
-            logger.debug(
-                f"FUSE: Setting {spath=} as in progress collage addition for next 5 seconds"
-            )
+            logger.debug(f"FUSE: Setting {spath=} as in progress collage addition for next 5 seconds")
             self.in_progress_collage_additions[str(spath)] = True
             inode = self.inodes.calc_inode(spath)
             attrs = self.rose.stat("dir")
@@ -1997,8 +1916,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         _: Any,
     ) -> None:
         logger.debug(
-            f"FUSE: Received rename for {old_parent_inode=}/{old_name=} "
-            f"to {new_parent_inode=}/{new_name=}"
+            f"FUSE: Received rename for {old_parent_inode=}/{old_name=} " f"to {new_parent_inode=}/{new_name=}"
         )
         old_spath = self.inodes.get_path(old_parent_inode, old_name)
         new_spath = self.inodes.get_path(new_parent_inode, new_name)
@@ -2008,9 +1926,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         )
         old_vpath = VirtualPath.parse(old_spath)
         new_vpath = VirtualPath.parse(new_spath)
-        logger.debug(
-            f"FUSE: Parsed rmdir {old_spath=} to {old_vpath=} and {old_vpath=} to {new_vpath=}"
-        )
+        logger.debug(f"FUSE: Parsed rmdir {old_spath=} to {old_vpath=} and {old_vpath=} to {new_vpath=}")
         try:
             self.rose.rename(old_vpath, new_vpath)
         except OSError as e:

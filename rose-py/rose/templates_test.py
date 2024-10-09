@@ -77,19 +77,13 @@ def test_default_templates() -> None:
     release = deepcopy(EMPTY_CACHED_RELEASE)
     release.releasetitle = "Title"
     assert evaluate_release_template(templates.source.release, release) == "Unknown Artists - Title"
-    assert (
-        evaluate_release_template(templates.collages.release, release, position="4")
-        == "4. Unknown Artists - Title"
-    )
+    assert evaluate_release_template(templates.collages.release, release, position="4") == "4. Unknown Artists - Title"
 
     track = deepcopy(EMPTY_CACHED_TRACK)
     track.tracknumber = "2"
     track.tracktitle = "Trick"
     assert evaluate_track_template(templates.source.track, track) == "02. Trick.m4a"
-    assert (
-        evaluate_track_template(templates.playlists, track, position="4")
-        == "4. Unknown Artists - Trick.m4a"
-    )
+    assert evaluate_track_template(templates.playlists, track, position="4") == "4. Unknown Artists - Trick.m4a"
 
     track = deepcopy(EMPTY_CACHED_TRACK)
     track.release.disctotal = 2
@@ -100,10 +94,7 @@ def test_default_templates() -> None:
         main=[Artist("Main")],
         guest=[Artist("Hi"), Artist("High"), Artist("Hye")],
     )
-    assert (
-        evaluate_track_template(templates.source.track, track)
-        == "04-02. Trick (feat. Hi, High & Hye).m4a"
-    )
+    assert evaluate_track_template(templates.source.track, track) == "04-02. Trick (feat. Hi, High & Hye).m4a"
     assert (
         evaluate_track_template(templates.playlists, track, position="4")
         == "4. Main (feat. Hi, High & Hye) - Trick.m4a"

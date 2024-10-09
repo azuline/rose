@@ -749,9 +749,7 @@ def daemonize(pid_path: Path | None = None) -> None:
             except OSError:
                 logger.debug(f"Ignoring pid file with a pid that isn't running: {existing_pid}")
             else:
-                raise DaemonAlreadyRunningError(
-                    f"Daemon is already running in process {existing_pid}"
-                )
+                raise DaemonAlreadyRunningError(f"Daemon is already running in process {existing_pid}")
 
     pid = os.fork()
     if pid == 0:

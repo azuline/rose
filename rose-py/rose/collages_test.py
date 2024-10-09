@@ -26,9 +26,7 @@ def test_remove_release_from_collage(config: Config, source_dir: Path) -> None:
 
     # Assert cache is updated.
     with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT release_id FROM collages_releases WHERE collage_name = 'Rose Gold'"
-        )
+        cursor = conn.execute("SELECT release_id FROM collages_releases WHERE collage_name = 'Rose Gold'")
         ids = [r["release_id"] for r in cursor]
         assert ids == ["ilovenewjeans"]
 
@@ -50,9 +48,7 @@ def test_collage_lifecycle(config: Config, source_dir: Path) -> None:
         diskdata = tomllib.load(fp)
         assert {r["uuid"] for r in diskdata["releases"]} == {"ilovecarly"}
     with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT release_id FROM collages_releases WHERE collage_name = 'All Eyes'"
-        )
+        cursor = conn.execute("SELECT release_id FROM collages_releases WHERE collage_name = 'All Eyes'")
         assert {r["release_id"] for r in cursor} == {"ilovecarly"}
 
     # Add another release.
@@ -61,9 +57,7 @@ def test_collage_lifecycle(config: Config, source_dir: Path) -> None:
         diskdata = tomllib.load(fp)
         assert {r["uuid"] for r in diskdata["releases"]} == {"ilovecarly", "ilovenewjeans"}
     with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT release_id FROM collages_releases WHERE collage_name = 'All Eyes'"
-        )
+        cursor = conn.execute("SELECT release_id FROM collages_releases WHERE collage_name = 'All Eyes'")
         assert {r["release_id"] for r in cursor} == {"ilovecarly", "ilovenewjeans"}
 
     # Delete one release.
@@ -72,9 +66,7 @@ def test_collage_lifecycle(config: Config, source_dir: Path) -> None:
         diskdata = tomllib.load(fp)
         assert {r["uuid"] for r in diskdata["releases"]} == {"ilovecarly"}
     with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT release_id FROM collages_releases WHERE collage_name = 'All Eyes'"
-        )
+        cursor = conn.execute("SELECT release_id FROM collages_releases WHERE collage_name = 'All Eyes'")
         assert {r["release_id"] for r in cursor} == {"ilovecarly"}
 
     # And delete the collage.
@@ -159,9 +151,7 @@ missing = true
         assert {r["uuid"] for r in diskdata["releases"]} == {"ghost", "ilovecarly", "ilovenewjeans"}
         assert next(r for r in diskdata["releases"] if r["uuid"] == "ghost")["missing"]
     with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT release_id FROM collages_releases WHERE collage_name = 'Black Pink'"
-        )
+        cursor = conn.execute("SELECT release_id FROM collages_releases WHERE collage_name = 'Black Pink'")
         assert {r["release_id"] for r in cursor} == {"ghost", "ilovecarly", "ilovenewjeans"}
 
     # Delete that release.
@@ -171,9 +161,7 @@ missing = true
         assert {r["uuid"] for r in diskdata["releases"]} == {"ghost", "ilovecarly"}
         assert next(r for r in diskdata["releases"] if r["uuid"] == "ghost")["missing"]
     with connect(config) as conn:
-        cursor = conn.execute(
-            "SELECT release_id FROM collages_releases WHERE collage_name = 'Black Pink'"
-        )
+        cursor = conn.execute("SELECT release_id FROM collages_releases WHERE collage_name = 'Black Pink'")
         assert {r["release_id"] for r in cursor} == {"ghost", "ilovecarly"}
 
     # And delete the collage.

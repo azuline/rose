@@ -220,8 +220,7 @@ class PathTemplateConfig:
             ),
             releases_released_on=PathTemplateTriad(
                 release=PathTemplate(
-                    "[{{ originaldate or releasedate or '0000-00-00' }}] "
-                    + default_triad.release.text
+                    "[{{ originaldate or releasedate or '0000-00-00' }}] " + default_triad.release.text
                 ),
                 track=deepcopy(default_triad.track),
                 all_tracks=deepcopy(default_triad.all_tracks),
@@ -335,9 +334,7 @@ def evaluate_release_template(
     context: PathContext | None = None,
     position: str | None = None,
 ) -> str:
-    return _collapse_spacing(
-        template.compiled.render(context=context, **_calc_release_variables(release, position))
-    )
+    return _collapse_spacing(template.compiled.render(context=context, **_calc_release_variables(release, position)))
 
 
 def evaluate_track_template(
@@ -347,9 +344,7 @@ def evaluate_track_template(
     position: str | None = None,
 ) -> str:
     return (
-        _collapse_spacing(
-            template.compiled.render(context=context, **_calc_track_variables(track, position))
-        )
+        _collapse_spacing(template.compiled.render(context=context, **_calc_track_variables(track, position)))
         + track.source_path.suffix
     )
 
@@ -541,9 +536,7 @@ def get_sample_music(
     )
     bts_trk = Track(
         id="018b6021-f1e5-7d4b-b796-440fbbea3b15",
-        source_path=c.music_source_dir
-        / "BTS - 2016. Young Forever (花樣年華)"
-        / "02-05. House of Cards.opus",
+        source_path=c.music_source_dir / "BTS - 2016. Young Forever (花樣年華)" / "02-05. House of Cards.opus",
         source_mtime="999",
         tracktitle="House of Cards",
         tracknumber="5",

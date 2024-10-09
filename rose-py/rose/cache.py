@@ -169,16 +169,11 @@ def lock(c: Config, name: str, timeout: float = 1.0) -> Iterator[None]:
                 logger.debug(f"Attempting to acquire lock for {name} with timeout {timeout}")
                 valid_until = time.time() + timeout
                 try:
-                    conn.execute(
-                        "INSERT INTO locks (name, valid_until) VALUES (?, ?)", (name, valid_until)
-                    )
+                    conn.execute("INSERT INTO locks (name, valid_until) VALUES (?, ?)", (name, valid_until))
                 except sqlite3.IntegrityError as e:
                     logger.debug(f"Failed to acquire lock for {name}, trying again: {e}")
                     continue
-                logger.debug(
-                    f"Successfully acquired lock for {name} with timeout {timeout} "
-                    f"until {valid_until}"
-                )
+                logger.debug(f"Successfully acquired lock for {name} with timeout {timeout} " f"until {valid_until}")
                 break
         yield
     finally:
@@ -249,9 +244,7 @@ def cached_release_from_view(c: Config, row: dict[str, Any], aliases: bool = Tru
         parent_secondary_genres=_get_parent_genres(secondary_genres),
         descriptors=_split(row["descriptors"]) if row["descriptors"] else [],
         labels=_split(row["labels"]) if row["labels"] else [],
-        releaseartists=_unpack_artists(
-            c, row["releaseartist_names"], row["releaseartist_roles"], aliases=aliases
-        ),
+        releaseartists=_unpack_artists(c, row["releaseartist_names"], row["releaseartist_roles"], aliases=aliases),
         metahash=row["metahash"],
     )
 
@@ -380,15 +373,11 @@ def update_cache_for_releases(
 
     We also shard the directories across multiple processes and execute them simultaneously.
     """
-    release_dirs = release_dirs or [
-        Path(d.path) for d in os.scandir(c.music_source_dir) if d.is_dir()
-    ]
+    release_dirs = release_dirs or [Path(d.path) for d in os.scandir(c.music_source_dir) if d.is_dir()]
     release_dirs = [
         d
         for d in release_dirs
-        if d.name != "!collages"
-        and d.name != "!playlists"
-        and d.name not in c.ignore_release_directories
+        if d.name != "!collages" and d.name != "!playlists" and d.name not in c.ignore_release_directories
     ]
     if not release_dirs:
         logger.debug("No-Op: No whitelisted releases passed into update_cache_for_releases")
@@ -404,9 +393,7 @@ def update_cache_for_releases(
     # processes, as those processes always update the cache for one release at a time and are
     # multithreaded. Starting other processes from threads is bad!
     if not force_multiprocessing and len(release_dirs) < 50:
-        logger.debug(
-            f"Running cache update executor in same process because {len(release_dirs)=} < 50"
-        )
+        logger.debug(f"Running cache update executor in same process because {len(release_dirs)=} < 50")
         _update_cache_for_releases_executor(c, release_dirs, force)
         return
 
@@ -430,9 +417,7 @@ def update_cache_for_releases(
     with multiprocessing.Pool(processes=c.max_proc) as pool:
         # At 0, no batch. At 1, 1 batch. At 49, 1 batch. At 50, 1 batch. At 51, 2 batches.
         for i in range(0, len(release_dirs), batch_size):
-            logger.debug(
-                f"Spawning release cache update process for releases [{i}, {i+batch_size})"
-            )
+            logger.debug(f"Spawning release cache update process for releases [{i}, {i+batch_size})")
             pool.apply_async(
                 _update_cache_for_releases_executor,
                 (
@@ -575,9 +560,7 @@ def _update_cache_for_releases_executor(
         try:
             release, cached_tracks = cached_releases[preexisting_release_id or ""]
         except KeyError:
-            logger.debug(
-                f"First-time unidentified release found at release {source_path}, writing UUID and new"
-            )
+            logger.debug(f"First-time unidentified release found at release {source_path}, writing UUID and new")
             release_dirty = True
             release = Release(
                 id=preexisting_release_id or "",
@@ -728,9 +711,7 @@ def _update_cache_for_releases_executor(
                 track_mtime = str(os.stat(f).st_mtime)
                 # Skip re-read if we can reuse a cached entry.
                 if cached_track and track_mtime == cached_track.source_mtime and not force:
-                    logger.debug(
-                        f"Track cache hit (mtime) for {os.path.basename(f)}, reusing cached data"
-                    )
+                    logger.debug(f"Track cache hit (mtime) for {os.path.basename(f)}, reusing cached data")
                     tracks.append(cached_track)
                     totals_ctr[cached_track.discnumber] += 1
                     continue
@@ -739,9 +720,7 @@ def _update_cache_for_releases_executor(
                 logger.debug(f"Track cache miss for {os.path.basename(f)}, reading tags from disk")
                 tags = AudioTags.from_file(Path(f))
             except FileNotFoundError:
-                logger.warning(
-                    f"Skipping track update for {os.path.basename(f)}: file no longer exists"
-                )
+                logger.warning(f"Skipping track update for {os.path.basename(f)}: file no longer exists")
                 continue
 
             # Now that we're here, pull the release tags. We also need them to compute the
@@ -766,16 +745,12 @@ def _update_cache_for_releases_executor(
                     release_dirty = True
 
                 if tags.originaldate != release.originaldate:
-                    logger.debug(
-                        f"Release original year change detected for {source_path}, updating"
-                    )
+                    logger.debug(f"Release original year change detected for {source_path}, updating")
                     release.originaldate = tags.originaldate
                     release_dirty = True
 
                 if tags.compositiondate != release.compositiondate:
-                    logger.debug(
-                        f"Release composition year change detected for {source_path}, updating"
-                    )
+                    logger.debug(f"Release composition year change detected for {source_path}, updating")
                     release.compositiondate = tags.compositiondate
                     release_dirty = True
 
@@ -785,9 +760,7 @@ def _update_cache_for_releases_executor(
                     release_dirty = True
 
                 if tags.catalognumber != release.catalognumber:
-                    logger.debug(
-                        f"Release catalog number change detected for {source_path}, updating"
-                    )
+                    logger.debug(f"Release catalog number change detected for {source_path}, updating")
                     release.catalognumber = tags.catalognumber
                     release_dirty = True
 
@@ -797,9 +770,7 @@ def _update_cache_for_releases_executor(
                     release_dirty = True
 
                 if tags.secondarygenre != release.secondary_genres:
-                    logger.debug(
-                        f"Release secondary genre change detected for {source_path}, updating"
-                    )
+                    logger.debug(f"Release secondary genre change detected for {source_path}, updating")
                     release.secondary_genres = uniq(tags.secondarygenre)
                     release_dirty = True
 
@@ -842,9 +813,7 @@ def _update_cache_for_releases_executor(
                     track_id = tags.id
                     track_mtime = str(os.stat(f).st_mtime)
                 except FileNotFoundError:
-                    logger.warning(
-                        f"Skipping track update for {os.path.basename(f)}: file no longer exists"
-                    )
+                    logger.warning(f"Skipping track update for {os.path.basename(f)}: file no longer exists")
                     continue
 
             # And now create the cached track.
@@ -905,15 +874,11 @@ def _update_cache_for_releases_executor(
                     # If no collision, rename the directory.
                     old_source_path = release.source_path
                     old_source_path.rename(new_source_path)
-                    logger.info(
-                        f"Renamed source release directory {old_source_path.name} to {new_source_path.name}"
-                    )
+                    logger.info(f"Renamed source release directory {old_source_path.name} to {new_source_path.name}")
                     release.source_path = new_source_path
                     # Update the cached cover image path.
                     if release.cover_image_path:
-                        coverlocalpath = str(release.cover_image_path).removeprefix(
-                            f"{old_source_path}/"
-                        )
+                        coverlocalpath = str(release.cover_image_path).removeprefix(f"{old_source_path}/")
                         release.cover_image_path = release.source_path / coverlocalpath
                     # Update the cached track paths and schedule them for database insertions.
                     for track in tracks:
@@ -934,10 +899,10 @@ def _update_cache_for_releases_executor(
                 ) and wanted_filename != relpath:
                     new_source_path = release.source_path / wanted_filename
                     if new_source_path.exists():
-                        new_max_len = c.max_filename_bytes - (
-                            3 + len(str(collision_no)) + len(original_wanted_suffix)
+                        new_max_len = c.max_filename_bytes - (3 + len(str(collision_no)) + len(original_wanted_suffix))
+                        wanted_filename = (
+                            f"{original_wanted_stem[:new_max_len]} [{collision_no}]{original_wanted_suffix}"
                         )
-                        wanted_filename = f"{original_wanted_stem[:new_max_len]} [{collision_no}]{original_wanted_suffix}"
                         collision_no += 1
                         continue
                     old_source_path = track.source_path
@@ -1433,9 +1398,7 @@ def update_cache_for_collages(
                         del rls["missing"]
 
                 release_ids = [r["uuid"] for r in releases]
-                logger.debug(
-                    f"Found {len(release_ids)} release(s) (including missing) in {source_path}"
-                )
+                logger.debug(f"Found {len(release_ids)} release(s) (including missing) in {source_path}")
 
                 # Update the description_metas.
                 desc_map: dict[str, str] = {}
@@ -1447,19 +1410,16 @@ def update_cache_for_collages(
                     release_ids,
                 )
                 for row in cursor:
-                    desc_map[row["id"]] = make_release_logtext(
-                        title=row["releasetitle"],
-                        releasedate=RoseDate.parse(row["releasedate"]),
-                        artists=_unpack_artists(
-                            c, row["releaseartist_names"], row["releaseartist_roles"]
-                        ),
-                    )
+                    artists = _unpack_artists(c, row["releaseartist_names"], row["releaseartist_roles"])
+                    meta = f"{artistsfmt(artists)} - "
+                    if releasedate := RoseDate.parse(row["releasedate"]):
+                        meta += f"{releasedate.year}. "
+                    meta += row["releasetitle"]
+                    desc_map[row["id"]] = meta
                 for i, rls in enumerate(releases):
                     with contextlib.suppress(KeyError):
                         releases[i]["description_meta"] = desc_map[rls["uuid"]]
-                    if rls.get("missing", False) and not releases[i]["description_meta"].endswith(
-                        " {MISSING}"
-                    ):
+                    if rls.get("missing", False) and not releases[i]["description_meta"].endswith(" {MISSING}"):
                         releases[i]["description_meta"] += " {MISSING}"
 
                 # Update the collage on disk if we have changed information.
@@ -1484,9 +1444,7 @@ def update_cache_for_collages(
                 )
                 args: list[Any] = []
                 for position, rls in enumerate(releases):
-                    args.extend(
-                        [cached_collage.name, rls["uuid"], position + 1, rls.get("missing", False)]
-                    )
+                    args.extend([cached_collage.name, rls["uuid"], position + 1, rls.get("missing", False)])
                 if args:
                     conn.execute(
                         f"""
@@ -1625,9 +1583,7 @@ def update_cache_for_playlists(
                 logger.debug(f"playlist cache hit (mtime) for {source_path}, reusing cached data")
                 continue
 
-            logger.debug(
-                f"playlist cache miss (mtime/{dirty=}) for {source_path}, reading data from disk"
-            )
+            logger.debug(f"playlist cache miss (mtime/{dirty=}) for {source_path}, reading data from disk")
             cached_playlist.source_mtime = source_mtime
 
             with lock(c, playlist_lock_name(name)):
@@ -1652,9 +1608,7 @@ def update_cache_for_playlists(
                         del trk["missing"]
 
                 track_ids = [t["uuid"] for t in tracks]
-                logger.debug(
-                    f"Found {len(track_ids)} track(s) (including missing) in {source_path}"
-                )
+                logger.debug(f"Found {len(track_ids)} track(s) (including missing) in {source_path}")
 
                 # Update the description_metas.
                 desc_map: dict[str, str] = {}
@@ -1680,9 +1634,7 @@ def update_cache_for_playlists(
                 for trk in tracks:
                     with contextlib.suppress(KeyError):
                         trk["description_meta"] = desc_map[trk["uuid"]]
-                    if trk.get("missing", False) and not trk["description_meta"].endswith(
-                        " {MISSING}"
-                    ):
+                    if trk.get("missing", False) and not trk["description_meta"].endswith(" {MISSING}"):
                         trk["description_meta"] += " {MISSING}"
 
                 # Update the playlist on disk if we have changed information.
@@ -1713,9 +1665,7 @@ def update_cache_for_playlists(
                 )
                 args: list[Any] = []
                 for position, trk in enumerate(tracks):
-                    args.extend(
-                        [cached_playlist.name, trk["uuid"], position + 1, trk.get("missing", False)]
-                    )
+                    args.extend([cached_playlist.name, trk["uuid"], position + 1, trk.get("missing", False)])
                 if args:
                     conn.execute(
                         f"""
@@ -2084,9 +2034,7 @@ def get_tracks_of_releases(
             [r.id for r in releases],
         )
         for row in cursor:
-            tracks_map[row["release_id"]].append(
-                cached_track_from_view(c, row, releases_map[row["release_id"]])
-            )
+            tracks_map[row["release_id"]].append(cached_track_from_view(c, row, releases_map[row["release_id"]]))
 
     rval = []
     for release in releases:
@@ -2402,10 +2350,7 @@ def list_labels(c: Config) -> list[LabelEntry]:
             GROUP BY rl.label
             """
         )
-        return [
-            LabelEntry(label=row["label"], only_new_releases=row["has_non_new_release"] is None)
-            for row in cursor
-        ]
+        return [LabelEntry(label=row["label"], only_new_releases=row["has_non_new_release"] is None) for row in cursor]
 
 
 def label_exists(c: Config, label: str) -> bool:

@@ -71,15 +71,11 @@ def rename_collage(c: Config, old_name: str, new_name: str) -> None:
         for old_adjacent_file in (c.music_source_dir / "!collages").iterdir():
             if old_adjacent_file.stem != old_path.stem:
                 continue
-            new_adjacent_file = old_adjacent_file.with_name(
-                new_path.stem + old_adjacent_file.suffix
-            )
+            new_adjacent_file = old_adjacent_file.with_name(new_path.stem + old_adjacent_file.suffix)
             if new_adjacent_file.exists():
                 continue
             old_adjacent_file.rename(new_adjacent_file)
-            logger.debug(
-                "Renaming collage-adjacent file {old_adjacent_file} to {new_adjacent_file}"
-            )
+            logger.debug("Renaming collage-adjacent file {old_adjacent_file} to {new_adjacent_file}")
     logger.info(f"Renamed collage {old_name} to {new_name}")
     update_cache_for_collages(c, [new_name], force=True)
     update_cache_evict_nonexistent_collages(c)
@@ -146,9 +142,7 @@ def edit_collage_in_editor(c: Config, collage_name: str) -> None:
         with path.open("rb") as fp:
             data = tomllib.load(fp)
         raw_releases = data.get("releases", [])
-        edited_release_descriptions = click.edit(
-            "\n".join([r["description_meta"] for r in raw_releases])
-        )
+        edited_release_descriptions = click.edit("\n".join([r["description_meta"] for r in raw_releases]))
         if edited_release_descriptions is None:
             logger.info("Aborting: metadata file not submitted.")
             return
@@ -160,8 +154,7 @@ def edit_collage_in_editor(c: Config, collage_name: str) -> None:
                 uuid = uuid_mapping[desc]
             except KeyError as e:
                 raise DescriptionMismatchError(
-                    f"Release {desc} does not match a known release in the collage. "
-                    "Was the line edited?"
+                    f"Release {desc} does not match a known release in the collage. " "Was the line edited?"
                 ) from e
             edited_releases.append({"uuid": uuid, "description_meta": desc})
         data["releases"] = edited_releases

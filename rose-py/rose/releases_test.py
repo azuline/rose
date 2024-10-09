@@ -124,9 +124,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
     with connect(config) as conn:
         cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(release_path),))
         release_id = cursor.fetchone()["id"]
-        cursor = conn.execute(
-            "SELECT id FROM tracks WHERE release_id = ? ORDER BY tracknumber", (str(release_id),)
-        )
+        cursor = conn.execute("SELECT id FROM tracks WHERE release_id = ? ORDER BY tracknumber", (str(release_id),))
         track_ids = [r["id"] for r in cursor]
         assert len(track_ids) == 2
 
@@ -239,16 +237,12 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
     ]
 
 
-def test_edit_release_failure_and_resume(
-    monkeypatch: Any, config: Config, source_dir: Path
-) -> None:
+def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, source_dir: Path) -> None:
     release_path = source_dir / TEST_RELEASE_1.name
     with connect(config) as conn:
         cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(release_path),))
         release_id = cursor.fetchone()["id"]
-        cursor = conn.execute(
-            "SELECT id FROM tracks WHERE release_id = ? ORDER BY tracknumber", (str(release_id),)
-        )
+        cursor = conn.execute("SELECT id FROM tracks WHERE release_id = ? ORDER BY tracknumber", (str(release_id),))
         track_ids = [r["id"] for r in cursor]
         assert len(track_ids) == 2
 

@@ -174,9 +174,7 @@ class AudioTags:
                 tracktitle=_get_tag(m.tags, ["TIT2"]),
                 releasedate=RoseDate.parse(_get_tag(m.tags, ["TDRC", "TYER", "TDAT"])),
                 originaldate=RoseDate.parse(_get_tag(m.tags, ["TDOR", "TORY"])),
-                compositiondate=RoseDate.parse(
-                    _get_tag(m.tags, ["TXXX:COMPOSITIONDATE"], first=True)
-                ),
+                compositiondate=RoseDate.parse(_get_tag(m.tags, ["TXXX:COMPOSITIONDATE"], first=True)),
                 tracknumber=tracknumber,
                 tracktotal=tracktotal,
                 discnumber=discnumber,
@@ -189,9 +187,7 @@ class AudioTags:
                 catalognumber=_get_tag(m.tags, ["TXXX:CATALOGNUMBER"], first=True),
                 edition=_get_tag(m.tags, ["TXXX:EDITION"], first=True),
                 releasetype=_normalize_rtype(
-                    _get_tag(
-                        m.tags, ["TXXX:RELEASETYPE", "TXXX:MusicBrainz Album Type"], first=True
-                    )
+                    _get_tag(m.tags, ["TXXX:RELEASETYPE", "TXXX:MusicBrainz Album Type"], first=True)
                 ),
                 releaseartists=parse_artist_string(main=_get_tag(m.tags, ["TPE2"], split=True)),
                 trackartists=parse_artist_string(
@@ -229,21 +225,15 @@ class AudioTags:
                         ],
                     )
                 ),
-                compositiondate=RoseDate.parse(
-                    _get_tag(m.tags, ["----:net.sunsetglow.rose:COMPOSITIONDATE"])
-                ),
+                compositiondate=RoseDate.parse(_get_tag(m.tags, ["----:net.sunsetglow.rose:COMPOSITIONDATE"])),
                 tracknumber=str(tracknumber),
                 tracktotal=tracktotal,
                 discnumber=str(discnumber),
                 disctotal=disctotal,
                 releasetitle=_get_tag(m.tags, ["\xa9alb"]),
                 genre=_split_tag(_get_tag(m.tags, ["\xa9gen"], split=True)),
-                secondarygenre=_split_tag(
-                    _get_tag(m.tags, ["----:net.sunsetglow.rose:SECONDARYGENRE"], split=True)
-                ),
-                descriptor=_split_tag(
-                    _get_tag(m.tags, ["----:net.sunsetglow.rose:DESCRIPTOR"], split=True)
-                ),
+                secondarygenre=_split_tag(_get_tag(m.tags, ["----:net.sunsetglow.rose:SECONDARYGENRE"], split=True)),
+                descriptor=_split_tag(_get_tag(m.tags, ["----:net.sunsetglow.rose:DESCRIPTOR"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["----:com.apple.iTunes:LABEL"], split=True)),
                 catalognumber=_get_tag(m.tags, ["----:com.apple.iTunes:CATALOGNUMBER"]),
                 edition=_get_tag(m.tags, ["----:net.sunsetglow.rose:EDITION"]),
@@ -285,15 +275,11 @@ class AudioTags:
                 genre=_split_tag(_get_tag(m.tags, ["genre"], split=True)),
                 secondarygenre=_split_tag(_get_tag(m.tags, ["secondarygenre"], split=True)),
                 descriptor=_split_tag(_get_tag(m.tags, ["descriptor"], split=True)),
-                label=_split_tag(
-                    _get_tag(m.tags, ["label", "organization", "recordlabel"], split=True)
-                ),
+                label=_split_tag(_get_tag(m.tags, ["label", "organization", "recordlabel"], split=True)),
                 catalognumber=_get_tag(m.tags, ["catalognumber"]),
                 edition=_get_tag(m.tags, ["edition"]),
                 releasetype=_normalize_rtype(_get_tag(m.tags, ["releasetype"], first=True)),
-                releaseartists=parse_artist_string(
-                    main=_get_tag(m.tags, ["albumartist"], split=True)
-                ),
+                releaseartists=parse_artist_string(main=_get_tag(m.tags, ["albumartist"], split=True)),
                 trackartists=parse_artist_string(
                     main=_get_tag(m.tags, ["artist"], split=True),
                     remixer=_get_tag(m.tags, ["remixer"], split=True),
@@ -390,9 +376,7 @@ class AudioTags:
             m.tags["----:net.sunsetglow.rose:COMPOSITIONDATE"] = str(self.compositiondate).encode()
             m.tags["\xa9alb"] = self.releasetitle or ""
             m.tags["\xa9gen"] = ";".join(self.genre)
-            m.tags["----:net.sunsetglow.rose:SECONDARYGENRE"] = ";".join(
-                self.secondarygenre
-            ).encode()
+            m.tags["----:net.sunsetglow.rose:SECONDARYGENRE"] = ";".join(self.secondarygenre).encode()
             m.tags["----:net.sunsetglow.rose:DESCRIPTOR"] = ";".join(self.descriptor).encode()
             m.tags["\xa9gen"] = ";".join(self.genre)
             m.tags["----:com.apple.iTunes:LABEL"] = ";".join(self.label).encode()
@@ -506,9 +490,7 @@ def _get_tag(t: Any, keys: list[str], *, split: bool = False, first: bool = Fals
                 elif isinstance(val, mutagen.id3.ID3TimeStamp):  # type: ignore
                     values.extend(_split_tag(val.text) if split else [val.text])
                 else:
-                    raise UnsupportedTagValueTypeError(
-                        f"Encountered a tag value of type {type(val)}"
-                    )
+                    raise UnsupportedTagValueTypeError(f"Encountered a tag value of type {type(val)}")
             if first:
                 return (values[0] or None) if values else None
             return r" \\ ".join(values) or None
@@ -529,9 +511,7 @@ def _get_tuple_tag(t: Any, keys: list[str]) -> tuple[str, str] | tuple[None, Non
                 if isinstance(val, tuple):
                     return val
                 else:
-                    raise UnsupportedTagValueTypeError(
-                        f"Encountered a tag value of type {type(val)}: expected tuple"
-                    )
+                    raise UnsupportedTagValueTypeError(f"Encountered a tag value of type {type(val)}: expected tuple")
         except (KeyError, ValueError):
             pass
     return None, None

@@ -41,23 +41,15 @@ def test_rule_str() -> None:
 
 def test_rule_parse_matcher() -> None:
     assert Matcher.parse("tracktitle:Track") == Matcher(["tracktitle"], Pattern("Track"))
-    assert Matcher.parse("tracktitle,tracknumber:Track") == Matcher(
-        ["tracktitle", "tracknumber"], Pattern("Track")
-    )
-    assert Matcher.parse(r"tracktitle,tracknumber:Tr::ck") == Matcher(
-        ["tracktitle", "tracknumber"], Pattern("Tr:ck")
-    )
+    assert Matcher.parse("tracktitle,tracknumber:Track") == Matcher(["tracktitle", "tracknumber"], Pattern("Track"))
+    assert Matcher.parse(r"tracktitle,tracknumber:Tr::ck") == Matcher(["tracktitle", "tracknumber"], Pattern("Tr:ck"))
     assert Matcher.parse("tracktitle,tracknumber:Track:i") == Matcher(
         ["tracktitle", "tracknumber"], Pattern("Track", case_insensitive=True)
     )
     assert Matcher.parse(r"tracktitle:") == Matcher(["tracktitle"], Pattern(""))
 
-    assert Matcher.parse("tracktitle:^Track") == Matcher(
-        ["tracktitle"], Pattern("Track", strict_start=True)
-    )
-    assert Matcher.parse("tracktitle:Track$") == Matcher(
-        ["tracktitle"], Pattern("Track", strict_end=True)
-    )
+    assert Matcher.parse("tracktitle:^Track") == Matcher(["tracktitle"], Pattern("Track", strict_start=True))
+    assert Matcher.parse("tracktitle:Track$") == Matcher(["tracktitle"], Pattern("Track", strict_end=True))
     assert Matcher.parse(r"tracktitle:\^Track") == Matcher(["tracktitle"], Pattern(r"\^Track"))
     assert Matcher.parse(r"tracktitle:Track\$") == Matcher(["tracktitle"], Pattern(r"Track\$"))
     assert Matcher.parse(r"tracktitle:\^Track\$") == Matcher(["tracktitle"], Pattern(r"\^Track\$"))
@@ -518,28 +510,16 @@ def test_rule_parsing_end_to_end_3(matcher: str, action: str) -> None:
 def test_rule_parsing_multi_value_validation() -> None:
     with pytest.raises(InvalidRuleError) as e:
         Rule.parse("tracktitle:h", ["split:x"])
-    assert (
-        str(e.value)
-        == "Single valued tags tracktitle cannot be modified by multi-value action split"
-    )
+    assert str(e.value) == "Single valued tags tracktitle cannot be modified by multi-value action split"
     with pytest.raises(InvalidRuleError):
         Rule.parse("tracktitle:h", ["split:x"])
-    assert (
-        str(e.value)
-        == "Single valued tags tracktitle cannot be modified by multi-value action split"
-    )
+    assert str(e.value) == "Single valued tags tracktitle cannot be modified by multi-value action split"
     with pytest.raises(InvalidRuleError):
         Rule.parse("genre:h", ["tracktitle/split:x"])
-    assert (
-        str(e.value)
-        == "Single valued tags tracktitle cannot be modified by multi-value action split"
-    )
+    assert str(e.value) == "Single valued tags tracktitle cannot be modified by multi-value action split"
     with pytest.raises(InvalidRuleError):
         Rule.parse("genre:h", ["split:y", "tracktitle/split:x"])
-    assert (
-        str(e.value)
-        == "Single valued tags tracktitle cannot be modified by multi-value action split"
-    )
+    assert str(e.value) == "Single valued tags tracktitle cannot be modified by multi-value action split"
 
 
 def test_rule_parsing_defaults() -> None:
