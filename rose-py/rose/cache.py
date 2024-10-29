@@ -173,7 +173,7 @@ def lock(c: Config, name: str, timeout: float = 1.0) -> Iterator[None]:
                 except sqlite3.IntegrityError as e:
                     logger.debug(f"Failed to acquire lock for {name}, trying again: {e}")
                     continue
-                logger.debug(f"Successfully acquired lock for {name} with timeout {timeout} " f"until {valid_until}")
+                logger.debug(f"Successfully acquired lock for {name} with timeout {timeout} until {valid_until}")
                 break
         yield
     finally:
@@ -417,7 +417,7 @@ def update_cache_for_releases(
     with multiprocessing.Pool(processes=c.max_proc) as pool:
         # At 0, no batch. At 1, 1 batch. At 49, 1 batch. At 50, 1 batch. At 51, 2 batches.
         for i in range(0, len(release_dirs), batch_size):
-            logger.debug(f"Spawning release cache update process for releases [{i}, {i+batch_size})")
+            logger.debug(f"Spawning release cache update process for releases [{i}, {i + batch_size})")
             pool.apply_async(
                 _update_cache_for_releases_executor,
                 (
@@ -488,7 +488,7 @@ def _update_cache_for_releases_executor(
             rf"""
             SELECT *
             FROM releases_view
-            WHERE id IN ({','.join(['?']*len(release_uuids))})
+            WHERE id IN ({",".join(["?"] * len(release_uuids))})
             """,
             release_uuids,
         )
@@ -501,7 +501,7 @@ def _update_cache_for_releases_executor(
             rf"""
             SELECT *
             FROM tracks_view
-            WHERE release_id IN ({','.join(['?']*len(release_uuids))})
+            WHERE release_id IN ({",".join(["?"] * len(release_uuids))})
             """,
             release_uuids,
         )
@@ -928,25 +928,23 @@ def _update_cache_for_releases_executor(
 
         if release_dirty:
             logger.debug(f"Scheduling upsert for dirty release in database: {release.source_path}")
-            upd_release_args.append(
-                [
-                    release.id,
-                    str(release.source_path),
-                    str(release.cover_image_path) if release.cover_image_path else None,
-                    release.added_at,
-                    release.datafile_mtime,
-                    release.releasetitle,
-                    release.releasetype,
-                    str(release.releasedate) if release.releasedate else None,
-                    str(release.originaldate) if release.originaldate else None,
-                    str(release.compositiondate) if release.compositiondate else None,
-                    release.edition,
-                    release.catalognumber,
-                    release.disctotal,
-                    release.new,
-                    sha256_dataclass(release),
-                ]
-            )
+            upd_release_args.append([
+                release.id,
+                str(release.source_path),
+                str(release.cover_image_path) if release.cover_image_path else None,
+                release.added_at,
+                release.datafile_mtime,
+                release.releasetitle,
+                release.releasetype,
+                str(release.releasedate) if release.releasedate else None,
+                str(release.originaldate) if release.originaldate else None,
+                str(release.compositiondate) if release.compositiondate else None,
+                release.edition,
+                release.catalognumber,
+                release.disctotal,
+                release.new,
+                sha256_dataclass(release),
+            ])
             upd_release_ids.append(release.id)
             for pos, genre in enumerate(release.genres):
                 upd_release_genre_args.append([release.id, genre, pos])
@@ -967,20 +965,18 @@ def _update_cache_for_releases_executor(
                 if track.id not in track_ids_to_insert:
                     continue
                 logger.debug(f"Scheduling upsert for dirty track in database: {track.source_path}")
-                upd_track_args.append(
-                    [
-                        track.id,
-                        str(track.source_path),
-                        track.source_mtime,
-                        track.tracktitle,
-                        track.release.id,
-                        track.tracknumber,
-                        track.tracktotal,
-                        track.discnumber,
-                        track.duration_seconds,
-                        sha256_dataclass(track),
-                    ]
-                )
+                upd_track_args.append([
+                    track.id,
+                    str(track.source_path),
+                    track.source_mtime,
+                    track.tracktitle,
+                    track.release.id,
+                    track.tracknumber,
+                    track.tracktotal,
+                    track.discnumber,
+                    track.duration_seconds,
+                    sha256_dataclass(track),
+                ])
                 upd_track_ids.append(track.id)
                 pos = 0
                 for role, artists in track.trackartists.items():
@@ -997,14 +993,14 @@ def _update_cache_for_releases_executor(
     with connect(c) as conn:
         if upd_delete_source_paths:
             conn.execute(
-                f"DELETE FROM releases WHERE source_path IN ({','.join(['?']*len(upd_delete_source_paths))})",
+                f"DELETE FROM releases WHERE source_path IN ({','.join(['?'] * len(upd_delete_source_paths))})",
                 upd_delete_source_paths,
             )
         if upd_unknown_cached_tracks_args:
             query = "DELETE FROM tracks WHERE false"
             args: list[Any] = []
             for release_id, utrks in upd_unknown_cached_tracks_args:
-                query += f" OR (release_id = ? AND source_path IN ({','.join(['?']*len(utrks))}))"
+                query += f" OR (release_id = ? AND source_path IN ({','.join(['?'] * len(utrks))}))"
                 args.extend([release_id, *utrks])
             conn.execute(query, args)
         if upd_release_args:
@@ -1049,7 +1045,7 @@ def _update_cache_for_releases_executor(
             conn.execute(
                 f"""
                 DELETE FROM releases_genres
-                WHERE release_id IN ({",".join(["?"]*len(upd_release_args))})
+                WHERE release_id IN ({",".join(["?"] * len(upd_release_args))})
                 """,
                 [a[0] for a in upd_release_args],
             )
@@ -1057,14 +1053,14 @@ def _update_cache_for_releases_executor(
                 conn.execute(
                     f"""
                     INSERT INTO releases_genres (release_id, genre, position)
-                    VALUES {",".join(["(?,?,?)"]*len(upd_release_genre_args))}
+                    VALUES {",".join(["(?,?,?)"] * len(upd_release_genre_args))}
                     """,
                     _flatten(upd_release_genre_args),
                 )
             conn.execute(
                 f"""
                 DELETE FROM releases_secondary_genres
-                WHERE release_id IN ({",".join(["?"]*len(upd_release_args))})
+                WHERE release_id IN ({",".join(["?"] * len(upd_release_args))})
                 """,
                 [a[0] for a in upd_release_args],
             )
@@ -1072,14 +1068,14 @@ def _update_cache_for_releases_executor(
                 conn.execute(
                     f"""
                     INSERT INTO releases_secondary_genres (release_id, genre, position)
-                    VALUES {",".join(["(?,?,?)"]*len(upd_release_secondary_genre_args))}
+                    VALUES {",".join(["(?,?,?)"] * len(upd_release_secondary_genre_args))}
                     """,
                     _flatten(upd_release_secondary_genre_args),
                 )
             conn.execute(
                 f"""
                 DELETE FROM releases_descriptors
-                WHERE release_id IN ({",".join(["?"]*len(upd_release_args))})
+                WHERE release_id IN ({",".join(["?"] * len(upd_release_args))})
                 """,
                 [a[0] for a in upd_release_args],
             )
@@ -1087,14 +1083,14 @@ def _update_cache_for_releases_executor(
                 conn.execute(
                     f"""
                     INSERT INTO releases_descriptors (release_id, descriptor, position)
-                    VALUES {",".join(["(?,?,?)"]*len(upd_release_descriptor_args))}
+                    VALUES {",".join(["(?,?,?)"] * len(upd_release_descriptor_args))}
                     """,
                     _flatten(upd_release_descriptor_args),
                 )
             conn.execute(
                 f"""
                 DELETE FROM releases_labels
-                WHERE release_id IN ({",".join(["?"]*len(upd_release_args))})
+                WHERE release_id IN ({",".join(["?"] * len(upd_release_args))})
                 """,
                 [a[0] for a in upd_release_args],
             )
@@ -1102,14 +1098,14 @@ def _update_cache_for_releases_executor(
                 conn.execute(
                     f"""
                     INSERT INTO releases_labels (release_id, label, position)
-                    VALUES {",".join(["(?,?,?)"]*len(upd_release_label_args))}
+                    VALUES {",".join(["(?,?,?)"] * len(upd_release_label_args))}
                     """,
                     _flatten(upd_release_label_args),
                 )
             conn.execute(
                 f"""
                 DELETE FROM releases_artists
-                WHERE release_id IN ({",".join(["?"]*len(upd_release_args))})
+                WHERE release_id IN ({",".join(["?"] * len(upd_release_args))})
                 """,
                 [a[0] for a in upd_release_args],
             )
@@ -1117,7 +1113,7 @@ def _update_cache_for_releases_executor(
                 conn.execute(
                     f"""
                     INSERT INTO releases_artists (release_id, artist, role, position)
-                    VALUES {",".join(["(?,?,?,?)"]*len(upd_release_artist_args))}
+                    VALUES {",".join(["(?,?,?,?)"] * len(upd_release_artist_args))}
                     """,
                     _flatten(upd_release_artist_args),
                 )
@@ -1137,7 +1133,7 @@ def _update_cache_for_releases_executor(
                   , duration_seconds
                   , metahash
                 )
-                VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?)"]*len(upd_track_args))}
+                VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?)"] * len(upd_track_args))}
                 ON CONFLICT (id) DO UPDATE SET
                     source_path                = excluded.source_path
                   , source_mtime               = excluded.source_mtime
@@ -1155,14 +1151,14 @@ def _update_cache_for_releases_executor(
             conn.execute(
                 f"""
                 DELETE FROM tracks_artists
-                WHERE track_id IN ({",".join(["?"]*len(upd_track_artist_args))})
+                WHERE track_id IN ({",".join(["?"] * len(upd_track_artist_args))})
                 """,
                 [a[0] for a in upd_track_artist_args],
             )
             conn.execute(
                 f"""
                 INSERT INTO tracks_artists (track_id, artist, role, position)
-                VALUES {",".join(["(?,?,?,?)"]*len(upd_track_artist_args))}
+                VALUES {",".join(["(?,?,?,?)"] * len(upd_track_artist_args))}
                 """,
                 _flatten(upd_track_artist_args),
             )
@@ -1178,8 +1174,8 @@ def _update_cache_for_releases_executor(
                     SELECT t.rowid
                     FROM tracks t
                     JOIN releases r ON r.id = t.release_id
-                    WHERE t.id IN ({",".join(["?"]*len(upd_track_ids))})
-                       OR r.id IN ({",".join(["?"]*len(upd_release_ids))})
+                    WHERE t.id IN ({",".join(["?"] * len(upd_track_ids))})
+                       OR r.id IN ({",".join(["?"] * len(upd_release_ids))})
                )
                 """,
                 [*upd_track_ids, *upd_release_ids],
@@ -1240,8 +1236,8 @@ def _update_cache_for_releases_executor(
                 LEFT JOIN releases_labels rl ON rl.release_id = r.id
                 LEFT JOIN releases_artists ra ON ra.release_id = r.id
                 LEFT JOIN tracks_artists ta ON ta.track_id = t.id
-                WHERE t.id IN ({",".join(["?"]*len(upd_track_ids))})
-                   OR r.id IN ({",".join(["?"]*len(upd_release_ids))})
+                WHERE t.id IN ({",".join(["?"] * len(upd_track_ids))})
+                   OR r.id IN ({",".join(["?"] * len(upd_release_ids))})
                 GROUP BY t.id
                 """,
                 [*upd_track_ids, *upd_release_ids],
@@ -1257,7 +1253,7 @@ def _update_cache_for_releases_executor(
                 SELECT DISTINCT cr.collage_name
                 FROM collages_releases cr
                 JOIN releases r ON r.id = cr.release_id
-                WHERE cr.release_id IN ({','.join(['?'] * len(upd_release_ids))})
+                WHERE cr.release_id IN ({",".join(["?"] * len(upd_release_ids))})
                 ORDER BY cr.collage_name
                 """,
                 upd_release_ids,
@@ -1269,7 +1265,7 @@ def _update_cache_for_releases_executor(
                 SELECT DISTINCT pt.playlist_name
                 FROM playlists_tracks pt
                 JOIN tracks t ON t.id = pt.track_id
-                WHERE pt.track_id IN ({','.join(['?'] * len(upd_track_ids))})
+                WHERE pt.track_id IN ({",".join(["?"] * len(upd_track_ids))})
                 ORDER BY pt.playlist_name
                 """,
                 upd_track_ids,
@@ -1404,13 +1400,17 @@ def update_cache_for_collages(
                 desc_map: dict[str, str] = {}
                 cursor = conn.execute(
                     f"""
-                    SELECT id, releasetitle, releasedate, releaseartist_names, releaseartist_roles FROM releases_view
-                    WHERE id IN ({','.join(['?']*len(releases))})
+                    SELECT id, releasetitle, originaldate, releasedate, releaseartist_names, releaseartist_roles FROM releases_view
+                    WHERE id IN ({",".join(["?"] * len(releases))})
                     """,
                     release_ids,
                 )
                 for row in cursor:
-                    meta = f"[{releasedate}]" if (releasedate := RoseDate.parse(row["releasedate"])) else "[0000-00-00]"
+                    meta = (
+                        f"[{releasedate}]"
+                        if (releasedate := RoseDate.parse(row["originaldate"] or row["releasedate"]))
+                        else "[0000-00-00]"
+                    )
                     artists = _unpack_artists(c, row["releaseartist_names"], row["releaseartist_roles"])
                     meta += f" {artistsfmt(artists)} - "
                     meta += row["releasetitle"]
@@ -1448,7 +1448,7 @@ def update_cache_for_collages(
                     conn.execute(
                         f"""
                         INSERT INTO collages_releases (collage_name, release_id, position, missing)
-                        VALUES {','.join(['(?, ?, ?, ?)'] * len(releases))}
+                        VALUES {",".join(["(?, ?, ?, ?)"] * len(releases))}
                         """,
                         args,
                     )
@@ -1619,17 +1619,22 @@ def update_cache_for_playlists(
                       , t.source_path
                       , t.trackartist_names
                       , t.trackartist_roles
+                      , r.originaldate
                       , r.releasedate
                     FROM tracks_view t
                     JOIN releases_view r ON r.id = t.release_id
-                    WHERE t.id IN ({','.join(['?']*len(tracks))})
+                    WHERE t.id IN ({",".join(["?"] * len(tracks))})
                     """,
                     track_ids,
                 )
                 for row in cursor:
-                    meta = f"[{releasedate}]" if (releasedate := RoseDate.parse(row["releasedate"])) else "[0000-00-00]"
+                    meta = (
+                        f"[{releasedate}]"
+                        if (releasedate := RoseDate.parse(row["originaldate"] or row["releasedate"]))
+                        else "[0000-00-00]"
+                    )
                     artists = _unpack_artists(c, row["trackartist_names"], row["trackartist_roles"])
-                    meta += f" {artistsfmt(artists)} - {row["tracktitle"]}"
+                    meta += f" {artistsfmt(artists)} - {row['tracktitle']}"
                     desc_map[row["id"]] = meta
                 for trk in tracks:
                     with contextlib.suppress(KeyError):
@@ -1670,7 +1675,7 @@ def update_cache_for_playlists(
                     conn.execute(
                         f"""
                         INSERT INTO playlists_tracks (playlist_name, track_id, position, missing)
-                        VALUES {','.join(['(?, ?, ?, ?)'] * len(tracks))}
+                        VALUES {",".join(["(?, ?, ?, ?)"] * len(tracks))}
                         """,
                         args,
                     )
@@ -1718,7 +1723,7 @@ def filter_releases(
             query += f"""
                 AND EXISTS (
                     SELECT * FROM releases_artists ra
-                    WHERE ra.release_id = rv.id AND ra.artist IN ({','.join(['?']*len(artists))})
+                    WHERE ra.release_id = rv.id AND ra.artist IN ({",".join(["?"] * len(artists))})
                 )
             """
             args.extend(artists)
@@ -1730,11 +1735,11 @@ def filter_releases(
                 AND (
                     EXISTS (
                         SELECT * FROM releases_artists
-                        WHERE release_id = id AND artist IN ({','.join(['?']*len(artists))})
+                        WHERE release_id = id AND artist IN ({",".join(["?"] * len(artists))})
                     )
                     OR EXISTS (
                         SELECT * FROM releases_artists
-                        WHERE release_id = id AND artist IN ({','.join(['?']*len(artists))})
+                        WHERE release_id = id AND artist IN ({",".join(["?"] * len(artists))})
                     )
                 )
             """
@@ -1747,11 +1752,11 @@ def filter_releases(
                 AND (
                     EXISTS (
                         SELECT * FROM releases_genres
-                        WHERE release_id = id AND genre IN ({",".join(["?"]*len(genres))})
+                        WHERE release_id = id AND genre IN ({",".join(["?"] * len(genres))})
                     )
                     OR EXISTS (
                         SELECT * FROM releases_secondary_genres
-                        WHERE release_id = id AND genre IN ({",".join(["?"]*len(genres))})
+                        WHERE release_id = id AND genre IN ({",".join(["?"] * len(genres))})
                     )
                 )
             """
@@ -1805,7 +1810,7 @@ def filter_tracks(
             query += f"""
                 AND EXISTS (
                     SELECT * FROM tracks_artists ta
-                    WHERE ta.track_id = tv.id AND ta.artist IN ({','.join(['?']*len(artists))})
+                    WHERE ta.track_id = tv.id AND ta.artist IN ({",".join(["?"] * len(artists))})
                 )
             """
             args.extend(artists)
@@ -1816,7 +1821,7 @@ def filter_tracks(
             query += f"""
                 AND EXISTS (
                     SELECT * FROM releases_artists ra
-                    WHERE ra.release_id = tv.id AND ra.artist IN ({','.join(['?']*len(artists))})
+                    WHERE ra.release_id = tv.id AND ra.artist IN ({",".join(["?"] * len(artists))})
                 )
             """
             args.extend(artists)
@@ -1828,11 +1833,11 @@ def filter_tracks(
                 AND (
                     EXISTS (
                         SELECT * FROM tracks_artists ta
-                        WHERE ta.track_id = tv.id AND ta.artist IN ({','.join(['?']*len(artists))})
+                        WHERE ta.track_id = tv.id AND ta.artist IN ({",".join(["?"] * len(artists))})
                     )
                     OR EXISTS (
                         SELECT * FROM releases_artists ra
-                        WHERE ra.release_id = tv.release_id AND ra.artist IN ({','.join(['?']*len(artists))})
+                        WHERE ra.release_id = tv.release_id AND ra.artist IN ({",".join(["?"] * len(artists))})
                     )
                 )
             """
@@ -1845,11 +1850,11 @@ def filter_tracks(
                 AND (
                     EXISTS (
                         SELECT * FROM releases_genres rg
-                        WHERE rg.release_id = tv.release_id AND rg.genre IN ({",".join(["?"]*len(genres))})
+                        WHERE rg.release_id = tv.release_id AND rg.genre IN ({",".join(["?"] * len(genres))})
                     )
                     OR EXISTS (
                         SELECT * FROM releases_secondary_genres rsg
-                        WHERE rsg.release_id = tv.release_id AND rsg.genre IN ({",".join(["?"]*len(genres))})
+                        WHERE rsg.release_id = tv.release_id AND rsg.genre IN ({",".join(["?"] * len(genres))})
                     )
                 )
             """
@@ -1884,7 +1889,7 @@ def filter_tracks(
             f"""
             SELECT *
             FROM releases_view
-            WHERE id IN ({','.join(['?']*len(release_ids))})
+            WHERE id IN ({",".join(["?"] * len(release_ids))})
             """,
             release_ids,
         )
@@ -1903,7 +1908,7 @@ def list_releases(c: Config, release_ids: list[str] | None = None) -> list[Relea
     query = "SELECT * FROM releases_view"
     args = []
     if release_ids is not None:
-        query += f" WHERE id IN ({','.join(['?']*len(release_ids))})"
+        query += f" WHERE id IN ({','.join(['?'] * len(release_ids))})"
         args = release_ids
     query += " ORDER BY source_path"
     with connect(c) as conn:
@@ -1960,7 +1965,7 @@ def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[Track]:
     query = "SELECT * FROM tracks_view"
     args = []
     if track_ids is not None:
-        query += f" WHERE id IN ({','.join(['?']*len(track_ids))})"
+        query += f" WHERE id IN ({','.join(['?'] * len(track_ids))})"
         args = track_ids
     query += " ORDER BY source_path"
     with connect(c) as conn:
@@ -1972,7 +1977,7 @@ def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[Track]:
             f"""
             SELECT *
             FROM releases_view
-            WHERE id IN ({','.join(['?']*len(release_ids))})
+            WHERE id IN ({",".join(["?"] * len(release_ids))})
             """,
             release_ids,
         )
@@ -2028,7 +2033,7 @@ def get_tracks_of_releases(
             f"""
             SELECT *
             FROM tracks_view
-            WHERE release_id IN ({','.join(['?']*len(releases))})
+            WHERE release_id IN ({",".join(["?"] * len(releases))})
             ORDER BY release_id, FORMAT('%4d.%4d', discnumber, tracknumber)
             """,
             [r.id for r in releases],
@@ -2185,7 +2190,7 @@ def get_playlist_tracks(c: Config, playlist_name: str) -> list[Track]:
             f"""
             SELECT *
             FROM releases_view
-            WHERE id IN ({','.join(['?']*len(release_ids))})
+            WHERE id IN ({",".join(["?"] * len(release_ids))})
             """,
             release_ids,
         )
@@ -2255,7 +2260,7 @@ def artist_exists(c: Config, artist: str) -> bool:
             f"""
             SELECT EXISTS(
                 SELECT * FROM releases_artists
-                WHERE artist IN ({','.join(['?']*len(args))})
+                WHERE artist IN ({",".join(["?"] * len(args))})
             )
             """,
             args,
@@ -2294,7 +2299,7 @@ def genre_exists(c: Config, genre: str) -> bool:
         args = [genre]
         args.extend(TRANSIENT_CHILD_GENRES.get(genre, []))
         cursor = conn.execute(
-            f"SELECT EXISTS(SELECT * FROM releases_genres WHERE genre IN ({','.join(['?']*len(args))}))",
+            f"SELECT EXISTS(SELECT * FROM releases_genres WHERE genre IN ({','.join(['?'] * len(args))}))",
             args,
         )
         return bool(cursor.fetchone()[0])
