@@ -38,6 +38,7 @@ from rose import (
     list_releases,
     list_tracks,
 )
+from rose.common import uniq
 
 
 def release_to_json(r: Release) -> dict[str, Any]:
@@ -59,6 +60,9 @@ def release_to_json(r: Release) -> dict[str, Any]:
         "parent_genres": r.parent_genres,
         "secondary_genres": r.secondary_genres,
         "parent_secondary_genres": r.parent_secondary_genres,
+        "all_genres": uniq(
+            r.genres + r.parent_genres + r.secondary_genres + r.parent_secondary_genres
+        ),
         "descriptors": r.descriptors,
         "labels": r.labels,
         "releaseartists": r.releaseartists.dump(),
