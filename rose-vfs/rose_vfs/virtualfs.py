@@ -1980,6 +1980,19 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         logger.debug(f"FUSE: Received removexattr for {inode=} {name=}")
         raise llfuse.FUSEError(llfuse.ENOATTR)
 
+    def statfs(self, _: Any) -> llfuse.StatvfsData:
+        return llfuse.StatvfsData(
+            f_bsize=4096,  # Filesystem block size (4KB is common)
+            f_frsize=4096,  # Fragment size (usually same as block size)
+            f_blocks=1024 * 1024 * 16,  # Total data blocks in the filesystem (16GB in this example)
+            f_bfree=1024 * 1024 * 16,  # Free blocks available to non-superuser (16GB free)
+            f_bavail=1024 * 1024 * 16,  # Free blocks available to superuser (same as above here)
+            f_files=1024 * 128,  # Total number of file nodes (arbitrary value)
+            f_ffree=1024 * 64,  # Free file nodes (arbitrary value)
+            f_favail=1024 * 64,  # Free file nodes for superuser
+            f_namemax=255,  # Maximum filename length (255 is typical)
+        )
+
 
 def mount_virtualfs(c: Config, debug: bool = False) -> None:
     options = set(llfuse.default_options)
