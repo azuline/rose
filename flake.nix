@@ -79,6 +79,7 @@
             ];
           })
         ];
+        propagatedBuildInputs = [ pkgs.macfuse-stubs ];
       };
       packages = rec {
         rose-py = pkgs.callPackage ./rose-py { inherit version python-pin py-deps; };

@@ -462,7 +462,7 @@ class VirtualNameGenerator:
             # Generate a position if we're in a collage.
             position = None
             if release_parent.collage:
-                position = f"{str(idx+1).zfill(prefix_pad_size)}"
+                position = f"{str(idx + 1).zfill(prefix_pad_size)}"
 
             # Generate the virtual name.
             time_start = time.time()
@@ -470,7 +470,7 @@ class VirtualNameGenerator:
             try:
                 vname = self._release_template_eval_cache[cachekey]
                 logger.debug(
-                    f"VNAMES: Reused cached virtual dirname {vname} for release {logtext} in {time.time()-time_start} seconds"
+                    f"VNAMES: Reused cached virtual dirname {vname} for release {logtext} in {time.time() - time_start} seconds"
                 )
             except KeyError:
                 context = PathContext(
@@ -505,7 +505,7 @@ class VirtualNameGenerator:
                 vname = sanitize_dirname(self._config, vname, False)
                 self._release_template_eval_cache[cachekey] = vname
                 logger.debug(
-                    f"VNAMES: Generated virtual dirname {vname} for release {logtext} in {time.time()-time_start} seconds"
+                    f"VNAMES: Generated virtual dirname {vname} for release {logtext} in {time.time() - time_start} seconds"
                 )
 
             # Handle name collisions by appending a unique discriminator to the end.
@@ -594,7 +594,7 @@ class VirtualNameGenerator:
             # Generate a position if we're in a playlist.
             position = None
             if track_parent.playlist:
-                position = f"{str(idx+1).zfill(prefix_pad_size)}"
+                position = f"{str(idx + 1).zfill(prefix_pad_size)}"
             # Generate the virtual filename.
             time_start = time.time()
             cachekey = (track_parent, template, track.metahash, position)
