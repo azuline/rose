@@ -153,14 +153,13 @@ def _rec_sha256_dataclass(hasher: Any, value: Any) -> None:
         hasher.update(str(value).encode())
 
 
-__logging_initialized = False
+__logging_initialized: set[str | None] = set()
 
 
-def initialize_logging(logger_name: str) -> None:
-    global __logging_initialized
-    if __logging_initialized:
+def initialize_logging(logger_name: str | None = None) -> None:
+    if logger_name in __logging_initialized:
         return
-    __logging_initialized = True
+    __logging_initialized.add(logger_name)
 
     logger = logging.getLogger(logger_name)
 
