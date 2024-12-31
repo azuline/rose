@@ -1,6 +1,7 @@
 import dataclasses
 import hashlib
 import logging
+import multiprocessing
 import shutil
 import sqlite3
 import time
@@ -23,6 +24,12 @@ TEST_RELEASE_3 = TESTDATA / "Test Release 3"
 TEST_COLLAGE_1 = TESTDATA / "Collage 1"
 TEST_PLAYLIST_1 = TESTDATA / "Playlist 1"
 TEST_TAGGER = TESTDATA / "Tagger"
+
+
+@pytest.fixture(autouse=True)
+def multiprocessing_set_start_method() -> None:
+    # Force fork on MacOS, spawn is too unperformant.
+    multiprocessing.set_start_method("fork", force=True)
 
 
 @pytest.fixture(autouse=True)

@@ -23,7 +23,12 @@ def start_virtual_fs(c: Config) -> Iterator[None]:
     p = Process(target=mount_virtualfs, args=[c, True])
     try:
         p.start()
-        time.sleep(0.15)
+        # Takes >1 second to mount with MacFUSE, ~100ms on Linux.
+        start = time.time()
+        while not list(c.vfs.mount_dir.iterdir()):
+            diff = time.time() - start
+            assert diff < 2, "timed out waiting for vfs to mount"
+            time.sleep(0.05)
         yield
         unmount_virtualfs(c)
         p.join(timeout=1)
