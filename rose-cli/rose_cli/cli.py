@@ -50,7 +50,6 @@ from rose import (
     toggle_release_new,
     update_cache,
 )
-
 from rose_cli.dump import (
     dump_all_artists,
     dump_all_collages,
@@ -104,11 +103,8 @@ class Context:
 def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
     """A music manager with a virtual filesystem."""
 
-    cc.obj = Context(
-        config=Config.parse(config_path_override=config),
-    )
-    if verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+    cc.obj = Context(config=Config.parse(config_path_override=config))
+    logging.getLogger().setLevel(logging.DEBUG if verbose else logging.INFO)
     maybe_invalidate_cache_database(cc.obj.config)
 
 
@@ -209,7 +205,6 @@ def mount(ctx: Context, foreground: bool) -> None:
         mount_virtualfs(ctx.config, debug=debug)
     finally:
         p.join(timeout=1)
-    return
 
 
 @fs.command()

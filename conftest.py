@@ -1,6 +1,7 @@
 import dataclasses
 import hashlib
 import logging
+import multiprocessing
 import shutil
 import sqlite3
 import time
@@ -10,7 +11,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 from rose.cache import CACHE_SCHEMA_PATH, process_string_for_fts, update_cache
-from rose.common import VERSION
+from rose.common import VERSION, initialize_logging
 from rose.config import Config, VirtualFSConfig
 from rose.templates import PathTemplateConfig
 
@@ -26,7 +27,14 @@ TEST_TAGGER = TESTDATA / "Tagger"
 
 
 @pytest.fixture(autouse=True)
+def multiprocessing_set_start_method() -> None:
+    # Force fork on MacOS, spawn is too unperformant.
+    multiprocessing.set_start_method("fork", force=True)
+
+
+@pytest.fixture(autouse=True)
 def debug_logging() -> None:
+    initialize_logging()
     logging.getLogger().setLevel(logging.DEBUG)
 
 

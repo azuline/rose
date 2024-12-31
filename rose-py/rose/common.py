@@ -153,20 +153,15 @@ def _rec_sha256_dataclass(hasher: Any, value: Any) -> None:
         hasher.update(str(value).encode())
 
 
-__logging_initialized = False
+__logging_initialized: set[str | None] = set()
 
 
-def initialize_logging(logger_name: str) -> None:
-    global __logging_initialized
-    if __logging_initialized:
+def initialize_logging(logger_name: str | None = None) -> None:
+    if logger_name in __logging_initialized:
         return
-    __logging_initialized = True
+    __logging_initialized.add(logger_name)
 
     logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.INFO)
-
-    if "pytest" in sys.modules:  # pragma: no cover
-        logger.setLevel(logging.DEBUG)
 
     # appdirs by default has Unix log to $XDG_CACHE_HOME, but I'd rather write logs to $XDG_STATE_HOME.
     log_home = Path(appdirs.user_state_dir("rose"))

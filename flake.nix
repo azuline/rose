@@ -79,6 +79,9 @@
             ];
           })
         ];
+        propagatedBuildInputs = [
+          (pkgs.lib.optional pkgs.stdenv.isDarwin pkgs.macfuse-stubs)
+        ];
       };
       packages = rec {
         rose-py = pkgs.callPackage ./rose-py { inherit version python-pin py-deps; };

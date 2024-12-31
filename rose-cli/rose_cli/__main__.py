@@ -2,11 +2,12 @@ import sys
 
 import click
 from rose import RoseExpectedError
-
+from rose.common import initialize_logging
 from rose_cli.cli import CliExpectedError, cli
 
 
 def main() -> None:
+    initialize_logging()
     try:
         cli()
     except (RoseExpectedError, CliExpectedError) as e:

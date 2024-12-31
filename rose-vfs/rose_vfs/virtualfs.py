@@ -462,7 +462,7 @@ class VirtualNameGenerator:
             # Generate a position if we're in a collage.
             position = None
             if release_parent.collage:
-                position = f"{str(idx+1).zfill(prefix_pad_size)}"
+                position = f"{str(idx + 1).zfill(prefix_pad_size)}"
 
             # Generate the virtual name.
             time_start = time.time()
@@ -470,7 +470,7 @@ class VirtualNameGenerator:
             try:
                 vname = self._release_template_eval_cache[cachekey]
                 logger.debug(
-                    f"VNAMES: Reused cached virtual dirname {vname} for release {logtext} in {time.time()-time_start} seconds"
+                    f"VNAMES: Reused cached virtual dirname {vname} for release {logtext} in {time.time() - time_start} seconds"
                 )
             except KeyError:
                 context = PathContext(
@@ -505,7 +505,7 @@ class VirtualNameGenerator:
                 vname = sanitize_dirname(self._config, vname, False)
                 self._release_template_eval_cache[cachekey] = vname
                 logger.debug(
-                    f"VNAMES: Generated virtual dirname {vname} for release {logtext} in {time.time()-time_start} seconds"
+                    f"VNAMES: Generated virtual dirname {vname} for release {logtext} in {time.time() - time_start} seconds"
                 )
 
             # Handle name collisions by appending a unique discriminator to the end.
@@ -594,7 +594,7 @@ class VirtualNameGenerator:
             # Generate a position if we're in a playlist.
             position = None
             if track_parent.playlist:
-                position = f"{str(idx+1).zfill(prefix_pad_size)}"
+                position = f"{str(idx + 1).zfill(prefix_pad_size)}"
             # Generate the virtual filename.
             time_start = time.time()
             cachekey = (track_parent, template, track.metahash, position)
@@ -1778,6 +1778,12 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             self.ghost_existing_files[str(spath)] = True
             return self.fhandler.dev_null
 
+        # We also black hole all "._*" files on MacOS, which contain extended attribute data which
+        # we don't support.
+        if vpath.file and vpath.file.startswith("._"):
+            self.ghost_existing_files[str(spath)] = True
+            return self.fhandler.dev_null
+
         try:
             fh = self.rose.open(vpath, flags)
         except OSError as e:
@@ -1979,6 +1985,19 @@ class VirtualFS(llfuse.Operations):  # type: ignore
     def removexattr(self, inode: int, name: bytes, _: Any) -> None:
         logger.debug(f"FUSE: Received removexattr for {inode=} {name=}")
         raise llfuse.FUSEError(llfuse.ENOATTR)
+
+    def statfs(self, _: Any) -> llfuse.StatvfsData:
+        return llfuse.StatvfsData(
+            f_bsize=4096,  # Filesystem block size (4KB is common)
+            f_frsize=4096,  # Fragment size (usually same as block size)
+            f_blocks=1024 * 1024 * 16,  # Total data blocks in the filesystem (16GB in this example)
+            f_bfree=1024 * 1024 * 16,  # Free blocks available to non-superuser (16GB free)
+            f_bavail=1024 * 1024 * 16,  # Free blocks available to superuser (same as above here)
+            f_files=1024 * 128,  # Total number of file nodes (arbitrary value)
+            f_ffree=1024 * 64,  # Free file nodes (arbitrary value)
+            f_favail=1024 * 64,  # Free file nodes for superuser
+            f_namemax=255,  # Maximum filename length (255 is typical)
+        )
 
 
 def mount_virtualfs(c: Config, debug: bool = False) -> None:
