@@ -39,6 +39,7 @@ import re
 import sqlite3
 import time
 import tomllib
+import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Iterator
 from datetime import datetime
@@ -346,7 +347,7 @@ def update_cache_evict_nonexistent_releases(c: Config) -> None:
             [str(d) for d in dirs],
         )
         for row in cursor:
-            logger.info(f"Evicted missing release {row['source_path']} from cache")
+            logger.info(f"Evicted missing release {row["source_path"]} from cache")
 
 
 def update_cache_for_releases(
@@ -384,7 +385,7 @@ def update_cache_for_releases(
         return
     logger.debug(f"Refreshing the read cache for {len(release_dirs)} releases")
     if len(release_dirs) < 10:
-        logger.debug(f"Refreshing cached data for {', '.join([r.name for r in release_dirs])}")
+        logger.debug(f"Refreshing cached data for {", ".join([r.name for r in release_dirs])}")
 
     # If the number of releases changed is less than 50; do not bother with all that multiprocessing
     # gunk: instead, directly call the executor.
@@ -863,7 +864,7 @@ def _update_cache_for_releases_executor(
                 # 2. Or renamed the source directory to match our desired name.
                 original_wanted_dirname = wanted_dirname
                 collision_no = 2
-                while wanted_dirname != release.source_path.name:
+                while not _compare_strs(wanted_dirname, release.source_path.name):
                     new_source_path = release.source_path.with_name(wanted_dirname)
                     # If there is a collision, bump the collision counter and retry.
                     if new_source_path.exists():
@@ -894,9 +895,9 @@ def _update_cache_for_releases_executor(
                 original_wanted_stem = Path(wanted_filename).stem
                 original_wanted_suffix = Path(wanted_filename).suffix
                 collision_no = 2
-                while (
-                    relpath := str(track.source_path).removeprefix(f"{release.source_path}/")
-                ) and wanted_filename != relpath:
+                while (relpath := str(track.source_path).removeprefix(f"{release.source_path}/")) and not _compare_strs(
+                    wanted_filename, relpath
+                ):
                     new_source_path = release.source_path / wanted_filename
                     if new_source_path.exists():
                         new_max_len = c.max_filename_bytes - (3 + len(str(collision_no)) + len(original_wanted_suffix))
@@ -997,14 +998,14 @@ def _update_cache_for_releases_executor(
     with connect(c) as conn:
         if upd_delete_source_paths:
             conn.execute(
-                f"DELETE FROM releases WHERE source_path IN ({','.join(['?'] * len(upd_delete_source_paths))})",
+                f"DELETE FROM releases WHERE source_path IN ({",".join(["?"] * len(upd_delete_source_paths))})",
                 upd_delete_source_paths,
             )
         if upd_unknown_cached_tracks_args:
             query = "DELETE FROM tracks WHERE false"
             args: list[Any] = []
             for release_id, utrks in upd_unknown_cached_tracks_args:
-                query += f" OR (release_id = ? AND source_path IN ({','.join(['?'] * len(utrks))}))"
+                query += f" OR (release_id = ? AND source_path IN ({",".join(["?"] * len(utrks))}))"
                 args.extend([release_id, *utrks])
             conn.execute(query, args)
         if upd_release_args:
@@ -1388,12 +1389,12 @@ def update_cache_for_collages(
                 for rls in releases:
                     if not rls.get("missing", False) and rls["uuid"] not in existing_release_ids:
                         logger.warning(
-                            f"Marking missing release {rls['description_meta']} as missing in collage {cached_collage.name}"
+                            f"Marking missing release {rls["description_meta"]} as missing in collage {cached_collage.name}"
                         )
                         rls["missing"] = True
                     elif rls.get("missing", False) and rls["uuid"] in existing_release_ids:
                         logger.info(
-                            f"Missing release {rls['description_meta']} in collage {cached_collage.name} found: removing missing flag"
+                            f"Missing release {rls["description_meta"]} in collage {cached_collage.name} found: removing missing flag"
                         )
                         del rls["missing"]
 
@@ -1478,7 +1479,7 @@ def update_cache_evict_nonexistent_collages(c: Config) -> None:
             collage_names,
         )
         for row in cursor:
-            logger.info(f"Evicted missing collage {row['name']} from cache")
+            logger.info(f"Evicted missing collage {row["name"]} from cache")
 
 
 def update_cache_for_playlists(
@@ -1601,12 +1602,12 @@ def update_cache_for_playlists(
                 for trk in tracks:
                     if not trk.get("missing", False) and trk["uuid"] not in existing_track_ids:
                         logger.warning(
-                            f"Marking missing track {trk['description_meta']} as missing in playlist {cached_playlist.name}"
+                            f"Marking missing track {trk["description_meta"]} as missing in playlist {cached_playlist.name}"
                         )
                         trk["missing"] = True
                     elif trk.get("missing", False) and trk["uuid"] in existing_track_ids:
                         logger.info(
-                            f"Missing trk {trk['description_meta']} in playlist {cached_playlist.name} found: removing missing flag"
+                            f"Missing trk {trk["description_meta"]} in playlist {cached_playlist.name} found: removing missing flag"
                         )
                         del trk["missing"]
 
@@ -1638,7 +1639,7 @@ def update_cache_for_playlists(
                         else "[0000-00-00]"
                     )
                     artists = _unpack_artists(c, row["trackartist_names"], row["trackartist_roles"])
-                    meta += f" {artistsfmt(artists)} - {row['tracktitle']}"
+                    meta += f" {artistsfmt(artists)} - {row["tracktitle"]}"
                     desc_map[row["id"]] = meta
                 for trk in tracks:
                     with contextlib.suppress(KeyError):
@@ -1705,7 +1706,7 @@ def update_cache_evict_nonexistent_playlists(c: Config) -> None:
             playlist_names,
         )
         for row in cursor:
-            logger.info(f"Evicted missing playlist {row['name']} from cache")
+            logger.info(f"Evicted missing playlist {row["name"]} from cache")
 
 
 def filter_releases(
@@ -1912,7 +1913,7 @@ def list_releases(c: Config, release_ids: list[str] | None = None) -> list[Relea
     query = "SELECT * FROM releases_view"
     args = []
     if release_ids is not None:
-        query += f" WHERE id IN ({','.join(['?'] * len(release_ids))})"
+        query += f" WHERE id IN ({",".join(["?"] * len(release_ids))})"
         args = release_ids
     query += " ORDER BY source_path"
     with connect(c) as conn:
@@ -1969,7 +1970,7 @@ def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[Track]:
     query = "SELECT * FROM tracks_view"
     args = []
     if track_ids is not None:
-        query += f" WHERE id IN ({','.join(['?'] * len(track_ids))})"
+        query += f" WHERE id IN ({",".join(["?"] * len(track_ids))})"
         args = track_ids
     query += " ORDER BY source_path"
     with connect(c) as conn:
@@ -2139,7 +2140,7 @@ def make_track_logtext(
     releasedate: RoseDate | None,
     suffix: str,
 ) -> str:
-    rval = f"{artistsfmt(artists)} - {title or 'Unknown Title'}"
+    rval = f"{artistsfmt(artists)} - {title or "Unknown Title"}"
     if releasedate:
         rval += f" [{releasedate.year}]"
     rval += suffix
@@ -2303,7 +2304,7 @@ def genre_exists(c: Config, genre: str) -> bool:
         args = [genre]
         args.extend(TRANSIENT_CHILD_GENRES.get(genre, []))
         cursor = conn.execute(
-            f"SELECT EXISTS(SELECT * FROM releases_genres WHERE genre IN ({','.join(['?'] * len(args))}))",
+            f"SELECT EXISTS(SELECT * FROM releases_genres WHERE genre IN ({",".join(["?"] * len(args))}))",
             args,
         )
         return bool(cursor.fetchone()[0])
@@ -2449,6 +2450,16 @@ def _unpack(*xxs: str) -> Iterator[tuple[str, ...]]:
     if all(not xs for xs in xxs):
         return
     yield from zip(*[_split(xs) for xs in xxs], strict=False)
+
+
+def _compare_strs(a: str, b: str) -> bool:
+    """
+    Unicode normalize strings before comparison; there can be comparison failures when a
+    library is ported across operating systems otherwise.
+
+    Use for guarding significant mutations (cache updates are insignificant).
+    """
+    return unicodedata.normalize("NFC", a) == unicodedata.normalize("NFC", b)
 
 
 def process_string_for_fts(x: str) -> str:
