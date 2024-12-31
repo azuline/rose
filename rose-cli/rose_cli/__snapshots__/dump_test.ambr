@@ -14,6 +14,17 @@
       'main': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Techno',
+            'Deep House',
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Rominimal',
+            'Ambient',
+            'Tech House',
+          ]),
           'catalognumber': None,
           'compositiondate': None,
           'cover_image_path': None,
@@ -103,6 +114,17 @@
         'main': list([
           dict({
             'added_at': '0000-01-01T00:00:00+00:00',
+            'all_genres': list([
+              'Techno',
+              'Deep House',
+              'Dance',
+              'Electronic',
+              'Electronic Dance Music',
+              'House',
+              'Rominimal',
+              'Ambient',
+              'Tech House',
+            ]),
             'catalognumber': None,
             'compositiondate': None,
             'cover_image_path': None,
@@ -187,6 +209,12 @@
         'guest': list([
           dict({
             'added_at': '0000-01-01T00:00:00+00:00',
+            'all_genres': list([
+              'Modern Classical',
+              'Classical Music',
+              'Western Classical Music',
+              'Orchestral Music',
+            ]),
             'catalognumber': 'DG-001',
             'compositiondate': None,
             'cover_image_path': '/dummy/r2/cover.jpg',
@@ -267,6 +295,17 @@
         'main': list([
           dict({
             'added_at': '0000-01-01T00:00:00+00:00',
+            'all_genres': list([
+              'Techno',
+              'Deep House',
+              'Dance',
+              'Electronic',
+              'Electronic Dance Music',
+              'House',
+              'Rominimal',
+              'Ambient',
+              'Tech House',
+            ]),
             'catalognumber': None,
             'compositiondate': None,
             'cover_image_path': None,
@@ -353,6 +392,12 @@
         'main': list([
           dict({
             'added_at': '0000-01-01T00:00:00+00:00',
+            'all_genres': list([
+              'Modern Classical',
+              'Classical Music',
+              'Western Classical Music',
+              'Orchestral Music',
+            ]),
             'catalognumber': 'DG-001',
             'compositiondate': None,
             'cover_image_path': '/dummy/r2/cover.jpg',
@@ -425,6 +470,17 @@
     'releases': list([
       dict({
         'added_at': '0000-01-01T00:00:00+00:00',
+        'all_genres': list([
+          'Techno',
+          'Deep House',
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+          'Rominimal',
+          'Ambient',
+          'Tech House',
+        ]),
         'catalognumber': None,
         'compositiondate': None,
         'cover_image_path': None,
@@ -493,6 +549,12 @@
       }),
       dict({
         'added_at': '0000-01-01T00:00:00+00:00',
+        'all_genres': list([
+          'Modern Classical',
+          'Classical Music',
+          'Western Classical Music',
+          'Orchestral Music',
+        ]),
         'catalognumber': 'DG-001',
         'compositiondate': None,
         'cover_image_path': '/dummy/r2/cover.jpg',
@@ -561,6 +623,17 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Techno',
+            'Deep House',
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Rominimal',
+            'Ambient',
+            'Tech House',
+          ]),
           'catalognumber': None,
           'compositiondate': None,
           'cover_image_path': None,
@@ -629,6 +702,12 @@
         }),
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Modern Classical',
+            'Classical Music',
+            'Western Classical Music',
+            'Orchestral Music',
+          ]),
           'catalognumber': 'DG-001',
           'compositiondate': None,
           'cover_image_path': '/dummy/r2/cover.jpg',
@@ -702,6 +781,17 @@
     'releases': list([
       dict({
         'added_at': '0000-01-01T00:00:00+00:00',
+        'all_genres': list([
+          'Techno',
+          'Deep House',
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+          'Rominimal',
+          'Ambient',
+          'Tech House',
+        ]),
         'catalognumber': None,
         'compositiondate': None,
         'cover_image_path': None,
@@ -778,6 +868,17 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Techno',
+            'Deep House',
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Rominimal',
+            'Ambient',
+            'Tech House',
+          ]),
           'catalognumber': None,
           'compositiondate': None,
           'cover_image_path': None,
@@ -851,6 +952,17 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Techno',
+            'Deep House',
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Rominimal',
+            'Ambient',
+            'Tech House',
+          ]),
           'catalognumber': None,
           'compositiondate': None,
           'cover_image_path': None,
@@ -924,6 +1036,12 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Modern Classical',
+            'Classical Music',
+            'Western Classical Music',
+            'Orchestral Music',
+          ]),
           'catalognumber': 'DG-001',
           'compositiondate': None,
           'cover_image_path': '/dummy/r2/cover.jpg',
@@ -991,6 +1109,17 @@
     'releases': list([
       dict({
         'added_at': '0000-01-01T00:00:00+00:00',
+        'all_genres': list([
+          'Techno',
+          'Deep House',
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+          'Rominimal',
+          'Ambient',
+          'Tech House',
+        ]),
         'catalognumber': None,
         'compositiondate': None,
         'cover_image_path': None,
@@ -1067,6 +1196,17 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Techno',
+            'Deep House',
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Rominimal',
+            'Ambient',
+            'Tech House',
+          ]),
           'catalognumber': None,
           'compositiondate': None,
           'cover_image_path': None,
@@ -1140,6 +1280,17 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Techno',
+            'Deep House',
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Rominimal',
+            'Ambient',
+            'Tech House',
+          ]),
           'catalognumber': None,
           'compositiondate': None,
           'cover_image_path': None,
@@ -1213,6 +1364,17 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Techno',
+            'Deep House',
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Rominimal',
+            'Ambient',
+            'Tech House',
+          ]),
           'catalognumber': None,
           'compositiondate': None,
           'cover_image_path': None,
@@ -1286,6 +1448,17 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Techno',
+            'Deep House',
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Rominimal',
+            'Ambient',
+            'Tech House',
+          ]),
           'catalognumber': None,
           'compositiondate': None,
           'cover_image_path': None,
@@ -1359,6 +1532,17 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Techno',
+            'Deep House',
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Rominimal',
+            'Ambient',
+            'Tech House',
+          ]),
           'catalognumber': None,
           'compositiondate': None,
           'cover_image_path': None,
@@ -1432,6 +1616,12 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Modern Classical',
+            'Classical Music',
+            'Western Classical Music',
+            'Orchestral Music',
+          ]),
           'catalognumber': 'DG-001',
           'compositiondate': None,
           'cover_image_path': '/dummy/r2/cover.jpg',
@@ -1497,6 +1687,12 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Modern Classical',
+            'Classical Music',
+            'Western Classical Music',
+            'Orchestral Music',
+          ]),
           'catalognumber': 'DG-001',
           'compositiondate': None,
           'cover_image_path': '/dummy/r2/cover.jpg',
@@ -1562,6 +1758,12 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Modern Classical',
+            'Classical Music',
+            'Western Classical Music',
+            'Orchestral Music',
+          ]),
           'catalognumber': 'DG-001',
           'compositiondate': None,
           'cover_image_path': '/dummy/r2/cover.jpg',
@@ -1627,6 +1829,17 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Techno',
+            'Deep House',
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Rominimal',
+            'Ambient',
+            'Tech House',
+          ]),
           'catalognumber': None,
           'compositiondate': None,
           'cover_image_path': None,
@@ -1702,6 +1915,17 @@
     'releases': list([
       dict({
         'added_at': '0000-01-01T00:00:00+00:00',
+        'all_genres': list([
+          'Techno',
+          'Deep House',
+          'Dance',
+          'Electronic',
+          'Electronic Dance Music',
+          'House',
+          'Rominimal',
+          'Ambient',
+          'Tech House',
+        ]),
         'catalognumber': None,
         'compositiondate': None,
         'cover_image_path': None,
@@ -1778,6 +2002,12 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Modern Classical',
+            'Classical Music',
+            'Western Classical Music',
+            'Orchestral Music',
+          ]),
           'catalognumber': 'DG-001',
           'compositiondate': None,
           'cover_image_path': '/dummy/r2/cover.jpg',
@@ -1843,6 +2073,17 @@
       'releases': list([
         dict({
           'added_at': '0000-01-01T00:00:00+00:00',
+          'all_genres': list([
+            'Techno',
+            'Deep House',
+            'Dance',
+            'Electronic',
+            'Electronic Dance Music',
+            'House',
+            'Rominimal',
+            'Ambient',
+            'Tech House',
+          ]),
           'catalognumber': None,
           'compositiondate': None,
           'cover_image_path': None,
@@ -2311,6 +2552,17 @@
 # name: test_dump_release
   dict({
     'added_at': '0000-01-01T00:00:00+00:00',
+    'all_genres': list([
+      'Techno',
+      'Deep House',
+      'Dance',
+      'Electronic',
+      'Electronic Dance Music',
+      'House',
+      'Rominimal',
+      'Ambient',
+      'Tech House',
+    ]),
     'catalognumber': None,
     'compositiondate': None,
     'cover_image_path': None,
@@ -2449,6 +2701,17 @@
   list([
     dict({
       'added_at': '0000-01-01T00:00:00+00:00',
+      'all_genres': list([
+        'Techno',
+        'Deep House',
+        'Dance',
+        'Electronic',
+        'Electronic Dance Music',
+        'House',
+        'Rominimal',
+        'Ambient',
+        'Tech House',
+      ]),
       'catalognumber': None,
       'compositiondate': None,
       'cover_image_path': None,
@@ -2584,6 +2847,12 @@
     }),
     dict({
       'added_at': '0000-01-01T00:00:00+00:00',
+      'all_genres': list([
+        'Modern Classical',
+        'Classical Music',
+        'Western Classical Music',
+        'Orchestral Music',
+      ]),
       'catalognumber': 'DG-001',
       'compositiondate': None,
       'cover_image_path': '/dummy/r2/cover.jpg',
@@ -2678,6 +2947,8 @@
     }),
     dict({
       'added_at': '0000-01-01T00:00:00+00:00',
+      'all_genres': list([
+      ]),
       'catalognumber': 'DG-002',
       'compositiondate': '1780',
       'cover_image_path': None,
@@ -2752,6 +3023,12 @@
   list([
     dict({
       'added_at': '0000-01-01T00:00:00+00:00',
+      'all_genres': list([
+        'Modern Classical',
+        'Classical Music',
+        'Western Classical Music',
+        'Orchestral Music',
+      ]),
       'catalognumber': 'DG-001',
       'compositiondate': None,
       'cover_image_path': '/dummy/r2/cover.jpg',
