@@ -1778,6 +1778,12 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             self.ghost_existing_files[str(spath)] = True
             return self.fhandler.dev_null
 
+        # We also black hole all "._*" files on MacOS, which contain extended attribute data which
+        # we don't support.
+        if vpath.file and vpath.file.startswith("._"):
+            self.ghost_existing_files[str(spath)] = True
+            return self.fhandler.dev_null
+
         try:
             fh = self.rose.open(vpath, flags)
         except OSError as e:
