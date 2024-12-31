@@ -14,6 +14,7 @@ import sys
 from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
+import unicodedata
 
 import appdirs
 
@@ -114,7 +115,7 @@ def sanitize_dirname(c: "Config", name: str, enforce_maxlen: bool) -> str:
     name = ILLEGAL_FS_CHARS_REGEX.sub("_", name)
     if enforce_maxlen:
         name = name.encode("utf-8")[: c.max_filename_bytes].decode("utf-8", "ignore").strip()
-    return name
+    return unicodedata.normalize("NFD", name)
 
 
 def sanitize_filename(c: "Config", name: str, enforce_maxlen: bool) -> str:
@@ -129,7 +130,7 @@ def sanitize_filename(c: "Config", name: str, enforce_maxlen: bool) -> str:
             ext = ""
         stem = stem.encode("utf-8")[: c.max_filename_bytes].decode("utf-8", "ignore").strip()
         name = stem + ext
-    return name
+    return unicodedata.normalize("NFD", name)
 
 
 def sha256_dataclass(dc: Any) -> str:
