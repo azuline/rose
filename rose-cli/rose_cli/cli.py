@@ -50,6 +50,7 @@ from rose import (
     toggle_release_new,
     update_cache,
 )
+
 from rose_cli.dump import (
     dump_all_artists,
     dump_all_collages,
