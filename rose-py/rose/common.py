@@ -11,10 +11,10 @@ import os
 import os.path
 import re
 import sys
+import unicodedata
 from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
-import unicodedata
 
 import appdirs
 
