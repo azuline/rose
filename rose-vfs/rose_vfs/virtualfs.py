@@ -46,6 +46,7 @@ import random
 import re
 import stat
 import subprocess
+import sys
 import tempfile
 import time
 from collections.abc import Iterator
@@ -2005,6 +2006,9 @@ def mount_virtualfs(c: Config, debug: bool = False) -> None:
     options.add("fsname=rose")
     if debug:
         options.add("debug")
+    if sys.platform == "darwin":
+        options.add("noappledouble")  # Prevent .DS_Store
+        options.add("nolocalcaches")  # Disable caching.
     llfuse.init(VirtualFS(c), str(c.vfs.mount_dir), options)
     try:
         llfuse.main(workers=c.max_proc)
