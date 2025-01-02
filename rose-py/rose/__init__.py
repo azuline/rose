@@ -276,4 +276,4 @@ __all__ = [
     "PlaylistAlreadyExistsError",
 ]
 
-initialize_logging(__name__)
+initialize_logging(__name__, output="file")

@@ -14,7 +14,7 @@ import sys
 import unicodedata
 from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 import appdirs
 
@@ -157,7 +157,7 @@ def _rec_sha256_dataclass(hasher: Any, value: Any) -> None:
 __logging_initialized: set[str | None] = set()
 
 
-def initialize_logging(logger_name: str | None = None) -> None:
+def initialize_logging(logger_name: str | None = None, output: Literal["stderr", "file"] = "stderr") -> None:
     if logger_name in __logging_initialized:
         return
     __logging_initialized.add(logger_name)
@@ -188,14 +188,16 @@ def initialize_logging(logger_name: str | None = None) -> None:
             datefmt="%Y-%m-%d %H:%M:%S",
         )
 
-        stream_handler = logging.StreamHandler(sys.stderr)
-        stream_handler.setFormatter(simple_formatter if not log_despite_testing else verbose_formatter)
-        logger.addHandler(stream_handler)
+        if output == "stderr":
+            stream_handler = logging.StreamHandler(sys.stderr)
+            stream_handler.setFormatter(simple_formatter if not log_despite_testing else verbose_formatter)
+            logger.addHandler(stream_handler)
 
-        file_handler = logging.handlers.RotatingFileHandler(
-            log_file,
-            maxBytes=20 * 1024 * 1024,
-            backupCount=10,
-        )
-        file_handler.setFormatter(verbose_formatter)
-        logger.addHandler(file_handler)
+        if output == "file":
+            file_handler = logging.handlers.RotatingFileHandler(
+                log_file,
+                maxBytes=20 * 1024 * 1024,
+                backupCount=10,
+            )
+            file_handler.setFormatter(verbose_formatter)
+            logger.addHandler(file_handler)

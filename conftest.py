@@ -34,7 +34,7 @@ def multiprocessing_set_start_method() -> None:
 
 @pytest.fixture(autouse=True)
 def debug_logging() -> None:
-    initialize_logging()
+    initialize_logging(output="stderr")
     logging.getLogger().setLevel(logging.DEBUG)
 
 
