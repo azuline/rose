@@ -305,6 +305,8 @@ def edit_release(
 
     # Trigger a quick cache update to ensure we are reading the liveliest data.
     update_cache_for_releases(c, [release.source_path])
+    # Reload release in case any source paths changed.
+    release = get_release(c, release_id)
 
     with lock(c, release_lock_name(release_id)):
         assert release is not None
@@ -414,7 +416,7 @@ def edit_release(
 
                 if dirty:
                     logger.info(
-                        f"Flushing changed tags to {str(t.source_path).removeprefix(str(c.music_source_dir) + '/')}"
+                        f"Flushing changed tags to {str(t.source_path).removeprefix(str(c.music_source_dir) + "/")}"
                     )
                     tags.flush()
 
