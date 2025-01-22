@@ -61,7 +61,7 @@ from rose.common import (
     uniq,
 )
 from rose.config import Config
-from rose.genre_hierarchy import TRANSIENT_CHILD_GENRES, TRANSIENT_PARENT_GENRES
+from rose.genre_hierarchy import TRANSITIVE_CHILD_GENRES, TRANSITIVE_PARENT_GENRES
 from rose.templates import artistsfmt, evaluate_release_template, evaluate_track_template
 
 logger = logging.getLogger(__name__)
@@ -1752,7 +1752,7 @@ def filter_releases(
             args.extend(artists)
         if genre_filter:
             genres = [genre_filter]
-            genres.extend(TRANSIENT_CHILD_GENRES.get(genre_filter, []))
+            genres.extend(TRANSITIVE_CHILD_GENRES.get(genre_filter, []))
             query += f"""
                 AND (
                     EXISTS (
@@ -1850,7 +1850,7 @@ def filter_tracks(
             args.extend(artists)
         if genre_filter:
             genres = [genre_filter]
-            genres.extend(TRANSIENT_CHILD_GENRES.get(genre_filter, []))
+            genres.extend(TRANSITIVE_CHILD_GENRES.get(genre_filter, []))
             query += f"""
                 AND (
                     EXISTS (
@@ -2291,7 +2291,7 @@ def list_genres(c: Config) -> list[GenreEntry]:
         rval: dict[str, bool] = {}
         for row in cursor:
             rval[row["genre"]] = row["has_non_new_release"] is None
-            for g in TRANSIENT_PARENT_GENRES.get(row["genre"], []):
+            for g in TRANSITIVE_PARENT_GENRES.get(row["genre"], []):
                 # We are accumulating here whether any release of this genre is not-new. Thus, if a
                 # past iteration had a not-new release, make sure the accumulator stays false. And
                 # if we have a not-new release this time, set it false. Otherwise, keep it true.
@@ -2302,7 +2302,7 @@ def list_genres(c: Config) -> list[GenreEntry]:
 def genre_exists(c: Config, genre: str) -> bool:
     with connect(c) as conn:
         args = [genre]
-        args.extend(TRANSIENT_CHILD_GENRES.get(genre, []))
+        args.extend(TRANSITIVE_CHILD_GENRES.get(genre, []))
         cursor = conn.execute(
             f"SELECT EXISTS(SELECT * FROM releases_genres WHERE genre IN ({",".join(["?"] * len(args))}))",
             args,
@@ -2423,7 +2423,7 @@ def _get_all_artist_aliases(c: Config, x: str) -> list[str]:
 def _get_parent_genres(genres: list[str]) -> list[str]:
     rval: set[str] = set()
     for g in genres:
-        rval.update(TRANSIENT_PARENT_GENRES.get(g, []))
+        rval.update(TRANSITIVE_PARENT_GENRES.get(g, []))
     return sorted(rval)
 
 
