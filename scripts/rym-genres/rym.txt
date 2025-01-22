@@ -1,7 +1,6 @@
 Ambient
     Ambient::genre
     Ambient Americana::genre
-    Ambient Noise Wall::genre
     Dark Ambient
         Dark Ambient::genre
         Black Ambient::genre
@@ -43,16 +42,6 @@ Classical Music
         Chinese Classical Music
             Chinese Classical Music::genre
             Baisha xiyue::genre
-            Chinese Opera
-                Chinese Opera::genre
-                Cantonese Opera::genre
-                Henan Opera::genre
-                Peking Opera
-                    Peking Opera::genre
-                    Korean Revolutionary Opera::genre
-                    Revolutionary Opera::genre
-                Shaoxing Opera::genre
-                Yangzhou Opera::genre
             Dongjing::genre
             Yayue::genre
         Japanese Classical Music
@@ -78,9 +67,8 @@ Classical Music
             Jeong-ak
                 Jeong-ak::genre
                 Gagok::genre
-        Vietnamese Classical Music
-            Vietnamese Classical Music::genre
-            Ca trù::genre
+        Vietnamese Court Music
+            Vietnamese Court Music::genre
             Vietnamese Opera::genre
     Inkiranya::genre
     Kete::genre
@@ -111,6 +99,7 @@ Classical Music
             Dhrupad::genre
             Kafi::genre
             Khyal::genre
+            Klasik::genre
             Qawwali::genre
             Shabad kirtan::genre
             Tarana::genre
@@ -135,8 +124,10 @@ Classical Music
             Javanese Gamelan
                 Javanese Gamelan::genre
                 Gamelan sekaten::genre
+                Solonese Gamelan::genre
             Malay Gamelan::genre
         Kacapi suling::genre
+        Kakawin::genre
         Kulintang::genre
         Mahori::genre
         Malay Classical Music
@@ -160,6 +151,7 @@ Classical Music
             Lied::genre
             Mélodie::genre
             Orchestral Song::genre
+        Bagatelle::genre
         Ballet
             Ballet::genre
             Ballet de cour::genre
@@ -179,7 +171,10 @@ Classical Music
             Byzantine Music::genre
             Byzantine Chant::genre
         Cantata::genre
+        Canzona::genre
+        Capriccio::genre
         Chamber Music::genre
+        Character Piece::genre
         Choral
             Choral::genre
             Choral Concerto::genre
@@ -191,16 +186,12 @@ Classical Music
             Cinematic Classical::genre
             Epic Music::genre
             Spaghetti Western::genre
-        Classical March
-            Classical March::genre
-            Circus March::genre
-            Dobrado::genre
-            Funeral March::genre
         Classical Period::genre
         Divertissement::genre
         Étude::genre
         Fantasia::genre
         Fugue::genre
+        Impromptu::genre
         Latin American Classical Music::genre
         Light Music::genre
         Madrigal::genre
@@ -305,6 +296,7 @@ Classical Music
                 Género chico::genre
                 Zarzuela barocca::genre
                 Zarzuela grande::genre
+        Theme and Variation::genre
         Toccata::genre
 Country
     Country::genre
@@ -316,10 +308,12 @@ Country
         Red Dirt::genre
     Bluegrass
         Bluegrass::genre
-        Bluegrass Gospel::genre
         Progressive Bluegrass
             Progressive Bluegrass::genre
             Jamgrass::genre
+        Traditional Bluegrass
+            Traditional Bluegrass::genre
+            Bluegrass Gospel::genre
     Contemporary Country
         Contemporary Country::genre
         Bro-Country::genre
@@ -349,6 +343,9 @@ Country
             Country Gospel::genre
             Bluegrass Gospel::genre
         Country Yodeling::genre
+        Traditional Bluegrass
+            Traditional Bluegrass::genre
+            Bluegrass Gospel::genre
     Western::genre
     Western Swing::genre
 Dance
@@ -403,6 +400,7 @@ Dance
                 Breakbeat Kota::genre
                 Jungle Dutch::genre
             Florida Breaks::genre
+            Funky Breaks::genre
             Nu Skool Breaks::genre
             Progressive Breaks::genre
             Psybreaks::genre
@@ -448,7 +446,9 @@ Dance
                 Brostep::genre
                 Briddim::genre
                 Colour Bass::genre
-                Deathstep::genre
+                Deathstep
+                    Deathstep::genre
+                    Minatory::genre
                 Drumstep::genre
                 Tearout [Brostep]::genre
             Chillstep::genre
@@ -471,9 +471,7 @@ Dance
                 Aggrotech::genre
             Futurepop::genre
             New Beat::genre
-        Electro
-            Electro::genre
-            Skweee::genre
+        Electro::genre
         Electro latino::genre
         Electro Swing::genre
         Electro-Disco
@@ -502,6 +500,8 @@ Dance
             Funk mandelão::genre
             Beat bruxaria::genre
             Brazilian Phonk::genre
+            Funk automotivo::genre
+            Ritmada::genre
         Funkot
             Funkot::genre
             Breakbeat Kota
@@ -509,7 +509,9 @@ Dance
                 Jungle Dutch::genre
         Future Bass
             Future Bass::genre
-            Kawaii Future Bass::genre
+            Kawaii Future Bass
+                Kawaii Future Bass::genre
+                Future Core::genre
         Future Rave::genre
         Ghettotech::genre
         Glitch Hop [EDM]
@@ -545,6 +547,7 @@ Dance
                 Speed House::genre
             UK Hardcore
                 UK Hardcore::genre
+                Future Core::genre
                 Powerstomp::genre
         Hard Drum::genre
         Hardcore [EDM]
@@ -576,12 +579,15 @@ Dance
                 Bouncy Techno::genre
                 UK Hardcore
                     UK Hardcore::genre
+                    Future Core::genre
                     Powerstomp::genre
             Hardtek
                 Hardtek::genre
                 Raggatek::genre
             Industrial Hardcore::genre
-            J-core::genre
+            J-core
+                J-core::genre
+                Future Core::genre
             Speedcore
                 Speedcore::genre
                 Extratone::genre
@@ -624,7 +630,9 @@ Dance
             Electro House
                 Electro House::genre
                 Complextro::genre
-                Dutch House::genre
+                Dutch House
+                    Dutch House::genre
+                    Noiadance::genre
                 Fidget House::genre
                 French Electro::genre
                 Melbourne Bounce::genre
@@ -664,6 +672,7 @@ Dance
             Progressive House::genre
             Romanian Popcorn::genre
             Speed Garage::genre
+            Stutter House::genre
             Tech House
                 Tech House::genre
                 Deep Tech::genre
@@ -681,7 +690,9 @@ Dance
             UK Jackin'::genre
             Vinahouse::genre
         Hyper Techno::genre
+        Hypertechno::genre
         Jungle Terror::genre
+        Krushclub::genre
         Kuduro
             Kuduro::genre
             Batida::genre
@@ -693,8 +704,10 @@ Dance
         Nerdcore Techno::genre
         Nu-Disco::genre
         Ori deck::genre
+        Post-Dubstep::genre
         Shangaan Electro::genre
         Singeli::genre
+        Skweee::genre
         Techno
             Techno::genre
             Acid Techno::genre
@@ -716,7 +729,9 @@ Dance
                 Dub Techno::genre
             Peak Time Techno::genre
             Wonky Techno::genre
-        Techno Bass::genre
+        Techno Bass
+            Techno Bass::genre
+            Car Audio Bass::genre
         Tecnorumba::genre
         Trance
             Trance::genre
@@ -772,7 +787,17 @@ Dance
         Miami Bass::genre
         Atlanta Bass::genre
         Tamborzão::genre
-        Techno Bass::genre
+        Techno Bass
+            Techno Bass::genre
+            Car Audio Bass::genre
+Easy Listening
+    Easy Listening::genre
+    Cocktail Nation::genre
+    Exotica::genre
+    Light Music::genre
+    Lounge::genre
+    Pops Orchestra::genre
+    Space Age Pop::genre
 Electronic
     Electronic::genre
     Acholitronix::genre
@@ -791,8 +816,9 @@ Electronic
             Tracker Music
                 Tracker Music::genre
                 Amigacore::genre
-                Demostyle::genre
-                Doskpop::genre
+                Demostyle
+                    Demostyle::genre
+                    Doskpop::genre
     Bitpop::genre
     Celtic Electronica::genre
     Chillout
@@ -815,6 +841,7 @@ Electronic
         Dungeon Synth::genre
         Comfy Synth::genre
         Winter Synth::genre
+    Electro Hop::genre
     Electro-Industrial
         Electro-Industrial::genre
         Dark Electro
@@ -844,6 +871,7 @@ Electronic
                 Breakbeat Kota::genre
                 Jungle Dutch::genre
             Florida Breaks::genre
+            Funky Breaks::genre
             Nu Skool Breaks::genre
             Progressive Breaks::genre
             Psybreaks::genre
@@ -889,7 +917,9 @@ Electronic
                 Brostep::genre
                 Briddim::genre
                 Colour Bass::genre
-                Deathstep::genre
+                Deathstep
+                    Deathstep::genre
+                    Minatory::genre
                 Drumstep::genre
                 Tearout [Brostep]::genre
             Chillstep::genre
@@ -912,9 +942,7 @@ Electronic
                 Aggrotech::genre
             Futurepop::genre
             New Beat::genre
-        Electro
-            Electro::genre
-            Skweee::genre
+        Electro::genre
         Electro latino::genre
         Electro Swing::genre
         Electro-Disco
@@ -943,6 +971,8 @@ Electronic
             Funk mandelão::genre
             Beat bruxaria::genre
             Brazilian Phonk::genre
+            Funk automotivo::genre
+            Ritmada::genre
         Funkot
             Funkot::genre
             Breakbeat Kota
@@ -950,7 +980,9 @@ Electronic
                 Jungle Dutch::genre
         Future Bass
             Future Bass::genre
-            Kawaii Future Bass::genre
+            Kawaii Future Bass
+                Kawaii Future Bass::genre
+                Future Core::genre
         Future Rave::genre
         Ghettotech::genre
         Glitch Hop [EDM]
@@ -986,6 +1018,7 @@ Electronic
                 Speed House::genre
             UK Hardcore
                 UK Hardcore::genre
+                Future Core::genre
                 Powerstomp::genre
         Hard Drum::genre
         Hardcore [EDM]
@@ -1017,12 +1050,15 @@ Electronic
                 Bouncy Techno::genre
                 UK Hardcore
                     UK Hardcore::genre
+                    Future Core::genre
                     Powerstomp::genre
             Hardtek
                 Hardtek::genre
                 Raggatek::genre
             Industrial Hardcore::genre
-            J-core::genre
+            J-core
+                J-core::genre
+                Future Core::genre
             Speedcore
                 Speedcore::genre
                 Extratone::genre
@@ -1065,7 +1101,9 @@ Electronic
             Electro House
                 Electro House::genre
                 Complextro::genre
-                Dutch House::genre
+                Dutch House
+                    Dutch House::genre
+                    Noiadance::genre
                 Fidget House::genre
                 French Electro::genre
                 Melbourne Bounce::genre
@@ -1105,6 +1143,7 @@ Electronic
             Progressive House::genre
             Romanian Popcorn::genre
             Speed Garage::genre
+            Stutter House::genre
             Tech House
                 Tech House::genre
                 Deep Tech::genre
@@ -1122,7 +1161,9 @@ Electronic
             UK Jackin'::genre
             Vinahouse::genre
         Hyper Techno::genre
+        Hypertechno::genre
         Jungle Terror::genre
+        Krushclub::genre
         Kuduro
             Kuduro::genre
             Batida::genre
@@ -1134,8 +1175,10 @@ Electronic
         Nerdcore Techno::genre
         Nu-Disco::genre
         Ori deck::genre
+        Post-Dubstep::genre
         Shangaan Electro::genre
         Singeli::genre
+        Skweee::genre
         Techno
             Techno::genre
             Acid Techno::genre
@@ -1157,7 +1200,9 @@ Electronic
                 Dub Techno::genre
             Peak Time Techno::genre
             Wonky Techno::genre
-        Techno Bass::genre
+        Techno Bass
+            Techno Bass::genre
+            Car Audio Bass::genre
         Tecnorumba::genre
         Trance
             Trance::genre
@@ -1217,7 +1262,9 @@ Electronic
     Glitch::genre
     Glitch Hop::genre
     Graphical Sound::genre
-    HexD::genre
+    HexD
+        HexD::genre
+        Krushclub::genre
     Horror Synth::genre
     Hyperpop::genre
     IDM
@@ -1240,8 +1287,8 @@ Electronic
         Nortec::genre
         Tribal Guarachero::genre
     Livetronica::genre
-    Microsound::genre
-    Minatory::genre
+    Maloya électronique::genre
+    Micromontage::genre
     Minimal Wave
         Minimal Wave::genre
         Minimal Synth::genre
@@ -1337,7 +1384,7 @@ Experimental
     Sound Collage
         Sound Collage::genre
         Epic Collage::genre
-        Microsound::genre
+        Micromontage::genre
     Sound Poetry::genre
     Tape Music::genre
     Turntable Music::genre
@@ -1414,7 +1461,7 @@ Folk
             Fife and Drum Blues::genre
             Jug Band::genre
             Ring Shout::genre
-            Sacred Harp Music::genre
+            Sacred Harp Singing::genre
             Spirituals::genre
             Talking Blues::genre
             Traditional Black Gospel::genre
@@ -1426,20 +1473,20 @@ Folk
                     Country Gospel::genre
                     Bluegrass Gospel::genre
                 Country Yodeling::genre
+                Traditional Bluegrass
+                    Traditional Bluegrass::genre
+                    Bluegrass Gospel::genre
         Arabic Folk Music
             Arabic Folk Music::genre
             Aita::genre
-            Arabic Bellydance Music::genre
+            Arabic Bellydance Music
+                Arabic Bellydance Music::genre
+                Raqs baladi::genre
             Ayyalah::genre
             Fijiri::genre
             Liwa::genre
             Nuban::genre
         Australian Folk Music::genre
-        Austronesian Traditional Music
-            Austronesian Traditional Music::genre
-            Gondang::genre
-            Indigenous Taiwanese Music::genre
-            Pakacaping Music::genre
         Bayawan::genre
         Brazilian Folk Music
             Brazilian Folk Music::genre
@@ -1507,15 +1554,16 @@ Folk
         Chukchi Folk Music::genre
         East Asian Folk Music
             East Asian Folk Music::genre
+            Amami shimauta::genre
             Chinese Folk Music
                 Chinese Folk Music::genre
+                Chaozhou xianshi::genre
                 Han Folk Music::genre
                 Jiangnan sizhu::genre
                 Shan’ge::genre
             Indigenous Taiwanese Music::genre
             Japanese Folk Music
                 Japanese Folk Music::genre
-                Amami shimauta::genre
                 Heikyoku::genre
                 Kagura::genre
                 Kouta::genre
@@ -1539,6 +1587,7 @@ Folk
             European Folk Music::genre
             Alpine Folk Music
                 Alpine Folk Music::genre
+                Ländler::genre
                 Narodno zabavna glasba::genre
                 Naturjodel::genre
             Balkan Folk Music
@@ -1600,6 +1649,7 @@ Folk
             Catalan Folk Music
                 Catalan Folk Music::genre
                 Sardana::genre
+                Valencian Folk Music::genre
             Celtic Folk Music
                 Celtic Folk Music::genre
                 Asturian Folk Music::genre
@@ -1651,16 +1701,23 @@ Folk
                     Occitan Folk Music::genre
                     Auvergnat Folk Music::genre
                     Gascon Folk Music::genre
-            German Folk Music::genre
+            German Folk Music
+                German Folk Music::genre
+                Gstanzl::genre
             Għana::genre
             Hungarian Folk Music
                 Hungarian Folk Music::genre
                 Csárdás::genre
+                Magyar nóta::genre
             Istrian Folk Music::genre
             Italian Folk Music
                 Italian Folk Music::genre
                 Canzone napoletana::genre
                 Liscio::genre
+                Sardinian Folk Music
+                    Sardinian Folk Music::genre
+                    Cantu a chiterra::genre
+                    Cantu a tenore::genre
                 Stornello::genre
                 Tarantella
                     Tarantella::genre
@@ -1692,6 +1749,7 @@ Folk
                 Portuguese Folk Music::genre
                 Cante alentejano::genre
                 Chamarrita açoriana::genre
+                Desgarrada::genre
                 Fado
                     Fado::genre
                     Fado de Coimbra::genre
@@ -1703,10 +1761,6 @@ Folk
                 Colinde::genre
                 Doină::genre
                 Muzică lăutărească::genre
-            Sardinian Folk Music
-                Sardinian Folk Music::genre
-                Cantu a chiterra::genre
-                Cantu a tenore::genre
             Slavic Folk Music
                 Slavic Folk Music::genre
                 Belarusian Folk Music::genre
@@ -1767,6 +1821,7 @@ Folk
                 Cuplé::genre
                 Galician Folk Music::genre
                 Pasodoble::genre
+                Valencian Folk Music::genre
             Volga-Ural Folk Music
                 Volga-Ural Folk Music::genre
                 Bashkir Folk Music::genre
@@ -1811,9 +1866,11 @@ Folk
             Muliza::genre
             Música criolla peruana
                 Música criolla peruana::genre
+                Festejo::genre
                 Marinera::genre
                 Tondero::genre
                 Vals criollo::genre
+            Música llanera::genre
             Plena::genre
             Saya::genre
             Tamborito::genre
@@ -1872,18 +1929,22 @@ Folk
             Bamar Folk Music::genre
             Filipino Rondalla::genre
             Gondang::genre
-            Hill Tribe Music
-                Hill Tribe Music::genre
-                Hmong Folk Music::genre
+            Harana::genre
+            Hmong Folk Music::genre
             Khmer Folk Music::genre
             Kuda kepang::genre
-            Kundiman::genre
             Lao Folk Music::genre
             Malay Folk Music::genre
             Rapai dabõih::genre
+            Tarawangsa::genre
             Thai Folk Music
                 Thai Folk Music::genre
                 Fon leb::genre
+            Vietnamese Folk Music
+                Vietnamese Folk Music::genre
+                Chèo::genre
+                Quan họ::genre
+                Xẩm::genre
         West Asian Folk Music
             West Asian Folk Music::genre
             Alevi Folk Music::genre
@@ -1958,6 +2019,7 @@ Hip Hop
         Memphis Rap
             Memphis Rap::genre
             Dungeon Rap::genre
+            Phonk::genre
         Mid-School Hip Hop::genre
         Trap Metal::genre
     Hipco::genre
@@ -1985,7 +2047,9 @@ Hip Hop
         Miami Bass::genre
         Atlanta Bass::genre
         Tamborzão::genre
-        Techno Bass::genre
+        Techno Bass
+            Techno Bass::genre
+            Car Audio Bass::genre
     Mobb Music::genre
     Nerdcore Hip Hop::genre
     Nervous Music::genre
@@ -2007,7 +2071,10 @@ Hip Hop
                 Chicago Drill::genre
                 Bop::genre
             Jersey Drill::genre
-            Sample Drill::genre
+            New York Drill
+                New York Drill::genre
+                Sample Drill::genre
+                Sexy Drill::genre
             UK Drill::genre
         Futuristic Swag::genre
         New Jazz::genre
@@ -2068,7 +2135,6 @@ Industrial & Noise
             Dark Electro
                 Dark Electro::genre
                 Aggrotech::genre
-        Epic Collage::genre
         Industrial Hardcore::genre
         Industrial Hip Hop::genre
         Industrial Metal
@@ -2156,9 +2222,11 @@ Metal
             Blackgaze::genre
         Black 'n' Roll::genre
         Black Noise::genre
-        Depressive Black Metal::genre
+        Dissonant Black Metal::genre
+        DSBM::genre
         Melodic Black Metal::genre
         Pagan Black Metal::genre
+        RABM::genre
         Symphonic Black Metal::genre
         War Metal::genre
     Death Metal
@@ -2172,6 +2240,7 @@ Metal
         Technical Death Metal
             Technical Death Metal::genre
             Dissonant Death Metal::genre
+    Djent::genre
     Doom Metal
         Doom Metal::genre
         Death Doom Metal::genre
@@ -2219,9 +2288,7 @@ Metal
         Atmospheric Sludge Metal::genre
         Doomgaze::genre
     Power Metal::genre
-    Progressive Metal
-        Progressive Metal::genre
-        Djent::genre
+    Progressive Metal::genre
     Sludge Metal
         Sludge Metal::genre
         Atmospheric Sludge Metal::genre
@@ -2300,6 +2367,7 @@ Pop
     C-Pop
         C-Pop::genre
         Cantopop::genre
+        Gufeng::genre
         Mandopop::genre
         Zhongguo feng::genre
     Cambodian Pop
@@ -2309,9 +2377,6 @@ Pop
         Canción melódica::genre
         Bolero-Beat::genre
         Música cebolla::genre
-    CCM
-        CCM::genre
-        Praise & Worship::genre
     City Pop::genre
     Classical Crossover::genre
     Country Pop
@@ -2335,7 +2400,7 @@ Pop
         Dangdut koplo::genre
     Dansbandsmusik::genre
     Dansktop::genre
-    Denpa::genre
+    Electro Hop::genre
     Electropop::genre
     Europop::genre
     Flamenco Pop::genre
@@ -2363,6 +2428,7 @@ Pop
     J-Pop
         J-Pop::genre
         Akishibu-kei::genre
+        Denpa::genre
         Yakousei::genre
     Jazz Pop::genre
     K-Pop
@@ -2399,8 +2465,8 @@ Pop
     Pop Reggae::genre
     Pop Rock
         Pop Rock::genre
-        Beat Music
-            Beat Music::genre
+        Beat
+            Beat::genre
             Freakbeat::genre
             Group Sounds::genre
             Jovem Guarda::genre
@@ -2411,10 +2477,12 @@ Pop
         Jangle Pop
             Jangle Pop::genre
             C86::genre
+            Dolewave::genre
             Neo-Acoustic::genre
             Paisley Underground::genre
         Manila Sound::genre
         Piano Rock::genre
+        Pop Yeh-Yeh::genre
         Post-Britpop::genre
         Power Pop::genre
         Soft Rock
@@ -2469,6 +2537,7 @@ Psychedelia
     Psychedelia::genre
     Neo-Psychedelia
         Neo-Psychedelia::genre
+        Baggy::genre
         Hypnagogic Pop::genre
         Paisley Underground::genre
         Psichedelia occulta italiana::genre
@@ -2489,6 +2558,7 @@ Psychedelia
             Space Rock Revival::genre
         Zamrock::genre
     Psychedelic Soul::genre
+    Stoner Metal::genre
     Stoner Rock::genre
     Tropicália::genre
 Punk
@@ -2503,6 +2573,7 @@ Punk
         Emo-Pop::genre
         Emocore::genre
         Midwest Emo::genre
+        Pop Screamo::genre
         Screamo
             Screamo::genre
             Emoviolence::genre
@@ -2559,13 +2630,15 @@ Punk
         Post-Hardcore
             Post-Hardcore::genre
             Emocore::genre
+            Pop Screamo::genre
             Screamo
                 Screamo::genre
                 Emoviolence::genre
             Swancore::genre
-        Sasscore::genre
+        Sass::genre
     Mod Revival::genre
     No Wave::genre
+    Pigfuck::genre
     Post-Punk
         Post-Punk::genre
         Coldwave::genre
@@ -2629,6 +2702,7 @@ Punk
 R&B
     R&B::genre
     Acid Jazz::genre
+    Beach Music::genre
     Blue-Eyed Soul::genre
     Boogie::genre
     Contemporary R&B
@@ -2644,7 +2718,9 @@ R&B
         Afro-Funk::genre
         Britfunk::genre
         Deep Funk::genre
-        Go-Go::genre
+        Go-Go
+            Go-Go::genre
+            Bounce Beat::genre
         Jazz-Funk::genre
         Latin Funk::genre
         P-Funk::genre
@@ -2670,9 +2746,11 @@ R&B
         Pop Soul
             Pop Soul::genre
             Motown Sound::genre
+        Progressive Soul::genre
         Psychedelic Soul::genre
         Smooth Soul::genre
         Southern Soul::genre
+    Soul Blues::genre
 Reggae / Ska / Dancehall
     Reggae / Ska / Dancehall::genre
     Dancehall
@@ -2787,6 +2865,7 @@ Regional Music
                 Kadongo kamu::genre
                 Mataali::genre
             Benga::genre
+            Beni::genre
             Bongo Flava::genre
             Comorian Music::genre
             Dinka Music::genre
@@ -2835,6 +2914,7 @@ Regional Music
                 Al jeel::genre
                 Ancient Egyptian Music::genre
                 Coptic Music::genre
+                Raqs baladi::genre
                 Shaabi
                     Shaabi::genre
                     Mahraganat::genre
@@ -2844,6 +2924,7 @@ Regional Music
                 Aita::genre
                 Algerian Chaabi::genre
                 Andalusian Classical Music::genre
+                Banga::genre
                 Gnawa::genre
                 Malhun::genre
                 Moroccan Chaabi::genre
@@ -2874,10 +2955,12 @@ Regional Music
                 Belwo::genre
                 Dhaanto::genre
                 Qaraami::genre
+            Welayta Music::genre
         Seychelles & Mascarene Islands Music
             Seychelles & Mascarene Islands Music::genre
             Maloya
                 Maloya::genre
+                Maloya électronique::genre
                 Maloya élektrik::genre
                 Traditional Maloya::genre
             Moutya::genre
@@ -2949,7 +3032,9 @@ Regional Music
                 Burger-Highlife::genre
             Hipco::genre
             Hiplife::genre
-            Igbo Music::genre
+            Igbo Music
+                Igbo Music::genre
+                Ogene Music::genre
             Kabye Folk Music::genre
             Kru Music
                 Kru Music::genre
@@ -2996,7 +3081,9 @@ Regional Music
         Arabic Folk Music
             Arabic Folk Music::genre
             Aita::genre
-            Arabic Bellydance Music::genre
+            Arabic Bellydance Music
+                Arabic Bellydance Music::genre
+                Raqs baladi::genre
             Ayyalah::genre
             Fijiri::genre
             Liwa::genre
@@ -3009,6 +3096,7 @@ Regional Music
             Bedouin Music::genre
             Aita::genre
             Ayyalah::genre
+            Samri::genre
             Shilla::genre
         Dabke::genre
         Khaliji Music
@@ -3017,6 +3105,7 @@ Regional Music
             Fijiri::genre
             Liwa::genre
             Nuban::genre
+            Samri::genre
             Sawt::genre
             Shehhi Music::genre
             Shilla::genre
@@ -3033,16 +3122,18 @@ Regional Music
             Mahraganat::genre
             Trap shaabi::genre
         Traditional Arabic Pop::genre
+        Zajal::genre
     Asian Music
         Asian Music::genre
         Buddhist Music
             Buddhist Music::genre
             Beompae::genre
+            Chöd::genre
             Shōmyō::genre
             Tibetan Bhuddist Chant::genre
         Central Asian Music
             Central Asian Music::genre
-            Altai Traditional Music::genre
+            Altai Music::genre
             Balochi Music::genre
             Bashkir Folk Music::genre
             Burushaski Folk Music::genre
@@ -3064,6 +3155,7 @@ Regional Music
             Tajik Music::genre
             Tibetan Music
                 Tibetan Music::genre
+                Chöd::genre
                 Tibetan Bhuddist Chant::genre
                 Zhabdro gorgom::genre
             Turkmen Music::genre
@@ -3085,23 +3177,25 @@ Regional Music
                 Chinese Classical Music
                     Chinese Classical Music::genre
                     Baisha xiyue::genre
-                    Chinese Opera
-                        Chinese Opera::genre
-                        Cantonese Opera::genre
-                        Henan Opera::genre
-                        Peking Opera
-                            Peking Opera::genre
-                            Korean Revolutionary Opera::genre
-                            Revolutionary Opera::genre
-                        Shaoxing Opera::genre
-                        Yangzhou Opera::genre
                     Dongjing::genre
                     Yayue::genre
                 Chinese Folk Music
                     Chinese Folk Music::genre
+                    Chaozhou xianshi::genre
                     Han Folk Music::genre
                     Jiangnan sizhu::genre
                     Shan’ge::genre
+                Chinese Opera
+                    Chinese Opera::genre
+                    Cantonese Opera::genre
+                    Henan Opera::genre
+                    Peking Opera
+                        Peking Opera::genre
+                        Korean Revolutionary Opera::genre
+                        Revolutionary Opera::genre
+                    Shaoxing Opera::genre
+                    Yangzhou Opera::genre
+                Guangdong yinyue::genre
                 Minyue::genre
                 Quyi::genre
                 Shidaiqu::genre
@@ -3112,16 +3206,6 @@ Regional Music
                 Chinese Classical Music
                     Chinese Classical Music::genre
                     Baisha xiyue::genre
-                    Chinese Opera
-                        Chinese Opera::genre
-                        Cantonese Opera::genre
-                        Henan Opera::genre
-                        Peking Opera
-                            Peking Opera::genre
-                            Korean Revolutionary Opera::genre
-                            Revolutionary Opera::genre
-                        Shaoxing Opera::genre
-                        Yangzhou Opera::genre
                     Dongjing::genre
                     Yayue::genre
                 Japanese Classical Music
@@ -3147,21 +3231,21 @@ Regional Music
                     Jeong-ak
                         Jeong-ak::genre
                         Gagok::genre
-                Vietnamese Classical Music
-                    Vietnamese Classical Music::genre
-                    Ca trù::genre
+                Vietnamese Court Music
+                    Vietnamese Court Music::genre
                     Vietnamese Opera::genre
             East Asian Folk Music
                 East Asian Folk Music::genre
+                Amami shimauta::genre
                 Chinese Folk Music
                     Chinese Folk Music::genre
+                    Chaozhou xianshi::genre
                     Han Folk Music::genre
                     Jiangnan sizhu::genre
                     Shan’ge::genre
                 Indigenous Taiwanese Music::genre
                 Japanese Folk Music
                     Japanese Folk Music::genre
-                    Amami shimauta::genre
                     Heikyoku::genre
                     Kagura::genre
                     Kouta::genre
@@ -3202,7 +3286,6 @@ Regional Music
                         Kumiuta::genre
                 Japanese Folk Music
                     Japanese Folk Music::genre
-                    Amami shimauta::genre
                     Heikyoku::genre
                     Kagura::genre
                     Kouta::genre
@@ -3237,18 +3320,21 @@ Regional Music
                     Trot::genre
                     Pon-chak disco::genre
                     Semi-Trot::genre
-            Okinawan Music::genre
+            Ryukyuan Music
+                Ryukyuan Music::genre
+                Amami shimauta::genre
+                Okinawan Music::genre
             Vietnamese Music
                 Vietnamese Music::genre
                 Bolero Việt Nam::genre
+                Ca trù::genre
                 Cải lương::genre
                 Ngâm thơ::genre
                 Nhạc đỏ::genre
                 Nhạc tiền chiến::genre
                 Nhạc vàng::genre
-                Vietnamese Classical Music
-                    Vietnamese Classical Music::genre
-                    Ca trù::genre
+                Vietnamese Court Music
+                    Vietnamese Court Music::genre
                     Vietnamese Opera::genre
                 Vietnamese Folk Music
                     Vietnamese Folk Music::genre
@@ -3296,6 +3382,7 @@ Regional Music
                     Dhrupad::genre
                     Kafi::genre
                     Khyal::genre
+                    Klasik::genre
                     Qawwali::genre
                     Shabad kirtan::genre
                     Tarana::genre
@@ -3341,6 +3428,9 @@ Regional Music
                 Bamar Folk Music::genre
                 Burmese Classical Music::genre
                 Mono::genre
+            Hill Tribe Music
+                Hill Tribe Music::genre
+                Hmong Folk Music::genre
             Hmong Pop::genre
             Indonesian Music
                 Indonesian Music::genre
@@ -3355,6 +3445,10 @@ Regional Music
                         Gamelan jegog::genre
                         Gamelan semar pegulingan::genre
                     Kecak::genre
+                Batak Music
+                    Batak Music::genre
+                    Gondang::genre
+                    Pop Batak::genre
                 Dangdut
                     Dangdut::genre
                     Dangdut koplo::genre
@@ -3365,8 +3459,10 @@ Regional Music
                     Javanese Gamelan
                         Javanese Gamelan::genre
                         Gamelan sekaten::genre
+                        Solonese Gamelan::genre
                     Kuda kepang::genre
                     Langgam Jawa::genre
+                Kakawin::genre
                 Keroncong
                     Keroncong::genre
                     Cilokaq::genre
@@ -3379,7 +3475,6 @@ Regional Music
                     Saluang klasik::genre
                     Talempong::genre
                 Orkes gambus::genre
-                Pop Batak::genre
                 Qasidah modern::genre
                 Sundanese Music
                     Sundanese Music::genre
@@ -3389,6 +3484,7 @@ Regional Music
                     Ketuk tilu::genre
                     Kliningan::genre
                     Pop Sunda::genre
+                    Tarawangsa::genre
                     Tembang Sunda Cianjuran::genre
                 Tanjidor::genre
             Khmer Music
@@ -3401,10 +3497,13 @@ Regional Music
                 Pinpeat::genre
             Malay Music
                 Malay Music::genre
+                Dikir barat::genre
+                Dondang sayang::genre
                 Malay Classical Music
                     Malay Classical Music::genre
                     Malay Gamelan::genre
                 Malay Folk Music::genre
+                Pop Yeh-Yeh::genre
             Molam
                 Molam::genre
                 Molam sing::genre
@@ -3412,6 +3511,7 @@ Regional Music
                 Philippine Music::genre
                 Balitaw::genre
                 Filipino Rondalla::genre
+                Harana::genre
                 Kundiman::genre
                 Pinoy Folk Rock::genre
             Southeast Asian Classical Music
@@ -3433,8 +3533,10 @@ Regional Music
                     Javanese Gamelan
                         Javanese Gamelan::genre
                         Gamelan sekaten::genre
+                        Solonese Gamelan::genre
                     Malay Gamelan::genre
                 Kacapi suling::genre
+                Kakawin::genre
                 Kulintang::genre
                 Mahori::genre
                 Malay Classical Music
@@ -3455,18 +3557,22 @@ Regional Music
                 Bamar Folk Music::genre
                 Filipino Rondalla::genre
                 Gondang::genre
-                Hill Tribe Music
-                    Hill Tribe Music::genre
-                    Hmong Folk Music::genre
+                Harana::genre
+                Hmong Folk Music::genre
                 Khmer Folk Music::genre
                 Kuda kepang::genre
-                Kundiman::genre
                 Lao Folk Music::genre
                 Malay Folk Music::genre
                 Rapai dabõih::genre
+                Tarawangsa::genre
                 Thai Folk Music
                     Thai Folk Music::genre
                     Fon leb::genre
+                Vietnamese Folk Music
+                    Vietnamese Folk Music::genre
+                    Chèo::genre
+                    Quan họ::genre
+                    Xẩm::genre
             Stereo::genre
             Thai Music
                 Thai Music::genre
@@ -3488,14 +3594,14 @@ Regional Music
             Vietnamese Music
                 Vietnamese Music::genre
                 Bolero Việt Nam::genre
+                Ca trù::genre
                 Cải lương::genre
                 Ngâm thơ::genre
                 Nhạc đỏ::genre
                 Nhạc tiền chiến::genre
                 Nhạc vàng::genre
-                Vietnamese Classical Music
-                    Vietnamese Classical Music::genre
-                    Ca trù::genre
+                Vietnamese Court Music
+                    Vietnamese Court Music::genre
                     Vietnamese Opera::genre
                 Vietnamese Folk Music
                     Vietnamese Folk Music::genre
@@ -3539,6 +3645,7 @@ Regional Music
                 Fijiri::genre
                 Liwa::genre
                 Nuban::genre
+                Samri::genre
                 Sawt::genre
                 Shehhi Music::genre
                 Shilla::genre
@@ -3548,7 +3655,9 @@ Regional Music
                 Druze Music::genre
             Maftirim::genre
             Mesopotamian Music::genre
-            Muzika mizrahit::genre
+            Muzika mizrahit
+                Muzika mizrahit::genre
+                Muzikat dika'on::genre
             Persian Music
                 Persian Music::genre
                 Bandari::genre
@@ -3591,8 +3700,23 @@ Regional Music
                     Turkish Black Sea Region Folk Music::genre
                     Uzun Hava::genre
                     Zeybek::genre
+    Austronesian Music
+        Austronesian Music::genre
+        Batak Music
+            Batak Music::genre
+            Gondang::genre
+            Pop Batak::genre
+        Indigenous Taiwanese Music::genre
+        Malagasy Music
+            Malagasy Music::genre
+            Kalon'ny fahiny::genre
+            Malagasy Folk Music::genre
+            Salegy::genre
+            Tsapiky::genre
+        Pakacaping Music::genre
     Caribbean Music
         Caribbean Music::genre
+        Aleke::genre
         Bachata::genre
         Brukdown::genre
         Bullerengue::genre
@@ -3624,7 +3748,9 @@ Regional Music
             Changüí::genre
             Conga::genre
             Cuban Charanga::genre
-            Cubaton::genre
+            Cubaton
+                Cubaton::genre
+                Reparto::genre
             Danzón::genre
             Descarga::genre
             Filin::genre
@@ -3719,6 +3845,7 @@ Regional Music
             Merengue típico::genre
             Merenhouse::genre
             Tecnomerengue::genre
+        Palo de mayo::genre
         Parang::genre
         Porro::genre
         Punta::genre
@@ -3729,6 +3856,7 @@ Regional Music
             Dennery Segment::genre
             Power Soca::genre
             Rapso::genre
+        Steel Band::genre
         Tropicanibalismo::genre
         Vallenato::genre
     Christian Liturgical Music
@@ -3844,6 +3972,7 @@ Regional Music
             British Brass Band::genre
             British Dance Band::genre
             British Folk Rock::genre
+            Contenance angloise::genre
             English Folk Music
                 English Folk Music::genre
                 Cornish Folk Music::genre
@@ -3885,16 +4014,19 @@ Regional Music
             Chanson::genre
             Chanson à texte::genre
             Chanson alternative::genre
+            Chanson québécoise::genre
             Chanson réaliste::genre
             Nouvelle chanson française::genre
         Classical Period::genre
         Country & Irish::genre
         Crimean Tatar Music::genre
+        Dechovka::genre
         Dutch Cabaret::genre
         European Folk Music
             European Folk Music::genre
             Alpine Folk Music
                 Alpine Folk Music::genre
+                Ländler::genre
                 Narodno zabavna glasba::genre
                 Naturjodel::genre
             Balkan Folk Music
@@ -3956,6 +4088,7 @@ Regional Music
             Catalan Folk Music
                 Catalan Folk Music::genre
                 Sardana::genre
+                Valencian Folk Music::genre
             Celtic Folk Music
                 Celtic Folk Music::genre
                 Asturian Folk Music::genre
@@ -4007,16 +4140,23 @@ Regional Music
                     Occitan Folk Music::genre
                     Auvergnat Folk Music::genre
                     Gascon Folk Music::genre
-            German Folk Music::genre
+            German Folk Music
+                German Folk Music::genre
+                Gstanzl::genre
             Għana::genre
             Hungarian Folk Music
                 Hungarian Folk Music::genre
                 Csárdás::genre
+                Magyar nóta::genre
             Istrian Folk Music::genre
             Italian Folk Music
                 Italian Folk Music::genre
                 Canzone napoletana::genre
                 Liscio::genre
+                Sardinian Folk Music
+                    Sardinian Folk Music::genre
+                    Cantu a chiterra::genre
+                    Cantu a tenore::genre
                 Stornello::genre
                 Tarantella
                     Tarantella::genre
@@ -4048,6 +4188,7 @@ Regional Music
                 Portuguese Folk Music::genre
                 Cante alentejano::genre
                 Chamarrita açoriana::genre
+                Desgarrada::genre
                 Fado
                     Fado::genre
                     Fado de Coimbra::genre
@@ -4059,10 +4200,6 @@ Regional Music
                 Colinde::genre
                 Doină::genre
                 Muzică lăutărească::genre
-            Sardinian Folk Music
-                Sardinian Folk Music::genre
-                Cantu a chiterra::genre
-                Cantu a tenore::genre
             Slavic Folk Music
                 Slavic Folk Music::genre
                 Belarusian Folk Music::genre
@@ -4123,6 +4260,7 @@ Regional Music
                 Cuplé::genre
                 Galician Folk Music::genre
                 Pasodoble::genre
+                Valencian Folk Music::genre
             Volga-Ural Folk Music
                 Volga-Ural Folk Music::genre
                 Bashkir Folk Music::genre
@@ -4139,10 +4277,15 @@ Regional Music
         Finnish Tango::genre
         German Music
             German Music::genre
-            German Folk Music::genre
+            Alsatian Folk Music::genre
+            German Folk Music
+                German Folk Music::genre
+                Gstanzl::genre
             Guggenmusik::genre
+            Ländler::genre
             Lied::genre
             Liedermacher::genre
+            Neue Volksmusik::genre
             Romantische Oper::genre
             Volkstümliche Musik::genre
             Zeitoper::genre
@@ -4177,6 +4320,7 @@ Regional Music
             Catalan Folk Music
                 Catalan Folk Music::genre
                 Sardana::genre
+                Valencian Folk Music::genre
             Euskal kantagintza berria::genre
             Nova cançó::genre
             Portuguese Music
@@ -4187,6 +4331,7 @@ Regional Music
                     Portuguese Folk Music::genre
                     Cante alentejano::genre
                     Chamarrita açoriana::genre
+                    Desgarrada::genre
                     Fado
                         Fado::genre
                         Fado de Coimbra::genre
@@ -4228,6 +4373,7 @@ Regional Music
                     Cuplé::genre
                     Galician Folk Music::genre
                     Pasodoble::genre
+                    Valencian Folk Music::genre
                 Tecnorumba::genre
             Villancico::genre
         Irish Showband::genre
@@ -4239,6 +4385,10 @@ Regional Music
                 Italian Folk Music::genre
                 Canzone napoletana::genre
                 Liscio::genre
+                Sardinian Folk Music
+                    Sardinian Folk Music::genre
+                    Cantu a chiterra::genre
+                    Cantu a tenore::genre
                 Stornello::genre
                 Tarantella
                     Tarantella::genre
@@ -4284,6 +4434,7 @@ Regional Music
             Greenlandic Music
                 Greenlandic Music::genre
                 Tivaner inngernerlu::genre
+                Uaajeerneq::genre
                 Vaigat Music::genre
             Nordic Folk Music
                 Nordic Folk Music::genre
@@ -4363,6 +4514,7 @@ Regional Music
         Verismo::genre
         Waltz
             Waltz::genre
+            Vals venezolano::genre
             Valsa brasileira::genre
     Gospel
         Gospel::genre
@@ -4373,6 +4525,7 @@ Regional Music
         Sacred Steel::genre
         Southern Gospel::genre
         Traditional Black Gospel::genre
+        Urban Contemporary Gospel::genre
     Hispanic Music
         Hispanic Music::genre
         Canción melódica
@@ -4426,7 +4579,9 @@ Regional Music
                 Changüí::genre
                 Conga::genre
                 Cuban Charanga::genre
-                Cubaton::genre
+                Cubaton
+                    Cubaton::genre
+                    Reparto::genre
                 Danzón::genre
                 Descarga::genre
                 Filin::genre
@@ -4463,8 +4618,13 @@ Regional Music
                 Cumbia colombiana::genre
                 Cumbia mexicana
                     Cumbia mexicana::genre
-                    Cumbia sonidera::genre
-                Cumbia peruana::genre
+                    Cumbia sonidera
+                        Cumbia sonidera::genre
+                        Cumbia rebajada::genre
+                Cumbia peruana
+                    Cumbia peruana::genre
+                    Cumbia amazónica::genre
+                    Cumbia norteña peruana::genre
                 Cumbia pop::genre
                 Digital Cumbia::genre
                 Merecumbé::genre
@@ -4503,9 +4663,11 @@ Regional Music
                 Muliza::genre
                 Música criolla peruana
                     Música criolla peruana::genre
+                    Festejo::genre
                     Marinera::genre
                     Tondero::genre
                     Vals criollo::genre
+                Música llanera::genre
                 Plena::genre
                 Saya::genre
                 Tamborito::genre
@@ -4514,7 +4676,9 @@ Regional Music
                 Yaraví::genre
                 Zamacueca::genre
                 Zamba::genre
-            Latin Alternative::genre
+            Latin Alternative
+                Latin Alternative::genre
+                Nueva cumbia chilena::genre
             Latin American Classical Music::genre
             Latin Disco::genre
             Latin Electronic
@@ -4554,7 +4718,9 @@ Regional Music
                 Corrido::genre
                 Cumbia mexicana
                     Cumbia mexicana::genre
-                    Cumbia sonidera::genre
+                    Cumbia sonidera
+                        Cumbia sonidera::genre
+                        Cumbia rebajada::genre
                 Cumbiatón::genre
                 Mariachi::genre
                 Mexican Folk Music
@@ -4586,9 +4752,13 @@ Regional Music
             Pasillo::genre
             Peruvian Music
                 Peruvian Music::genre
-                Cumbia peruana::genre
+                Cumbia peruana
+                    Cumbia peruana::genre
+                    Cumbia amazónica::genre
+                    Cumbia norteña peruana::genre
                 Música criolla peruana
                     Música criolla peruana::genre
+                    Festejo::genre
                     Marinera::genre
                     Tondero::genre
                     Vals criollo::genre
@@ -4597,7 +4767,9 @@ Regional Music
             Reggaetón
                 Reggaetón::genre
                 Bachatón::genre
-                Cubaton::genre
+                Cubaton
+                    Cubaton::genre
+                    Reparto::genre
                 Cumbiatón::genre
                 Neoperreo::genre
                 RKT::genre
@@ -4625,6 +4797,7 @@ Regional Music
             Tamborera::genre
             Tropicanibalismo::genre
             Vallenato::genre
+            Vals venezolano::genre
             Xuc::genre
         Murga
             Murga::genre
@@ -4673,6 +4846,7 @@ Regional Music
                 Cuplé::genre
                 Galician Folk Music::genre
                 Pasodoble::genre
+                Valencian Folk Music::genre
             Tecnorumba::genre
     Indigenous American Music
         Indigenous American Music::genre
@@ -4702,6 +4876,7 @@ Regional Music
                 Inuit Music::genre
                 Inuit Vocal Games::genre
                 Tivaner inngernerlu::genre
+                Uaajeerneq::genre
             James Bay Fiddling::genre
             Métis Music
                 Métis Music::genre
@@ -4709,6 +4884,8 @@ Regional Music
             Powwow Music::genre
         Mesoamerican Music
             Mesoamerican Music::genre
+            Maya Music::genre
+            Nahua Music::genre
             Pirekua::genre
     Islamic Religious Music & Recitation
         Islamic Religious Music & Recitation::genre
@@ -4736,7 +4913,9 @@ Regional Music
                 Ashkenazi Cantorial Music::genre
             Kriyat haTorah::genre
             Piyyut::genre
-        Muzika mizrahit::genre
+        Muzika mizrahit
+            Muzika mizrahit::genre
+            Muzikat dika'on::genre
         Muzika yehudit mekorit::genre
         Oriental Jewish Music::genre
         Orthodox Pop::genre
@@ -4777,7 +4956,7 @@ Regional Music
             Fife and Drum Blues::genre
             Jug Band::genre
             Ring Shout::genre
-            Sacred Harp Music::genre
+            Sacred Harp Singing::genre
             Spirituals::genre
             Talking Blues::genre
             Traditional Black Gospel::genre
@@ -4789,6 +4968,9 @@ Regional Music
                     Country Gospel::genre
                     Bluegrass Gospel::genre
                 Country Yodeling::genre
+                Traditional Bluegrass
+                    Traditional Bluegrass::genre
+                    Bluegrass Gospel::genre
         American Primitivism::genre
         Barbershop
             Barbershop::genre
@@ -4804,6 +4986,7 @@ Regional Music
             French-Canadian Folk Music::genre
             Métis Fiddling::genre
             Newfoundland Folk Music::genre
+        Chanson québécoise::genre
         Coon Song::genre
         Country
             Country::genre
@@ -4815,10 +4998,12 @@ Regional Music
                 Red Dirt::genre
             Bluegrass
                 Bluegrass::genre
-                Bluegrass Gospel::genre
                 Progressive Bluegrass
                     Progressive Bluegrass::genre
                     Jamgrass::genre
+                Traditional Bluegrass
+                    Traditional Bluegrass::genre
+                    Bluegrass Gospel::genre
             Contemporary Country
                 Contemporary Country::genre
                 Bro-Country::genre
@@ -4848,6 +5033,9 @@ Regional Music
                     Country Gospel::genre
                     Bluegrass Gospel::genre
                 Country Yodeling::genre
+                Traditional Bluegrass
+                    Traditional Bluegrass::genre
+                    Bluegrass Gospel::genre
             Western::genre
             Western Swing::genre
         Country Rock::genre
@@ -4855,6 +5043,7 @@ Regional Music
         Greenlandic Music
             Greenlandic Music::genre
             Tivaner inngernerlu::genre
+            Uaajeerneq::genre
             Vaigat Music::genre
         Hapa haole::genre
         Indigenous North American Music
@@ -4864,6 +5053,7 @@ Regional Music
                 Inuit Music::genre
                 Inuit Vocal Games::genre
                 Tivaner inngernerlu::genre
+                Uaajeerneq::genre
             James Bay Fiddling::genre
             Métis Music
                 Métis Music::genre
@@ -4898,7 +5088,12 @@ Regional Music
         Sacred Steel::genre
         Shaker Music::genre
         Southern Gospel::genre
-        Tejano Music::genre
+        Texan Music
+            Texan Music::genre
+            Acoustic Texas Blues::genre
+            Electric Texas Blues::genre
+            Tejano Music::genre
+            Tex-Mex::genre
         Tin Pan Alley::genre
         Vaudeville
             Vaudeville::genre
@@ -4909,6 +5104,7 @@ Regional Music
         Indigenous Australian Traditional Music
             Indigenous Australian Traditional Music::genre
             Djanba::genre
+            Wangga::genre
         Melanesian Music
             Melanesian Music::genre
             Fijian Music
@@ -4955,6 +5151,7 @@ Regional Music
     Prehistoric Music::genre
     South American Music
         South American Music::genre
+        Aleke::genre
         Argentine Music
             Argentine Music::genre
             Cuarteto::genre
@@ -4971,7 +5168,6 @@ Regional Music
         Bambuco::genre
         Brazilian Music
             Brazilian Music::genre
-            Bossa nova::genre
             Brazilian Classical Music
                 Brazilian Classical Music::genre
                 Valsa brasileira::genre
@@ -5013,9 +5209,6 @@ Regional Music
                         Brega funk::genre
                         Batidão romântico::genre
                     Tecnofunk::genre
-            Choro
-                Choro::genre
-                Samba-choro::genre
             Dobrado::genre
             Funk brasileiro
                 Funk brasileiro::genre
@@ -5036,16 +5229,19 @@ Regional Music
                     Funk mandelão::genre
                     Beat bruxaria::genre
                     Brazilian Phonk::genre
+                    Funk automotivo::genre
+                    Ritmada::genre
                 Funk Melody::genre
                 Funk ostentação::genre
                 Funknejo::genre
                 Mega funk::genre
+                Noiadance::genre
                 Rasteirinha::genre
                 Tecnofunk::genre
+                Trapfunk::genre
             Lambada
                 Lambada::genre
                 Guitarrada::genre
-            Maxixe::genre
             MPB
                 MPB::genre
                 Tropicália::genre
@@ -5084,7 +5280,11 @@ Regional Music
                         Forró de favela::genre
                         Piseiro::genre
                     Forró universitário::genre
-                Frevo::genre
+                Frevo
+                    Frevo::genre
+                    Frevo de bloco::genre
+                    Frevo de rua::genre
+                    Frevo-canção::genre
                 Manguebeat::genre
                 Maracatu::genre
                 Samba de roda::genre
@@ -5105,6 +5305,7 @@ Regional Music
             Samba
                 Samba::genre
                 Batucada::genre
+                Bossa nova::genre
                 Marchinha::genre
                 Pagode
                     Pagode::genre
@@ -5121,12 +5322,12 @@ Regional Music
                 Samba-choro::genre
                 Samba-enredo::genre
                 Samba-exaltação::genre
+                Samba-jazz::genre
                 Samba-joia::genre
                 Samba-rock
                     Samba-rock::genre
                     Samba Soul::genre
                 Sambalanço::genre
-            Samba-jazz::genre
             Sertanejo
                 Sertanejo::genre
                 Rasqueado::genre
@@ -5138,13 +5339,35 @@ Regional Music
                     Sertanejo universitário::genre
                     Arrocha sertanejo::genre
                     Funknejo::genre
+            Southeastern Brazilian Music
+                Southeastern Brazilian Music::genre
+                Choro
+                    Choro::genre
+                    Samba-choro::genre
+                Jongo
+                    Jongo::genre
+                    Ponto de umbanda::genre
+                Marchinha::genre
+                Maxixe::genre
+                Pagode
+                    Pagode::genre
+                    Pagodão
+                        Pagodão::genre
+                        Arrochadeira::genre
+                    Pagode romântico::genre
+                Partido alto::genre
+                Samba de breque::genre
+                Samba de gafieira::genre
+                Samba de terreiro::genre
+                Samba-enredo::genre
+                Tamborzão::genre
+                Vanguarda paulista::genre
             Southern Brazilian Music
                 Southern Brazilian Music::genre
                 Bandinha::genre
                 Música gaúcha
                     Música gaúcha::genre
                     Vanera::genre
-            Vanguarda paulista::genre
             Xote::genre
         Bullerengue::genre
         Calipso venezolano::genre
@@ -5192,14 +5415,19 @@ Regional Music
         Malagueña venezolana::genre
         Mapuche Folk Music::genre
         Muliza::genre
+        Música llanera::genre
         Onda nueva::genre
         Pasillo::genre
         Payada::genre
         Peruvian Music
             Peruvian Music::genre
-            Cumbia peruana::genre
+            Cumbia peruana
+                Cumbia peruana::genre
+                Cumbia amazónica::genre
+                Cumbia norteña peruana::genre
             Música criolla peruana
                 Música criolla peruana::genre
+                Festejo::genre
                 Marinera::genre
                 Tondero::genre
                 Vals criollo::genre
@@ -5225,11 +5453,13 @@ Regional Music
         Taquirari::genre
         Tecnomerengue::genre
         Vallenato::genre
+        Vals venezolano::genre
         Yaraví::genre
         Zamacueca::genre
         Zamba::genre
     Sufi Music
         Sufi Music::genre
+        Banga::genre
         Kafi::genre
         Manzuma::genre
         Qawwali::genre
@@ -5279,7 +5509,7 @@ Regional Music
             Fife and Drum Blues::genre
             Jug Band::genre
             Ring Shout::genre
-            Sacred Harp Music::genre
+            Sacred Harp Singing::genre
             Spirituals::genre
             Talking Blues::genre
             Traditional Black Gospel::genre
@@ -5291,20 +5521,20 @@ Regional Music
                     Country Gospel::genre
                     Bluegrass Gospel::genre
                 Country Yodeling::genre
+                Traditional Bluegrass
+                    Traditional Bluegrass::genre
+                    Bluegrass Gospel::genre
         Arabic Folk Music
             Arabic Folk Music::genre
             Aita::genre
-            Arabic Bellydance Music::genre
+            Arabic Bellydance Music
+                Arabic Bellydance Music::genre
+                Raqs baladi::genre
             Ayyalah::genre
             Fijiri::genre
             Liwa::genre
             Nuban::genre
         Australian Folk Music::genre
-        Austronesian Traditional Music
-            Austronesian Traditional Music::genre
-            Gondang::genre
-            Indigenous Taiwanese Music::genre
-            Pakacaping Music::genre
         Bayawan::genre
         Brazilian Folk Music
             Brazilian Folk Music::genre
@@ -5372,15 +5602,16 @@ Regional Music
         Chukchi Folk Music::genre
         East Asian Folk Music
             East Asian Folk Music::genre
+            Amami shimauta::genre
             Chinese Folk Music
                 Chinese Folk Music::genre
+                Chaozhou xianshi::genre
                 Han Folk Music::genre
                 Jiangnan sizhu::genre
                 Shan’ge::genre
             Indigenous Taiwanese Music::genre
             Japanese Folk Music
                 Japanese Folk Music::genre
-                Amami shimauta::genre
                 Heikyoku::genre
                 Kagura::genre
                 Kouta::genre
@@ -5404,6 +5635,7 @@ Regional Music
             European Folk Music::genre
             Alpine Folk Music
                 Alpine Folk Music::genre
+                Ländler::genre
                 Narodno zabavna glasba::genre
                 Naturjodel::genre
             Balkan Folk Music
@@ -5465,6 +5697,7 @@ Regional Music
             Catalan Folk Music
                 Catalan Folk Music::genre
                 Sardana::genre
+                Valencian Folk Music::genre
             Celtic Folk Music
                 Celtic Folk Music::genre
                 Asturian Folk Music::genre
@@ -5516,16 +5749,23 @@ Regional Music
                     Occitan Folk Music::genre
                     Auvergnat Folk Music::genre
                     Gascon Folk Music::genre
-            German Folk Music::genre
+            German Folk Music
+                German Folk Music::genre
+                Gstanzl::genre
             Għana::genre
             Hungarian Folk Music
                 Hungarian Folk Music::genre
                 Csárdás::genre
+                Magyar nóta::genre
             Istrian Folk Music::genre
             Italian Folk Music
                 Italian Folk Music::genre
                 Canzone napoletana::genre
                 Liscio::genre
+                Sardinian Folk Music
+                    Sardinian Folk Music::genre
+                    Cantu a chiterra::genre
+                    Cantu a tenore::genre
                 Stornello::genre
                 Tarantella
                     Tarantella::genre
@@ -5557,6 +5797,7 @@ Regional Music
                 Portuguese Folk Music::genre
                 Cante alentejano::genre
                 Chamarrita açoriana::genre
+                Desgarrada::genre
                 Fado
                     Fado::genre
                     Fado de Coimbra::genre
@@ -5568,10 +5809,6 @@ Regional Music
                 Colinde::genre
                 Doină::genre
                 Muzică lăutărească::genre
-            Sardinian Folk Music
-                Sardinian Folk Music::genre
-                Cantu a chiterra::genre
-                Cantu a tenore::genre
             Slavic Folk Music
                 Slavic Folk Music::genre
                 Belarusian Folk Music::genre
@@ -5632,6 +5869,7 @@ Regional Music
                 Cuplé::genre
                 Galician Folk Music::genre
                 Pasodoble::genre
+                Valencian Folk Music::genre
             Volga-Ural Folk Music
                 Volga-Ural Folk Music::genre
                 Bashkir Folk Music::genre
@@ -5676,9 +5914,11 @@ Regional Music
             Muliza::genre
             Música criolla peruana
                 Música criolla peruana::genre
+                Festejo::genre
                 Marinera::genre
                 Tondero::genre
                 Vals criollo::genre
+            Música llanera::genre
             Plena::genre
             Saya::genre
             Tamborito::genre
@@ -5737,18 +5977,22 @@ Regional Music
             Bamar Folk Music::genre
             Filipino Rondalla::genre
             Gondang::genre
-            Hill Tribe Music
-                Hill Tribe Music::genre
-                Hmong Folk Music::genre
+            Harana::genre
+            Hmong Folk Music::genre
             Khmer Folk Music::genre
             Kuda kepang::genre
-            Kundiman::genre
             Lao Folk Music::genre
             Malay Folk Music::genre
             Rapai dabõih::genre
+            Tarawangsa::genre
             Thai Folk Music
                 Thai Folk Music::genre
                 Fon leb::genre
+            Vietnamese Folk Music
+                Vietnamese Folk Music::genre
+                Chèo::genre
+                Quan họ::genre
+                Xẩm::genre
         West Asian Folk Music
             West Asian Folk Music::genre
             Alevi Folk Music::genre
@@ -5782,7 +6026,7 @@ Regional Music
             Naturjodel::genre
     Turkic-Mongolic Music
         Turkic-Mongolic Music::genre
-        Altai Traditional Music::genre
+        Altai Music::genre
         Bashkir Folk Music::genre
         Central Asian Throat Singing
             Central Asian Throat Singing::genre
@@ -5811,6 +6055,7 @@ Rock
         Indie Rock
             Indie Rock::genre
             C86::genre
+            Dolewave::genre
             Dunedin Sound::genre
             Garage Rock Revival::genre
             Hamburger Schule::genre
@@ -5824,14 +6069,15 @@ Rock
                 Slacker Rock::genre
                 Shitgaze::genre
             Slowcore::genre
-        J-Rock::genre
         Jangle Pop
             Jangle Pop::genre
             C86::genre
+            Dolewave::genre
             Neo-Acoustic::genre
             Paisley Underground::genre
         Post-Britpop::genre
         Post-Grunge::genre
+        Shimokita-kei::genre
         Shoegaze::genre
     Anatolian Rock::genre
     AOR::genre
@@ -5855,6 +6101,7 @@ Rock
         Emo-Pop::genre
         Emocore::genre
         Midwest Emo::genre
+        Pop Screamo::genre
         Screamo
             Screamo::genre
             Emoviolence::genre
@@ -5881,6 +6128,7 @@ Rock
         Funk Metal::genre
     Garage Rock
         Garage Rock::genre
+        Frat Rock::genre
         Freakbeat::genre
         Garage Punk::genre
         Garage Rock Revival::genre
@@ -5889,7 +6137,9 @@ Rock
         Glam Punk::genre
     Hard Rock
         Hard Rock::genre
-        Glam Metal::genre
+        Glam Metal
+            Glam Metal::genre
+            Sleaze Rock::genre
         Heavy Psych::genre
         Stoner Rock::genre
     Hardcore [Punk]
@@ -5941,11 +6191,12 @@ Rock
         Post-Hardcore
             Post-Hardcore::genre
             Emocore::genre
+            Pop Screamo::genre
             Screamo
                 Screamo::genre
                 Emoviolence::genre
             Swancore::genre
-        Sasscore::genre
+        Sass::genre
     Heartland Rock::genre
     Industrial Rock::genre
     Jam Band
@@ -5974,9 +6225,11 @@ Rock
                 Blackgaze::genre
             Black 'n' Roll::genre
             Black Noise::genre
-            Depressive Black Metal::genre
+            Dissonant Black Metal::genre
+            DSBM::genre
             Melodic Black Metal::genre
             Pagan Black Metal::genre
+            RABM::genre
             Symphonic Black Metal::genre
             War Metal::genre
         Death Metal
@@ -5990,6 +6243,7 @@ Rock
             Technical Death Metal
                 Technical Death Metal::genre
                 Dissonant Death Metal::genre
+        Djent::genre
         Doom Metal
             Doom Metal::genre
             Death Doom Metal::genre
@@ -6037,9 +6291,7 @@ Rock
             Atmospheric Sludge Metal::genre
             Doomgaze::genre
         Power Metal::genre
-        Progressive Metal
-            Progressive Metal::genre
-            Djent::genre
+        Progressive Metal::genre
         Sludge Metal
             Sludge Metal::genre
             Atmospheric Sludge Metal::genre
@@ -6061,13 +6313,16 @@ Rock
         New Wave::genre
         Neue Deutsche Welle::genre
         New Romantic::genre
+        Yugoslav New Wave::genre
     Noise Rock
         Noise Rock::genre
+        Pigfuck::genre
         Shitgaze::genre
+    Palm Desert Scene::genre
     Pop Rock
         Pop Rock::genre
-        Beat Music
-            Beat Music::genre
+        Beat
+            Beat::genre
             Freakbeat::genre
             Group Sounds::genre
             Jovem Guarda::genre
@@ -6078,10 +6333,12 @@ Rock
         Jangle Pop
             Jangle Pop::genre
             C86::genre
+            Dolewave::genre
             Neo-Acoustic::genre
             Paisley Underground::genre
         Manila Sound::genre
         Piano Rock::genre
+        Pop Yeh-Yeh::genre
         Post-Britpop::genre
         Power Pop::genre
         Soft Rock
@@ -6245,7 +6502,9 @@ Spoken Word
         Slam Poetry::genre
         Sound Poetry::genre
     Radio Drama::genre
-    Speeches::genre
+    Speeches
+        Speeches::genre
+        Sermons::genre
     Stand-Up Comedy::genre
 Uncategorised
     Uncategorised::genre
@@ -6253,6 +6512,12 @@ Uncategorised
     ASMR::genre
     Beatboxing::genre
     Bugle Call::genre
+    CCM
+        CCM::genre
+        Christian Hip Hop::genre
+        Christian Rock::genre
+        Praise & Worship::genre
+        Urban Contemporary Gospel::genre
     Comedy
         Comedy::genre
         Break-In::genre
@@ -6281,6 +6546,7 @@ Uncategorised
             Choral Concerto::genre
             Isicathamiya::genre
             Mbube::genre
+            Sacred Harp Singing::genre
             Sean-nós::genre
         Acoustic Rock::genre
         Children's Music
@@ -6303,10 +6569,12 @@ Uncategorised
             Christmas Music::genre
             Halloween Music::genre
             Marchinha::genre
+            Samba-enredo::genre
             Toada de Boi::genre
         Hymns
             Hymns::genre
             Lauda::genre
+            Sacred Harp Singing::genre
         Musical Parody::genre
         Novelty::genre
         Orchestral Music
@@ -6354,21 +6622,13 @@ Uncategorised
             Video Game Music::genre
         Teen Pop::genre
         Vocal Group::genre
-    Easy Listening
-        Easy Listening::genre
-        Cocktail Nation::genre
-        Exotica::genre
-        Light Music::genre
-        Lounge::genre
-        Pops Orchestra::genre
-        Space Age Pop::genre
     Field Recordings
         Field Recordings::genre
         Nature Recordings
             Nature Recordings::genre
             Animal Sounds
                 Animal Sounds::genre
-                Birdsong::genre
+                Bird Sounds::genre
                 Insect Sounds::genre
                 Whale Song::genre
         Radio Broadcast Recordings::genre
@@ -6377,8 +6637,15 @@ Uncategorised
         Mantra::genre
         Tibetan Bhuddist Chant::genre
         Vedic Chant::genre
+    March
+        March::genre
+        Circus March::genre
+        Dobrado::genre
+        Funeral March::genre
     Marching Band
         Marching Band::genre
+        Beni::genre
+        Drum and Bugle Corps::genre
         Drumline::genre
         Fife and Drum Corps::genre
         Guggenmusik::genre
@@ -6387,14 +6654,51 @@ Uncategorised
     Mashup::genre
     Mechanical Music::genre
     Parlour Music::genre
-    Shibuya-kei
-        Shibuya-kei::genre
-        Akishibu-kei::genre
-        Picopop::genre
+    Scenes & Movements
+        Scenes & Movements::genre
+        Bérite Club::genre
+        Campus Folk::genre
+        Dolewave::genre
+        Doujin Music::genre
+        Dunedin Sound::genre
+        East Coast Hip Hop::genre
+        French Hip Hop::genre
+        Futurism::genre
+        Hipco::genre
+        Japanese Hardcore::genre
+        Japanese Hip Hop::genre
+        Kawaii Metal::genre
+        Manguebeat::genre
+        Manila Sound::genre
+        Mod
+            Mod::genre
+            Mod Revival::genre
+        Neue Volksmusik::genre
+        New York Hardcore::genre
+        No Wave::genre
+        Nueva ola::genre
+        NWOBHM::genre
+        Onkyo::genre
+        Palm Desert Scene::genre
+        RABM::genre
+        Red Dirt::genre
+        Rock in Opposition::genre
+        Shibuya-kei
+            Shibuya-kei::genre
+            Akishibu-kei::genre
+            Picopop::genre
+        Shimokita-kei::genre
+        Southern Hip Hop::genre
+        Tropicália::genre
+        UK Hip Hop::genre
+        UK82::genre
+        Vanguarda paulista::genre
+        Visual kei::genre
+        West Coast Hip Hop::genre
+        Yugoslav New Wave::genre
     Sound Effects
         Sound Effects::genre
         Battle Record::genre
         Binaural Beats::genre
         Broadband Noise::genre
-    Visual kei::genre
     YTPMV::genre
