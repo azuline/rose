@@ -49,7 +49,7 @@ def test_parse_release_from_path(config: Config) -> None:
 
 
 def test_parse_track_id_from_path(config: Config, source_dir: Path) -> None:
-    af = AudioTags.from_file(config, source_dir / "Test Release 1" / "01.m4a")
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     track_id = af.id
     assert track_id is not None
     with start_virtual_fs(config):

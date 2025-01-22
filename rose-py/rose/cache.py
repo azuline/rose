@@ -610,7 +610,7 @@ def _update_cache_for_releases_executor(
                 # process the directory at this time.
                 release_id_from_first_file = None
                 with contextlib.suppress(Exception):
-                    release_id_from_first_file = AudioTags.from_file(c, first_audio_file).release_id
+                    release_id_from_first_file = AudioTags.from_file(first_audio_file).release_id
                 if release_id_from_first_file and not force:
                     logger.warning(
                         f"No-Op: Skipping release at {source_path}: files in release already have "
@@ -720,7 +720,7 @@ def _update_cache_for_releases_executor(
 
                 # Otherwise, read tags from disk and construct a new cached_track.
                 logger.debug(f"Track cache miss for {os.path.basename(f)}, reading tags from disk")
-                tags = AudioTags.from_file(c, Path(f))
+                tags = AudioTags.from_file(Path(f))
             except FileNotFoundError:
                 logger.warning(f"Skipping track update for {os.path.basename(f)}: file no longer exists")
                 continue

@@ -683,7 +683,7 @@ def parse_track_argument(c: Config, t: str) -> str:
     # We treat cases (2) and (3) the same way: crack the track file open and parse the ID from the
     # tags.
     with contextlib.suppress(FileNotFoundError, UnsupportedFiletypeError):
-        af = AudioTags.from_file(c, Path(t))
+        af = AudioTags.from_file(Path(t))
         if af.id is not None:
             return af.id
     raise InvalidTrackArgError(

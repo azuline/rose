@@ -289,19 +289,19 @@ def test_update_cache_releases_writes_ids_to_tags(config: Config) -> None:
     release_dir = config.music_source_dir / TEST_RELEASE_3.name
     shutil.copytree(TEST_RELEASE_3, release_dir)
 
-    af = AudioTags.from_file(config, release_dir / "01.m4a")
+    af = AudioTags.from_file(release_dir / "01.m4a")
     assert af.id is None
     assert af.release_id is None
-    af = AudioTags.from_file(config, release_dir / "02.m4a")
+    af = AudioTags.from_file(release_dir / "02.m4a")
     assert af.id is None
     assert af.release_id is None
 
     update_cache_for_releases(config, [release_dir])
 
-    af = AudioTags.from_file(config, release_dir / "01.m4a")
+    af = AudioTags.from_file(release_dir / "01.m4a")
     assert af.id is not None
     assert af.release_id is not None
-    af = AudioTags.from_file(config, release_dir / "02.m4a")
+    af = AudioTags.from_file(release_dir / "02.m4a")
     assert af.id is not None
     assert af.release_id is not None
 
@@ -337,7 +337,7 @@ def test_update_cache_releases_to_empty_multi_value_tag(config: Config) -> None:
         assert cursor.fetchone()[0]
 
     for fn in ["01.m4a", "02.m4a"]:
-        af = AudioTags.from_file(config, release_dir / fn)
+        af = AudioTags.from_file(release_dir / fn)
         af.label = []
         af.flush(config)
 

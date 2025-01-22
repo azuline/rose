@@ -129,7 +129,7 @@ class AudioTags:
     path: Path
 
     @classmethod
-    def from_file(cls, c: Config, p: Path) -> AudioTags:
+    def from_file(cls, p: Path) -> AudioTags:
         """Read the tags of an audio file on disk."""
         import mutagen
         import mutagen.flac
@@ -184,8 +184,8 @@ class AudioTags:
                 discnumber=discnumber,
                 disctotal=disctotal,
                 releasetitle=_get_tag(m.tags, ["TALB"]),
-                genre=_split_genre_tag(c, _get_tag(m.tags, ["TCON"], split=True)),
-                secondarygenre=_split_genre_tag(c, _get_tag(m.tags, ["TXXX:SECONDARYGENRE"], split=True)),
+                genre=_split_genre_tag(_get_tag(m.tags, ["TCON"], split=True)),
+                secondarygenre=_split_genre_tag(_get_tag(m.tags, ["TXXX:SECONDARYGENRE"], split=True)),
                 descriptor=_split_tag(_get_tag(m.tags, ["TXXX:DESCRIPTOR"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["TPUB"], split=True)),
                 catalognumber=_get_tag(m.tags, ["TXXX:CATALOGNUMBER"], first=True),
@@ -235,9 +235,9 @@ class AudioTags:
                 discnumber=str(discnumber),
                 disctotal=disctotal,
                 releasetitle=_get_tag(m.tags, ["\xa9alb"]),
-                genre=_split_genre_tag(c, _get_tag(m.tags, ["\xa9gen"], split=True)),
+                genre=_split_genre_tag(_get_tag(m.tags, ["\xa9gen"], split=True)),
                 secondarygenre=_split_genre_tag(
-                    c, _get_tag(m.tags, ["----:net.sunsetglow.rose:SECONDARYGENRE"], split=True)
+                    _get_tag(m.tags, ["----:net.sunsetglow.rose:SECONDARYGENRE"], split=True)
                 ),
                 descriptor=_split_tag(_get_tag(m.tags, ["----:net.sunsetglow.rose:DESCRIPTOR"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["----:com.apple.iTunes:LABEL"], split=True)),
@@ -278,8 +278,8 @@ class AudioTags:
                 discnumber=_get_tag(m.tags, ["discnumber"], first=True),
                 disctotal=_parse_int(_get_tag(m.tags, ["disctotal"], first=True)),
                 releasetitle=_get_tag(m.tags, ["album"]),
-                genre=_split_genre_tag(c, _get_tag(m.tags, ["genre"], split=True)),
-                secondarygenre=_split_genre_tag(c, _get_tag(m.tags, ["secondarygenre"], split=True)),
+                genre=_split_genre_tag(_get_tag(m.tags, ["genre"], split=True)),
+                secondarygenre=_split_genre_tag(_get_tag(m.tags, ["secondarygenre"], split=True)),
                 descriptor=_split_tag(_get_tag(m.tags, ["descriptor"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["label", "organization", "recordlabel"], split=True)),
                 catalognumber=_get_tag(m.tags, ["catalognumber"]),
@@ -478,11 +478,12 @@ def _split_tag(t: str | None) -> list[str]:
     return TAG_SPLITTER_REGEX.split(t) if t else []
 
 
-def _split_genre_tag(c: Config, t: str | None) -> list[str]:
-    if c.write_parent_genres and t:
-        with contextlib.suppress(ValueError):
-            t, _ = t.split("\\\\PARENTS:\\\\", 1)
-    return TAG_SPLITTER_REGEX.split(t) if t else []
+def _split_genre_tag(t: str | None) -> list[str]:
+    if not t:
+        return []
+    with contextlib.suppress(ValueError):
+        t, _ = t.split("\\\\PARENTS:\\\\", 1)
+    return TAG_SPLITTER_REGEX.split(t)
 
 
 def _format_genre_tag(c: Config, t: list[str]) -> str:

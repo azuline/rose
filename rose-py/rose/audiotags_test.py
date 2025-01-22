@@ -29,7 +29,7 @@ from rose.config import Config
     ],
 )
 def test_getters(config: Config, filename: str, track_num: str, duration: int) -> None:
-    af = AudioTags.from_file(config, TEST_TAGGER / filename)
+    af = AudioTags.from_file(TEST_TAGGER / filename)
     assert af.releasetitle == "A Cool Album"
     assert af.releasetype == "album"
     assert af.releasedate == RoseDate(1990, 2, 5)
@@ -75,14 +75,14 @@ def test_flush(config: Config, isolated_dir: Path, filename: str, track_num: str
     """Test the flush by flushing the file, then asserting that all the tags still read properly."""
     fpath = isolated_dir / filename
     shutil.copyfile(TEST_TAGGER / filename, fpath)
-    af = AudioTags.from_file(config, fpath)
+    af = AudioTags.from_file(fpath)
     # Inject one special case into here: modify the djmixer artist. This checks that we also clear
     # the original djmixer tag, so that the next read does not contain Artist EF and Artist FG.
     af.trackartists.djmixer = [Artist("New")]
     # Also test date writing.
     af.originaldate = RoseDate(1990, 4, 20)
     af.flush(config)
-    af = AudioTags.from_file(config, fpath)
+    af = AudioTags.from_file(fpath)
 
     assert af.releasetitle == "A Cool Album"
     assert af.releasetype == "album"
@@ -119,7 +119,7 @@ def test_write_parent_genres(config: Config, isolated_dir: Path) -> None:
     filename = "track1.flac"
     fpath = isolated_dir / filename
     shutil.copyfile(TEST_TAGGER / filename, fpath)
-    af = AudioTags.from_file(config, fpath)
+    af = AudioTags.from_file(fpath)
     # Inject one special case into here: modify the djmixer artist. This checks that we also clear
     # the original djmixer tag, so that the next read does not contain Artist EF and Artist FG.
     af.trackartists.djmixer = [Artist("New")]
@@ -133,7 +133,7 @@ def test_write_parent_genres(config: Config, isolated_dir: Path) -> None:
     assert mf.tags["genre"] == ["Electronic;House\\\\PARENTS:\\\\Dance;Electronic Dance Music"]
     assert mf.tags["secondarygenre"] == ["Minimal;Ambient"]
 
-    af = AudioTags.from_file(config, fpath)
+    af = AudioTags.from_file(fpath)
     assert af.genre == ["Electronic", "House"]
     assert af.secondarygenre == ["Minimal", "Ambient"]
 
@@ -153,12 +153,12 @@ def test_id_assignment(config: Config, isolated_dir: Path, filename: str) -> Non
     fpath = isolated_dir / filename
     shutil.copyfile(TEST_TAGGER / filename, fpath)
 
-    af = AudioTags.from_file(config, fpath)
+    af = AudioTags.from_file(fpath)
     af.id = "ahaha"
     af.release_id = "bahaha"
     af.flush(config)
 
-    af = AudioTags.from_file(config, fpath)
+    af = AudioTags.from_file(fpath)
     assert af.id == "ahaha"
     assert af.release_id == "bahaha"
 
@@ -173,7 +173,7 @@ def test_releasetype_normalization(config: Config, isolated_dir: Path, filename:
     shutil.copyfile(TEST_TAGGER / filename, fpath)
 
     # Check that release type is read correctly.
-    af = AudioTags.from_file(config, fpath)
+    af = AudioTags.from_file(fpath)
     assert af.releasetype == "album"
     # Assert that attempting to flush a stupid value fails.
     af.releasetype = "lalala"
@@ -182,12 +182,12 @@ def test_releasetype_normalization(config: Config, isolated_dir: Path, filename:
     # Flush it anyways...
     af.flush(config, validate=False)
     # Check that stupid release type is normalized as unknown.
-    af = AudioTags.from_file(config, fpath)
+    af = AudioTags.from_file(fpath)
     assert af.releasetype == "unknown"
     # And now assert that the read is case insensitive.
     af.releasetype = "ALBUM"
     af.flush(config, validate=False)
-    af = AudioTags.from_file(config, fpath)
+    af = AudioTags.from_file(fpath)
     assert af.releasetype == "album"
 
 

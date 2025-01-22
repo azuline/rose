@@ -416,7 +416,7 @@ def test_extract_single_release(config: Config) -> None:
     assert source_path.is_dir()
     assert (source_path / "01. Track 2.m4a").is_file()
     assert (source_path / "cover.jpg").is_file()
-    af = AudioTags.from_file(config, source_path / "01. Track 2.m4a")
+    af = AudioTags.from_file(source_path / "01. Track 2.m4a")
     assert af.releasetitle == "Track 2"
     assert af.tracknumber == "1"
     assert af.discnumber == "1"
@@ -427,7 +427,7 @@ def test_extract_single_release(config: Config) -> None:
 def test_extract_single_release_with_trailing_space(config: Config) -> None:
     release_dir = config.music_source_dir / TEST_RELEASE_1.name
     shutil.copytree(TEST_RELEASE_1, release_dir)
-    af = AudioTags.from_file(config, release_dir / "02.m4a")
+    af = AudioTags.from_file(release_dir / "02.m4a")
     af.tracktitle = "Trailing Space "
     af.flush(config)
     update_cache(config)
@@ -441,7 +441,7 @@ def test_extract_single_release_with_trailing_space(config: Config) -> None:
 def test_run_action_on_release(config: Config, source_dir: Path) -> None:
     action = Action.parse("tracktitle/replace:Bop")
     run_actions_on_release(config, "ilovecarly", [action])
-    af = AudioTags.from_file(config, source_dir / "Test Release 2" / "01.m4a")
+    af = AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a")
     assert af.tracktitle == "Bop"
 
 

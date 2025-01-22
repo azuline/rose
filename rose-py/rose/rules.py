@@ -216,7 +216,7 @@ def filter_track_false_positives_using_tags(
     time_start = time.time()
     rval = []
     for fsr in fast_search_results:
-        tags = AudioTags.from_file(c, fsr.path)
+        tags = AudioTags.from_file(fsr.path)
         # Cached datafile. As it's an extra disk read, we only read it when necessary.
         datafile: StoredDataFile | None = None
         for field in matcher.tags:

@@ -63,5 +63,5 @@ def run_actions_on_track(
     track = get_track(c, track_id)
     if track is None:
         raise TrackDoesNotExistError(f"Track {track_id} does not exist")
-    audiotag = AudioTags.from_file(c, track.source_path)
+    audiotag = AudioTags.from_file(track.source_path)
     execute_metadata_actions(c, actions, [audiotag], dry_run=dry_run, confirm_yes=confirm_yes)
