@@ -1,10 +1,9 @@
-from dataclasses import replace
-import mutagen
 import shutil
+from dataclasses import replace
 from pathlib import Path
 
+import mutagen
 import pytest
-from rose.config import Config
 
 from conftest import TEST_TAGGER
 from rose.audiotags import (
@@ -16,6 +15,7 @@ from rose.audiotags import (
     parse_artist_string,
 )
 from rose.common import Artist, ArtistMapping
+from rose.config import Config
 
 
 @pytest.mark.parametrize(

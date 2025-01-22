@@ -930,23 +930,25 @@ def _update_cache_for_releases_executor(
 
         if release_dirty:
             logger.debug(f"Scheduling upsert for dirty release in database: {release.source_path}")
-            upd_release_args.append([
-                release.id,
-                str(release.source_path),
-                str(release.cover_image_path) if release.cover_image_path else None,
-                release.added_at,
-                release.datafile_mtime,
-                release.releasetitle,
-                release.releasetype,
-                str(release.releasedate) if release.releasedate else None,
-                str(release.originaldate) if release.originaldate else None,
-                str(release.compositiondate) if release.compositiondate else None,
-                release.edition,
-                release.catalognumber,
-                release.disctotal,
-                release.new,
-                sha256_dataclass(release),
-            ])
+            upd_release_args.append(
+                [
+                    release.id,
+                    str(release.source_path),
+                    str(release.cover_image_path) if release.cover_image_path else None,
+                    release.added_at,
+                    release.datafile_mtime,
+                    release.releasetitle,
+                    release.releasetype,
+                    str(release.releasedate) if release.releasedate else None,
+                    str(release.originaldate) if release.originaldate else None,
+                    str(release.compositiondate) if release.compositiondate else None,
+                    release.edition,
+                    release.catalognumber,
+                    release.disctotal,
+                    release.new,
+                    sha256_dataclass(release),
+                ]
+            )
             upd_release_ids.append(release.id)
             for pos, genre in enumerate(release.genres):
                 upd_release_genre_args.append([release.id, genre, pos])
@@ -967,18 +969,20 @@ def _update_cache_for_releases_executor(
                 if track.id not in track_ids_to_insert:
                     continue
                 logger.debug(f"Scheduling upsert for dirty track in database: {track.source_path}")
-                upd_track_args.append([
-                    track.id,
-                    str(track.source_path),
-                    track.source_mtime,
-                    track.tracktitle,
-                    track.release.id,
-                    track.tracknumber,
-                    track.tracktotal,
-                    track.discnumber,
-                    track.duration_seconds,
-                    sha256_dataclass(track),
-                ])
+                upd_track_args.append(
+                    [
+                        track.id,
+                        str(track.source_path),
+                        track.source_mtime,
+                        track.tracktitle,
+                        track.release.id,
+                        track.tracknumber,
+                        track.tracktotal,
+                        track.discnumber,
+                        track.duration_seconds,
+                        sha256_dataclass(track),
+                    ]
+                )
                 upd_track_ids.append(track.id)
                 pos = 0
                 for role, artists in track.trackartists.items():

@@ -129,7 +129,7 @@ class AudioTags:
     path: Path
 
     @classmethod
-    def from_file(cls, c: "Config", p: Path) -> AudioTags:
+    def from_file(cls, c: Config, p: Path) -> AudioTags:
         """Read the tags of an audio file on disk."""
         import mutagen
         import mutagen.flac
@@ -300,7 +300,7 @@ class AudioTags:
         raise UnsupportedFiletypeError(f"{p} is not a supported audio file")
 
     @no_type_check
-    def flush(self, c: "Config", *, validate: bool = True) -> None:
+    def flush(self, c: Config, *, validate: bool = True) -> None:
         """Flush the current tags to the file on disk."""
         import mutagen
         import mutagen.flac
@@ -478,14 +478,14 @@ def _split_tag(t: str | None) -> list[str]:
     return TAG_SPLITTER_REGEX.split(t) if t else []
 
 
-def _split_genre_tag(c: "Config", t: str | None) -> list[str]:
+def _split_genre_tag(c: Config, t: str | None) -> list[str]:
     if c.write_parent_genres and t:
         with contextlib.suppress(ValueError):
             t, _ = t.split("\\\\PARENTS:\\\\", 1)
     return TAG_SPLITTER_REGEX.split(t) if t else []
 
 
-def _format_genre_tag(c: "Config", t: list[str]) -> str:
+def _format_genre_tag(c: Config, t: list[str]) -> str:
     if not c.write_parent_genres:
         return ";".join(t)
     if parent_genres := set(flatten([TRANSITIVE_PARENT_GENRES.get(g, []) for g in t])) - set(t):
