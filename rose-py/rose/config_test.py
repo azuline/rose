@@ -55,6 +55,7 @@ def test_config_full() -> None:
 
                 cover_art_stems = [ "aa", "bb" ]
                 valid_art_exts = [ "tiff" ]
+                write_parent_genres = true
                 max_filename_bytes = 255
                 ignore_release_directories = [ "dummy boy" ]
                 rename_source_files = true
@@ -136,6 +137,7 @@ def test_config_full() -> None:
             },
             cover_art_stems=["aa", "bb"],
             valid_art_exts=["tiff"],
+            write_parent_genres=True,
             max_filename_bytes=255,
             rename_source_files=True,
             path_templates=PathTemplateConfig(
@@ -395,6 +397,15 @@ def test_config_value_validation() -> None:
             == f"Invalid value for valid_art_exts in configuration file ({path}): Each art extension must be of type str: got <class 'int'>"
         )
         config += '\nvalid_art_exts = [ "jpg" ]'
+
+        # write_parent_genres
+        write(config + '\nwrite_parent_genres = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for write_parent_genres in configuration file ({path}): Must be a bool: got <class 'str'>"
+        )
 
         # max_filename_bytes
         write(config + '\nmax_filename_bytes = "lalala"')

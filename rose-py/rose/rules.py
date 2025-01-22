@@ -116,6 +116,7 @@ def execute_metadata_rule(
         return
 
     matcher_audiotags = filter_track_false_positives_using_tags(
+        c,
         rule.matcher,
         fast_search_results,
         rule.ignore,
@@ -166,7 +167,7 @@ def fast_search_for_matching_tracks(
     # table. The false positives should be minimal enough that performance should be roughly the
     # same if we filter them out in the tag checking step.
     columns = uniq([TAG_ROLE_REGEX.sub("", t) for t in matcher.tags])
-    ftsquery = f"{{{' '.join(columns)}}} : {matchsql}"
+    ftsquery = f"{{{" ".join(columns)}}} : {matchsql}"
     query = f"""
         SELECT DISTINCT t.id, t.source_path
         FROM rules_engine_fts
@@ -203,10 +204,11 @@ def _convert_matcher_to_fts_query(pattern: Pattern) -> str:
     # NEAR restricts the query such that the # of tokens in between the first and last tokens of the
     # matched substring must be less than or equal to a given number. For us, that number is
     # len(matchsqlstr) - 2, as we subtract the first and last characters.
-    return f'NEAR("{matchsql}", {max(0, len(pattern.needle)-2)})'
+    return f'NEAR("{matchsql}", {max(0, len(pattern.needle) - 2)})'
 
 
 def filter_track_false_positives_using_tags(
+    c: Config,
     matcher: Matcher,
     fast_search_results: list[FastSearchResult],
     ignore: list[Matcher],
@@ -214,7 +216,7 @@ def filter_track_false_positives_using_tags(
     time_start = time.time()
     rval = []
     for fsr in fast_search_results:
-        tags = AudioTags.from_file(fsr.path)
+        tags = AudioTags.from_file(c, fsr.path)
         # Cached datafile. As it's an extra disk read, we only read it when necessary.
         datafile: StoredDataFile | None = None
         for field in matcher.tags:
@@ -593,23 +595,23 @@ def execute_metadata_actions(
 
     # === Step 5: Flush writes to disk ===
 
-    logger.info(f"Writing tag changes for actions {' '.join([shlex.quote(str(a)) for a in actions])}")
+    logger.info(f"Writing tag changes for actions {" ".join([shlex.quote(str(a)) for a in actions])}")
     changed_release_ids: set[str] = set()
     for tags, tag_changes in actionable_audiotags:
         if tags.release_id:
             changed_release_ids.add(tags.release_id)
         pathtext = str(tags.path).removeprefix(str(c.music_source_dir) + "/")
         logger.debug(
-            f"Attempting to write {pathtext} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in tag_changes])}"
+            f"Attempting to write {pathtext} changes: {" //// ".join([str(x) + " -> " + str(y) for _, x, y in tag_changes])}"
         )
-        tags.flush()
+        tags.flush(c)
         logger.info(f"Wrote tag changes to {pathtext}")
     for path, (tags, datafile, datafile_changes) in actionable_datafiles.items():
         if tags.release_id:
             changed_release_ids.add(tags.release_id)
         pathtext = path.removeprefix(str(c.music_source_dir) + "/")
         logger.debug(
-            f"Attempting to write {pathtext} changes: {' //// '.join([str(x)+' -> '+str(y) for _, x, y in datafile_changes])}"
+            f"Attempting to write {pathtext} changes: {" //// ".join([str(x) + " -> " + str(y) for _, x, y in datafile_changes])}"
         )
         for f in Path(path).iterdir():
             if not STORED_DATA_FILE_REGEX.match(f.name):
@@ -735,13 +737,13 @@ def fast_search_for_matching_releases(
             track_tags = [t for t in track_tags if not t.startswith("trackartist")]
         else:
             raise TrackTagNotAllowedError(
-                f"Track tags are not allowed when matching against releases: {', '.join(track_tags)}"
+                f"Track tags are not allowed when matching against releases: {", ".join(track_tags)}"
             )
 
     matchsql = _convert_matcher_to_fts_query(matcher.pattern)
     logger.debug(f"Converted match {matcher=} to {matchsql=}")
     columns = uniq([TAG_ROLE_REGEX.sub("", t) for t in matcher.tags])
-    ftsquery = f"{{{' '.join(columns)}}} : {matchsql}"
+    ftsquery = f"{{{" ".join(columns)}}} : {matchsql}"
     query = f"""
         SELECT DISTINCT r.id, r.source_path
         FROM rules_engine_fts

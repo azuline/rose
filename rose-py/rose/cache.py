@@ -55,6 +55,7 @@ from rose.common import (
     VERSION,
     Artist,
     ArtistMapping,
+    flatten,
     sanitize_dirname,
     sanitize_filename,
     sha256_dataclass,
@@ -609,7 +610,7 @@ def _update_cache_for_releases_executor(
                 # process the directory at this time.
                 release_id_from_first_file = None
                 with contextlib.suppress(Exception):
-                    release_id_from_first_file = AudioTags.from_file(first_audio_file).release_id
+                    release_id_from_first_file = AudioTags.from_file(c, first_audio_file).release_id
                 if release_id_from_first_file and not force:
                     logger.warning(
                         f"No-Op: Skipping release at {source_path}: files in release already have "
@@ -719,7 +720,7 @@ def _update_cache_for_releases_executor(
 
                 # Otherwise, read tags from disk and construct a new cached_track.
                 logger.debug(f"Track cache miss for {os.path.basename(f)}, reading tags from disk")
-                tags = AudioTags.from_file(Path(f))
+                tags = AudioTags.from_file(c, Path(f))
             except FileNotFoundError:
                 logger.warning(f"Skipping track update for {os.path.basename(f)}: file no longer exists")
                 continue
@@ -809,7 +810,7 @@ def _update_cache_for_releases_executor(
                 tags.id = tags.id or str(uuid6.uuid7())
                 tags.release_id = release.id
                 try:
-                    tags.flush()
+                    tags.flush(c)
                     # And refresh the mtime because we've just written to the file.
                     track_id = tags.id
                     track_mtime = str(os.stat(f).st_mtime)
@@ -929,25 +930,23 @@ def _update_cache_for_releases_executor(
 
         if release_dirty:
             logger.debug(f"Scheduling upsert for dirty release in database: {release.source_path}")
-            upd_release_args.append(
-                [
-                    release.id,
-                    str(release.source_path),
-                    str(release.cover_image_path) if release.cover_image_path else None,
-                    release.added_at,
-                    release.datafile_mtime,
-                    release.releasetitle,
-                    release.releasetype,
-                    str(release.releasedate) if release.releasedate else None,
-                    str(release.originaldate) if release.originaldate else None,
-                    str(release.compositiondate) if release.compositiondate else None,
-                    release.edition,
-                    release.catalognumber,
-                    release.disctotal,
-                    release.new,
-                    sha256_dataclass(release),
-                ]
-            )
+            upd_release_args.append([
+                release.id,
+                str(release.source_path),
+                str(release.cover_image_path) if release.cover_image_path else None,
+                release.added_at,
+                release.datafile_mtime,
+                release.releasetitle,
+                release.releasetype,
+                str(release.releasedate) if release.releasedate else None,
+                str(release.originaldate) if release.originaldate else None,
+                str(release.compositiondate) if release.compositiondate else None,
+                release.edition,
+                release.catalognumber,
+                release.disctotal,
+                release.new,
+                sha256_dataclass(release),
+            ])
             upd_release_ids.append(release.id)
             for pos, genre in enumerate(release.genres):
                 upd_release_genre_args.append([release.id, genre, pos])
@@ -968,20 +967,18 @@ def _update_cache_for_releases_executor(
                 if track.id not in track_ids_to_insert:
                     continue
                 logger.debug(f"Scheduling upsert for dirty track in database: {track.source_path}")
-                upd_track_args.append(
-                    [
-                        track.id,
-                        str(track.source_path),
-                        track.source_mtime,
-                        track.tracktitle,
-                        track.release.id,
-                        track.tracknumber,
-                        track.tracktotal,
-                        track.discnumber,
-                        track.duration_seconds,
-                        sha256_dataclass(track),
-                    ]
-                )
+                upd_track_args.append([
+                    track.id,
+                    str(track.source_path),
+                    track.source_mtime,
+                    track.tracktitle,
+                    track.release.id,
+                    track.tracknumber,
+                    track.tracktotal,
+                    track.discnumber,
+                    track.duration_seconds,
+                    sha256_dataclass(track),
+                ])
                 upd_track_ids.append(track.id)
                 pos = 0
                 for role, artists in track.trackartists.items():
@@ -1045,7 +1042,7 @@ def _update_cache_for_releases_executor(
                   , new              = excluded.new
                   , metahash         = excluded.metahash
                """,
-                _flatten(upd_release_args),
+                flatten(upd_release_args),
             )
             conn.execute(
                 f"""
@@ -1060,7 +1057,7 @@ def _update_cache_for_releases_executor(
                     INSERT INTO releases_genres (release_id, genre, position)
                     VALUES {",".join(["(?,?,?)"] * len(upd_release_genre_args))}
                     """,
-                    _flatten(upd_release_genre_args),
+                    flatten(upd_release_genre_args),
                 )
             conn.execute(
                 f"""
@@ -1075,7 +1072,7 @@ def _update_cache_for_releases_executor(
                     INSERT INTO releases_secondary_genres (release_id, genre, position)
                     VALUES {",".join(["(?,?,?)"] * len(upd_release_secondary_genre_args))}
                     """,
-                    _flatten(upd_release_secondary_genre_args),
+                    flatten(upd_release_secondary_genre_args),
                 )
             conn.execute(
                 f"""
@@ -1090,7 +1087,7 @@ def _update_cache_for_releases_executor(
                     INSERT INTO releases_descriptors (release_id, descriptor, position)
                     VALUES {",".join(["(?,?,?)"] * len(upd_release_descriptor_args))}
                     """,
-                    _flatten(upd_release_descriptor_args),
+                    flatten(upd_release_descriptor_args),
                 )
             conn.execute(
                 f"""
@@ -1105,7 +1102,7 @@ def _update_cache_for_releases_executor(
                     INSERT INTO releases_labels (release_id, label, position)
                     VALUES {",".join(["(?,?,?)"] * len(upd_release_label_args))}
                     """,
-                    _flatten(upd_release_label_args),
+                    flatten(upd_release_label_args),
                 )
             conn.execute(
                 f"""
@@ -1120,7 +1117,7 @@ def _update_cache_for_releases_executor(
                     INSERT INTO releases_artists (release_id, artist, role, position)
                     VALUES {",".join(["(?,?,?,?)"] * len(upd_release_artist_args))}
                     """,
-                    _flatten(upd_release_artist_args),
+                    flatten(upd_release_artist_args),
                 )
         if upd_track_args:
             # The OR REPLACE handles source_path conflicts. The ON CONFLICT handles normal updates.
@@ -1150,7 +1147,7 @@ def _update_cache_for_releases_executor(
                   , duration_seconds           = excluded.duration_seconds
                   , metahash                   = excluded.metahash
                 """,
-                _flatten(upd_track_args),
+                flatten(upd_track_args),
             )
         if upd_track_artist_args:
             conn.execute(
@@ -1165,7 +1162,7 @@ def _update_cache_for_releases_executor(
                 INSERT INTO tracks_artists (track_id, artist, role, position)
                 VALUES {",".join(["(?,?,?,?)"] * len(upd_track_artist_args))}
                 """,
-                _flatten(upd_track_artist_args),
+                flatten(upd_track_artist_args),
             )
         # And update the full text search engine here for any tracks and releases that have been
         # affected. Note that we do not worry about cleaning out deleted releases and tracks from
@@ -2425,13 +2422,6 @@ def _get_parent_genres(genres: list[str]) -> list[str]:
     for g in genres:
         rval.update(TRANSITIVE_PARENT_GENRES.get(g, []))
     return sorted(rval)
-
-
-def _flatten(xxs: list[list[T]]) -> list[T]:
-    xs: list[T] = []
-    for group in xxs:
-        xs.extend(group)
-    return xs
 
 
 def _unpack(*xxs: str) -> Iterator[tuple[str, ...]]:

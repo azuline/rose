@@ -98,4 +98,4 @@ addopts = [
   "--ignore=result",
 ]
 pythonpath = "."
-python_files = ["*_test.py", "__test__.py"]
+python_files = ["**/*_test.py"]

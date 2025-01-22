@@ -200,17 +200,17 @@ def test_virtual_filesystem_write_files(
     path = root / "1. Releases" / "BLACKPINK - 1990. I Love Blackpink [NEW]" / "01. Track 1.m4a"
     with start_virtual_fs(config):
         # Write!
-        af = AudioTags.from_file(path)
+        af = AudioTags.from_file(config, path)
         assert af.tracktitle == "Track 1"
         af.tracktitle = "Hahahaha!!"
-        af.flush()
+        af.flush(config)
         # Read! File should have been renamed post-cache update. exists() for the old file will
         # resolve because of the "legacy file resolution" grace period, but the old file should no
         # longer appear in readdir.
         assert path not in set(path.parent.iterdir())
         path = path.with_name("01. Hahahaha!!.m4a")
         assert path.is_file()
-        af = AudioTags.from_file(path)
+        af = AudioTags.from_file(config, path)
         assert af.tracktitle == "Hahahaha!!"
 
 

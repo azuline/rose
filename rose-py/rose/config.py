@@ -282,6 +282,7 @@ class Config:
     max_filename_bytes: int
     cover_art_stems: list[str]
     valid_art_exts: list[str]
+    write_parent_genres: bool
 
     # A map from parent artist -> subartists.
     artist_aliases_map: dict[str, list[str]]
@@ -346,10 +347,10 @@ class Config:
         try:
             for entry in data.get("artist_aliases", []):
                 if not isinstance(entry["artist"], str):
-                    raise ValueError(f"Artists must be of type str: got {type(entry['artist'])}")
+                    raise ValueError(f"Artists must be of type str: got {type(entry["artist"])}")
                 artist_aliases_map[entry["artist"]] = entry["aliases"]
                 if not isinstance(entry["aliases"], list):
-                    raise ValueError(f"Aliases must be of type list[str]: got {type(entry['aliases'])}")
+                    raise ValueError(f"Aliases must be of type list[str]: got {type(entry["aliases"])}")
                 for s in entry["aliases"]:
                     if not isinstance(s, str):
                         raise ValueError(f"Each alias must be of type str: got {type(s)}")
@@ -393,6 +394,18 @@ class Config:
 
         cover_art_stems = [x.lower() for x in cover_art_stems]
         valid_art_exts = [x.lower() for x in valid_art_exts]
+
+        try:
+            write_parent_genres = data["write_parent_genres"]
+            del data["write_parent_genres"]
+            if not isinstance(write_parent_genres, bool):
+                raise ValueError(f"Must be a bool: got {type(write_parent_genres)}")
+        except KeyError:
+            write_parent_genres = False
+        except ValueError as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for write_parent_genres in configuration file ({cfgpath}): {e}"
+            ) from e
 
         try:
             max_filename_bytes = data["max_filename_bytes"]
@@ -552,7 +565,7 @@ class Config:
                     continue
                 unrecognized_accessors.append(accessor)
             if unrecognized_accessors:
-                logger.warning(f"Unrecognized options found in configuration file: {', '.join(unrecognized_accessors)}")
+                logger.warning(f"Unrecognized options found in configuration file: {", ".join(unrecognized_accessors)}")
 
         return Config(
             music_source_dir=music_source_dir,
@@ -562,6 +575,7 @@ class Config:
             artist_aliases_parents_map=artist_aliases_parents_map,
             cover_art_stems=cover_art_stems,
             valid_art_exts=valid_art_exts,
+            write_parent_genres=write_parent_genres,
             max_filename_bytes=max_filename_bytes,
             path_templates=path_templates,
             rename_source_files=rename_source_files,

@@ -10,10 +10,10 @@ from rose.tracks import find_tracks_matching_rule, run_actions_on_track
 
 def test_run_action_on_track(config: Config, source_dir: Path) -> None:
     action = Action.parse("tracktitle/replace:Bop")
-    af = AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a")
+    af = AudioTags.from_file(config, source_dir / "Test Release 2" / "01.m4a")
     assert af.id is not None
     run_actions_on_track(config, af.id, [action])
-    af = AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a")
+    af = AudioTags.from_file(config, source_dir / "Test Release 2" / "01.m4a")
     assert af.tracktitle == "Bop"
 
 

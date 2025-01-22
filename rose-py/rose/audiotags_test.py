@@ -1,7 +1,10 @@
+from dataclasses import replace
+import mutagen
 import shutil
 from pathlib import Path
 
 import pytest
+from rose.config import Config
 
 from conftest import TEST_TAGGER
 from rose.audiotags import (
@@ -25,8 +28,8 @@ from rose.common import Artist, ArtistMapping
         ("track5.opus.ogg", "5", 1),
     ],
 )
-def test_getters(filename: str, track_num: str, duration: int) -> None:
-    af = AudioTags.from_file(TEST_TAGGER / filename)
+def test_getters(config: Config, filename: str, track_num: str, duration: int) -> None:
+    af = AudioTags.from_file(config, TEST_TAGGER / filename)
     assert af.releasetitle == "A Cool Album"
     assert af.releasetype == "album"
     assert af.releasedate == RoseDate(1990, 2, 5)
@@ -68,18 +71,18 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
         ("track5.opus.ogg", "5", 1),
     ],
 )
-def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int) -> None:
+def test_flush(config: Config, isolated_dir: Path, filename: str, track_num: str, duration: int) -> None:
     """Test the flush by flushing the file, then asserting that all the tags still read properly."""
     fpath = isolated_dir / filename
     shutil.copyfile(TEST_TAGGER / filename, fpath)
-    af = AudioTags.from_file(fpath)
+    af = AudioTags.from_file(config, fpath)
     # Inject one special case into here: modify the djmixer artist. This checks that we also clear
     # the original djmixer tag, so that the next read does not contain Artist EF and Artist FG.
     af.trackartists.djmixer = [Artist("New")]
     # Also test date writing.
     af.originaldate = RoseDate(1990, 4, 20)
-    af.flush()
-    af = AudioTags.from_file(fpath)
+    af.flush(config)
+    af = AudioTags.from_file(config, fpath)
 
     assert af.releasetitle == "A Cool Album"
     assert af.releasetype == "album"
@@ -110,6 +113,31 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
     assert af.duration_sec == duration
 
 
+def test_write_parent_genres(config: Config, isolated_dir: Path) -> None:
+    config = replace(config, write_parent_genres=True)
+
+    filename = "track1.flac"
+    fpath = isolated_dir / filename
+    shutil.copyfile(TEST_TAGGER / filename, fpath)
+    af = AudioTags.from_file(config, fpath)
+    # Inject one special case into here: modify the djmixer artist. This checks that we also clear
+    # the original djmixer tag, so that the next read does not contain Artist EF and Artist FG.
+    af.trackartists.djmixer = [Artist("New")]
+    # Also test date writing.
+    af.originaldate = RoseDate(1990, 4, 20)
+    af.flush(config)
+
+    # Check that parents show up in raw tags (or not if there are no parents).
+    mf = mutagen.File(fpath)  # type: ignore
+    assert mf is not None
+    assert mf.tags["genre"] == ["Electronic;House\\\\PARENTS:\\\\Dance;Electronic Dance Music"]
+    assert mf.tags["secondarygenre"] == ["Minimal;Ambient"]
+
+    af = AudioTags.from_file(config, fpath)
+    assert af.genre == ["Electronic", "House"]
+    assert af.secondarygenre == ["Minimal", "Ambient"]
+
+
 @pytest.mark.parametrize(
     "filename",
     [
@@ -120,17 +148,17 @@ def test_flush(isolated_dir: Path, filename: str, track_num: str, duration: int)
         "track5.opus.ogg",
     ],
 )
-def test_id_assignment(isolated_dir: Path, filename: str) -> None:
+def test_id_assignment(config: Config, isolated_dir: Path, filename: str) -> None:
     """Test the read/write for the nonstandard Rose ID tags."""
     fpath = isolated_dir / filename
     shutil.copyfile(TEST_TAGGER / filename, fpath)
 
-    af = AudioTags.from_file(fpath)
+    af = AudioTags.from_file(config, fpath)
     af.id = "ahaha"
     af.release_id = "bahaha"
-    af.flush()
+    af.flush(config)
 
-    af = AudioTags.from_file(fpath)
+    af = AudioTags.from_file(config, fpath)
     assert af.id == "ahaha"
     assert af.release_id == "bahaha"
 
@@ -139,27 +167,27 @@ def test_id_assignment(isolated_dir: Path, filename: str) -> None:
     "filename",
     ["track1.flac", "track2.m4a", "track3.mp3", "track4.vorbis.ogg", "track5.opus.ogg"],
 )
-def test_releasetype_normalization(isolated_dir: Path, filename: str) -> None:
+def test_releasetype_normalization(config: Config, isolated_dir: Path, filename: str) -> None:
     """Test the flush by flushing the file, then asserting that all the tags still read properly."""
     fpath = isolated_dir / filename
     shutil.copyfile(TEST_TAGGER / filename, fpath)
 
     # Check that release type is read correctly.
-    af = AudioTags.from_file(fpath)
+    af = AudioTags.from_file(config, fpath)
     assert af.releasetype == "album"
     # Assert that attempting to flush a stupid value fails.
     af.releasetype = "lalala"
     with pytest.raises(UnsupportedTagValueTypeError):
-        af.flush()
+        af.flush(config)
     # Flush it anyways...
-    af.flush(validate=False)
+    af.flush(config, validate=False)
     # Check that stupid release type is normalized as unknown.
-    af = AudioTags.from_file(fpath)
+    af = AudioTags.from_file(config, fpath)
     assert af.releasetype == "unknown"
     # And now assert that the read is case insensitive.
     af.releasetype = "ALBUM"
-    af.flush(validate=False)
-    af = AudioTags.from_file(fpath)
+    af.flush(config, validate=False)
+    af = AudioTags.from_file(config, fpath)
     assert af.releasetype == "album"
 
 

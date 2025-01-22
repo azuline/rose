@@ -1461,7 +1461,7 @@ class RoseLogicalCore:
                     audiopath = Path(tmpdir) / f"f{ext}"
                     with audiopath.open("wb") as fp:
                         fp.write(b)
-                    audiofile = AudioTags.from_file(audiopath)
+                    audiofile = AudioTags.from_file(self.config, audiopath)
                     track_id = audiofile.id
                 if not track_id:
                     logger.warning(

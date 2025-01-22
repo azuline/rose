@@ -91,6 +91,13 @@ class ArtistMapping:
         yield "djmixer", self.djmixer
 
 
+def flatten(xxs: list[list[T]]) -> list[T]:
+    xs: list[T] = []
+    for group in xxs:
+        xs.extend(group)
+    return xs
+
+
 def uniq(xs: list[T]) -> list[T]:
     rv: list[T] = []
     seen: set[T] = set()

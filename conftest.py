@@ -84,6 +84,7 @@ def config(isolated_dir: Path) -> Config:
         artist_aliases_parents_map={},
         cover_art_stems=["cover", "folder", "art", "front"],
         valid_art_exts=["jpg", "jpeg", "png"],
+        write_parent_genres=False,
         max_filename_bytes=180,
         path_templates=PathTemplateConfig.with_defaults(),
         rename_source_files=False,

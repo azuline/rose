@@ -340,7 +340,7 @@ def edit_release(
                 raise ReleaseEditFailedError("Failed to decode TOML file.") from e
             for t in tracks:
                 track_meta = release_meta.tracks[t.id]
-                tags = AudioTags.from_file(t.source_path)
+                tags = AudioTags.from_file(c, t.source_path)
 
                 dirty = False
 
@@ -418,7 +418,7 @@ def edit_release(
                     logger.info(
                         f"Flushing changed tags to {str(t.source_path).removeprefix(str(c.music_source_dir) + "/")}"
                     )
-                    tags.flush()
+                    tags.flush(c)
 
             if release_meta.new != release.new:
                 toggle_release_new(c, release.id)
@@ -479,7 +479,7 @@ def run_actions_on_release(
     if release is None:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
     tracks = get_tracks_of_release(c, release)
-    audiotags = [AudioTags.from_file(t.source_path) for t in tracks]
+    audiotags = [AudioTags.from_file(c, t.source_path) for t in tracks]
     execute_metadata_actions(c, actions, audiotags, dry_run=dry_run, confirm_yes=confirm_yes)
 
 
@@ -489,7 +489,7 @@ def create_single_release(c: Config, track_path: Path) -> None:
         raise FileNotFoundError(f"Failed to extract single: file {track_path} not found")
 
     # Step 1. Compute the new directory name for the single.
-    af = AudioTags.from_file(track_path)
+    af = AudioTags.from_file(c, track_path)
     title = (af.tracktitle or "Unknown Title").strip()
 
     dirname = f"{artistsfmt(af.trackartists)} - "
@@ -515,7 +515,7 @@ def create_single_release(c: Config, track_path: Path) -> None:
             shutil.copyfile(f, source_path / f.name)
             break
     # Step 3. Update the tags of the new track. Clear the Rose IDs too: this is a brand new track.
-    af = AudioTags.from_file(new_track_path)
+    af = AudioTags.from_file(c, new_track_path)
     af.releasetitle = title
     af.releasetype = "single"
     af.releaseartists = af.trackartists
@@ -523,8 +523,8 @@ def create_single_release(c: Config, track_path: Path) -> None:
     af.discnumber = "1"
     af.release_id = None
     af.id = None
-    af.flush()
-    af = AudioTags.from_file(new_track_path)
+    af.flush(c)
+    af = AudioTags.from_file(c, new_track_path)
     logger.info(f"Created phony single release {source_path.name}")
     # Step 4: Update the cache!
     c_tmp = dataclasses.replace(c, rename_source_files=False)

@@ -15,9 +15,13 @@ import sys
 import typing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, no_type_check
+from typing import TYPE_CHECKING, Any, no_type_check
 
-from rose.common import Artist, ArtistMapping, RoseError, RoseExpectedError, uniq
+from rose.common import Artist, ArtistMapping, RoseError, RoseExpectedError, flatten, uniq
+from rose.genre_hierarchy import TRANSITIVE_PARENT_GENRES
+
+if TYPE_CHECKING:
+    from rose.config import Config
 
 if typing.TYPE_CHECKING:
     pass
@@ -125,7 +129,7 @@ class AudioTags:
     path: Path
 
     @classmethod
-    def from_file(cls, p: Path) -> AudioTags:
+    def from_file(cls, c: "Config", p: Path) -> AudioTags:
         """Read the tags of an audio file on disk."""
         import mutagen
         import mutagen.flac
@@ -180,8 +184,8 @@ class AudioTags:
                 discnumber=discnumber,
                 disctotal=disctotal,
                 releasetitle=_get_tag(m.tags, ["TALB"]),
-                genre=_split_tag(_get_tag(m.tags, ["TCON"], split=True)),
-                secondarygenre=_split_tag(_get_tag(m.tags, ["TXXX:SECONDARYGENRE"], split=True)),
+                genre=_split_genre_tag(c, _get_tag(m.tags, ["TCON"], split=True)),
+                secondarygenre=_split_genre_tag(c, _get_tag(m.tags, ["TXXX:SECONDARYGENRE"], split=True)),
                 descriptor=_split_tag(_get_tag(m.tags, ["TXXX:DESCRIPTOR"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["TPUB"], split=True)),
                 catalognumber=_get_tag(m.tags, ["TXXX:CATALOGNUMBER"], first=True),
@@ -231,8 +235,10 @@ class AudioTags:
                 discnumber=str(discnumber),
                 disctotal=disctotal,
                 releasetitle=_get_tag(m.tags, ["\xa9alb"]),
-                genre=_split_tag(_get_tag(m.tags, ["\xa9gen"], split=True)),
-                secondarygenre=_split_tag(_get_tag(m.tags, ["----:net.sunsetglow.rose:SECONDARYGENRE"], split=True)),
+                genre=_split_genre_tag(c, _get_tag(m.tags, ["\xa9gen"], split=True)),
+                secondarygenre=_split_genre_tag(
+                    c, _get_tag(m.tags, ["----:net.sunsetglow.rose:SECONDARYGENRE"], split=True)
+                ),
                 descriptor=_split_tag(_get_tag(m.tags, ["----:net.sunsetglow.rose:DESCRIPTOR"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["----:com.apple.iTunes:LABEL"], split=True)),
                 catalognumber=_get_tag(m.tags, ["----:com.apple.iTunes:CATALOGNUMBER"]),
@@ -272,8 +278,8 @@ class AudioTags:
                 discnumber=_get_tag(m.tags, ["discnumber"], first=True),
                 disctotal=_parse_int(_get_tag(m.tags, ["disctotal"], first=True)),
                 releasetitle=_get_tag(m.tags, ["album"]),
-                genre=_split_tag(_get_tag(m.tags, ["genre"], split=True)),
-                secondarygenre=_split_tag(_get_tag(m.tags, ["secondarygenre"], split=True)),
+                genre=_split_genre_tag(c, _get_tag(m.tags, ["genre"], split=True)),
+                secondarygenre=_split_genre_tag(c, _get_tag(m.tags, ["secondarygenre"], split=True)),
                 descriptor=_split_tag(_get_tag(m.tags, ["descriptor"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["label", "organization", "recordlabel"], split=True)),
                 catalognumber=_get_tag(m.tags, ["catalognumber"]),
@@ -294,7 +300,7 @@ class AudioTags:
         raise UnsupportedFiletypeError(f"{p} is not a supported audio file")
 
     @no_type_check
-    def flush(self, *, validate: bool = True) -> None:
+    def flush(self, c: "Config", *, validate: bool = True) -> None:
         """Flush the current tags to the file on disk."""
         import mutagen
         import mutagen.flac
@@ -312,7 +318,7 @@ class AudioTags:
         if validate and self.releasetype not in SUPPORTED_RELEASE_TYPES:
             raise UnsupportedTagValueTypeError(
                 f"Release type {self.releasetype} is not a supported release type.\n"
-                f"Supported release types: {', '.join(SUPPORTED_RELEASE_TYPES)}"
+                f"Supported release types: {", ".join(SUPPORTED_RELEASE_TYPES)}"
             )
 
         if isinstance(m, mutagen.mp3.MP3):
@@ -346,8 +352,8 @@ class AudioTags:
             _write_standard_tag("TRCK", self.tracknumber)
             _write_standard_tag("TPOS", self.discnumber)
             _write_standard_tag("TALB", self.releasetitle)
-            _write_standard_tag("TCON", ";".join(self.genre))
-            _write_tag_with_description("TXXX:SECONDARYGENRE", ";".join(self.secondarygenre))
+            _write_standard_tag("TCON", _format_genre_tag(c, self.genre))
+            _write_tag_with_description("TXXX:SECONDARYGENRE", _format_genre_tag(c, self.secondarygenre))
             _write_tag_with_description("TXXX:DESCRIPTOR", ";".join(self.descriptor))
             _write_standard_tag("TPUB", ";".join(self.label))
             _write_tag_with_description("TXXX:CATALOGNUMBER", self.catalognumber)
@@ -375,10 +381,9 @@ class AudioTags:
             m.tags["----:net.sunsetglow.rose:ORIGINALDATE"] = str(self.originaldate).encode()
             m.tags["----:net.sunsetglow.rose:COMPOSITIONDATE"] = str(self.compositiondate).encode()
             m.tags["\xa9alb"] = self.releasetitle or ""
-            m.tags["\xa9gen"] = ";".join(self.genre)
-            m.tags["----:net.sunsetglow.rose:SECONDARYGENRE"] = ";".join(self.secondarygenre).encode()
+            m.tags["\xa9gen"] = _format_genre_tag(c, self.genre)
+            m.tags["----:net.sunsetglow.rose:SECONDARYGENRE"] = _format_genre_tag(c, self.secondarygenre).encode()
             m.tags["----:net.sunsetglow.rose:DESCRIPTOR"] = ";".join(self.descriptor).encode()
-            m.tags["\xa9gen"] = ";".join(self.genre)
             m.tags["----:com.apple.iTunes:LABEL"] = ";".join(self.label).encode()
             m.tags["----:com.apple.iTunes:CATALOGNUMBER"] = (self.catalognumber or "").encode()
             m.tags["----:net.sunsetglow.rose:EDITION"] = (self.edition or "").encode()
@@ -443,8 +448,8 @@ class AudioTags:
             m.tags["tracknumber"] = self.tracknumber or ""
             m.tags["discnumber"] = self.discnumber or ""
             m.tags["album"] = self.releasetitle or ""
-            m.tags["genre"] = ";".join(self.genre)
-            m.tags["secondarygenre"] = ";".join(self.secondarygenre)
+            m.tags["genre"] = _format_genre_tag(c, self.genre)
+            m.tags["secondarygenre"] = _format_genre_tag(c, self.secondarygenre)
             m.tags["descriptor"] = ";".join(self.descriptor)
             m.tags["label"] = ";".join(self.label)
             m.tags["catalognumber"] = self.catalognumber or ""
@@ -471,6 +476,21 @@ class AudioTags:
 
 def _split_tag(t: str | None) -> list[str]:
     return TAG_SPLITTER_REGEX.split(t) if t else []
+
+
+def _split_genre_tag(c: "Config", t: str | None) -> list[str]:
+    if c.write_parent_genres and t:
+        with contextlib.suppress(ValueError):
+            t, _ = t.split("\\\\PARENTS:\\\\", 1)
+    return TAG_SPLITTER_REGEX.split(t) if t else []
+
+
+def _format_genre_tag(c: "Config", t: list[str]) -> str:
+    if not c.write_parent_genres:
+        return ";".join(t)
+    if parent_genres := set(flatten([TRANSITIVE_PARENT_GENRES.get(g, []) for g in t])) - set(t):
+        return ";".join(t) + "\\\\PARENTS:\\\\" + ";".join(sorted(parent_genres))
+    return ";".join(t)
 
 
 def _get_tag(t: Any, keys: list[str], *, split: bool = False, first: bool = False) -> str | None:
