@@ -52,9 +52,10 @@ SUPPORTED_RELEASE_TYPES = [
     "remix",
     "djmix",
     "mixtape",
-    "bootleg",
-    "demo",
     "other",
+    "bootleg",
+    "loosetrack",
+    "demo",
     "unknown",
 ]
 

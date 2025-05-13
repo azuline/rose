@@ -90,6 +90,7 @@ Rosé supports tagging the release _type_. The supported values are:
 - `other`
 - `bootleg`
 - `demo`
+- `loosetrack`
 - `unknown`
 
 # Tag Field Mappings
