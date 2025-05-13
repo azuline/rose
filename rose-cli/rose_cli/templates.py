@@ -37,10 +37,10 @@ def preview_path_templates(c: Config) -> None:
     _preview_release_template(c, "5. Labels - Release", c.path_templates.labels.release)
     _preview_track_template(c, "5. Labels - Track", c.path_templates.labels.track)
     click.echo()
-    _preview_release_template(c, "6. Collages - Release", c.path_templates.collages.release)
-    _preview_track_template(c, "6. Collages - Track", c.path_templates.collages.track)
+    _preview_release_template(c, "7. Collages - Release", c.path_templates.collages.release)
+    _preview_track_template(c, "7. Collages - Track", c.path_templates.collages.track)
     click.echo()
-    _preview_track_template(c, "7. Playlists - Track", c.path_templates.playlists)
+    _preview_track_template(c, "8. Playlists - Track", c.path_templates.playlists)
     # fmt: on
 
 

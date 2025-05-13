@@ -201,6 +201,7 @@ class PathTemplateConfig:
     genres: PathTemplateTriad
     descriptors: PathTemplateTriad
     labels: PathTemplateTriad
+    loose_tracks: PathTemplateTriad
     collages: PathTemplateTriad
     playlists: PathTemplate
 
@@ -229,6 +230,7 @@ class PathTemplateConfig:
             genres=deepcopy(default_triad),
             descriptors=deepcopy(default_triad),
             labels=deepcopy(default_triad),
+            loose_tracks=deepcopy(default_triad),
             collages=PathTemplateTriad(
                 release=PathTemplate("{{ position }}. " + default_triad.release.text),
                 track=deepcopy(default_triad.track),
@@ -304,6 +306,10 @@ class PathTemplateConfig:
             _ = self.labels.release.compiled
             key = "labels.track"
             _ = self.labels.track.compiled
+            key = "loose_tracks.release"
+            _ = self.loose_tracks.release.compiled
+            key = "loose_tracks.track"
+            _ = self.loose_tracks.track.compiled
             key = "labels.all_tracks"
             _ = self.labels.all_tracks.compiled
             key = "collages.release"

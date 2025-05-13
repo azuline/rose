@@ -1714,6 +1714,7 @@ def filter_releases(
     genre_filter: str | None = None,
     descriptor_filter: str | None = None,
     label_filter: str | None = None,
+    release_type_filter: str | None = None,
     new: bool | None = None,
     include_loose_tracks: bool = True,
 ) -> list[Release]:
@@ -1784,6 +1785,9 @@ def filter_releases(
                 )
             """
             args.append(label_filter)
+        if release_type_filter:
+            query += " AND rv.releasetype = ?"
+            args.append(release_type_filter)
         if new is not None:
             query += " AND new = ?"
             args.append(new)

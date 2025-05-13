@@ -94,6 +94,9 @@ def test_config_full() -> None:
                 labels.release = "{{{{ title }}}}"
                 labels.track = "{{{{ title }}}}"
                 labels.all_tracks = "{{{{ title }}}}"
+                loose_tracks.release = "{{{{ title }}}}"
+                loose_tracks.track = "{{{{ title }}}}"
+                loose_tracks.all_tracks = "{{{{ title }}}}"
                 collages.release = "{{{{ title }}}}"
                 collages.track = "{{{{ title }}}}"
                 collages.all_tracks = "{{{{ title }}}}"
@@ -182,6 +185,11 @@ def test_config_full() -> None:
                     all_tracks=PathTemplate("{{ title }}"),
                 ),
                 labels=PathTemplateTriad(
+                    release=PathTemplate("{{ title }}"),
+                    track=PathTemplate("{{ title }}"),
+                    all_tracks=PathTemplate("{{ title }}"),
+                ),
+                loose_tracks=PathTemplateTriad(
                     release=PathTemplate("{{ title }}"),
                     track=PathTemplate("{{ title }}"),
                     all_tracks=PathTemplate("{{ title }}"),

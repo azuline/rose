@@ -480,6 +480,12 @@ def find_releases_matching_rule(c: Config, matcher: Matcher, *, include_loose_tr
                 descriptor_filter=matcher.pattern.needle,
                 include_loose_tracks=include_loose_tracks,
             )
+        if matcher.tags == ["releasetype"]:
+            return filter_releases(
+                c,
+                release_type_filter=matcher.pattern.needle,
+                include_loose_tracks=include_loose_tracks,
+            )
 
     release_ids = [
         x.id for x in fast_search_for_matching_releases(c, matcher, include_loose_tracks=include_loose_tracks)

@@ -527,6 +527,7 @@ class Config:
                 "genres",
                 "descriptors",
                 "labels",
+                "loose_tracks",
                 "collages",
             ]:
                 with contextlib.suppress(KeyError):
