@@ -178,6 +178,7 @@ class VirtualPath:
             "Genres",
             "Descriptors",
             "Labels",
+            "Loose Tracks",
             "Collages",
             "Playlists",
             "New",
@@ -351,7 +352,16 @@ class VirtualPath:
                 return VirtualPath(view="Labels", label=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if parts[0] == "6. Collages":
+        if parts[0] == "6. Loose Tracks":
+            if len(parts) == 1:
+                return VirtualPath(view="Loose Tracks")
+            if len(parts) == 2:
+                return VirtualPath(view="Loose Tracks", release=parts[1])
+            if len(parts) == 3:
+                return VirtualPath(view="Loose Tracks", release=parts[1], file=parts[2])
+            raise llfuse.FUSEError(errno.ENOENT)
+
+        if parts[0] == "7. Collages":
             if len(parts) == 1:
                 return VirtualPath(view="Collages")
             if len(parts) == 2:
@@ -362,7 +372,7 @@ class VirtualPath:
                 return VirtualPath(view="Collages", collage=parts[1], release=parts[2], file=parts[3])
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if parts[0] == "7. Playlists":
+        if parts[0] == "8. Playlists":
             if len(parts) == 1:
                 return VirtualPath(view="Playlists")
             if len(parts) == 2:
@@ -449,6 +459,8 @@ class VirtualNameGenerator:
                 template = self._config.path_templates.descriptors.release
             elif release_parent.view == "Labels":
                 template = self._config.path_templates.labels.release
+            elif release_parent.view == "Loose Tracks":
+                template = self._config.path_templates.loose_tracks.release
             elif release_parent.view == "Collages":
                 template = self._config.path_templates.collages.release
             else:
@@ -559,6 +571,8 @@ class VirtualNameGenerator:
                     template = self._config.path_templates.descriptors.all_tracks
                 elif track_parent.view == "Labels":
                     template = self._config.path_templates.labels.all_tracks
+                elif track_parent.view == "Loose Tracks":
+                    template = self._config.path_templates.loose_tracks.all_tracks
                 elif track_parent.view == "Collages":
                     template = self._config.path_templates.collages.all_tracks
             else:
@@ -578,6 +592,8 @@ class VirtualNameGenerator:
                     template = self._config.path_templates.descriptors.track
                 elif track_parent.view == "Labels":
                     template = self._config.path_templates.labels.track
+                elif track_parent.view == "Loose Tracks":
+                    template = self._config.path_templates.loose_tracks.track
                 elif track_parent.view == "Collages":
                     template = self._config.path_templates.collages.track
                 elif track_parent.view == "Playlists":
@@ -937,7 +953,7 @@ class RoseLogicalCore:
     def getattr(self, p: VirtualPath) -> dict[str, Any]:
         logger.debug(f"LOGICAL: Received getattr for {p=}")
 
-        # 7. Playlists
+        # 8. Playlists
         if p.playlist:
             playlist = get_playlist(self.config, p.playlist)
             if not playlist:
@@ -953,7 +969,7 @@ class RoseLogicalCore:
                 raise RoseError("Impossible: Resolved track_id after track_within_playlist check does not exist")
             return self.stat("dir")
 
-        # 6. Collages
+        # 7. Collages
         if p.collage:
             if not get_collage(self.config, p.collage):
                 raise llfuse.FUSEError(errno.ENOENT)
@@ -1079,25 +1095,32 @@ class RoseLogicalCore:
                 ("3. Genres", self.stat("dir")),
                 ("4. Descriptors", self.stat("dir")),
                 ("5. Labels", self.stat("dir")),
-                ("6. Collages", self.stat("dir")),
-                ("7. Playlists", self.stat("dir")),
+                ("6. Loose Tracks", self.stat("dir")),
+                ("7. Collages", self.stat("dir")),
+                ("8. Playlists", self.stat("dir")),
             ]
             return
 
         if p.release == ALL_TRACKS and (
-            p.artist or p.genre or p.descriptor or p.label or p.view in ["Releases", "Released On", "Added On", "New"]
+            p.artist
+            or p.genre
+            or p.descriptor
+            or p.label
+            or p.view in ["Releases", "Released On", "Added On", "New", "Loose Tracks"]
         ):
             matcher = None
             if p.artist:
                 matcher = Matcher(["artist"], Pattern(p.artist, strict=True))
-            if p.genre:
+            elif p.genre:
                 matcher = Matcher(["genre"], Pattern(p.genre, strict=True))
-            if p.descriptor:
+            elif p.descriptor:
                 matcher = Matcher(["descriptor"], Pattern(p.descriptor, strict=True))
-            if p.label:
+            elif p.label:
                 matcher = Matcher(["label"], Pattern(p.label, strict=True))
-            if p.view == "New":
+            elif p.view == "New":
                 matcher = Matcher(["new"], Pattern("true", strict=True))
+            elif p.view == "Loose Tracks":
+                matcher = Matcher(["releasetype"], Pattern("loosetrack", strict=True))
 
             tracks = find_tracks_matching_rule(self.config, matcher) if matcher else list_tracks(self.config)
             for trk, vname in self.vnames.list_track_paths(p, tracks):
@@ -1138,7 +1161,11 @@ class RoseLogicalCore:
             if p.view == "New":
                 matcher = Matcher(["new"], Pattern("true", strict=True))
 
-            releases = find_releases_matching_rule(self.config, matcher) if matcher else list_releases(self.config)
+            releases = (
+                find_releases_matching_rule(self.config, matcher, include_loose_tracks=False)
+                if matcher
+                else list_releases(self.config, include_loose_tracks=False)
+            )
 
             yield ALL_TRACKS, self.stat("dir")
             for rls, vname in self.vnames.list_release_paths(p, releases):
@@ -1177,6 +1204,14 @@ class RoseLogicalCore:
                 if self.config.vfs.hide_labels_with_only_new_releases and e3.only_new_releases:
                     continue
                 yield self.sanitizer.sanitize(e3.label), self.stat("dir")
+            return
+
+        if p.view == "Loose Tracks":
+            matcher = Matcher(["releasetype"], Pattern("loosetrack", strict=True))
+            releases = find_releases_matching_rule(self.config, matcher)
+            yield ALL_TRACKS, self.stat("dir")
+            for rls, vname in self.vnames.list_release_paths(p, releases):
+                yield vname, self.stat("dir", rls.source_path)
             return
 
         if p.view == "Collages" and p.collage:
@@ -1429,7 +1464,7 @@ class RoseLogicalCore:
         if sop := self.file_creation_special_ops.get(fh, None):
             logger.debug("LOGICAL: Matched read to a file creation special op")
             _, _, _, b = sop
-            return b[offset : offset + length]
+            return bytes(b[offset : offset + length])
         fh = self.fhandler.unwrap_host(fh)
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)

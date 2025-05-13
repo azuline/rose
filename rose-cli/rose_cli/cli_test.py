@@ -73,7 +73,7 @@ def test_parse_track_id_from_path(config: Config, source_dir: Path) -> None:
 def test_parse_collage_name_from_path(config: Config, source_dir: Path) -> None:
     with start_virtual_fs(config):
         # Directory path is resolved.
-        path = str(config.vfs.mount_dir / "6. Collages" / "Rose Gold")
+        path = str(config.vfs.mount_dir / "7. Collages" / "Rose Gold")
         assert parse_collage_argument(path) == "Rose Gold"
         # File path is resolved.
         path = str(source_dir / "!collages" / "Rose Gold.toml")
@@ -85,7 +85,7 @@ def test_parse_collage_name_from_path(config: Config, source_dir: Path) -> None:
 def test_parse_playlist_name_from_path(config: Config, source_dir: Path) -> None:
     with start_virtual_fs(config):
         # Directory path is resolved.
-        path = str(config.vfs.mount_dir / "7. Playlists" / "Lala Lisa")
+        path = str(config.vfs.mount_dir / "8. Playlists" / "Lala Lisa")
         assert parse_playlist_argument(path)
         # File path is resolved.
         path = str(source_dir / "!playlists" / "Lala Lisa.toml")

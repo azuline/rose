@@ -16,7 +16,7 @@ if the virtual filesystem is currently in use, unmounting command will fail.
 
 # Directory Structure
 
-Rosé has 10 top-level directories, each of which is a different view into the library. They are:
+Rosé has 11 top-level directories, each of which is a different view into the library. They are:
 
 1. `Releases`
 2. `Releases - New`
@@ -26,11 +26,20 @@ Rosé has 10 top-level directories, each of which is a different view into the l
 6. `Genres`
 7. `Descriptors`
 8. `Labels`
-9. `Collages`
-10. `Playlists`
+9. `Loose Tracks`
+10. `Collages`
+11. `Playlists`
 
-Each directory should be fairly intuitive. They are numbered in the filesystem to create an
+Most directories should be fairly intuitive. They are numbered in the filesystem to create an
 intentional ordering.
+
+## Loose Tracks
+
+The only one that may not be intuitive is Loose Tracks. These are releases with the release type set
+to `loosetrack`. Releases with the release type `loosetrack` are excluded from the standard release
+views; they are only visible in the Loose Tracks view. This feature is intended to allow storing
+random one-off tracks for the sake of playlisting without polluting the releases list with many
+small entries.
 
 # Directory and File Names
 

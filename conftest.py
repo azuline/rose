@@ -124,12 +124,14 @@ def _seed_cache(config: Config, mkfiles: bool) -> None:
         config.music_source_dir / "r1",
         config.music_source_dir / "r2",
         config.music_source_dir / "r3",
+        config.music_source_dir / "r4",
     ]
     musicpaths = [
         config.music_source_dir / "r1" / "01.m4a",
         config.music_source_dir / "r1" / "02.m4a",
         config.music_source_dir / "r2" / "01.m4a",
         config.music_source_dir / "r3" / "01.m4a",
+        config.music_source_dir / "r4" / "01.m4a",
     ]
     imagepaths = [
         config.music_source_dir / "r2" / "cover.jpg",
@@ -140,10 +142,11 @@ def _seed_cache(config: Config, mkfiles: bool) -> None:
         conn.executescript(
             f"""\
 INSERT INTO releases
-       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype, releasedate , originaldate, compositiondate, catalognumber, edition , disctotal, new  , metahash)
-VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'    , '2023'      , null        , null           , null         , null    , 1        , false, '1')
-     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'    , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 1        , true , '2')
-     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'    , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, '3');
+       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype , releasedate , originaldate, compositiondate, catalognumber, edition , disctotal, new  , metahash)
+VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'     , '2023'      , null        , null           , null         , null    , 1        , false, '1')
+     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'     , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 1        , true , '2')
+     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'     , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, '3')
+     , ('r4', '{dirpaths[3]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 4', 'loosetrack', '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, '4');
 
 INSERT INTO releases_genres
        (release_id, genre             , position)
@@ -173,7 +176,8 @@ INSERT INTO tracks
 VALUES ('t1', '{musicpaths[0]}', '999'       , 'Track 1', 'r1'      , '01'       , 2         , '01'      , 120             , '1')
      , ('t2', '{musicpaths[1]}', '999'       , 'Track 2', 'r1'      , '02'       , 2         , '01'      , 240             , '2')
      , ('t3', '{musicpaths[2]}', '999'       , 'Track 1', 'r2'      , '01'       , 1         , '01'      , 120             , '3')
-     , ('t4', '{musicpaths[3]}', '999'       , 'Track 1', 'r3'      , '01'       , 1         , '01'      , 120             , '4');
+     , ('t4', '{musicpaths[3]}', '999'       , 'Track 1', 'r3'      , '01'       , 1         , '01'      , 120             , '4')
+     , ('t5', '{musicpaths[4]}', '999'       , 'Track 1', 'r4'      , '01'       , 1         , '01'      , 120             , '5');
 
 INSERT INTO releases_artists
        (release_id, artist           , role   , position)
