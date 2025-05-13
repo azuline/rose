@@ -79,28 +79,26 @@ def track_to_json(t: Track, with_release_info: bool = True) -> dict[str, Any]:
         "trackartists": t.trackartists.dump(),
     }
     if with_release_info:
-        r.update(
-            {
-                "release_id": t.release.id,
-                "added_at": t.release.added_at,
-                "releasetitle": t.release.releasetitle,
-                "releasetype": t.release.releasetype,
-                "disctotal": t.release.disctotal,
-                "releasedate": str(t.release.releasedate) if t.release.releasedate else None,
-                "originaldate": str(t.release.originaldate) if t.release.originaldate else None,
-                "compositiondate": str(t.release.compositiondate) if t.release.compositiondate else None,
-                "catalognumber": t.release.catalognumber,
-                "edition": t.release.edition,
-                "new": t.release.new,
-                "genres": t.release.genres,
-                "parent_genres": t.release.parent_genres,
-                "secondary_genres": t.release.secondary_genres,
-                "parent_secondary_genres": t.release.parent_secondary_genres,
-                "descriptors": t.release.descriptors,
-                "labels": t.release.labels,
-                "releaseartists": t.release.releaseartists.dump(),
-            }
-        )
+        r.update({
+            "release_id": t.release.id,
+            "added_at": t.release.added_at,
+            "releasetitle": t.release.releasetitle,
+            "releasetype": t.release.releasetype,
+            "disctotal": t.release.disctotal,
+            "releasedate": str(t.release.releasedate) if t.release.releasedate else None,
+            "originaldate": str(t.release.originaldate) if t.release.originaldate else None,
+            "compositiondate": str(t.release.compositiondate) if t.release.compositiondate else None,
+            "catalognumber": t.release.catalognumber,
+            "edition": t.release.edition,
+            "new": t.release.new,
+            "genres": t.release.genres,
+            "parent_genres": t.release.parent_genres,
+            "secondary_genres": t.release.secondary_genres,
+            "parent_secondary_genres": t.release.parent_secondary_genres,
+            "descriptors": t.release.descriptors,
+            "labels": t.release.labels,
+            "releaseartists": t.release.releaseartists.dump(),
+        })
     return r
 
 
@@ -109,25 +107,21 @@ def dump_release(c: Config, release_id: str) -> str:
     if not release:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
     tracks = get_tracks_of_release(c, release)
-    return json.dumps(
-        {
-            **release_to_json(release),
-            "tracks": [track_to_json(t, with_release_info=False) for t in tracks],
-        }
-    )
+    return json.dumps({
+        **release_to_json(release),
+        "tracks": [track_to_json(t, with_release_info=False) for t in tracks],
+    })
 
 
 def dump_all_releases(c: Config, matcher: Matcher | None = None) -> str:
     releases = find_releases_matching_rule(c, matcher) if matcher else list_releases(c)
-    return json.dumps(
-        [
-            {
-                **release_to_json(release),
-                "tracks": [track_to_json(t, with_release_info=False) for t in tracks],
-            }
-            for release, tracks in get_tracks_of_releases(c, releases)
-        ]
-    )
+    return json.dumps([
+        {
+            **release_to_json(release),
+            "tracks": [track_to_json(t, with_release_info=False) for t in tracks],
+        }
+        for release, tracks in get_tracks_of_releases(c, releases)
+    ])
 
 
 def dump_track(c: Config, track_id: str) -> str:
@@ -266,13 +260,11 @@ def dump_playlist(c: Config, playlist_name: str) -> str:
     tracks: list[dict[str, Any]] = []
     for idx, trk in enumerate(playlist_tracks):
         tracks.append({"position": idx + 1, **track_to_json(trk)})
-    return json.dumps(
-        {
-            "name": playlist_name,
-            "cover_image_path": str(playlist.cover_path) if playlist.cover_path else None,
-            "tracks": tracks,
-        }
-    )
+    return json.dumps({
+        "name": playlist_name,
+        "cover_image_path": str(playlist.cover_path) if playlist.cover_path else None,
+        "tracks": tracks,
+    })
 
 
 def dump_all_playlists(c: Config) -> str:
@@ -284,11 +276,9 @@ def dump_all_playlists(c: Config) -> str:
         tracks: list[dict[str, Any]] = []
         for idx, trk in enumerate(playlist_tracks):
             tracks.append({"position": idx + 1, **track_to_json(trk)})
-        out.append(
-            {
-                "name": name,
-                "cover_image_path": str(playlist.cover_path) if playlist.cover_path else None,
-                "tracks": tracks,
-            }
-        )
+        out.append({
+            "name": name,
+            "cover_image_path": str(playlist.cover_path) if playlist.cover_path else None,
+            "tracks": tracks,
+        })
     return json.dumps(out)

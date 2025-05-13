@@ -55,19 +55,19 @@ def test_parse_track_id_from_path(config: Config, source_dir: Path) -> None:
     with start_virtual_fs(config):
         # Track path is resolved.
         path = str(source_dir / "Test Release 1" / "01.m4a")
-        assert parse_track_argument(config, path) == track_id
+        assert parse_track_argument(path) == track_id
         # UUID is no-opped.
-        assert parse_track_argument(config, track_id) == track_id
+        assert parse_track_argument(track_id) == track_id
         # Non-existent path raises error.
         with pytest.raises(InvalidTrackArgError):
-            assert parse_track_argument(config, str(config.vfs.mount_dir / "1. Releases" / "lalala"))
+            assert parse_track_argument(str(config.vfs.mount_dir / "1. Releases" / "lalala"))
         # Directory raises error.
         with pytest.raises(InvalidTrackArgError):
-            assert parse_track_argument(config, str(source_dir / "Test Release 1"))
+            assert parse_track_argument(str(source_dir / "Test Release 1"))
         # Weirdly named directory raises error.
         (source_dir / "hi.m4a").mkdir()
         with pytest.raises(InvalidTrackArgError):
-            assert parse_track_argument(config, str(source_dir / "hi.m4a"))
+            assert parse_track_argument(str(source_dir / "hi.m4a"))
 
 
 def test_parse_collage_name_from_path(config: Config, source_dir: Path) -> None:

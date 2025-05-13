@@ -116,7 +116,6 @@ def execute_metadata_rule(
         return
 
     matcher_audiotags = filter_track_false_positives_using_tags(
-        c,
         rule.matcher,
         fast_search_results,
         rule.ignore,
@@ -208,7 +207,6 @@ def _convert_matcher_to_fts_query(pattern: Pattern) -> str:
 
 
 def filter_track_false_positives_using_tags(
-    c: Config,
     matcher: Matcher,
     fast_search_results: list[FastSearchResult],
     ignore: list[Matcher],
@@ -494,7 +492,7 @@ def execute_metadata_actions(
                     potential_audiotag_changes.append(("releaseartist[guest]", names(origtags.releaseartists.guest), names(tags.releaseartists.guest)))
                 elif field == "releaseartist[remixer]":
                     tags.releaseartists.remixer = artists(execute_multi_value_action(act, names(tags.releaseartists.remixer)))
-                    potential_audiotag_changes.append(("releaseartist[remixer]", names(origtags.releaseartists.remixer), names(tags.releaseartists.remixer) ))
+                    potential_audiotag_changes.append(("releaseartist[remixer]", names(origtags.releaseartists.remixer), names(tags.releaseartists.remixer)))
                 elif field == "releaseartist[producer]":
                     tags.releaseartists.producer = artists(execute_multi_value_action(act, names(tags.releaseartists.producer)))
                     potential_audiotag_changes.append(("releaseartist[producer]", names(origtags.releaseartists.producer), names(tags.releaseartists.producer)))
@@ -506,7 +504,7 @@ def execute_metadata_actions(
                     potential_audiotag_changes.append(("releaseartist[conductor]", names(origtags.releaseartists.conductor), names(tags.releaseartists.conductor)))
                 elif field == "releaseartist[djmixer]":
                     tags.releaseartists.djmixer = artists(execute_multi_value_action(act, names(tags.releaseartists.djmixer)))
-                    potential_audiotag_changes.append(( "releaseartist[djmixer]", names(origtags.releaseartists.djmixer), names(tags.releaseartists.djmixer)))
+                    potential_audiotag_changes.append(("releaseartist[djmixer]", names(origtags.releaseartists.djmixer), names(tags.releaseartists.djmixer)))
                 # fmt: on
 
         # Compute real changes by diffing the tags, and then store.

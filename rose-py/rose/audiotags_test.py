@@ -28,7 +28,7 @@ from rose.config import Config
         ("track5.opus.ogg", "5", 1),
     ],
 )
-def test_getters(config: Config, filename: str, track_num: str, duration: int) -> None:
+def test_getters(filename: str, track_num: str, duration: int) -> None:
     af = AudioTags.from_file(TEST_TAGGER / filename)
     assert af.releasetitle == "A Cool Album"
     assert af.releasetype == "album"

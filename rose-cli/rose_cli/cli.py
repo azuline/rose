@@ -330,7 +330,7 @@ def tracks() -> None:
 @click.pass_obj
 def print_track(ctx: Context, track: str) -> None:
     """Print a single track (in JSON). Accepts a tracks's UUID/path."""
-    track = parse_track_argument(ctx.config, track)
+    track = parse_track_argument(track)
     click.echo(dump_track(ctx.config, track))
 
 
@@ -351,7 +351,7 @@ def print_all_track(ctx: Context, matcher: str | None = None) -> None:
 @click.pass_obj
 def run_rule_track(ctx: Context, track: str, actions: list[str], dry_run: bool, yes: bool) -> None:
     """Run rule engine actions on a single track. Accepts a track's UUID/path."""
-    track = parse_track_argument(ctx.config, track)
+    track = parse_track_argument(track)
     parsed_actions = [Action.parse(a) for a in actions]
     run_actions_on_track(
         ctx.config,
@@ -471,7 +471,7 @@ def delete_playlist_cmd(ctx: Context, playlist: str) -> None:
 @click.pass_obj
 def add_track(ctx: Context, playlist: str, track: str) -> None:
     """Add a track to a playlist. Accepts a playlist name and a track's UUID/path."""
-    track = parse_track_argument(ctx.config, track)
+    track = parse_track_argument(track)
     add_track_to_playlist(ctx.config, playlist, track)
 
 
@@ -481,7 +481,7 @@ def add_track(ctx: Context, playlist: str, track: str) -> None:
 @click.pass_obj
 def remove_track(ctx: Context, playlist: str, track: str) -> None:
     """Remove a track from a playlist. Accepts a playlist name and a track's UUID/path."""
-    track = parse_track_argument(ctx.config, track)
+    track = parse_track_argument(track)
     remove_track_from_playlist(ctx.config, playlist, track)
 
 
@@ -675,7 +675,7 @@ Release arguments must be one of:
     )
 
 
-def parse_track_argument(c: Config, t: str) -> str:
+def parse_track_argument(t: str) -> str:
     """Takes in a track argument and normalizes it to the track ID."""
     if valid_uuid(t):
         logger.debug(f"Treating track argument {t} as UUID")

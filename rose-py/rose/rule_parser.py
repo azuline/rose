@@ -376,7 +376,7 @@ class Matcher:
                 raise RuleSyntaxError(
                     **err,
                     index=idx,
-                    feedback=f"Invalid tag: must be one of {{{', '.join(ALL_TAGS)}}}. The next character after a tag must be ':' or ','.",
+                    feedback=f"Invalid tag: must be one of {{{", ".join(ALL_TAGS)}}}. The next character after a tag must be ':' or ','.",
                 )
             if found_colon:
                 break
@@ -542,9 +542,9 @@ class Action:
                         for t, resolvedtags in ALL_TAGS.items():
                             if all(r in MODIFIABLE_TAGS for r in resolvedtags):
                                 tags_to_print.append(t)
-                        feedback = f"Invalid tag: must be one of {{{', '.join(tags_to_print)}}}. The next character after a tag must be ':' or ','."
+                        feedback = f"Invalid tag: must be one of {{{", ".join(tags_to_print)}}}. The next character after a tag must be ':' or ','."
                         if matcher:
-                            feedback = f"Invalid tag: must be one of matched, {{{', '.join(tags_to_print)}}}. (And if the value is matched, it must be alone.) The next character after a tag must be ':' or ','."
+                            feedback = f"Invalid tag: must be one of matched, {{{", ".join(tags_to_print)}}}. (And if the value is matched, it must be alone.) The next character after a tag must be ':' or ','."
                         raise RuleSyntaxError(**err, index=idx, feedback=feedback)
                     if found_end:
                         break
@@ -617,7 +617,7 @@ class Action:
                 idx += len(va)
                 break
         else:
-            feedback = f"Invalid action kind: must be one of {{{', '.join(valid_actions)}}}."
+            feedback = f"Invalid action kind: must be one of {{{", ".join(valid_actions)}}}."
             if idx == 0 and ":" in raw:
                 feedback += " If this is pointing at your pattern, you forgot to put a `/` between the matcher section and the action section."
             raise RuleSyntaxError(**err, index=idx, feedback=feedback)
@@ -627,7 +627,7 @@ class Action:
             single_valued_tags = [t for t in tags if t in SINGLE_VALUE_TAGS]
             if single_valued_tags:
                 raise InvalidRuleError(
-                    f"Single valued tags {', '.join(single_valued_tags)} cannot be modified by multi-value action {action_kind}"
+                    f"Single valued tags {", ".join(single_valued_tags)} cannot be modified by multi-value action {action_kind}"
                 )
 
         # And then parse each action kind separately.

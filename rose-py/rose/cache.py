@@ -39,7 +39,6 @@ import re
 import sqlite3
 import time
 import tomllib
-import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Iterator
 from datetime import datetime
@@ -865,7 +864,7 @@ def _update_cache_for_releases_executor(
                 # 2. Or renamed the source directory to match our desired name.
                 original_wanted_dirname = wanted_dirname
                 collision_no = 2
-                while not _compare_strs(wanted_dirname, release.source_path.name):
+                while wanted_dirname != release.source_path.name:
                     new_source_path = release.source_path.with_name(wanted_dirname)
                     # If there is a collision, bump the collision counter and retry.
                     if new_source_path.exists():
@@ -896,9 +895,9 @@ def _update_cache_for_releases_executor(
                 original_wanted_stem = Path(wanted_filename).stem
                 original_wanted_suffix = Path(wanted_filename).suffix
                 collision_no = 2
-                while (relpath := str(track.source_path).removeprefix(f"{release.source_path}/")) and not _compare_strs(
-                    wanted_filename, relpath
-                ):
+                while (
+                    relpath := str(track.source_path).removeprefix(f"{release.source_path}/")
+                ) and wanted_filename != relpath:
                     new_source_path = release.source_path / wanted_filename
                     if new_source_path.exists():
                         new_max_len = c.max_filename_bytes - (3 + len(str(collision_no)) + len(original_wanted_suffix))
@@ -917,8 +916,9 @@ def _update_cache_for_releases_executor(
                     # And clean out any empty directories post-rename.
                     while relpath := os.path.dirname(relpath):
                         relppp = release.source_path / relpath
-                        if relppp.is_dir() and not list(relppp.iterdir()):
-                            relppp.rmdir()
+                        if not relppp.is_dir() or list(relppp.iterdir()):
+                            break
+                        relppp.rmdir()
 
         # Schedule database executions.
         if unknown_cached_tracks or release_dirty or track_ids_to_insert:
@@ -930,25 +930,23 @@ def _update_cache_for_releases_executor(
 
         if release_dirty:
             logger.debug(f"Scheduling upsert for dirty release in database: {release.source_path}")
-            upd_release_args.append(
-                [
-                    release.id,
-                    str(release.source_path),
-                    str(release.cover_image_path) if release.cover_image_path else None,
-                    release.added_at,
-                    release.datafile_mtime,
-                    release.releasetitle,
-                    release.releasetype,
-                    str(release.releasedate) if release.releasedate else None,
-                    str(release.originaldate) if release.originaldate else None,
-                    str(release.compositiondate) if release.compositiondate else None,
-                    release.edition,
-                    release.catalognumber,
-                    release.disctotal,
-                    release.new,
-                    sha256_dataclass(release),
-                ]
-            )
+            upd_release_args.append([
+                release.id,
+                str(release.source_path),
+                str(release.cover_image_path) if release.cover_image_path else None,
+                release.added_at,
+                release.datafile_mtime,
+                release.releasetitle,
+                release.releasetype,
+                str(release.releasedate) if release.releasedate else None,
+                str(release.originaldate) if release.originaldate else None,
+                str(release.compositiondate) if release.compositiondate else None,
+                release.edition,
+                release.catalognumber,
+                release.disctotal,
+                release.new,
+                sha256_dataclass(release),
+            ])
             upd_release_ids.append(release.id)
             for pos, genre in enumerate(release.genres):
                 upd_release_genre_args.append([release.id, genre, pos])
@@ -969,20 +967,18 @@ def _update_cache_for_releases_executor(
                 if track.id not in track_ids_to_insert:
                     continue
                 logger.debug(f"Scheduling upsert for dirty track in database: {track.source_path}")
-                upd_track_args.append(
-                    [
-                        track.id,
-                        str(track.source_path),
-                        track.source_mtime,
-                        track.tracktitle,
-                        track.release.id,
-                        track.tracknumber,
-                        track.tracktotal,
-                        track.discnumber,
-                        track.duration_seconds,
-                        sha256_dataclass(track),
-                    ]
-                )
+                upd_track_args.append([
+                    track.id,
+                    str(track.source_path),
+                    track.source_mtime,
+                    track.tracktitle,
+                    track.release.id,
+                    track.tracknumber,
+                    track.tracktotal,
+                    track.discnumber,
+                    track.duration_seconds,
+                    sha256_dataclass(track),
+                ])
                 upd_track_ids.append(track.id)
                 pos = 0
                 for role, artists in track.trackartists.items():
@@ -2444,16 +2440,6 @@ def _unpack(*xxs: str) -> Iterator[tuple[str, ...]]:
     if all(not xs for xs in xxs):
         return
     yield from zip(*[_split(xs) for xs in xxs], strict=False)
-
-
-def _compare_strs(a: str, b: str) -> bool:
-    """
-    Unicode normalize strings before comparison; there can be comparison failures when a
-    library is ported across operating systems otherwise.
-
-    Use for guarding significant mutations (cache updates are insignificant).
-    """
-    return unicodedata.normalize("NFC", a) == unicodedata.normalize("NFC", b)
 
 
 def process_string_for_fts(x: str) -> str:

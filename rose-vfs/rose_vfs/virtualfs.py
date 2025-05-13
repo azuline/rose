@@ -523,7 +523,7 @@ class VirtualNameGenerator:
             time_start = time.time()
             self._release_store[(release_parent, vname)] = release.id
             seen.add(vname)
-            logger.debug(f"VNAMES: Time cost of storing the virtual dirname: {time.time()-time_start=} seconds")
+            logger.debug(f"VNAMES: Time cost of storing the virtual dirname: {time.time() - time_start=} seconds")
 
             yield release, vname
 
@@ -655,7 +655,7 @@ class VirtualNameGenerator:
             time_start = time.time()
             self._track_store[(track_parent, vname)] = track.id
             seen.add(vname)
-            logger.debug(f"VNAMES: Time cost of storing the virtual filename: {time.time()-time_start=} seconds")
+            logger.debug(f"VNAMES: Time cost of storing the virtual filename: {time.time() - time_start=} seconds")
 
             yield track, vname
 
