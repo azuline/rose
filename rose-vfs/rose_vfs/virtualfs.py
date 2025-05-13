@@ -1138,7 +1138,11 @@ class RoseLogicalCore:
             if p.view == "New":
                 matcher = Matcher(["new"], Pattern("true", strict=True))
 
-            releases = find_releases_matching_rule(self.config, matcher) if matcher else list_releases(self.config)
+            releases = (
+                find_releases_matching_rule(self.config, matcher, include_loose_tracks=False)
+                if matcher
+                else list_releases(self.config, include_loose_tracks=False)
+            )
 
             yield ALL_TRACKS, self.stat("dir")
             for rls, vname in self.vnames.list_release_paths(p, releases):

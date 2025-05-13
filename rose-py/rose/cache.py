@@ -1708,16 +1708,20 @@ def update_cache_evict_nonexistent_playlists(c: Config) -> None:
 
 def filter_releases(
     c: Config,
+    *,
     release_artist_filter: str | None = None,
     all_artist_filter: str | None = None,
     genre_filter: str | None = None,
     descriptor_filter: str | None = None,
     label_filter: str | None = None,
     new: bool | None = None,
+    include_loose_tracks: bool = True,
 ) -> list[Release]:
     with connect(c) as conn:
         query = "SELECT * FROM releases_view rv WHERE 1=1"
         args: list[str | bool] = []
+        if not include_loose_tracks:
+            query += " AND rv.releasetype <> 'loosetrack'"
         if release_artist_filter:
             artists: list[str] = [release_artist_filter]
             for alias in _get_all_artist_aliases(c, release_artist_filter):
@@ -1905,13 +1909,20 @@ def filter_tracks(
         return rval
 
 
-def list_releases(c: Config, release_ids: list[str] | None = None) -> list[Release]:
+def list_releases(
+    c: Config,
+    release_ids: list[str] | None = None,
+    *,
+    include_loose_tracks: bool = True,
+) -> list[Release]:
     """Fetch data associated with given release IDs. Pass None to fetch all."""
-    query = "SELECT * FROM releases_view"
+    query = "SELECT * FROM releases_view WHERE 1=1"
     args = []
     if release_ids is not None:
-        query += f" WHERE id IN ({",".join(["?"] * len(release_ids))})"
+        query += f" AND id IN ({",".join(["?"] * len(release_ids))})"
         args = release_ids
+    if not include_loose_tracks:
+        query += " AND releasetype <> 'loosetrack'"
     query += " ORDER BY source_path"
     with connect(c) as conn:
         cursor = conn.execute(query, args)

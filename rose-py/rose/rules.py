@@ -725,6 +725,8 @@ def execute_multi_value_action(
 def fast_search_for_matching_releases(
     c: Config,
     matcher: Matcher,
+    *,
+    include_loose_tracks: bool = True,
 ) -> list[FastSearchResult]:
     """Basically the same thing as fast_search_for_matching_tracks but with releases."""
     time_start = time.time()
@@ -748,8 +750,10 @@ def fast_search_for_matching_releases(
         JOIN tracks t ON rules_engine_fts.rowid = t.rowid
         JOIN releases r ON r.id = t.release_id
         WHERE rules_engine_fts MATCH '{ftsquery}'
-        ORDER BY r.source_path
     """
+    if not include_loose_tracks:
+        query += " AND r.releasetype <> 'loosetrack'"
+    query += " ORDER BY r.source_path"
     logger.debug(f"Constructed matching query {query}")
     results: list[FastSearchResult] = []
     with connect(c) as conn:
@@ -811,10 +815,14 @@ def filter_track_false_positives_using_read_cache(
 def filter_release_false_positives_using_read_cache(
     matcher: Matcher,
     releases: list[Release],
+    *,
+    include_loose_tracks: bool = True,
 ) -> list[Release]:
     time_start = time.time()
     rval = []
     for r in releases:
+        if not include_loose_tracks and r.releasetype == "loosetrack":
+            continue
         for field in matcher.tags:
             match = False
             # Only attempt to match the release tags; ignore track tags.

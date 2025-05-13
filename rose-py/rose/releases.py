@@ -446,24 +446,46 @@ You can reattempt the release edit and fix the metadata file with the command:
     update_cache_for_releases(c, [release.source_path], force=True)
 
 
-def find_releases_matching_rule(c: Config, matcher: Matcher) -> list[Release]:
+def find_releases_matching_rule(c: Config, matcher: Matcher, *, include_loose_tracks: bool = True) -> list[Release]:
     # Implement optimizations for common lookups. Only applies to strict lookups.
     # TODO: Morning
     if matcher.pattern.strict_start and matcher.pattern.strict_end:
         if matcher.tags == ALL_TAGS["artist"]:
-            return filter_releases(c, all_artist_filter=matcher.pattern.needle)
+            return filter_releases(
+                c,
+                all_artist_filter=matcher.pattern.needle,
+                include_loose_tracks=include_loose_tracks,
+            )
         if matcher.tags == ALL_TAGS["releaseartist"]:
-            return filter_releases(c, release_artist_filter=matcher.pattern.needle)
+            return filter_releases(
+                c,
+                release_artist_filter=matcher.pattern.needle,
+                include_loose_tracks=include_loose_tracks,
+            )
         if matcher.tags == ["genre"]:
-            return filter_releases(c, genre_filter=matcher.pattern.needle)
+            return filter_releases(
+                c,
+                genre_filter=matcher.pattern.needle,
+                include_loose_tracks=include_loose_tracks,
+            )
         if matcher.tags == ["label"]:
-            return filter_releases(c, label_filter=matcher.pattern.needle)
+            return filter_releases(
+                c,
+                label_filter=matcher.pattern.needle,
+                include_loose_tracks=include_loose_tracks,
+            )
         if matcher.tags == ["descriptor"]:
-            return filter_releases(c, descriptor_filter=matcher.pattern.needle)
+            return filter_releases(
+                c,
+                descriptor_filter=matcher.pattern.needle,
+                include_loose_tracks=include_loose_tracks,
+            )
 
-    release_ids = [x.id for x in fast_search_for_matching_releases(c, matcher)]
-    releases = list_releases(c, release_ids)
-    return filter_release_false_positives_using_read_cache(matcher, releases)
+    release_ids = [
+        x.id for x in fast_search_for_matching_releases(c, matcher, include_loose_tracks=include_loose_tracks)
+    ]
+    releases = list_releases(c, release_ids, include_loose_tracks=include_loose_tracks)
+    return filter_release_false_positives_using_read_cache(matcher, releases, include_loose_tracks=include_loose_tracks)
 
 
 def run_actions_on_release(
