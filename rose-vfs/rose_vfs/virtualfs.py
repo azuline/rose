@@ -571,6 +571,8 @@ class VirtualNameGenerator:
                     template = self._config.path_templates.descriptors.all_tracks
                 elif track_parent.view == "Labels":
                     template = self._config.path_templates.labels.all_tracks
+                elif track_parent.view == "Loose Tracks":
+                    template = self._config.path_templates.loose_tracks.all_tracks
                 elif track_parent.view == "Collages":
                     template = self._config.path_templates.collages.all_tracks
             else:
@@ -590,6 +592,8 @@ class VirtualNameGenerator:
                     template = self._config.path_templates.descriptors.track
                 elif track_parent.view == "Labels":
                     template = self._config.path_templates.labels.track
+                elif track_parent.view == "Loose Tracks":
+                    template = self._config.path_templates.loose_tracks.track
                 elif track_parent.view == "Collages":
                     template = self._config.path_templates.collages.track
                 elif track_parent.view == "Playlists":
@@ -1091,26 +1095,32 @@ class RoseLogicalCore:
                 ("3. Genres", self.stat("dir")),
                 ("4. Descriptors", self.stat("dir")),
                 ("5. Labels", self.stat("dir")),
-                ("7. Collages", self.stat("dir")),
+                ("6. Loose Tracks", self.stat("dir")),
                 ("7. Collages", self.stat("dir")),
                 ("8. Playlists", self.stat("dir")),
             ]
             return
 
         if p.release == ALL_TRACKS and (
-            p.artist or p.genre or p.descriptor or p.label or p.view in ["Releases", "Released On", "Added On", "New"]
+            p.artist
+            or p.genre
+            or p.descriptor
+            or p.label
+            or p.view in ["Releases", "Released On", "Added On", "New", "Loose Tracks"]
         ):
             matcher = None
             if p.artist:
                 matcher = Matcher(["artist"], Pattern(p.artist, strict=True))
-            if p.genre:
+            elif p.genre:
                 matcher = Matcher(["genre"], Pattern(p.genre, strict=True))
-            if p.descriptor:
+            elif p.descriptor:
                 matcher = Matcher(["descriptor"], Pattern(p.descriptor, strict=True))
-            if p.label:
+            elif p.label:
                 matcher = Matcher(["label"], Pattern(p.label, strict=True))
-            if p.view == "New":
+            elif p.view == "New":
                 matcher = Matcher(["new"], Pattern("true", strict=True))
+            elif p.view == "Loose Tracks":
+                matcher = Matcher(["releasetype"], Pattern("loosetrack", strict=True))
 
             tracks = find_tracks_matching_rule(self.config, matcher) if matcher else list_tracks(self.config)
             for trk, vname in self.vnames.list_track_paths(p, tracks):
@@ -1454,7 +1464,7 @@ class RoseLogicalCore:
         if sop := self.file_creation_special_ops.get(fh, None):
             logger.debug("LOGICAL: Matched read to a file creation special op")
             _, _, _, b = sop
-            return b[offset : offset + length]
+            return bytes(b[offset : offset + length])
         fh = self.fhandler.unwrap_host(fh)
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)

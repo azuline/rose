@@ -16,6 +16,7 @@ from rose_vfs.virtualfs import ALL_TRACKS, mount_virtualfs, unmount_virtualfs
 R1_VNAME = "Techno Man & Bass Man - 2023. Release 1"
 R2_VNAME = "Violin Woman (feat. Conductor Woman) - 2021. Release 2 [NEW]"
 R3_VNAME = "Unknown Artists - 2021. Release 3"
+R4_VNAME = "Unknown Artists - 2021. Release 4"
 
 
 @contextmanager
@@ -117,6 +118,13 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert not (root / "5. Labels" / "Silk Music" / R1_VNAME / "lalala").exists()
         assert can_read(root / "5. Labels" / "Silk Music" / R1_VNAME / "01. Track 1.m4a")
 
+        assert (root / "6. Loose Tracks").is_dir()
+        assert (root / "6. Loose Tracks" / f"{R4_VNAME}").exists()
+        for vname in [R1_VNAME, R2_VNAME, R3_VNAME]:
+            assert not (root / "6. Loose Tracks" / vname).exists()
+        assert (root / "6. Loose Tracks" / f"{R4_VNAME}" / "01. Track 1.m4a").is_file()
+        assert not (root / "6. Loose Tracks" / R4_VNAME / "lalala").exists()
+
         assert (root / "7. Collages").is_dir()
         assert (root / "7. Collages" / "Rose Gold").is_dir()
         assert (root / "7. Collages" / "Ruby Red").is_dir()
@@ -148,6 +156,7 @@ def test_virtual_filesystem_reads_all_tracks(config: Config) -> None:
 
     r1_track = "Techno Man & Bass Man - 2023. Release 1 - Track 1.m4a"
     r2_track = "Violin Woman (feat. Conductor Woman) - 2021. Release 2 - Track 1.m4a"
+    r4_track = "Unknown Artists - 2021. Release 4 - Track 1.m4a"
 
     root = config.vfs.mount_dir
     with start_virtual_fs(config):
@@ -155,6 +164,7 @@ def test_virtual_filesystem_reads_all_tracks(config: Config) -> None:
 
         assert (root / "1. Releases" / ALL_TRACKS).is_dir()
         assert (root / "1. Releases" / ALL_TRACKS / r1_track).is_file()
+        assert (root / "1. Releases" / ALL_TRACKS / r4_track).is_file()
         assert can_read(root / "1. Releases" / ALL_TRACKS / r1_track)
 
         assert (root / "1. Releases - New" / ALL_TRACKS).is_dir()
@@ -184,6 +194,11 @@ def test_virtual_filesystem_reads_all_tracks(config: Config) -> None:
         assert (root / "5. Labels" / "Silk Music" / ALL_TRACKS).is_dir()
         assert (root / "5. Labels" / "Silk Music" / ALL_TRACKS / r1_track).is_file()
         assert can_read(root / "5. Labels" / "Silk Music" / ALL_TRACKS / r1_track)
+
+        assert (root / "6. Loose Tracks" / ALL_TRACKS).is_dir()
+        assert (root / "6. Loose Tracks" / ALL_TRACKS / r4_track).is_file()
+        assert not (root / "6. Loose Tracks" / ALL_TRACKS / r1_track).is_file()
+        assert can_read(root / "6. Loose Tracks" / ALL_TRACKS / r4_track)
 
         assert (root / "7. Collages" / "Rose Gold" / ALL_TRACKS).is_dir()
         assert (root / "7. Collages" / "Rose Gold" / ALL_TRACKS / r1_track).is_file()
