@@ -12,6 +12,7 @@ import shutil
 import tomllib
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Literal
 
 import click
 import tomli_w
@@ -511,7 +512,12 @@ def run_actions_on_release(
     execute_metadata_actions(c, actions, audiotags, dry_run=dry_run, confirm_yes=confirm_yes)
 
 
-def create_single_release(c: Config, track_path: Path) -> None:
+def create_single_release(
+    c: Config,
+    track_path: Path,
+    *,
+    releasetype: Literal["single", "loosetrack"] = "single",
+) -> None:
     """Takes a track and copies it into a brand new "single" release with only that track."""
     if not track_path.is_file():
         raise FileNotFoundError(f"Failed to extract single: file {track_path} not found")
@@ -545,7 +551,7 @@ def create_single_release(c: Config, track_path: Path) -> None:
     # Step 3. Update the tags of the new track. Clear the Rose IDs too: this is a brand new track.
     af = AudioTags.from_file(new_track_path)
     af.releasetitle = title
-    af.releasetype = "single"
+    af.releasetype = releasetype
     af.releaseartists = af.trackartists
     af.tracknumber = "1"
     af.discnumber = "1"
