@@ -326,11 +326,8 @@ def edit_release(
             original_metadata = MetadataRelease.from_cache(release, tracks)
             original_toml = original_metadata.serialize()
 
-        toml = click.edit(original_toml, extension=".toml")
-        if not toml:
-            logger.info("Aborting manual release edit: metadata file not submitted.")
-            return
-        if original_toml == toml:
+        toml = click.edit(original_toml, extension=".toml") or original_toml
+        if original_toml == toml and not resume_file:
             logger.info("Aborting manual release edit: no metadata change detected.")
             return
 
