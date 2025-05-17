@@ -768,11 +768,13 @@ def _update_cache_for_releases_executor(
                 if tags.genre != release.genres:
                     logger.debug(f"Release genre change detected for {source_path}, updating")
                     release.genres = uniq(tags.genre)
+                    release.parent_genres = _get_parent_genres(release.genres)
                     release_dirty = True
 
                 if tags.secondarygenre != release.secondary_genres:
                     logger.debug(f"Release secondary genre change detected for {source_path}, updating")
                     release.secondary_genres = uniq(tags.secondarygenre)
+                    release.parent_secondary_genres = _get_parent_genres(release.secondary_genres)
                     release_dirty = True
 
                 if tags.descriptor != release.descriptors:
