@@ -39,6 +39,7 @@ import re
 import sqlite3
 import time
 import tomllib
+import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Iterator
 from datetime import datetime
@@ -866,7 +867,7 @@ def _update_cache_for_releases_executor(
                 # 2. Or renamed the source directory to match our desired name.
                 original_wanted_dirname = wanted_dirname
                 collision_no = 2
-                while wanted_dirname != release.source_path.name:
+                while not _compare_strs(wanted_dirname, release.source_path.name):
                     new_source_path = release.source_path.with_name(wanted_dirname)
                     # If there is a collision, bump the collision counter and retry.
                     if new_source_path.exists():
@@ -897,9 +898,9 @@ def _update_cache_for_releases_executor(
                 original_wanted_stem = Path(wanted_filename).stem
                 original_wanted_suffix = Path(wanted_filename).suffix
                 collision_no = 2
-                while (
-                    relpath := str(track.source_path).removeprefix(f"{release.source_path}/")
-                ) and wanted_filename != relpath:
+                while (relpath := str(track.source_path).removeprefix(f"{release.source_path}/")) and not _compare_strs(
+                    wanted_filename, relpath
+                ):
                     new_source_path = release.source_path / wanted_filename
                     if new_source_path.exists():
                         new_max_len = c.max_filename_bytes - (3 + len(str(collision_no)) + len(original_wanted_suffix))
@@ -2463,3 +2464,13 @@ def process_string_for_fts(x: str) -> str:
     # In order to have performant substring search, we use FTS and hack it such that every character
     # is a token. We use "¬" as our separator character, hoping that it is not used in any metadata.
     return "¬".join(str(x)) if x else x
+
+
+def _compare_strs(a: str, b: str) -> bool:
+    """
+    Unicode normalize strings before comparison; there can be comparison failures when a
+    library is ported across operating systems otherwise.
+
+    Use for guarding significant mutations (cache updates are insignificant).
+    """
+    return unicodedata.normalize("NFC", a) == unicodedata.normalize("NFC", b)
