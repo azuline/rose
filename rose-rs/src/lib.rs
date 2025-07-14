@@ -8,12 +8,17 @@ mod testing;
 // Re-export public API
 // From common module
 pub use common::{
-    // Core types
-    Artist, ArtistMapping, Result,
-    // Errors
-    RoseError, RoseExpectedError,
     // Functions
-    initialize_logging, sanitize_dirname, sanitize_filename,
+    initialize_logging,
+    sanitize_dirname,
+    sanitize_filename,
+    // Core types
+    Artist,
+    ArtistMapping,
+    Result,
+    // Errors
+    RoseError,
+    RoseExpectedError,
     // Constants
     VERSION,
 };

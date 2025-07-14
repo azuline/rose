@@ -1,21 +1,22 @@
-use std::collections::HashMap;
 use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
 // Load genre hierarchy from JSON at compile time
+#[allow(dead_code)]
 const GENRE_HIERARCHY_JSON: &str = include_str!("genre_hierarchy.json");
 
+#[allow(dead_code)]
 pub static TRANSITIVE_PARENT_GENRES: Lazy<HashMap<String, Vec<String>>> = Lazy::new(|| {
-    let hierarchy: HashMap<String, Vec<String>> = serde_json::from_str(GENRE_HIERARCHY_JSON)
-        .expect("Failed to parse genre_hierarchy.json");
-    
+    let hierarchy: HashMap<String, Vec<String>> = serde_json::from_str(GENRE_HIERARCHY_JSON).expect("Failed to parse genre_hierarchy.json");
+
     let mut transitive_parents: HashMap<String, Vec<String>> = HashMap::new();
-    
+
     // Build transitive parent relationships
     for (genre, parents) in &hierarchy {
         let mut all_parents = Vec::new();
         let mut to_process = parents.clone();
         let mut seen = std::collections::HashSet::new();
-        
+
         while let Some(parent) = to_process.pop() {
             if seen.insert(parent.clone()) {
                 all_parents.push(parent.clone());
@@ -24,45 +25,40 @@ pub static TRANSITIVE_PARENT_GENRES: Lazy<HashMap<String, Vec<String>>> = Lazy::
                 }
             }
         }
-        
+
         transitive_parents.insert(genre.clone(), all_parents);
     }
-    
+
     transitive_parents
 });
 
+#[allow(dead_code)]
 pub static TRANSITIVE_CHILD_GENRES: Lazy<HashMap<String, Vec<String>>> = Lazy::new(|| {
     let mut transitive_children: HashMap<String, Vec<String>> = HashMap::new();
-    
+
     // Build from transitive parents
     for (child, parents) in TRANSITIVE_PARENT_GENRES.iter() {
         for parent in parents {
-            transitive_children
-                .entry(parent.clone())
-                .or_insert_with(Vec::new)
-                .push(child.clone());
+            transitive_children.entry(parent.clone()).or_default().push(child.clone());
         }
     }
-    
+
     transitive_children
 });
 
+#[allow(dead_code)]
 pub static IMMEDIATE_CHILD_GENRES: Lazy<HashMap<String, Vec<String>>> = Lazy::new(|| {
-    let hierarchy: HashMap<String, Vec<String>> = serde_json::from_str(GENRE_HIERARCHY_JSON)
-        .expect("Failed to parse genre_hierarchy.json");
-    
+    let hierarchy: HashMap<String, Vec<String>> = serde_json::from_str(GENRE_HIERARCHY_JSON).expect("Failed to parse genre_hierarchy.json");
+
     let mut immediate_children: HashMap<String, Vec<String>> = HashMap::new();
-    
+
     // Build immediate child relationships
     for (child, parents) in &hierarchy {
         for parent in parents {
-            immediate_children
-                .entry(parent.clone())
-                .or_insert_with(Vec::new)
-                .push(child.clone());
+            immediate_children.entry(parent.clone()).or_default().push(child.clone());
         }
     }
-    
+
     immediate_children
 });
 
@@ -94,7 +90,11 @@ mod tests {
     fn test_transitive_children() {
         let _ = crate::testing::init();
         // If "Electronic" is a parent of "16-bit", then "16-bit" should be in Electronic's children
-        if TRANSITIVE_PARENT_GENRES.get("16-bit").map(|p| p.contains(&"Electronic".to_string())).unwrap_or(false) {
+        if TRANSITIVE_PARENT_GENRES
+            .get("16-bit")
+            .map(|p| p.contains(&"Electronic".to_string()))
+            .unwrap_or(false)
+        {
             if let Some(children) = TRANSITIVE_CHILD_GENRES.get("Electronic") {
                 assert!(children.contains(&"16-bit".to_string()));
             }

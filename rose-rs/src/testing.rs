@@ -1,8 +1,8 @@
+use rusqlite::Connection;
+use std::fs;
 #[cfg(test)]
 use std::sync::Once;
-use std::fs;
 use tempfile::TempDir;
-use rusqlite::Connection;
 
 #[cfg(test)]
 static INIT: Once = Once::new();
@@ -11,10 +11,7 @@ static INIT: Once = Once::new();
 pub fn init() -> TempDir {
     INIT.call_once(|| {
         let _ = tracing_subscriber::fmt()
-            .with_env_filter(
-                tracing_subscriber::EnvFilter::try_from_default_env()
-                    .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("debug"))
-            )
+            .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("debug")))
             .with_test_writer()
             .try_init();
     });
@@ -26,12 +23,12 @@ pub fn init() -> TempDir {
 pub fn config() -> (crate::common::Config, TempDir) {
     let temp_dir = init();
     let base_path = temp_dir.path();
-    
+
     // Create necessary directories
     fs::create_dir_all(base_path.join("cache")).expect("failed to create cache dir");
     fs::create_dir_all(base_path.join("source")).expect("failed to create source dir");
     fs::create_dir_all(base_path.join("mount")).expect("failed to create mount dir");
-    
+
     let config = crate::common::Config { max_filename_bytes: 180 };
     (config, temp_dir)
 }
@@ -43,12 +40,7 @@ pub fn seeded_cache() -> (crate::common::Config, TempDir) {
     let base_path = temp_dir.path();
     let source_dir = base_path.join("source");
 
-    let dirpaths = vec![
-        source_dir.join("r1"),
-        source_dir.join("r2"),
-        source_dir.join("r3"),
-        source_dir.join("r4"),
-    ];
+    let dirpaths = vec![source_dir.join("r1"), source_dir.join("r2"), source_dir.join("r3"), source_dir.join("r4")];
     let musicpaths = vec![
         source_dir.join("r1").join("01.m4a"),
         source_dir.join("r1").join("02.m4a"),
@@ -56,22 +48,20 @@ pub fn seeded_cache() -> (crate::common::Config, TempDir) {
         source_dir.join("r3").join("01.m4a"),
         source_dir.join("r4").join("01.m4a"),
     ];
-    let imagepaths = vec![
-        source_dir.join("r2").join("cover.jpg"),
-        source_dir.join("!playlists").join("Lala Lisa.jpg"),
-    ];
-    
+    let imagepaths = vec![source_dir.join("r2").join("cover.jpg"), source_dir.join("!playlists").join("Lala Lisa.jpg")];
+
     let conn = Connection::open(base_path.join("cache").join("cache.sqlite3")).expect("failed to open database");
     conn.execute_batch(include_str!("cache.sql")).expect("failed to create schema");
-    
+
     // Insert test data
-    let sql = format!(r#"
+    let sql = format!(
+        r#"
 INSERT INTO releases
        (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype , releasedate , originaldate, compositiondate, catalognumber, edition , disctotal, new  , metahash)
-VALUES ('r1', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'     , '2023'      , null        , null           , null         , null    , 1        , false, '1')
-     , ('r2', '{}'           , '{}'             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'     , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 1        , true , '2')
-     , ('r3', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'     , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, '3')
-     , ('r4', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 4', 'loosetrack', '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, '4');
+VALUES ('r1', '{dirpath0}'   , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'     , '2023'      , null        , null           , null         , null    , 1        , false, '1')
+     , ('r2', '{dirpath1}'   , '{imagepath0}'   , '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'     , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 1        , true , '2')
+     , ('r3', '{dirpath2}'   , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'     , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, '3')
+     , ('r4', '{dirpath3}'   , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 4', 'loosetrack', '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, '4');
 
 INSERT INTO releases_genres
        (release_id, genre             , position)
@@ -98,11 +88,11 @@ VALUES ('r1'      , 'Silk Music'  , 1)
 
 INSERT INTO tracks
        (id  , source_path      , source_mtime, title    , release_id, tracknumber, tracktotal, discnumber, duration_seconds, metahash)
-VALUES ('t1', '{}'            , '999'       , 'Track 1', 'r1'      , '01'       , 2         , '01'      , 120             , '1')
-     , ('t2', '{}'            , '999'       , 'Track 2', 'r1'      , '02'       , 2         , '01'      , 240             , '2')
-     , ('t3', '{}'            , '999'       , 'Track 1', 'r2'      , '01'       , 1         , '01'      , 120             , '3')
-     , ('t4', '{}'            , '999'       , 'Track 1', 'r3'      , '01'       , 1         , '01'      , 120             , '4')
-     , ('t5', '{}'            , '999'       , 'Track 1', 'r4'      , '01'       , 1         , '01'      , 120             , '5');
+VALUES ('t1', '{musicpath0}'  , '999'       , 'Track 1', 'r1'      , '01'       , 2         , '01'      , 120             , '1')
+     , ('t2', '{musicpath1}'  , '999'       , 'Track 2', 'r1'      , '02'       , 2         , '01'      , 240             , '2')
+     , ('t3', '{musicpath2}'  , '999'       , 'Track 1', 'r2'      , '01'       , 1         , '01'      , 120             , '3')
+     , ('t4', '{musicpath3}'  , '999'       , 'Track 1', 'r3'      , '01'       , 1         , '01'      , 120             , '4')
+     , ('t5', '{musicpath4}'  , '999'       , 'Track 1', 'r4'      , '01'       , 1         , '01'      , 120             , '5');
 
 INSERT INTO releases_artists
        (release_id, artist           , role   , position)
@@ -132,7 +122,7 @@ VALUES ('Rose Gold' , 'r1'      , 1       , false)
 
 INSERT INTO playlists
        (name           , source_mtime, cover_path)
-VALUES ('Lala Lisa'    , '999',        '{}')
+VALUES ('Lala Lisa'    , '999',        '{imagepath1}')
      , ('Turtle Rabbit', '999',        null);
 
 INSERT INTO playlists_tracks
@@ -140,11 +130,17 @@ INSERT INTO playlists_tracks
 VALUES ('Lala Lisa'  , 't1'    , 1       , false)
      , ('Lala Lisa'  , 't3'    , 2       , false);
 "#,
-        dirpaths[0].display(), dirpaths[1].display(), imagepaths[0].display(), 
-        dirpaths[2].display(), dirpaths[3].display(),
-        musicpaths[0].display(), musicpaths[1].display(), musicpaths[2].display(), 
-        musicpaths[3].display(), musicpaths[4].display(),
-        imagepaths[1].display()
+        dirpath0 = dirpaths[0].display(),
+        dirpath1 = dirpaths[1].display(),
+        imagepath0 = imagepaths[0].display(),
+        dirpath2 = dirpaths[2].display(),
+        dirpath3 = dirpaths[3].display(),
+        musicpath0 = musicpaths[0].display(),
+        musicpath1 = musicpaths[1].display(),
+        musicpath2 = musicpaths[2].display(),
+        musicpath3 = musicpaths[3].display(),
+        musicpath4 = musicpaths[4].display(),
+        imagepath1 = imagepaths[1].display()
     );
     conn.execute_batch(&sql).expect("failed to insert test data");
 
@@ -160,13 +156,15 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
                     // In order to have performant substring search, we use FTS and hack it such that every character
                     // is a token. We use "¬" as our separator character, hoping that it is not used in any metadata.
                     s.chars().map(|c| c.to_string()).collect::<Vec<_>>().join("¬")
-                },
+                }
                 _ => String::new(),
             };
             Ok(result)
         },
-    ).expect("failed to create process_string_for_fts function");
-    conn.execute_batch(r#"
+    )
+    .expect("failed to create process_string_for_fts function");
+    conn.execute_batch(
+        r#"
         INSERT INTO rules_engine_fts (
             rowid
           , tracktitle
@@ -215,22 +213,25 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
         LEFT JOIN releases_artists ra ON ra.release_id = r.id
         LEFT JOIN tracks_artists ta ON ta.track_id = t.id
         GROUP BY t.id
-    "#).expect("failed to insert FTS data");
+    "#,
+    )
+    .expect("failed to insert FTS data");
 
     fs::create_dir_all(source_dir.join("!collages")).expect("failed to create !collages");
     fs::create_dir_all(source_dir.join("!playlists")).expect("failed to create !playlists");
     for d in &dirpaths {
         fs::create_dir_all(d).expect("failed to create dir");
-        fs::write(d.join(format!(".rose.{}.toml", d.file_name().unwrap().to_str().unwrap())), "").expect("failed to create toml");
+        let filename = d.file_name().unwrap().to_str().unwrap();
+        fs::write(d.join(format!(".rose.{filename}.toml")), "").expect("failed to create toml");
     }
     for f in musicpaths.iter().chain(imagepaths.iter()) {
         fs::write(f, "").expect("failed to create file");
     }
     for cn in ["Rose Gold", "Ruby Red"] {
-        fs::write(source_dir.join("!collages").join(format!("{}.toml", cn)), "").expect("failed to create collage toml");
+        fs::write(source_dir.join("!collages").join(format!("{cn}.toml")), "").expect("failed to create collage toml");
     }
     for pn in ["Lala Lisa", "Turtle Rabbit"] {
-        fs::write(source_dir.join("!playlists").join(format!("{}.toml", pn)), "").expect("failed to create playlist toml");
+        fs::write(source_dir.join("!playlists").join(format!("{pn}.toml")), "").expect("failed to create playlist toml");
     }
 
     (config, temp_dir)
