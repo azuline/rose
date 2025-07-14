@@ -274,28 +274,22 @@ impl Config {
             .cache_dir
             .unwrap_or_else(Self::default_cache_dir);
 
-        let max_proc = config_toml
-            .max_proc
-            .map(|p| {
-                if p <= 0 {
-                    Err(ConfigError::InvalidValue {
-                        key: "max_proc".to_string(),
-                        message: "must be a positive integer".to_string(),
-                    })
-                } else {
-                    Ok(p as usize)
-                }
-            })
-            .transpose()?
-            .unwrap_or_else(|| std::cmp::max(1, num_cpus() / 2));
+        let max_proc = match config_toml.max_proc {
+            Some(p) if p <= 0 => {
+                return Err(ConfigError::InvalidValue {
+                    key: "max_proc".to_string(),
+                    message: "must be a positive integer".to_string(),
+                })
+            }
+            Some(p) => p as usize,
+            None => std::cmp::max(1, num_cpus() / 2),
+        };
 
-        // Normalize cover art stems and extensions to lowercase
         let cover_art_stems: Vec<String> = config_toml
             .cover_art_stems
             .into_iter()
             .map(|s| s.to_lowercase())
             .collect();
-
         let valid_art_exts: Vec<String> = config_toml
             .valid_art_exts
             .into_iter()
@@ -338,15 +332,15 @@ impl Config {
         })
     }
 
-    /// Get the valid cover art filenames (stem + extension combinations)
     pub fn valid_cover_arts(&self) -> Vec<String> {
-        let mut result = Vec::new();
-        for stem in &self.cover_art_stems {
-            for ext in &self.valid_art_exts {
-                result.push(format!("{stem}.{ext}"));
-            }
-        }
-        result
+        self.cover_art_stems
+            .iter()
+            .flat_map(|stem| {
+                self.valid_art_exts
+                    .iter()
+                    .map(move |ext| format!("{stem}.{ext}"))
+            })
+            .collect()
     }
 
     /// Get the cache database path
@@ -362,19 +356,12 @@ impl Config {
 
 /// Expand ~ to home directory
 fn expand_home(path: &Path) -> PathBuf {
-    if let Some(path_str) = path.to_str() {
-        if path_str.starts_with('~') {
-            if let Some(home) = dirs::home_dir() {
-                return home.join(&path_str[2..]); // Skip "~/"
-            }
-        }
-    }
-    path.to_path_buf()
+    path.to_str()
+        .filter(|s| s.starts_with('~'))
+        .and_then(|s| dirs::home_dir().map(|h| h.join(&s[2..])))
+        .unwrap_or_else(|| path.to_path_buf())
 }
 
-/// Get the number of CPUs (simplified version)
 fn num_cpus() -> usize {
-    std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1)
+    std::thread::available_parallelism().map_or(1, |n| n.get())
 }

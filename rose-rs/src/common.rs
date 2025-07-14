@@ -48,17 +48,18 @@ impl ArtistMapping {
     }
 
     pub fn all(&self) -> Vec<Artist> {
-        let all = [
-            &self.main[..],
-            &self.guest[..],
-            &self.remixer[..],
-            &self.producer[..],
-            &self.composer[..],
-            &self.conductor[..],
-            &self.djmixer[..],
-        ]
-        .concat();
-        uniq(all)
+        uniq(
+            [
+                &self.main[..],
+                &self.guest[..],
+                &self.remixer[..],
+                &self.producer[..],
+                &self.composer[..],
+                &self.conductor[..],
+                &self.djmixer[..],
+            ]
+            .concat(),
+        )
     }
 
     pub fn items(&self) -> impl Iterator<Item = (&'static str, &Vec<Artist>)> {
@@ -81,60 +82,39 @@ pub fn flatten<T>(xxs: Vec<Vec<T>>) -> Vec<T> {
 
 pub fn uniq<T: Hash + Eq + Clone>(xs: Vec<T>) -> Vec<T> {
     let mut seen = HashSet::new();
-    let mut result = Vec::new();
+    xs.into_iter().filter(|x| seen.insert(x.clone())).collect()
+}
 
-    for x in xs {
-        if seen.insert(x.clone()) {
-            result.push(x);
-        }
+fn sanitize(name: &str, max_bytes: usize, enforce_max: bool) -> String {
+    let mut name = ILLEGAL_FS_CHARS_REGEX.replace_all(name, "_").into_owned();
+    if enforce_max && name.len() > max_bytes {
+        name.truncate(max_bytes);
+        name = name.trim().to_string();
     }
-
-    result
+    name.nfd().collect()
 }
 
 pub fn sanitize_dirname(name: &str, max_filename_bytes: usize, enforce_maxlen: bool) -> String {
-    let mut name = ILLEGAL_FS_CHARS_REGEX.replace_all(name, "_").into_owned();
-
-    if enforce_maxlen {
-        let bytes = name.as_bytes();
-        if bytes.len() > max_filename_bytes {
-            name = String::from_utf8_lossy(&bytes[..max_filename_bytes])
-                .trim()
-                .to_string();
-        }
-    }
-
-    name.nfd().collect()
+    sanitize(name, max_filename_bytes, enforce_maxlen)
 }
 
 pub fn sanitize_filename(name: &str, max_filename_bytes: usize, enforce_maxlen: bool) -> String {
     let mut name = ILLEGAL_FS_CHARS_REGEX.replace_all(name, "_").into_owned();
 
     if enforce_maxlen {
-        let (stem, ext) = match name.rfind('.') {
-            Some(pos) => {
-                let (s, e) = name.split_at(pos);
-                (s, e)
+        let (stem, ext) = name.rsplit_once('.').map_or((name.as_str(), ""), |(s, e)| {
+            if e.len() > 6 {
+                (name.as_str(), "")
+            } else {
+                (s, &name[s.len()..])
             }
-            None => (name.as_str(), ""),
-        };
+        });
 
-        // Ignore extension if it's longer than 6 bytes
-        let (stem, ext) = if ext.len() > 6 {
-            (name.as_str(), "")
-        } else {
-            (stem, ext)
-        };
-
-        let stem_bytes = stem.as_bytes();
-        let stem = if stem_bytes.len() > max_filename_bytes {
-            String::from_utf8_lossy(&stem_bytes[..max_filename_bytes])
-                .trim()
-                .to_string()
-        } else {
-            stem.to_string()
-        };
-
+        let mut stem = stem.to_string();
+        if stem.len() > max_filename_bytes {
+            stem.truncate(max_filename_bytes);
+            stem = stem.trim().to_string();
+        }
         name = format!("{stem}{ext}");
     }
 
@@ -143,8 +123,7 @@ pub fn sanitize_filename(name: &str, max_filename_bytes: usize, enforce_maxlen: 
 
 pub fn sha256_dataclass<T: std::fmt::Debug>(value: &T) -> String {
     let mut hasher = Sha256::new();
-    let debug_str = format!("{value:?}");
-    hasher.update(debug_str.as_bytes());
+    hasher.update(format!("{value:?}"));
     format!("{:x}", hasher.finalize())
 }
 
@@ -152,26 +131,15 @@ pub fn initialize_logging(_logger_name: Option<&str>, output: &str) {
     use tracing_subscriber::{fmt, EnvFilter};
 
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-
     let builder = fmt().with_env_filter(filter);
 
     match output {
-        "stderr" => {
-            builder.init();
-        }
-        "file" => {
-            // For file output, we'd need to set up file appender
-            // For now, just use stderr
-            builder.init();
-        }
-        _ => {
-            builder.init();
-        }
+        "file" => builder.init(), // TODO: implement file logging
+        _ => builder.init(),
     }
 }
 
 pub const SUPPORTED_AUDIO_EXTENSIONS: &[&str] = &[".mp3", ".m4a", ".ogg", ".opus", ".flac"];
-
 pub const SUPPORTED_IMAGE_EXTENSIONS: &[&str] = &[".jpg", ".jpeg", ".png"];
 
 pub fn is_music_file(path: &str) -> bool {
