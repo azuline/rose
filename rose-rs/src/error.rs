@@ -7,6 +7,10 @@ pub enum RoseError {
     Generic(String),
     #[error(transparent)]
     Expected(#[from] RoseExpectedError),
+    #[error("Database error: {0}")]
+    Database(#[from] rusqlite::Error),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 #[derive(Error, Debug)]

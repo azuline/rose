@@ -95,11 +95,11 @@ fn sanitize(name: &str, max_bytes: usize, enforce_max: bool) -> String {
     name.nfd().collect()
 }
 
-pub fn sanitize_dirname(name: &str, max_filename_bytes: usize, enforce_maxlen: bool) -> String {
-    sanitize(name, max_filename_bytes, enforce_maxlen)
+pub fn sanitize_dirname(config: &crate::config::Config, name: &str, enforce_maxlen: bool) -> String {
+    sanitize(name, config.max_filename_bytes, enforce_maxlen)
 }
 
-pub fn sanitize_filename(name: &str, max_filename_bytes: usize, enforce_maxlen: bool) -> String {
+pub fn sanitize_filename(config: &crate::config::Config, name: &str, enforce_maxlen: bool) -> String {
     let mut name = ILLEGAL_FS_CHARS_REGEX.replace_all(name, "_").into_owned();
 
     if enforce_maxlen {
@@ -112,8 +112,8 @@ pub fn sanitize_filename(name: &str, max_filename_bytes: usize, enforce_maxlen: 
         });
 
         let mut stem = stem.to_string();
-        if stem.len() > max_filename_bytes {
-            stem.truncate(max_filename_bytes);
+        if stem.len() > config.max_filename_bytes {
+            stem.truncate(config.max_filename_bytes);
             stem = stem.trim().to_string();
         }
         name = format!("{stem}{ext}");
@@ -126,6 +126,11 @@ pub fn sha256_dataclass<T: std::fmt::Debug>(value: &T) -> String {
     let mut hasher = Sha256::new();
     hasher.update(format!("{value:?}"));
     format!("{:x}", hasher.finalize())
+}
+
+// Alias for compatibility
+pub fn hash_dataclass<T: std::fmt::Debug>(value: &T) -> String {
+    sha256_dataclass(value)
 }
 
 pub fn initialize_logging(_logger_name: Option<&str>, output: &str) {

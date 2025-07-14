@@ -1,4 +1,6 @@
 pub mod audiotags;
+pub mod cache;
+pub mod cache_update;
 pub mod common;
 pub mod config;
 pub mod datafiles;
