@@ -162,6 +162,25 @@ pub struct VirtualFSConfig {
     pub hide_labels_with_only_new_releases: bool,
 }
 
+impl Default for VirtualFSConfig {
+    fn default() -> Self {
+        Self {
+            mount_dir: PathBuf::from("/mnt/virtual"),
+            artists_whitelist: None,
+            genres_whitelist: None,
+            descriptors_whitelist: None,
+            labels_whitelist: None,
+            artists_blacklist: None,
+            genres_blacklist: None,
+            descriptors_blacklist: None,
+            labels_blacklist: None,
+            hide_genres_with_only_new_releases: false,
+            hide_descriptors_with_only_new_releases: false,
+            hide_labels_with_only_new_releases: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct ConfigToml {
     pub music_source_dir: PathBuf,

@@ -25,27 +25,19 @@
 //    update.
 // """
 
-use crate::audiotags::{AudioTags, RoseDate, SUPPORTED_AUDIO_EXTENSIONS};
-use crate::common::{
-    Artist, ArtistMapping, hash_dataclass, is_image_file, is_music_file, sanitize_dirname,
-    sanitize_filename, uniq,
-};
+use crate::audiotags::RoseDate;
+use crate::common::{hash_dataclass, Artist, ArtistMapping};
 use crate::config::Config;
-use crate::datafiles::{find_release_datafile, read_or_create_datafile, StoredDataFile as ReleaseDatafile};
 use crate::error::{Result, RoseError, RoseExpectedError};
 use crate::genre_hierarchy::get_transitive_parent_genres;
-use crate::templates::{evaluate_release_template, evaluate_track_template};
-use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use unicode_normalization::UnicodeNormalization;
-use uuid::Uuid;
 
 // Constants
 const CACHE_SCHEMA_PATH: &str = include_str!("cache.sql");
@@ -55,7 +47,7 @@ pub const SQL_ARRAY_DELIMITER: &str = " ¬ ";
 // def connect(c: Config) -> Iterator[sqlite3.Connection]:
 pub fn connect(config: &Config) -> Result<Connection> {
     let conn = Connection::open_with_flags(
-        &config.cache_database_path(),
+        config.cache_database_path(),
         rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE
             | rusqlite::OpenFlags::SQLITE_OPEN_CREATE
             | rusqlite::OpenFlags::SQLITE_OPEN_URI
@@ -69,13 +61,13 @@ pub fn connect(config: &Config) -> Result<Connection> {
     //     timeout=15.0,
     // )
     conn.busy_timeout(Duration::from_secs(15))?;
-    
+
     // Python: conn.execute("PRAGMA foreign_keys=ON")
     conn.pragma_update(None, "foreign_keys", "ON")?;
-    
+
     // Python: conn.execute("PRAGMA journal_mode=WAL")
     conn.pragma_update(None, "journal_mode", "WAL")?;
-    
+
     Ok(conn)
 }
 
@@ -88,42 +80,41 @@ pub fn maybe_invalidate_cache_database(config: &Config) -> Result<()> {
     // We can do this because the database is just a read cache. It is not source-of-truth for any of
     // its own data.
     // """
-    
+
     let db_path = config.cache_database_path();
-    
+
     // Python: if not c.cache_database_path.exists():
     if !db_path.exists() {
         create_database(config)?;
         return Ok(());
     }
-    
+
     // Python: with connect(c) as conn:
     let conn = connect(config)?;
-    
+
     // Python: cursor = conn.execute(
     //     "SELECT EXISTS(SELECT * FROM sqlite_master WHERE type='table' AND name='_schema_hash')"
     // )
     // if not cursor.fetchone()[0]:
-    let has_schema_table: bool = conn
-        .query_row(
-            "SELECT EXISTS(SELECT * FROM sqlite_master WHERE type='table' AND name='_schema_hash')",
-            [],
-            |row| row.get(0),
-        )?;
-        
+    let has_schema_table: bool = conn.query_row(
+        "SELECT EXISTS(SELECT * FROM sqlite_master WHERE type='table' AND name='_schema_hash')",
+        [],
+        |row| row.get(0),
+    )?;
+
     if !has_schema_table {
         drop(conn);
         fs::remove_file(&db_path)?;
         create_database(config)?;
         return Ok(());
     }
-    
+
     // Python: schema_hash = hashlib.sha256(CACHE_SCHEMA_PATH.read_bytes()).hexdigest()
     let schema_hash = hash_dataclass(&CACHE_SCHEMA_PATH);
-    
+
     // Python: config_hash = sha256_dataclass(c)[:16]
     let config_hash = hash_dataclass(&format!("{:?}", config))[..16].to_string();
-    
+
     // Python: cursor = conn.execute(
     //     """
     //     SELECT EXISTS(
@@ -133,16 +124,15 @@ pub fn maybe_invalidate_cache_database(config: &Config) -> Result<()> {
     //     """,
     //     (schema_hash, config_hash, VERSION),
     // )
-    let matches: bool = conn
-        .query_row(
-            "SELECT EXISTS(
+    let matches: bool = conn.query_row(
+        "SELECT EXISTS(
                 SELECT * FROM _schema_hash
                 WHERE schema_hash = ?1 AND config_hash = ?2 AND version = ?3
             )",
-            params![schema_hash, config_hash, env!("CARGO_PKG_VERSION")],
-            |row| row.get(0),
-        )?;
-        
+        params![schema_hash, config_hash, env!("CARGO_PKG_VERSION")],
+        |row| row.get(0),
+    )?;
+
     // Python: if not cursor.fetchone()[0]:
     if !matches {
         info!("Cache database schema/config changed, recreating database");
@@ -150,17 +140,17 @@ pub fn maybe_invalidate_cache_database(config: &Config) -> Result<()> {
         fs::remove_file(&db_path)?;
         create_database(config)?;
     }
-    
+
     Ok(())
 }
 
 // Helper function to create database
 fn create_database(config: &Config) -> Result<()> {
     let conn = connect(config)?;
-    
+
     // Create schema
     conn.execute_batch(CACHE_SCHEMA_PATH)?;
-    
+
     // Create schema hash table
     conn.execute(
         "CREATE TABLE _schema_hash (
@@ -171,27 +161,28 @@ fn create_database(config: &Config) -> Result<()> {
         )",
         [],
     )?;
-    
+
     // Store current hashes
     let schema_hash = hash_dataclass(&CACHE_SCHEMA_PATH);
     let config_hash = hash_dataclass(&format!("{:?}", config))[..16].to_string();
-    
+
     conn.execute(
         "INSERT INTO _schema_hash (schema_hash, config_hash, version) VALUES (?1, ?2, ?3)",
         params![schema_hash, config_hash, env!("CARGO_PKG_VERSION")],
     )?;
-    
+
     // Python: conn.create_function("process_string_for_fts", 1, process_string_for_fts)
     conn.create_scalar_function(
         "process_string_for_fts",
         1,
-        rusqlite::functions::FunctionFlags::SQLITE_UTF8 | rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
+        rusqlite::functions::FunctionFlags::SQLITE_UTF8
+            | rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
         |ctx| {
             let s: String = ctx.get(0)?;
             Ok(process_string_for_fts(&s))
         },
     )?;
-    
+
     Ok(())
 }
 
@@ -222,25 +213,31 @@ pub fn lock(config: &Config, name: &str, timeout_secs: f64) -> Result<()> {
                 |row| row.get(0),
             )
             .optional()?;
-            
+
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs_f64();
-            
+
         // Python: if row and row[0] and row[0] > time.time():
         if let Some(until) = valid_until {
             if until > now {
                 let sleep_secs = (until - now).max(0.0);
-                debug!("Failed to acquire lock for {}: sleeping for {}", name, sleep_secs);
+                debug!(
+                    "Failed to acquire lock for {}: sleeping for {}",
+                    name, sleep_secs
+                );
                 std::thread::sleep(Duration::from_secs_f64(sleep_secs));
                 continue;
             }
         }
-        
-        debug!("Attempting to acquire lock for {} with timeout {}", name, timeout_secs);
+
+        debug!(
+            "Attempting to acquire lock for {} with timeout {}",
+            name, timeout_secs
+        );
         let new_valid_until = now + timeout_secs;
-        
+
         // Python: try:
         //     conn.execute("INSERT INTO locks (name, valid_until) VALUES (?, ?)", (name, valid_until))
         match conn.execute(
@@ -248,11 +245,15 @@ pub fn lock(config: &Config, name: &str, timeout_secs: f64) -> Result<()> {
             params![name, new_valid_until],
         ) {
             Ok(_) => {
-                debug!("Successfully acquired lock for {} with timeout {} until {}", name, timeout_secs, new_valid_until);
+                debug!(
+                    "Successfully acquired lock for {} with timeout {} until {}",
+                    name, timeout_secs, new_valid_until
+                );
                 return Ok(());
             }
             Err(rusqlite::Error::SqliteFailure(err, _))
-                if err.code == rusqlite::ErrorCode::ConstraintViolation => {
+                if err.code == rusqlite::ErrorCode::ConstraintViolation =>
+            {
                 debug!("Failed to acquire lock for {}, trying again", name);
                 continue;
             }
@@ -312,13 +313,13 @@ pub struct CachedRelease {
     pub metahash: String,
 }
 
-// Mutable Release struct for intermediate processing  
+// Mutable Release struct for intermediate processing
 #[derive(Debug, Clone)]
 pub struct Release {
     pub id: String,
     pub source_path: PathBuf,
     pub cover_image_path: Option<PathBuf>,
-    pub added_at: String, 
+    pub added_at: String,
     pub datafile_mtime: String,
     pub releasetitle: String,
     pub releasetype: String,
@@ -340,21 +341,34 @@ pub struct Release {
 }
 
 // Python: def cached_release_from_view(c: Config, row: dict[str, Any], aliases: bool = True) -> Release:
-pub fn cached_release_from_view(config: &Config, row: &rusqlite::Row, aliases: bool) -> Result<CachedRelease> {
-    let secondary_genres = split_sql_string(row.get::<_, Option<String>>("secondary_genres")?.as_deref());
+pub fn cached_release_from_view(
+    config: &Config,
+    row: &rusqlite::Row,
+    aliases: bool,
+) -> Result<CachedRelease> {
+    let secondary_genres =
+        split_sql_string(row.get::<_, Option<String>>("secondary_genres")?.as_deref());
     let genres = split_sql_string(row.get::<_, Option<String>>("genres")?.as_deref());
-    
+
     Ok(CachedRelease {
         id: row.get("id")?,
         source_path: PathBuf::from(row.get::<_, String>("source_path")?),
-        cover_image_path: row.get::<_, Option<String>>("cover_image_path")?.map(PathBuf::from),
+        cover_image_path: row
+            .get::<_, Option<String>>("cover_image_path")?
+            .map(PathBuf::from),
         added_at: row.get("added_at")?,
         datafile_mtime: row.get("datafile_mtime")?,
         releasetitle: row.get("releasetitle")?,
         releasetype: row.get("releasetype")?,
-        releasedate: row.get::<_, Option<String>>("releasedate")?.and_then(|s| RoseDate::parse(Some(&s))),
-        originaldate: row.get::<_, Option<String>>("originaldate")?.and_then(|s| RoseDate::parse(Some(&s))),
-        compositiondate: row.get::<_, Option<String>>("compositiondate")?.and_then(|s| RoseDate::parse(Some(&s))),
+        releasedate: row
+            .get::<_, Option<String>>("releasedate")?
+            .and_then(|s| RoseDate::parse(Some(&s))),
+        originaldate: row
+            .get::<_, Option<String>>("originaldate")?
+            .and_then(|s| RoseDate::parse(Some(&s))),
+        compositiondate: row
+            .get::<_, Option<String>>("compositiondate")?
+            .and_then(|s| RoseDate::parse(Some(&s))),
         catalognumber: row.get("catalognumber")?,
         edition: row.get("edition")?,
         disctotal: row.get("disctotal")?,
@@ -367,8 +381,10 @@ pub fn cached_release_from_view(config: &Config, row: &rusqlite::Row, aliases: b
         labels: split_sql_string(row.get::<_, Option<String>>("labels")?.as_deref()),
         releaseartists: unpack_artists(
             config,
-            row.get::<_, Option<String>>("releaseartist_names")?.as_deref(),
-            row.get::<_, Option<String>>("releaseartist_roles")?.as_deref(),
+            row.get::<_, Option<String>>("releaseartist_names")?
+                .as_deref(),
+            row.get::<_, Option<String>>("releaseartist_roles")?
+                .as_deref(),
             aliases,
         ),
         metahash: row.get("metahash")?,
@@ -425,8 +441,10 @@ pub fn cached_track_from_view(
         duration_seconds: row.get("duration_seconds")?,
         trackartists: unpack_artists(
             config,
-            row.get::<_, Option<String>>("trackartist_names")?.as_deref(),
-            row.get::<_, Option<String>>("trackartist_roles")?.as_deref(),
+            row.get::<_, Option<String>>("trackartist_names")?
+                .as_deref(),
+            row.get::<_, Option<String>>("trackartist_roles")?
+                .as_deref(),
             aliases,
         ),
         metahash: row.get("metahash")?,
@@ -504,22 +522,27 @@ fn unpack_artists(
 ) -> ArtistMapping {
     let names_vec = split_sql_string(names);
     let roles_vec = split_sql_string(roles);
-    
+
     let mut mapping = ArtistMapping::default();
-    
+
     for (name, role) in names_vec.into_iter().zip(roles_vec.into_iter()) {
         let artist = if aliases {
             // Apply aliases
-            let resolved = config.artist_aliases_parents_map.get(&name)
+            let resolved = config
+                .artist_aliases_parents_map
+                .get(&name)
                 .and_then(|parents| parents.first())
                 .cloned()
                 .unwrap_or(name.clone());
             let is_alias = name != resolved;
-            Artist { name: resolved, alias: is_alias }
+            Artist {
+                name: resolved,
+                alias: is_alias,
+            }
         } else {
             Artist { name, alias: false }
         };
-        
+
         match role.as_str() {
             "main" => mapping.main.push(artist),
             "guest" => mapping.guest.push(artist),
@@ -531,7 +554,7 @@ fn unpack_artists(
             _ => {}
         }
     }
-    
+
     mapping
 }
 
@@ -539,7 +562,7 @@ fn unpack_artists(
 pub fn pack_artists(mapping: &ArtistMapping) -> (Vec<String>, Vec<String>) {
     let mut names = Vec::new();
     let mut roles = Vec::new();
-    
+
     for artist in &mapping.main {
         names.push(artist.name.clone());
         roles.push("main".to_string());
@@ -568,7 +591,7 @@ pub fn pack_artists(mapping: &ArtistMapping) -> (Vec<String>, Vec<String>) {
         names.push(artist.name.clone());
         roles.push("djmixer".to_string());
     }
-    
+
     (names, roles)
 }
 
@@ -583,19 +606,19 @@ pub fn compare_strs(x: &str, y: &str) -> bool {
 pub fn normalize_dirname(dirname: &str, wrap: bool) -> String {
     // Python: dirname = unicodedata.normalize("NFD", dirname).strip()
     let mut dirname = dirname.nfd().collect::<String>().trim().to_string();
-    
+
     // Python: Remove stuff like ' and …
     dirname = dirname.replace("'", "").replace("…", "...");
-    
+
     // Python: for char in ':?"<>|/\\':
     //     dirname = dirname.replace(char, "_")
     for ch in &[':', '?', '"', '<', '>', '|', '/', '\\'] {
         dirname = dirname.replace(*ch, "_");
     }
-    
+
     // Python: Case-insensitive
     dirname = dirname.to_lowercase();
-    
+
     if wrap {
         // Python: return textwrap.fill(dirname, width=240, expand_tabs=False, break_long_words=False)
         // For simplicity, we'll just truncate at 240 chars
@@ -603,7 +626,7 @@ pub fn normalize_dirname(dirname: &str, wrap: bool) -> String {
             dirname.truncate(240);
         }
     }
-    
+
     dirname
 }
 
@@ -625,41 +648,48 @@ fn _get_parent_genres(genres: &[String]) -> Vec<String> {
 pub fn get_release(config: &Config, release_id: &str) -> Result<Option<CachedRelease>> {
     let conn = connect(config)?;
     let mut stmt = conn.prepare("SELECT * FROM releases_view WHERE id = ?1")?;
-    
-    let release = stmt.query_row([release_id], |row| {
-        cached_release_from_view(config, row, true)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
-    }).optional()?;
-    
+
+    let release = stmt
+        .query_row([release_id], |row| {
+            cached_release_from_view(config, row, true)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+        })
+        .optional()?;
+
     Ok(release)
 }
 
 // Python: def get_tracks_of_release(c: Config, release_id: str) -> list[Track]:
-pub fn get_tracks_of_release(config: &Config, release_id: &str) -> Result<Vec<(CachedTrack, CachedRelease)>> {
+pub fn get_tracks_of_release(
+    config: &Config,
+    release_id: &str,
+) -> Result<Vec<(CachedTrack, CachedRelease)>> {
     let conn = connect(config)?;
-    
+
     // First get the release
-    let release = get_release(config, release_id)?
-        .ok_or_else(|| RoseError::Expected(RoseExpectedError::Generic(
-            format!("Release {} not found", release_id)
-        )))?;
-    
+    let release = get_release(config, release_id)?.ok_or_else(|| {
+        RoseError::Expected(RoseExpectedError::Generic(format!(
+            "Release {} not found",
+            release_id
+        )))
+    })?;
+
     // Then get all tracks
     let mut stmt = conn.prepare(
-        "SELECT * FROM tracks_view WHERE release_id = ?1 ORDER BY discnumber, tracknumber"
+        "SELECT * FROM tracks_view WHERE release_id = ?1 ORDER BY discnumber, tracknumber",
     )?;
-    
+
     let tracks = stmt.query_map([release_id], |row| {
         cached_track_from_view(config, row, release.clone(), true)
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
     })?;
-    
+
     let mut result = Vec::new();
     for track in tracks {
         let track = track?;
         result.push((track, release.clone()));
     }
-    
+
     Ok(result)
 }
 
@@ -667,16 +697,16 @@ pub fn get_tracks_of_release(config: &Config, release_id: &str) -> Result<Vec<(C
 pub fn list_releases(config: &Config) -> Result<Vec<CachedRelease>> {
     let conn = connect(config)?;
     let mut stmt = conn.prepare("SELECT * FROM releases_view ORDER BY source_path")?;
-    
+
     let releases = stmt.query_map([], |row| {
         cached_release_from_view(config, row, true)
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
     })?;
-    
+
     let mut result = Vec::new();
     for release in releases {
         result.push(release?);
     }
-    
+
     Ok(result)
 }

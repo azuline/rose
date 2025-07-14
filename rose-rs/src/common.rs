@@ -95,11 +95,19 @@ fn sanitize(name: &str, max_bytes: usize, enforce_max: bool) -> String {
     name.nfd().collect()
 }
 
-pub fn sanitize_dirname(config: &crate::config::Config, name: &str, enforce_maxlen: bool) -> String {
+pub fn sanitize_dirname(
+    config: &crate::config::Config,
+    name: &str,
+    enforce_maxlen: bool,
+) -> String {
     sanitize(name, config.max_filename_bytes, enforce_maxlen)
 }
 
-pub fn sanitize_filename(config: &crate::config::Config, name: &str, enforce_maxlen: bool) -> String {
+pub fn sanitize_filename(
+    config: &crate::config::Config,
+    name: &str,
+    enforce_maxlen: bool,
+) -> String {
     let mut name = ILLEGAL_FS_CHARS_REGEX.replace_all(name, "_").into_owned();
 
     if enforce_maxlen {

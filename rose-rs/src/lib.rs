@@ -1,3 +1,5 @@
+#![allow(clippy::uninlined_format_args)]
+
 pub mod audiotags;
 pub mod cache;
 pub mod cache_update;
@@ -21,6 +23,8 @@ pub use error::{Result, RoseError, RoseExpectedError};
 #[cfg(test)]
 mod audiotags_test;
 #[cfg(test)]
+mod collages_test;
+#[cfg(test)]
 mod common_test;
 #[cfg(test)]
 mod config_test;
@@ -29,16 +33,16 @@ mod datafiles_test;
 #[cfg(test)]
 mod genre_hierarchy_test;
 #[cfg(test)]
+mod playlists_test;
+#[cfg(test)]
+mod releases_test;
+#[cfg(test)]
 mod rule_parser_test;
 #[cfg(test)]
 mod rules_test;
 #[cfg(test)]
 mod templates_test;
 #[cfg(test)]
-mod releases_test;
-#[cfg(test)]
 mod tracks_test;
 #[cfg(test)]
-mod collages_test;
-#[cfg(test)]
-mod playlists_test;
+mod test_utils;

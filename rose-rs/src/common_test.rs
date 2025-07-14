@@ -1,5 +1,7 @@
 use crate::common::*;
 use crate::error::*;
+use crate::test_utils::test_utils::create_test_config;
+use tempfile::TempDir;
 
 #[test]
 fn test_artist_new() {
@@ -100,75 +102,94 @@ fn test_uniq_preserves_order() {
 
 #[test]
 fn test_sanitize_dirname_basic() {
-    let result = sanitize_dirname("test:file?name", 180, false);
+    let temp_dir = TempDir::new().unwrap();
+    let config = create_test_config(&temp_dir);
+    let result = sanitize_dirname(&config, "test:file?name", false);
     assert_eq!(result, "test_file_name");
 }
 
 #[test]
 fn test_sanitize_dirname_dots() {
+    let temp_dir = TempDir::new().unwrap();
+    let config = create_test_config(&temp_dir);
     // The Python implementation doesn't replace dots
-    let result = sanitize_dirname(".", 180, false);
+    let result = sanitize_dirname(&config, ".", false);
     assert_eq!(result, ".");
 
-    let result = sanitize_dirname("..", 180, false);
+    let result = sanitize_dirname(&config, "..", false);
     assert_eq!(result, "..");
 
-    let result = sanitize_dirname("file.name", 180, false);
+    let result = sanitize_dirname(&config, "file.name", false);
     assert_eq!(result, "file.name");
 }
 
 #[test]
 fn test_sanitize_dirname_unicode() {
-    let result = sanitize_dirname("café", 180, false);
+    let temp_dir = TempDir::new().unwrap();
+    let config = create_test_config(&temp_dir);
+    let result = sanitize_dirname(&config, "café", false);
     // NFD normalization decomposes é into e + combining accent
     assert_eq!(result, "cafe\u{0301}"); // NFD normalized
 
-    let result = sanitize_dirname("test/with*illegal|chars", 180, false);
+    let result = sanitize_dirname(&config, "test/with*illegal|chars", false);
     assert_eq!(result, "test_with_illegal_chars");
 }
 
 #[test]
 fn test_sanitize_dirname_maxlen() {
+    let temp_dir = TempDir::new().unwrap();
+    let config = create_test_config(&temp_dir);
     let long_name = "a".repeat(200);
-    let result = sanitize_dirname(&long_name, 180, true);
-    assert!(result.len() <= 180);
+    let result = sanitize_dirname(&config, &long_name, true);
+    assert!(result.len() <= config.max_filename_bytes);
     assert!(result.starts_with("aaaa"));
 }
 
 #[test]
 fn test_sanitize_filename_basic() {
-    let result = sanitize_filename("test:file?name.mp3", 180, false);
+    let temp_dir = TempDir::new().unwrap();
+    let config = create_test_config(&temp_dir);
+    let result = sanitize_filename(&config, "test:file?name.mp3", false);
     assert_eq!(result, "test_file_name.mp3");
 }
 
 #[test]
 fn test_sanitize_filename_dots() {
-    let result = sanitize_filename(".", 180, false);
+    let temp_dir = TempDir::new().unwrap();
+    let config = create_test_config(&temp_dir);
+    let result = sanitize_filename(&config, ".", false);
     assert_eq!(result, ".");
 
-    let result = sanitize_filename("..", 180, false);
+    let result = sanitize_filename(&config, "..", false);
     assert_eq!(result, "..");
 }
 
 #[test]
 fn test_sanitize_filename_unicode() {
-    let result = sanitize_filename("café.txt", 180, false);
+    let temp_dir = TempDir::new().unwrap();
+    let config = create_test_config(&temp_dir);
+    let result = sanitize_filename(&config, "café.txt", false);
     // NFD normalization decomposes é into e + combining accent
     assert_eq!(result, "cafe\u{0301}.txt"); // NFD normalized
 }
 
 #[test]
 fn test_sanitize_filename_maxlen() {
+    let temp_dir = TempDir::new().unwrap();
+    let config = create_test_config(&temp_dir);
     let long_name = format!("{}.mp3", "a".repeat(200));
-    let result = sanitize_filename(&long_name, 180, true);
+    let result = sanitize_filename(&config, &long_name, true);
     assert!(result.ends_with(".mp3"));
-    assert!(result.len() <= 186); // 180 + ".mp3"
+    assert!(result.len() <= config.max_filename_bytes + 6); // max + ".mp3"
 }
 
 #[test]
 fn test_sanitize_filename_long_extension() {
+    let temp_dir = TempDir::new().unwrap();
+    let mut config = create_test_config(&temp_dir);
+    config.max_filename_bytes = 10;
     let name = "test.verylongextension";
-    let result = sanitize_filename(name, 10, true);
+    let result = sanitize_filename(&config, name, true);
     // Extension longer than 6 chars is ignored
     assert_eq!(result, "test.veryl");
 }

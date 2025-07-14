@@ -69,12 +69,12 @@ pub fn get_transitive_parent_genres(genre: &str) -> Option<Vec<String>> {
     let mut result = Vec::new();
     let mut to_process = vec![genre.to_string()];
     let mut seen = std::collections::HashSet::new();
-    
+
     while let Some(current) = to_process.pop() {
         if !seen.insert(current.clone()) {
             continue;
         }
-        
+
         if let Some(parents) = get_parent_genres(&current) {
             for parent in parents {
                 if !seen.contains(&parent) {
@@ -84,7 +84,7 @@ pub fn get_transitive_parent_genres(genre: &str) -> Option<Vec<String>> {
             }
         }
     }
-    
+
     if result.is_empty() {
         None
     } else {
