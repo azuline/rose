@@ -1,4 +1,5 @@
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
@@ -8,7 +9,7 @@ lazy_static::lazy_static! {
     static ref ILLEGAL_FS_CHARS_REGEX: Regex = Regex::new(r#"[:\?<>\\*\|"/]+"#).unwrap();
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Artist {
     pub name: String,
     pub alias: bool,
@@ -31,7 +32,7 @@ impl Hash for Artist {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtistMapping {
     pub main: Vec<Artist>,
     pub guest: Vec<Artist>,

@@ -26,9 +26,9 @@ impl From<ConfigError> for RoseError {
     }
 }
 
-// Placeholder for PathTemplate - will be implemented in milestone 4
+// PathTemplate wraps a template string
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PathTemplate(String);
+pub struct PathTemplate(pub String);
 
 impl FromStr for PathTemplate {
     type Err = String;
