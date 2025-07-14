@@ -25,6 +25,8 @@
           rev = "d65fff8bbfcd0bca78577b3d07cb3c9979cd69e7";
           hash = "sha256-Typif9Ags1Eaz2WMCh+MnsbTqJdTPgYpCCReQY8pVqI=";
         };
+        pyproject = true;
+        build-system = [ python-pin.pkgs.setuptools ];
         doCheck = false;
       };
       py-deps = with python-pin.pkgs; {

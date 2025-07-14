@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use once_cell::sync::Lazy;
-use serde_json::Value;
 
 // Load genre hierarchy from JSON at compile time
 const GENRE_HIERARCHY_JSON: &str = include_str!("genre_hierarchy.json");
@@ -73,6 +72,7 @@ mod tests {
 
     #[test]
     fn test_genre_hierarchy_loads() {
+        let _ = crate::testing::init();
         // Test that the lazy statics initialize without panic
         assert!(TRANSITIVE_PARENT_GENRES.len() > 0);
         assert!(TRANSITIVE_CHILD_GENRES.len() > 0);
@@ -81,6 +81,7 @@ mod tests {
 
     #[test]
     fn test_transitive_parents() {
+        let _ = crate::testing::init();
         // Test a known genre relationship from the JSON
         if let Some(parents) = TRANSITIVE_PARENT_GENRES.get("2-Step") {
             assert!(parents.contains(&"Dance".to_string()));
@@ -91,6 +92,7 @@ mod tests {
 
     #[test]
     fn test_transitive_children() {
+        let _ = crate::testing::init();
         // If "Electronic" is a parent of "16-bit", then "16-bit" should be in Electronic's children
         if TRANSITIVE_PARENT_GENRES.get("16-bit").map(|p| p.contains(&"Electronic".to_string())).unwrap_or(false) {
             if let Some(children) = TRANSITIVE_CHILD_GENRES.get("Electronic") {
@@ -101,6 +103,7 @@ mod tests {
 
     #[test]
     fn test_immediate_children() {
+        let _ = crate::testing::init();
         // Test immediate relationships
         if let Some(parents) = TRANSITIVE_PARENT_GENRES.get("2 Tone") {
             for parent in parents {
