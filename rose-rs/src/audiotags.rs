@@ -422,15 +422,60 @@ impl AudioTags {
             }
             _ => {
                 // FLAC/Vorbis comments
-                tag.insert_text(ItemKey::Unknown("roseid".to_string()), self.id.clone().unwrap_or_default());
-                tag.insert_text(ItemKey::Unknown("rosereleaseid".to_string()), self.release_id.clone().unwrap_or_default());
-                tag.insert_text(ItemKey::Unknown("originaldate".to_string()), self.originaldate.as_ref().map(|d| d.to_string()).unwrap_or_default());
-                tag.insert_text(ItemKey::Unknown("compositiondate".to_string()), self.compositiondate.as_ref().map(|d| d.to_string()).unwrap_or_default());
-                tag.insert_text(ItemKey::Unknown("secondarygenre".to_string()), format_genre_tag(config, &self.secondarygenre));
-                tag.insert_text(ItemKey::Unknown("descriptor".to_string()), self.descriptor.join(";"));
-                tag.insert_text(ItemKey::Label, self.label.join(";"));
-                tag.insert_text(ItemKey::Unknown("catalognumber".to_string()), self.catalognumber.clone().unwrap_or_default());
-                tag.insert_text(ItemKey::Unknown("edition".to_string()), self.edition.clone().unwrap_or_default());
+                if let Some(id) = &self.id {
+                    tag.insert_text(ItemKey::Unknown("roseid".to_string()), id.clone());
+                } else {
+                    tag.remove_key(&ItemKey::Unknown("roseid".to_string()));
+                }
+                
+                if let Some(release_id) = &self.release_id {
+                    tag.insert_text(ItemKey::Unknown("rosereleaseid".to_string()), release_id.clone());
+                } else {
+                    tag.remove_key(&ItemKey::Unknown("rosereleaseid".to_string()));
+                }
+                
+                if let Some(date) = &self.originaldate {
+                    tag.insert_text(ItemKey::Unknown("originaldate".to_string()), date.to_string());
+                } else {
+                    tag.remove_key(&ItemKey::Unknown("originaldate".to_string()));
+                }
+                
+                if let Some(date) = &self.compositiondate {
+                    tag.insert_text(ItemKey::Unknown("compositiondate".to_string()), date.to_string());
+                } else {
+                    tag.remove_key(&ItemKey::Unknown("compositiondate".to_string()));
+                }
+                
+                if !self.secondarygenre.is_empty() {
+                    tag.insert_text(ItemKey::Unknown("secondarygenre".to_string()), format_genre_tag(config, &self.secondarygenre));
+                } else {
+                    tag.remove_key(&ItemKey::Unknown("secondarygenre".to_string()));
+                }
+                
+                if !self.descriptor.is_empty() {
+                    tag.insert_text(ItemKey::Unknown("descriptor".to_string()), self.descriptor.join(";"));
+                } else {
+                    tag.remove_key(&ItemKey::Unknown("descriptor".to_string()));
+                }
+                
+                if !self.label.is_empty() {
+                    tag.insert_text(ItemKey::Label, self.label.join(";"));
+                } else {
+                    tag.remove_key(&ItemKey::Label);
+                }
+                
+                if let Some(catalognumber) = &self.catalognumber {
+                    tag.insert_text(ItemKey::Unknown("catalognumber".to_string()), catalognumber.clone());
+                } else {
+                    tag.remove_key(&ItemKey::Unknown("catalognumber".to_string()));
+                }
+                
+                if let Some(edition) = &self.edition {
+                    tag.insert_text(ItemKey::Unknown("edition".to_string()), edition.clone());
+                } else {
+                    tag.remove_key(&ItemKey::Unknown("edition".to_string()));
+                }
+                
                 tag.insert_text(ItemKey::Unknown("releasetype".to_string()), self.releasetype.clone());
                 
                 // Clear artist role tags
@@ -643,12 +688,14 @@ pub fn format_artist_string(mapping: &ArtistMapping) -> String {
 
 // Helper functions for ID3v2 TXXX frames
 fn get_id3_txxx(tag: &Tag, desc: &str) -> Option<String> {
-    tag.get_string(&ItemKey::Unknown(format!("TXXX:{desc}")))
+    // In lofty, TXXX frames are represented as Unknown keys without the TXXX: prefix
+    tag.get_string(&ItemKey::Unknown(desc.to_string()))
         .map(|s| s.to_string())
 }
 
 fn set_id3_txxx(tag: &mut Tag, desc: &str, value: Option<&str>) {
-    let key = ItemKey::Unknown(format!("TXXX:{desc}"));
+    // In lofty, TXXX frames are represented as Unknown keys without the TXXX: prefix
+    let key = ItemKey::Unknown(desc.to_string());
     match value {
         Some(v) if !v.is_empty() => {
             tag.insert_text(key, v.to_string());
