@@ -18,12 +18,12 @@ fn test_artist_with_alias() {
 #[test]
 fn test_artist_hash() {
     use std::collections::HashSet;
-    
+
     let mut set = HashSet::new();
     let artist1 = Artist::new("Artist".to_string());
     let artist2 = Artist::new("Artist".to_string());
     let artist3 = Artist::with_alias("Artist".to_string(), true);
-    
+
     set.insert(artist1.clone());
     assert!(set.contains(&artist2));
     assert!(!set.contains(&artist3));
@@ -44,16 +44,16 @@ fn test_artist_mapping_default() {
 #[test]
 fn test_artist_mapping_all() {
     let mut mapping = ArtistMapping::new();
-    
+
     let artist1 = Artist::new("Artist 1".to_string());
     let artist2 = Artist::new("Artist 2".to_string());
     let artist3 = Artist::new("Artist 3".to_string());
-    
+
     mapping.main.push(artist1.clone());
     mapping.guest.push(artist2.clone());
     mapping.remixer.push(artist3.clone());
     mapping.composer.push(artist1.clone()); // Duplicate
-    
+
     let all = mapping.all();
     assert_eq!(all.len(), 3); // Should be unique
     assert!(all.contains(&artist1));
@@ -65,7 +65,7 @@ fn test_artist_mapping_all() {
 fn test_artist_mapping_items() {
     let mut mapping = ArtistMapping::new();
     mapping.main.push(Artist::new("Main Artist".to_string()));
-    
+
     let items: Vec<_> = mapping.items().collect();
     assert_eq!(items.len(), 7);
     assert_eq!(items[0].0, "main");
@@ -79,11 +79,7 @@ fn test_artist_mapping_items() {
 
 #[test]
 fn test_flatten() {
-    let nested = vec![
-        vec![1, 2, 3],
-        vec![4, 5],
-        vec![6, 7, 8, 9],
-    ];
+    let nested = vec![vec![1, 2, 3], vec![4, 5], vec![6, 7, 8, 9]];
     let flat = flatten(nested);
     assert_eq!(flat, vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
 }
@@ -113,10 +109,10 @@ fn test_sanitize_dirname_dots() {
     // The Python implementation doesn't replace dots
     let result = sanitize_dirname(".", 180, false);
     assert_eq!(result, ".");
-    
+
     let result = sanitize_dirname("..", 180, false);
     assert_eq!(result, "..");
-    
+
     let result = sanitize_dirname("file.name", 180, false);
     assert_eq!(result, "file.name");
 }
@@ -126,7 +122,7 @@ fn test_sanitize_dirname_unicode() {
     let result = sanitize_dirname("café", 180, false);
     // NFD normalization decomposes é into e + combining accent
     assert_eq!(result, "cafe\u{0301}"); // NFD normalized
-    
+
     let result = sanitize_dirname("test/with*illegal|chars", 180, false);
     assert_eq!(result, "test_with_illegal_chars");
 }
@@ -149,7 +145,7 @@ fn test_sanitize_filename_basic() {
 fn test_sanitize_filename_dots() {
     let result = sanitize_filename(".", 180, false);
     assert_eq!(result, ".");
-    
+
     let result = sanitize_filename("..", 180, false);
     assert_eq!(result, "..");
 }
@@ -184,15 +180,15 @@ fn test_sha256_dataclass() {
         _field1: String,
         _field2: i32,
     }
-    
+
     let data = TestStruct {
         _field1: "test".to_string(),
         _field2: 42,
     };
-    
+
     let hash1 = sha256_dataclass(&data);
     let hash2 = sha256_dataclass(&data);
-    
+
     assert_eq!(hash1, hash2);
     assert_eq!(hash1.len(), 64); // SHA256 produces 64 hex chars
 }
@@ -205,7 +201,7 @@ fn test_is_music_file() {
     assert!(is_music_file("audio.opus"));
     assert!(is_music_file("music.ogg"));
     assert!(is_music_file("file.m4a"));
-    
+
     assert!(!is_music_file("image.jpg"));
     assert!(!is_music_file("document.pdf"));
     assert!(!is_music_file("noextension"));
@@ -217,7 +213,7 @@ fn test_is_image_file() {
     assert!(is_image_file("Cover.JPG"));
     assert!(is_image_file("folder.jpeg"));
     assert!(is_image_file("art.png"));
-    
+
     assert!(!is_image_file("song.mp3"));
     assert!(!is_image_file("document.pdf"));
     assert!(!is_image_file("noextension"));
@@ -225,34 +221,40 @@ fn test_is_image_file() {
 
 #[test]
 fn test_error_hierarchy() {
-    let genre_err = RoseExpectedError::GenreDoesNotExist { 
-        name: "Unknown".to_string() 
+    let genre_err = RoseExpectedError::GenreDoesNotExist {
+        name: "Unknown".to_string(),
     };
     assert_eq!(genre_err.to_string(), "Genre does not exist: Unknown");
-    
-    let label_err = RoseExpectedError::LabelDoesNotExist { 
-        name: "Unknown Label".to_string() 
+
+    let label_err = RoseExpectedError::LabelDoesNotExist {
+        name: "Unknown Label".to_string(),
     };
     assert_eq!(label_err.to_string(), "Label does not exist: Unknown Label");
-    
-    let desc_err = RoseExpectedError::DescriptorDoesNotExist { 
-        name: "Unknown Desc".to_string() 
+
+    let desc_err = RoseExpectedError::DescriptorDoesNotExist {
+        name: "Unknown Desc".to_string(),
     };
-    assert_eq!(desc_err.to_string(), "Descriptor does not exist: Unknown Desc");
-    
-    let artist_err = RoseExpectedError::ArtistDoesNotExist { 
-        name: "Unknown Artist".to_string() 
+    assert_eq!(
+        desc_err.to_string(),
+        "Descriptor does not exist: Unknown Desc"
+    );
+
+    let artist_err = RoseExpectedError::ArtistDoesNotExist {
+        name: "Unknown Artist".to_string(),
     };
-    assert_eq!(artist_err.to_string(), "Artist does not exist: Unknown Artist");
+    assert_eq!(
+        artist_err.to_string(),
+        "Artist does not exist: Unknown Artist"
+    );
 }
 
 #[test]
 fn test_error_conversion() {
-    let expected_err = RoseExpectedError::GenreDoesNotExist { 
-        name: "Test".to_string() 
+    let expected_err = RoseExpectedError::GenreDoesNotExist {
+        name: "Test".to_string(),
     };
     let rose_err: RoseError = expected_err.into();
-    
+
     match rose_err {
         RoseError::Expected(_) => {}
         _ => panic!("Expected RoseError::Expected variant"),
@@ -262,22 +264,22 @@ fn test_error_conversion() {
 #[test]
 fn test_error_context() {
     use std::path::PathBuf;
-    
+
     let generic_err = RoseError::Generic("Test error".to_string());
     assert_eq!(generic_err.to_string(), "Rose error: Test error");
-    
-    let uuid_err = RoseExpectedError::InvalidUuid { 
-        uuid: "not-a-uuid".to_string() 
+
+    let uuid_err = RoseExpectedError::InvalidUuid {
+        uuid: "not-a-uuid".to_string(),
     };
     assert_eq!(uuid_err.to_string(), "Invalid UUID: not-a-uuid");
-    
-    let file_err = RoseExpectedError::FileNotFound { 
-        path: PathBuf::from("/missing/file.mp3") 
+
+    let file_err = RoseExpectedError::FileNotFound {
+        path: PathBuf::from("/missing/file.mp3"),
     };
     assert_eq!(file_err.to_string(), "File not found: /missing/file.mp3");
-    
-    let format_err = RoseExpectedError::InvalidFileFormat { 
-        format: "unknown".to_string() 
+
+    let format_err = RoseExpectedError::InvalidFileFormat {
+        format: "unknown".to_string(),
     };
     assert_eq!(format_err.to_string(), "Invalid file format: unknown");
 }

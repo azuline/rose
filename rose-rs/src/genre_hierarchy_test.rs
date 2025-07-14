@@ -24,7 +24,7 @@ fn test_case_insensitive_genre() {
     assert!(is_valid_genre("ROCK"));
     assert!(is_valid_genre("Rock"));
     assert!(is_valid_genre("rOcK"));
-    
+
     // Parent lookups should also be case insensitive
     assert_eq!(get_parent_genres("rock"), get_parent_genres("ROCK"));
     assert_eq!(get_parent_genres("hip hop"), get_parent_genres("Hip Hop"));
@@ -35,7 +35,7 @@ fn test_parent_genres_single_level() {
     // Test genres with direct parents
     let parents = get_parent_genres("Punk Rock").unwrap();
     assert!(parents.contains(&"Rock".to_string()));
-    
+
     let parents = get_parent_genres("Bebop").unwrap();
     assert!(parents.contains(&"Jazz".to_string()));
 }
@@ -56,7 +56,7 @@ fn test_parent_genres_dance_special_case() {
     let dance_parents = get_parent_genres("Dance");
     // Dance may or may not have parents, but the function should handle it properly
     assert!(dance_parents.is_some() || dance_parents.is_none());
-    
+
     // Test a genre that has Dance as a parent
     let parents = get_parent_genres("House").unwrap();
     assert!(parents.contains(&"Dance".to_string()));
@@ -73,7 +73,7 @@ fn test_transitive_parent_closure() {
     // Test that we get all transitive parents
     let genres = vec!["2-Step".to_string()];
     let all_parents = get_all_parent_genres(&genres);
-    
+
     // Should include all parents but not the original genre
     assert!(!all_parents.contains(&"2-Step".to_string()));
     assert!(all_parents.contains(&"Dance".to_string()));
@@ -87,11 +87,11 @@ fn test_get_all_parent_genres_deduplication() {
     // Test with multiple genres that might have overlapping parents
     let genres = vec!["House".to_string(), "Techno".to_string()];
     let all_parents = get_all_parent_genres(&genres);
-    
+
     // Should have Dance and Electronic only once
     let dance_count = all_parents.iter().filter(|&g| g == "Dance").count();
     let electronic_count = all_parents.iter().filter(|&g| g == "Electronic").count();
-    
+
     assert_eq!(dance_count, 1);
     assert_eq!(electronic_count, 1);
 }
@@ -101,7 +101,7 @@ fn test_get_all_parent_genres_excludes_input() {
     // The function should exclude input genres from the result
     let genres = vec!["Rock".to_string(), "Electronic".to_string()];
     let all_parents = get_all_parent_genres(&genres);
-    
+
     assert!(!all_parents.contains(&"Rock".to_string()));
     assert!(!all_parents.contains(&"Electronic".to_string()));
 }
@@ -111,10 +111,10 @@ fn test_get_all_parent_genres_sorted() {
     // Result should be sorted
     let genres = vec!["House".to_string(), "Techno".to_string()];
     let all_parents = get_all_parent_genres(&genres);
-    
+
     let mut sorted = all_parents.clone();
     sorted.sort();
-    
+
     assert_eq!(all_parents, sorted);
 }
 
@@ -131,11 +131,30 @@ fn test_genre_hierarchy_loaded() {
     // Basic sanity check that we loaded a reasonable number of genres
     // The Python version has ~2400 genres
     let test_genres = vec![
-        "Rock", "Pop", "Jazz", "Electronic", "Hip Hop", "Classical Music",
-        "Folk", "Blues", "Country", "R&B", "Soul", "Funk", "Metal", "Punk",
-        "Dance", "House", "Techno", "Ambient", "Experimental"
+        "Rock",
+        "Pop",
+        "Jazz",
+        "Electronic",
+        "Hip Hop",
+        "Classical Music",
+        "Folk",
+        "Blues",
+        "Country",
+        "R&B",
+        "Soul",
+        "Funk",
+        "Metal",
+        "Punk",
+        "Dance",
+        "House",
+        "Techno",
+        "Ambient",
+        "Experimental",
     ];
-    
+
     let valid_count = test_genres.iter().filter(|g| is_valid_genre(g)).count();
-    assert!(valid_count >= 15, "Expected at least 15 valid genres, got {valid_count}");
+    assert!(
+        valid_count >= 15,
+        "Expected at least 15 valid genres, got {valid_count}"
+    );
 }

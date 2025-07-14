@@ -3,7 +3,7 @@ pub mod error;
 pub mod genre_hierarchy;
 
 pub use common::{Artist, ArtistMapping};
-pub use error::{RoseError, RoseExpectedError, Result};
+pub use error::{Result, RoseError, RoseExpectedError};
 
 #[cfg(test)]
 mod common_test;

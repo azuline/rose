@@ -1,8 +1,8 @@
+use regex::Regex;
+use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
-use regex::Regex;
 use unicode_normalization::UnicodeNormalization;
-use sha2::{Sha256, Digest};
 
 lazy_static::lazy_static! {
     static ref ILLEGAL_FS_CHARS_REGEX: Regex = Regex::new(r#"[:\?<>\\*\|"/]+"#).unwrap();
@@ -56,7 +56,8 @@ impl ArtistMapping {
             &self.composer[..],
             &self.conductor[..],
             &self.djmixer[..],
-        ].concat();
+        ]
+        .concat();
         uniq(all)
     }
 
@@ -69,7 +70,8 @@ impl ArtistMapping {
             ("composer", &self.composer),
             ("conductor", &self.conductor),
             ("djmixer", &self.djmixer),
-        ].into_iter()
+        ]
+        .into_iter()
     }
 }
 
@@ -80,19 +82,19 @@ pub fn flatten<T>(xxs: Vec<Vec<T>>) -> Vec<T> {
 pub fn uniq<T: Hash + Eq + Clone>(xs: Vec<T>) -> Vec<T> {
     let mut seen = HashSet::new();
     let mut result = Vec::new();
-    
+
     for x in xs {
         if seen.insert(x.clone()) {
             result.push(x);
         }
     }
-    
+
     result
 }
 
 pub fn sanitize_dirname(name: &str, max_filename_bytes: usize, enforce_maxlen: bool) -> String {
     let mut name = ILLEGAL_FS_CHARS_REGEX.replace_all(name, "_").into_owned();
-    
+
     if enforce_maxlen {
         let bytes = name.as_bytes();
         if bytes.len() > max_filename_bytes {
@@ -101,13 +103,13 @@ pub fn sanitize_dirname(name: &str, max_filename_bytes: usize, enforce_maxlen: b
                 .to_string();
         }
     }
-    
+
     name.nfd().collect()
 }
 
 pub fn sanitize_filename(name: &str, max_filename_bytes: usize, enforce_maxlen: bool) -> String {
     let mut name = ILLEGAL_FS_CHARS_REGEX.replace_all(name, "_").into_owned();
-    
+
     if enforce_maxlen {
         let (stem, ext) = match name.rfind('.') {
             Some(pos) => {
@@ -116,14 +118,14 @@ pub fn sanitize_filename(name: &str, max_filename_bytes: usize, enforce_maxlen: 
             }
             None => (name.as_str(), ""),
         };
-        
+
         // Ignore extension if it's longer than 6 bytes
         let (stem, ext) = if ext.len() > 6 {
             (name.as_str(), "")
         } else {
             (stem, ext)
         };
-        
+
         let stem_bytes = stem.as_bytes();
         let stem = if stem_bytes.len() > max_filename_bytes {
             String::from_utf8_lossy(&stem_bytes[..max_filename_bytes])
@@ -132,10 +134,10 @@ pub fn sanitize_filename(name: &str, max_filename_bytes: usize, enforce_maxlen: 
         } else {
             stem.to_string()
         };
-        
+
         name = format!("{stem}{ext}");
     }
-    
+
     name.nfd().collect()
 }
 
@@ -148,12 +150,11 @@ pub fn sha256_dataclass<T: std::fmt::Debug>(value: &T) -> String {
 
 pub fn initialize_logging(_logger_name: Option<&str>, output: &str) {
     use tracing_subscriber::{fmt, EnvFilter};
-    
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
-    
+
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
     let builder = fmt().with_env_filter(filter);
-    
+
     match output {
         "stderr" => {
             builder.init();
@@ -169,26 +170,20 @@ pub fn initialize_logging(_logger_name: Option<&str>, output: &str) {
     }
 }
 
-pub const SUPPORTED_AUDIO_EXTENSIONS: &[&str] = &[
-    ".mp3",
-    ".m4a",
-    ".ogg",
-    ".opus",
-    ".flac",
-];
+pub const SUPPORTED_AUDIO_EXTENSIONS: &[&str] = &[".mp3", ".m4a", ".ogg", ".opus", ".flac"];
 
-pub const SUPPORTED_IMAGE_EXTENSIONS: &[&str] = &[
-    ".jpg",
-    ".jpeg",
-    ".png",
-];
+pub const SUPPORTED_IMAGE_EXTENSIONS: &[&str] = &[".jpg", ".jpeg", ".png"];
 
 pub fn is_music_file(path: &str) -> bool {
     let path_lower = path.to_lowercase();
-    SUPPORTED_AUDIO_EXTENSIONS.iter().any(|ext| path_lower.ends_with(ext))
+    SUPPORTED_AUDIO_EXTENSIONS
+        .iter()
+        .any(|ext| path_lower.ends_with(ext))
 }
 
 pub fn is_image_file(path: &str) -> bool {
     let path_lower = path.to_lowercase();
-    SUPPORTED_IMAGE_EXTENSIONS.iter().any(|ext| path_lower.ends_with(ext))
+    SUPPORTED_IMAGE_EXTENSIONS
+        .iter()
+        .any(|ext| path_lower.ends_with(ext))
 }
