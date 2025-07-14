@@ -1,6 +1,7 @@
 pub mod audiotags;
 pub mod cache;
 pub mod cache_update;
+pub mod collages;
 pub mod common;
 pub mod config;
 pub mod datafiles;
@@ -36,3 +37,5 @@ mod templates_test;
 mod releases_test;
 #[cfg(test)]
 mod tracks_test;
+#[cfg(test)]
+mod collages_test;
