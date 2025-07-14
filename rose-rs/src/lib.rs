@@ -6,6 +6,7 @@ pub mod config;
 pub mod datafiles;
 pub mod error;
 pub mod genre_hierarchy;
+pub mod releases;
 pub mod rule_parser;
 pub mod rules;
 pub mod templates;
@@ -30,3 +31,5 @@ mod rule_parser_test;
 mod rules_test;
 #[cfg(test)]
 mod templates_test;
+#[cfg(test)]
+mod releases_test;

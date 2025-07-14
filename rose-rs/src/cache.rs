@@ -620,3 +620,63 @@ fn _get_parent_genres(genres: &[String]) -> Vec<String> {
     }
     parent_genres.into_iter().collect()
 }
+
+// Python: def get_release(c: Config, release_id: str) -> Release | None:
+pub fn get_release(config: &Config, release_id: &str) -> Result<Option<CachedRelease>> {
+    let conn = connect(config)?;
+    let mut stmt = conn.prepare("SELECT * FROM releases_view WHERE id = ?1")?;
+    
+    let release = stmt.query_row([release_id], |row| {
+        cached_release_from_view(config, row, true)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+    }).optional()?;
+    
+    Ok(release)
+}
+
+// Python: def get_tracks_of_release(c: Config, release_id: str) -> list[Track]:
+pub fn get_tracks_of_release(config: &Config, release_id: &str) -> Result<Vec<(CachedTrack, CachedRelease)>> {
+    let conn = connect(config)?;
+    
+    // First get the release
+    let release = get_release(config, release_id)?
+        .ok_or_else(|| RoseError::Expected(RoseExpectedError::Generic(
+            format!("Release {} not found", release_id)
+        )))?;
+    
+    // Then get all tracks
+    let mut stmt = conn.prepare(
+        "SELECT * FROM tracks_view WHERE release_id = ?1 ORDER BY discnumber, tracknumber"
+    )?;
+    
+    let tracks = stmt.query_map([release_id], |row| {
+        cached_track_from_view(config, row, release.clone(), true)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+    })?;
+    
+    let mut result = Vec::new();
+    for track in tracks {
+        let track = track?;
+        result.push((track, release.clone()));
+    }
+    
+    Ok(result)
+}
+
+// Python: def list_releases(c: Config) -> list[Release]:
+pub fn list_releases(config: &Config) -> Result<Vec<CachedRelease>> {
+    let conn = connect(config)?;
+    let mut stmt = conn.prepare("SELECT * FROM releases_view ORDER BY source_path")?;
+    
+    let releases = stmt.query_map([], |row| {
+        cached_release_from_view(config, row, true)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+    })?;
+    
+    let mut result = Vec::new();
+    for release in releases {
+        result.push(release?);
+    }
+    
+    Ok(result)
+}
