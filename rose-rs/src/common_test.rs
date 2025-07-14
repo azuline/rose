@@ -263,10 +263,8 @@ fn test_error_conversion() {
 fn test_error_context() {
     use std::path::PathBuf;
     
-    let path_err = RoseError::Path { 
-        path: PathBuf::from("/test/path") 
-    };
-    assert_eq!(path_err.to_string(), "Path error: /test/path");
+    let generic_err = RoseError::Generic("Test error".to_string());
+    assert_eq!(generic_err.to_string(), "Rose error: Test error");
     
     let uuid_err = RoseExpectedError::InvalidUuid { 
         uuid: "not-a-uuid".to_string() 
