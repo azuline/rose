@@ -18,3 +18,5 @@ htmlcov
 *.so.o
 zig-cache
 zig-out
+
+rose-rs/target/

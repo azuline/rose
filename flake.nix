@@ -76,6 +76,12 @@
               pkgs.nodePackages.prettier
               pkgs.pyright
               python-with-deps
+              # Rust toolchain
+              pkgs.rustc
+              pkgs.cargo
+              pkgs.rustfmt
+              pkgs.clippy
+              pkgs.rust-analyzer
             ];
           })
         ];
@@ -88,6 +94,7 @@
         rose-watch = pkgs.callPackage ./rose-watch { inherit version python-pin py-deps rose-py; };
         rose-vfs = pkgs.callPackage ./rose-vfs { inherit version python-pin py-deps rose-py; };
         rose-cli = pkgs.callPackage ./rose-cli { inherit version python-pin py-deps rose-py rose-vfs rose-watch; };
+        rose-rs = pkgs.callPackage ./rose-rs { inherit version; };
         all = pkgs.buildEnv {
           name = "rose-all";
           paths = [ rose-py rose-watch rose-vfs rose-cli ];

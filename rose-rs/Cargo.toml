@@ -1,0 +1,27 @@
+[package]
+name = "rose-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "1.0"
+sha2 = "0.10"
+regex = "1.10"
+lazy_static = "1.4"
+unicode-normalization = "0.1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dirs = "5.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+tera = "1.19"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.10", features = ["v7", "serde"] }
+lofty = "0.22"
+rusqlite = { version = "0.32", features = ["bundled", "chrono"] }
+rayon = "1.10"
+num_cpus = "1.16"
+
+[dev-dependencies]
+tempfile = "3.8"
