@@ -365,3 +365,37 @@ fn expand_home(path: &Path) -> PathBuf {
 fn num_cpus() -> usize {
     std::thread::available_parallelism().map_or(1, |n| n.get())
 }
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            music_source_dir: PathBuf::from("~/Music"),
+            cache_dir: Self::default_cache_dir(),
+            max_proc: std::cmp::max(1, num_cpus() / 2),
+            ignore_release_directories: vec![],
+            rename_source_files: false,
+            max_filename_bytes: default_max_filename_bytes(),
+            cover_art_stems: default_cover_art_stems(),
+            valid_art_exts: default_valid_art_exts(),
+            write_parent_genres: false,
+            artist_aliases_map: HashMap::new(),
+            artist_aliases_parents_map: HashMap::new(),
+            path_templates: PathTemplates::default(),
+            stored_metadata_rules: vec![],
+            vfs: VirtualFSConfig {
+                mount_dir: PathBuf::from("~/Music/VirtualFS"),
+                artists_whitelist: None,
+                genres_whitelist: None,
+                descriptors_whitelist: None,
+                labels_whitelist: None,
+                artists_blacklist: None,
+                genres_blacklist: None,
+                descriptors_blacklist: None,
+                labels_blacklist: None,
+                hide_genres_with_only_new_releases: false,
+                hide_descriptors_with_only_new_releases: false,
+                hide_labels_with_only_new_releases: false,
+            },
+        }
+    }
+}

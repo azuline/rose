@@ -18,6 +18,7 @@ toml = "0.8"
 tera = "1.19"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.10", features = ["v7", "serde"] }
+lofty = "0.22"
 
 [dev-dependencies]
 tempfile = "3.8"

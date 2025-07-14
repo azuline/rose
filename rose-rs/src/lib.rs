@@ -1,3 +1,4 @@
+pub mod audiotags;
 pub mod common;
 pub mod config;
 pub mod datafiles;
@@ -10,6 +11,8 @@ pub use common::{Artist, ArtistMapping};
 pub use config::Config;
 pub use error::{Result, RoseError, RoseExpectedError};
 
+#[cfg(test)]
+mod audiotags_test;
 #[cfg(test)]
 mod common_test;
 #[cfg(test)]
