@@ -7,6 +7,7 @@ pub mod config;
 pub mod datafiles;
 pub mod error;
 pub mod genre_hierarchy;
+pub mod playlists;
 pub mod releases;
 pub mod rule_parser;
 pub mod rules;
@@ -39,3 +40,5 @@ mod releases_test;
 mod tracks_test;
 #[cfg(test)]
 mod collages_test;
+#[cfg(test)]
+mod playlists_test;
