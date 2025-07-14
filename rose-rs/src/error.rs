@@ -12,6 +12,9 @@ pub enum RoseError {
 
 #[derive(Error, Debug)]
 pub enum RoseExpectedError {
+    #[error("{0}")]
+    Generic(String),
+
     #[error("Genre does not exist: {name}")]
     GenreDoesNotExist { name: String },
 
