@@ -15,7 +15,7 @@ fn test_find_datafile_by_pattern() {
 
     // Create a valid datafile
     let uuid = Uuid::now_v7();
-    let datafile_path = dir.join(format!(".rose.{}.toml", uuid));
+    let datafile_path = dir.join(format!(".rose.{uuid}.toml"));
     fs::write(
         &datafile_path,
         "new = true\nadded_at = \"2023-01-01T00:00:00+00:00\"",
@@ -80,7 +80,7 @@ fn test_read_corrupt_datafile() {
 
     // Should return default datafile on corrupt data
     let datafile = read_datafile(&datafile_path).unwrap();
-    assert_eq!(datafile.new, true); // default
+    assert!(datafile.new); // default
     assert!(!datafile.added_at.is_empty()); // should have a timestamp
 }
 

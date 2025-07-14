@@ -3,6 +3,7 @@ pub mod config;
 pub mod datafiles;
 pub mod error;
 pub mod genre_hierarchy;
+pub mod rule_parser;
 pub mod templates;
 
 pub use common::{Artist, ArtistMapping};
@@ -17,5 +18,7 @@ mod config_test;
 mod datafiles_test;
 #[cfg(test)]
 mod genre_hierarchy_test;
+#[cfg(test)]
+mod rule_parser_test;
 #[cfg(test)]
 mod templates_test;
