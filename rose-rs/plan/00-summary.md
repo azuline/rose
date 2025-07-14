@@ -54,6 +54,7 @@ Success criteria:
 ## Getting Started
 1. Read the Python source for implementation details
 2. Start with Milestone 1 (foundation)
-3. Use existing Python tests as specification
+3. Use existing Python tests as specification. Your logic should attempt to match the control flow
+   of the Python as MUCH as possible.
 4. Run against Python test data for validation
 5. Each milestone should be a complete, tested unit
