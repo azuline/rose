@@ -10,6 +10,7 @@ pub mod releases;
 pub mod rule_parser;
 pub mod rules;
 pub mod templates;
+pub mod tracks;
 
 pub use common::{Artist, ArtistMapping};
 pub use config::Config;
@@ -33,3 +34,5 @@ mod rules_test;
 mod templates_test;
 #[cfg(test)]
 mod releases_test;
+#[cfg(test)]
+mod tracks_test;

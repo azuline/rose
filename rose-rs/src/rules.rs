@@ -594,3 +594,64 @@ fn get_release_tag_value(release: &CachedRelease, tag: &Tag) -> Result<Vec<Strin
         _ => return Err(RoseError::Generic(format!("Tag {:?} not available for releases", tag))),
     })
 }
+
+// Python: def filter_track_false_positives_using_read_cache(
+pub fn filter_track_false_positives_using_read_cache(
+    config: &Config,
+    matcher: &Matcher,
+    tracks: &[CachedTrack],
+) -> Result<Vec<CachedTrack>> {
+    let mut result = Vec::new();
+    
+    for track in tracks {
+        let mut matched = false;
+        
+        for tag in &matcher.tags {
+            let values = match tag {
+                Tag::TrackTitle => vec![track.tracktitle.clone()],
+                Tag::TrackNumber => vec![track.tracknumber.clone()],
+                Tag::DiscNumber => vec![track.discnumber.clone()],
+                Tag::TrackArtistMain => track.trackartists.main.iter().map(|a| a.name.clone()).collect(),
+                Tag::TrackArtistGuest => track.trackartists.guest.iter().map(|a| a.name.clone()).collect(),
+                Tag::TrackArtistRemixer => track.trackartists.remixer.iter().map(|a| a.name.clone()).collect(),
+                Tag::TrackArtistProducer => track.trackartists.producer.iter().map(|a| a.name.clone()).collect(),
+                Tag::TrackArtistComposer => track.trackartists.composer.iter().map(|a| a.name.clone()).collect(),
+                Tag::TrackArtistConductor => track.trackartists.conductor.iter().map(|a| a.name.clone()).collect(),
+                Tag::TrackArtistDjMixer => track.trackartists.djmixer.iter().map(|a| a.name.clone()).collect(),
+                // Release tags
+                Tag::ReleaseTitle => vec![track.release.releasetitle.clone()],
+                Tag::ReleaseType => vec![track.release.releasetype.clone()],
+                Tag::ReleaseDate => track.release.releasedate.as_ref().map(|d| vec![d.to_string()]).unwrap_or_default(),
+                Tag::OriginalDate => track.release.originaldate.as_ref().map(|d| vec![d.to_string()]).unwrap_or_default(),
+                Tag::CompositionDate => track.release.compositiondate.as_ref().map(|d| vec![d.to_string()]).unwrap_or_default(),
+                Tag::Edition => track.release.edition.as_ref().map(|e| vec![e.clone()]).unwrap_or_default(),
+                Tag::CatalogNumber => track.release.catalognumber.as_ref().map(|c| vec![c.clone()]).unwrap_or_default(),
+                Tag::Genre => track.release.genres.clone(),
+                Tag::SecondaryGenre => track.release.secondary_genres.clone(),
+                Tag::Descriptor => track.release.descriptors.clone(),
+                Tag::Label => track.release.labels.clone(),
+                Tag::ReleaseArtistMain => track.release.releaseartists.main.iter().map(|a| a.name.clone()).collect(),
+                Tag::ReleaseArtistGuest => track.release.releaseartists.guest.iter().map(|a| a.name.clone()).collect(),
+                Tag::ReleaseArtistRemixer => track.release.releaseartists.remixer.iter().map(|a| a.name.clone()).collect(),
+                Tag::ReleaseArtistProducer => track.release.releaseartists.producer.iter().map(|a| a.name.clone()).collect(),
+                Tag::ReleaseArtistComposer => track.release.releaseartists.composer.iter().map(|a| a.name.clone()).collect(),
+                Tag::ReleaseArtistConductor => track.release.releaseartists.conductor.iter().map(|a| a.name.clone()).collect(),
+                Tag::ReleaseArtistDjMixer => track.release.releaseartists.djmixer.iter().map(|a| a.name.clone()).collect(),
+                Tag::New => vec![if track.release.new { "true" } else { "false" }.to_string()],
+                Tag::DiscTotal => vec![track.release.disctotal.to_string()],
+                Tag::TrackTotal => vec![track.tracktotal.to_string()],
+            };
+            
+            if matches_pattern(&values, &matcher.pattern, tag)? {
+                matched = true;
+                break;
+            }
+        }
+        
+        if matched {
+            result.push(track.clone());
+        }
+    }
+    
+    Ok(result)
+}
