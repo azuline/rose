@@ -9,7 +9,7 @@ use thiserror::Error;
 use toml::Value;
 use tracing::warn;
 
-use crate::common::{Result, RoseError, RoseExpectedError};
+use crate::errors::{Result, RoseError, RoseExpectedError};
 use crate::rule_parser::{Rule, RuleSyntaxError};
 use crate::templates::{PathTemplate, PathTemplateConfig, DEFAULT_TEMPLATE_PAIR};
 

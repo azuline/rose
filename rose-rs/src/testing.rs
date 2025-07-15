@@ -1,3 +1,5 @@
+use crate::config::{Config, VirtualFSConfig};
+use crate::templates::{PathTemplateConfig, DEFAULT_TEMPLATE_PAIR};
 use rusqlite::Connection;
 use std::fs;
 #[cfg(test)]
@@ -20,7 +22,7 @@ pub fn init() -> TempDir {
 
 // Creates a test config with directories but no files or database
 #[cfg(test)]
-pub fn config() -> (crate::common::Config, TempDir) {
+pub fn config() -> (Config, TempDir) {
     let temp_dir = init();
     let base_path = temp_dir.path();
 
@@ -29,13 +31,41 @@ pub fn config() -> (crate::common::Config, TempDir) {
     fs::create_dir_all(base_path.join("source")).expect("failed to create source dir");
     fs::create_dir_all(base_path.join("mount")).expect("failed to create mount dir");
 
-    let config = crate::common::Config { max_filename_bytes: 180 };
+    let config = Config {
+        music_source_dir: base_path.join("source"),
+        cache_dir: base_path.join("cache"),
+        max_proc: 2,
+        artist_aliases_map: std::collections::HashMap::new(),
+        artist_aliases_parents_map: std::collections::HashMap::new(),
+        cover_art_stems: vec!["cover".to_string(), "folder".to_string(), "art".to_string(), "front".to_string()],
+        valid_art_exts: vec!["jpg".to_string(), "jpeg".to_string(), "png".to_string()],
+        write_parent_genres: false,
+        max_filename_bytes: 180,
+        path_templates: PathTemplateConfig::with_defaults(DEFAULT_TEMPLATE_PAIR.clone()),
+        rename_source_files: false,
+        ignore_release_directories: vec![],
+        stored_metadata_rules: vec![],
+        vfs: VirtualFSConfig {
+            mount_dir: base_path.join("mount"),
+            artists_whitelist: None,
+            genres_whitelist: None,
+            descriptors_whitelist: None,
+            labels_whitelist: None,
+            artists_blacklist: None,
+            genres_blacklist: None,
+            descriptors_blacklist: None,
+            labels_blacklist: None,
+            hide_genres_with_only_new_releases: false,
+            hide_descriptors_with_only_new_releases: false,
+            hide_labels_with_only_new_releases: false,
+        },
+    };
     (config, temp_dir)
 }
 
 // Creates a test environment with a seeded cache with fake testdata. The files on disk are not real.
 #[cfg(test)]
-pub fn seeded_cache() -> (crate::common::Config, TempDir) {
+pub fn seeded_cache() -> (Config, TempDir) {
     let (config, temp_dir) = config();
     let base_path = temp_dir.path();
     let source_dir = base_path.join("source");
@@ -233,6 +263,25 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
     for pn in ["Lala Lisa", "Turtle Rabbit"] {
         fs::write(source_dir.join("!playlists").join(format!("{pn}.toml")), "").expect("failed to create playlist toml");
     }
+
+    (config, temp_dir)
+}
+
+// Creates a test environment with a seeded cache with fake testdata. The files on disk are not real.
+#[cfg(test)]
+pub fn source_dir() -> (Config, TempDir) {
+    let (config, temp_dir) = config();
+    let base_path = temp_dir.path();
+    let _source_dir = base_path.join("source");
+
+    // CONVERT TO RUST.
+    // shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    // shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+    // shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
+    // shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
+    // shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
+    // update_cache(config)
+    // return config.music_source_dir
 
     (config, temp_dir)
 }

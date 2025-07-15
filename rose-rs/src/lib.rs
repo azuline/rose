@@ -6,6 +6,7 @@ mod audiotags;
 mod cache;
 mod common;
 mod config;
+mod errors;
 mod genre_hierarchy;
 mod rule_parser;
 mod templates;
@@ -14,6 +15,9 @@ mod templates;
 mod testing;
 
 // Re-export public API
+// From errors module
+pub use errors::{Result, RoseError, RoseExpectedError};
+
 // From common module
 pub use common::{
     // Functions
@@ -23,11 +27,7 @@ pub use common::{
     // Core types
     Artist,
     ArtistMapping,
-    Result,
     RoseDate,
-    // Errors
-    RoseError,
-    RoseExpectedError,
     // Constants
     VERSION,
 };

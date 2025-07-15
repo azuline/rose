@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::common::{uniq, RoseExpectedError};
+use crate::common::uniq;
+use crate::errors::RoseExpectedError;
 
 /// The rule_parser module provides a parser for the rules engine's DSL.
 ///

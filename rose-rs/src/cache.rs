@@ -3,8 +3,9 @@
 ///
 /// The SQLite database is considered part of the cache, and so this module encapsulates the SQLite
 /// database too.
-use crate::common::{Artist, ArtistMapping, Result, RoseDate, VERSION};
+use crate::common::{Artist, ArtistMapping, RoseDate, VERSION};
 use crate::config::Config;
+use crate::errors::Result;
 use crate::genre_hierarchy::TRANSITIVE_PARENT_GENRES;
 use once_cell::sync::Lazy;
 use rusqlite::{params, Connection, OptionalExtension, Row};
@@ -232,6 +233,24 @@ pub struct Playlist {
     pub name: String,
     pub source_mtime: String,
     pub cover_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GenreEntry {
+    pub name: String,
+    pub only_new_releases: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DescriptorEntry {
+    pub name: String,
+    pub only_new_releases: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LabelEntry {
+    pub name: String,
+    pub only_new_releases: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -570,7 +589,7 @@ pub fn update_cache_for_releases(_c: &Config, _release_dirs: Option<Vec<PathBuf>
 //             logger.info(f"Evicted missing release {row['source_path']} from cache")
 pub fn update_cache_evict_nonexistent_releases(c: &Config) -> Result<()> {
     debug!("evicting cached releases that are not on disk");
-    
+
     // Get all directories in the music source directory
     let dirs: Vec<String> = fs::read_dir(&c.music_source_dir)?
         .filter_map(|entry| entry.ok())
@@ -578,28 +597,25 @@ pub fn update_cache_evict_nonexistent_releases(c: &Config) -> Result<()> {
         .filter_map(|entry| entry.path().canonicalize().ok())
         .map(|path| path.to_string_lossy().to_string())
         .collect();
-    
+
     if dirs.is_empty() {
         return Ok(());
     }
-    
+
     let conn = connect(c)?;
-    
+
     // Build the query with proper number of placeholders
     let placeholders = dirs.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-    let query = format!(
-        "DELETE FROM releases WHERE source_path NOT IN ({}) RETURNING source_path",
-        placeholders
-    );
-    
+    let query = format!("DELETE FROM releases WHERE source_path NOT IN ({placeholders}) RETURNING source_path");
+
     let mut stmt = conn.prepare(&query)?;
     let mut rows = stmt.query(rusqlite::params_from_iter(&dirs))?;
-    
+
     while let Some(row) = rows.next()? {
         let source_path: String = row.get(0)?;
         info!("evicted missing release {} from cache", source_path);
     }
-    
+
     Ok(())
 }
 
@@ -664,10 +680,10 @@ pub fn update_cache_for_collages(_c: &Config, _collage_names: Option<Vec<String>
 //             logger.info(f"Evicted missing collage {row['name']} from cache")
 pub fn update_cache_evict_nonexistent_collages(c: &Config) -> Result<()> {
     debug!("Evicting cached collages that are not on disk");
-    
+
     let collages_dir = c.music_source_dir.join("!collages");
     let mut collage_names = Vec::new();
-    
+
     if collages_dir.exists() {
         for entry in fs::read_dir(&collages_dir)? {
             let entry = entry?;
@@ -679,40 +695,32 @@ pub fn update_cache_evict_nonexistent_collages(c: &Config) -> Result<()> {
             }
         }
     }
-    
+
     let conn = connect(c)?;
-    
+
     if collage_names.is_empty() {
         // Delete all collages if none exist on disk
         let mut stmt = conn.prepare("DELETE FROM collages RETURNING name")?;
-        let deleted_names: Vec<String> = stmt
-            .query_map([], |row| row.get(0))?
-            .collect::<std::result::Result<Vec<_>, _>>()?;
-        
+        let deleted_names: Vec<String> = stmt.query_map([], |row| row.get(0))?.collect::<std::result::Result<Vec<_>, _>>()?;
+
         for name in deleted_names {
             info!("Evicted missing collage {} from cache", name);
         }
     } else {
         // Delete collages not in the list
         let placeholders = vec!["?"; collage_names.len()].join(",");
-        let query = format!(
-            "DELETE FROM collages WHERE name NOT IN ({}) RETURNING name",
-            placeholders
-        );
-        
+        let query = format!("DELETE FROM collages WHERE name NOT IN ({placeholders}) RETURNING name");
+
         let mut stmt = conn.prepare(&query)?;
         let deleted_names: Vec<String> = stmt
-            .query_map(
-                rusqlite::params_from_iter(&collage_names),
-                |row| row.get(0)
-            )?
+            .query_map(rusqlite::params_from_iter(&collage_names), |row| row.get(0))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-        
+
         for name in deleted_names {
             info!("Evicted missing collage {} from cache", name);
         }
     }
-    
+
     Ok(())
 }
 
@@ -777,10 +785,10 @@ pub fn update_cache_for_playlists(_c: &Config, _playlist_names: Option<Vec<Strin
 //             logger.info(f"Evicted missing playlist {row['name']} from cache")
 pub fn update_cache_evict_nonexistent_playlists(c: &Config) -> Result<()> {
     debug!("Evicting cached playlists that are not on disk");
-    
+
     let playlists_dir = c.music_source_dir.join("!playlists");
     let mut playlist_names = Vec::new();
-    
+
     if playlists_dir.exists() {
         for entry in fs::read_dir(&playlists_dir)? {
             let entry = entry?;
@@ -792,40 +800,32 @@ pub fn update_cache_evict_nonexistent_playlists(c: &Config) -> Result<()> {
             }
         }
     }
-    
+
     let conn = connect(c)?;
-    
+
     if playlist_names.is_empty() {
         // Delete all playlists if none exist on disk
         let mut stmt = conn.prepare("DELETE FROM playlists RETURNING name")?;
-        let deleted_names: Vec<String> = stmt
-            .query_map([], |row| row.get(0))?
-            .collect::<std::result::Result<Vec<_>, _>>()?;
-        
+        let deleted_names: Vec<String> = stmt.query_map([], |row| row.get(0))?.collect::<std::result::Result<Vec<_>, _>>()?;
+
         for name in deleted_names {
             info!("Evicted missing playlist {} from cache", name);
         }
     } else {
         // Delete playlists not in the list
         let placeholders = vec!["?"; playlist_names.len()].join(",");
-        let query = format!(
-            "DELETE FROM playlists WHERE name NOT IN ({}) RETURNING name",
-            placeholders
-        );
-        
+        let query = format!("DELETE FROM playlists WHERE name NOT IN ({placeholders}) RETURNING name");
+
         let mut stmt = conn.prepare(&query)?;
         let deleted_names: Vec<String> = stmt
-            .query_map(
-                rusqlite::params_from_iter(&playlist_names),
-                |row| row.get(0)
-            )?
+            .query_map(rusqlite::params_from_iter(&playlist_names), |row| row.get(0))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-        
+
         for name in deleted_names {
             info!("Evicted missing playlist {} from cache", name);
         }
     }
-    
+
     Ok(())
 }
 
@@ -843,11 +843,13 @@ pub fn update_cache_evict_nonexistent_playlists(c: &Config) -> Result<()> {
 pub fn get_release(c: &Config, release_id: &str) -> Result<Option<Release>> {
     let conn = connect(c)?;
     let mut stmt = conn.prepare("SELECT * FROM releases_view WHERE id = ?1")?;
-    
-    let release = stmt.query_row(params![release_id], |row| {
-        cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
-    }).optional()?;
-    
+
+    let release = stmt
+        .query_row(params![release_id], |row| {
+            cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+        })
+        .optional()?;
+
     Ok(release)
 }
 
@@ -906,12 +908,13 @@ pub fn list_releases(c: &Config) -> Result<Vec<Release>> {
     // TODO: Implement full filtering support with or_labels, or_genres, or_descriptors
     let conn = connect(c)?;
     let mut stmt = conn.prepare("SELECT * FROM releases_view ORDER BY id")?;
-    
-    let releases = stmt.query_map([], |row| {
-        cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
-    })?
-    .collect::<std::result::Result<Vec<_>, _>>()?;
-    
+
+    let releases = stmt
+        .query_map([], |row| {
+            cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
     Ok(releases)
 }
 
@@ -929,23 +932,20 @@ pub fn list_releases(c: &Config) -> Result<Vec<Release>> {
 //         return cached_track_from_view(c, row, release)
 pub fn get_track(c: &Config, id: &str) -> Result<Option<Track>> {
     let conn = connect(c)?;
-    
+
     // First get the track data to find release_id
     let track_query = "SELECT * FROM tracks_view WHERE id = ?";
     let mut track_stmt = conn.prepare(track_query)?;
-    
-    let track_result: Option<String> = track_stmt
-        .query_row([id], |row| row.get("release_id"))
-        .optional()?;
-    
+
+    let track_result: Option<String> = track_stmt.query_row([id], |row| row.get("release_id")).optional()?;
+
     if let Some(release_id) = track_result {
         // Get the release
         let release = get_release(c, &release_id)?;
         if let Some(release) = release {
             // Now get the full track with the release
             let track = track_stmt.query_row([id], |row| {
-                cached_track_from_view(c, row, Arc::new(release.clone()), true)
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+                cached_track_from_view(c, row, Arc::new(release.clone()), true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
             })?;
             Ok(Some(track))
         } else {
@@ -991,62 +991,58 @@ pub fn list_tracks(c: &Config) -> Result<Vec<Track>> {
 
 pub fn list_tracks_with_filter(c: &Config, track_ids: Option<Vec<String>>) -> Result<Vec<Track>> {
     let conn = connect(c)?;
-    
+
     // Build query
     let query = if let Some(ref ids) = track_ids {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
         let placeholders = vec!["?"; ids.len()].join(",");
-        format!("SELECT * FROM tracks_view WHERE id IN ({}) ORDER BY source_path", placeholders)
+        format!("SELECT * FROM tracks_view WHERE id IN ({placeholders}) ORDER BY source_path")
     } else {
         "SELECT * FROM tracks_view ORDER BY source_path".to_string()
     };
-    
+
     // First pass: collect release IDs and get releases
     let mut release_ids = HashSet::<String>::new();
     let mut releases = std::collections::HashMap::<String, Arc<Release>>::new();
-    
+
     {
         let mut stmt = conn.prepare(&query)?;
-        
+
         // Collect release IDs
         if let Some(ref ids) = track_ids {
-            let rows = stmt.query_map(rusqlite::params_from_iter(ids), |row| {
-                row.get::<_, String>("release_id")
-            })?;
+            let rows = stmt.query_map(rusqlite::params_from_iter(ids), |row| row.get::<_, String>("release_id"))?;
             for release_id in rows {
                 release_ids.insert(release_id?);
             }
         } else {
-            let rows = stmt.query_map([], |row| {
-                row.get::<_, String>("release_id")
-            })?;
+            let rows = stmt.query_map([], |row| row.get::<_, String>("release_id"))?;
             for release_id in rows {
                 release_ids.insert(release_id?);
             }
         }
     }
-    
+
     // Fetch all needed releases
     for release_id in &release_ids {
         if let Some(release) = get_release(c, release_id)? {
             releases.insert(release_id.clone(), Arc::new(release));
         }
     }
-    
+
     // Second pass: build tracks with releases
     let mut tracks = Vec::new();
     let mut stmt = conn.prepare(&query)?;
-    
+
     let params: Vec<&dyn rusqlite::ToSql> = if let Some(ref ids) = track_ids {
         ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect()
     } else {
         vec![]
     };
-    
+
     let mut rows = stmt.query(params.as_slice())?;
-    
+
     while let Some(row) = rows.next()? {
         let release_id: String = row.get("release_id")?;
         if let Some(release) = releases.get(&release_id) {
@@ -1054,7 +1050,7 @@ pub fn list_tracks_with_filter(c: &Config, track_ids: Option<Vec<String>>) -> Re
             tracks.push(track);
         }
     }
-    
+
     Ok(tracks)
 }
 
@@ -1065,14 +1061,15 @@ pub fn list_tracks_with_filter(c: &Config, track_ids: Option<Vec<String>>) -> Re
 pub fn list_collages(c: &Config) -> Result<Vec<Collage>> {
     let conn = connect(c)?;
     let mut stmt = conn.prepare("SELECT name, source_mtime FROM collages ORDER BY name")?;
-    let collages = stmt.query_map([], |row| {
-        Ok(Collage {
-            name: row.get(0)?,
-            source_mtime: row.get(1)?,
-        })
-    })?
-    .collect::<std::result::Result<Vec<_>, _>>()?;
-    
+    let collages = stmt
+        .query_map([], |row| {
+            Ok(Collage {
+                name: row.get(0)?,
+                source_mtime: row.get(1)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
     Ok(collages)
 }
 
@@ -1083,16 +1080,159 @@ pub fn list_collages(c: &Config) -> Result<Vec<Collage>> {
 pub fn list_playlists(c: &Config) -> Result<Vec<Playlist>> {
     let conn = connect(c)?;
     let mut stmt = conn.prepare("SELECT name, source_mtime, cover_path FROM playlists ORDER BY name")?;
-    let playlists = stmt.query_map([], |row| {
-        Ok(Playlist {
-            name: row.get(0)?,
-            source_mtime: row.get(1)?,
-            cover_path: row.get::<_, Option<String>>(2)?.map(PathBuf::from),
-        })
-    })?
-    .collect::<std::result::Result<Vec<_>, _>>()?;
-    
+    let playlists = stmt
+        .query_map([], |row| {
+            Ok(Playlist {
+                name: row.get(0)?,
+                source_mtime: row.get(1)?,
+                cover_path: row.get::<_, Option<String>>(2)?.map(PathBuf::from),
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
     Ok(playlists)
+}
+
+pub fn list_descriptors(c: &Config) -> Result<Vec<DescriptorEntry>> {
+    let conn = connect(c)?;
+    let mut stmt = conn.prepare(
+        "
+        SELECT DISTINCT d.descriptor, 
+               CASE WHEN COUNT(CASE WHEN r.new = false THEN 1 END) > 0 THEN false ELSE true END as only_new
+        FROM releases_descriptors d
+        JOIN releases r ON r.id = d.release_id
+        GROUP BY d.descriptor
+        ORDER BY d.descriptor
+    ",
+    )?;
+
+    let descriptors = stmt
+        .query_map([], |row| {
+            Ok(DescriptorEntry {
+                name: row.get(0)?,
+                only_new_releases: row.get(1)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    Ok(descriptors)
+}
+
+pub fn list_labels(c: &Config) -> Result<Vec<LabelEntry>> {
+    let conn = connect(c)?;
+    let mut stmt = conn.prepare(
+        "
+        SELECT DISTINCT l.label,
+               CASE WHEN COUNT(CASE WHEN r.new = false THEN 1 END) > 0 THEN false ELSE true END as only_new
+        FROM releases_labels l
+        JOIN releases r ON r.id = l.release_id
+        GROUP BY l.label
+        ORDER BY l.label
+    ",
+    )?;
+
+    let labels = stmt
+        .query_map([], |row| {
+            Ok(LabelEntry {
+                name: row.get(0)?,
+                only_new_releases: row.get(1)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    Ok(labels)
+}
+
+pub fn artist_exists(c: &Config, artist_name: &str) -> Result<bool> {
+    let conn = connect(c)?;
+
+    // Check if artist exists in releases_artists or tracks_artists
+    let mut stmt = conn.prepare(
+        "
+        SELECT EXISTS(
+            SELECT 1 FROM releases_artists WHERE artist = ?1
+            UNION
+            SELECT 1 FROM tracks_artists WHERE artist = ?1
+        )
+    ",
+    )?;
+
+    let exists = stmt.query_row([artist_name], |row| row.get::<_, bool>(0))?;
+
+    // If not found directly, check if it's an alias
+    if !exists && !c.artist_aliases_map.is_empty() {
+        // Check if this artist is an alias of another artist
+        for (alias, main_artists) in &c.artist_aliases_map {
+            if alias == artist_name {
+                // This is an alias, check if any of the main artists exist
+                for main_artist in main_artists {
+                    if artist_exists(c, main_artist)? {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(exists)
+}
+
+pub fn genre_exists(c: &Config, genre_name: &str) -> Result<bool> {
+    let conn = connect(c)?;
+
+    // Check if genre exists in releases_genres, releases_secondary_genres, or as a parent genre
+    let mut stmt = conn.prepare(
+        "
+        SELECT EXISTS(
+            SELECT 1 FROM releases_genres WHERE genre = ?1
+            UNION
+            SELECT 1 FROM releases_secondary_genres WHERE genre = ?1
+        )
+    ",
+    )?;
+
+    let exists = stmt.query_row([genre_name], |row| row.get::<_, bool>(0))?;
+
+    if exists {
+        return Ok(true);
+    }
+
+    // Check if it's a parent genre of any existing genre
+    for parent_genres in TRANSITIVE_PARENT_GENRES.values() {
+        if parent_genres.iter().any(|g| g.as_str() == genre_name) {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+pub fn descriptor_exists(c: &Config, descriptor_name: &str) -> Result<bool> {
+    let conn = connect(c)?;
+
+    let mut stmt = conn.prepare(
+        "
+        SELECT EXISTS(
+            SELECT 1 FROM releases_descriptors WHERE descriptor = ?1
+        )
+    ",
+    )?;
+
+    stmt.query_row([descriptor_name], |row| row.get::<_, bool>(0)).map_err(|e| e.into())
+}
+
+pub fn label_exists(c: &Config, label_name: &str) -> Result<bool> {
+    let conn = connect(c)?;
+
+    let mut stmt = conn.prepare(
+        "
+        SELECT EXISTS(
+            SELECT 1 FROM releases_labels WHERE label = ?1
+        )
+    ",
+    )?;
+
+    stmt.query_row([label_name], |row| row.get::<_, bool>(0)).map_err(|e| e.into())
 }
 
 // Additional types and functions from Python implementation:
@@ -1158,6 +1298,7 @@ pub fn list_playlists(c: &Config) -> Result<Vec<Playlist>> {
 mod tests {
     use super::*;
     use crate::testing;
+    use std::collections::HashMap;
 
     #[test]
     fn test_split() {
@@ -1184,20 +1325,2128 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Needs proper Config type - testing module returns common::Config not config::Config"]
     fn test_maybe_invalidate_cache_database() {
-        // TODO: Fix this test once we have proper test utilities that return config::Config
-        // let _ = testing::init();
-        // let (config, _temp_dir) = testing::seeded_cache();
+        let _ = testing::init();
+        let (config, _temp_dir) = testing::seeded_cache();
+
+        // First call should create the database
+        maybe_invalidate_cache_database(&config).unwrap();
+        assert!(config.cache_database_path().exists());
+
+        // Second call should not recreate it since nothing changed
+        let mtime_before = std::fs::metadata(config.cache_database_path()).unwrap().modified().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(10)); // Ensure time difference
+        maybe_invalidate_cache_database(&config).unwrap();
+        let mtime_after = std::fs::metadata(config.cache_database_path()).unwrap().modified().unwrap();
+        assert_eq!(mtime_before, mtime_after);
+    }
+
+    // Tests ported from py-impl-reference/rose/cache_test.py
+    // TODO: Implement these tests once we have proper test utilities
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_schema() {
+        // Python source:
+        // def test_schema(config: Config) -> None:
+        //     """Test that the schema successfully bootstraps."""
+        //     with CACHE_SCHEMA_PATH.open("rb") as fp:
+        //         schema_hash = hashlib.sha256(fp.read()).hexdigest()
+        //     maybe_invalidate_cache_database(config)
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT schema_hash, config_hash, version FROM _schema_hash")
+        //         row = cursor.fetchone()
+        //         assert row["schema_hash"] == schema_hash
+        //         assert row["config_hash"] is not None
+        //         assert row["version"] == VERSION
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_migration() {
+        // Python source:
+        // def test_migration(config: Config) -> None:
+        //     """Test that "migrating" the database correctly migrates it."""
+        //     config.cache_database_path.unlink()
+        //     with connect(config) as conn:
+        //         conn.execute(
+        //             """
+        //             CREATE TABLE _schema_hash (
+        //                 schema_hash TEXT
+        //               , config_hash TEXT
+        //               , version TEXT
+        //               , PRIMARY KEY (schema_hash, config_hash, version)
+        //             )
+        //             """
+        //         )
+        //         conn.execute(
+        //             """
+        //             INSERT INTO _schema_hash (schema_hash, config_hash, version)
+        //             VALUES ('haha', 'lala', 'blabla')
+        //             """,
+        //         )
         //
-        // // First call should create the database
-        // maybe_invalidate_cache_database(&config).unwrap();
-        // assert!(config.cache_database_path().exists());
+        //     with CACHE_SCHEMA_PATH.open("rb") as fp:
+        //         latest_schema_hash = hashlib.sha256(fp.read()).hexdigest()
+        //     maybe_invalidate_cache_database(config)
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT schema_hash, config_hash, version FROM _schema_hash")
+        //         row = cursor.fetchone()
+        //         assert row["schema_hash"] == latest_schema_hash
+        //         assert row["config_hash"] is not None
+        //         assert row["version"] == VERSION
+        //         cursor = conn.execute("SELECT COUNT(*) FROM _schema_hash")
+        //         assert cursor.fetchone()[0] == 1
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_locks() {
+        // Python source:
+        // def test_locks(config: Config) -> None:
+        //     """Test that taking locks works. The times are a bit loose b/c GH Actions is slow."""
+        //     lock_name = "lol"
         //
-        // // Second call should not recreate it since nothing changed
-        // let mtime_before = std::fs::metadata(config.cache_database_path()).unwrap().modified().unwrap();
-        // maybe_invalidate_cache_database(&config).unwrap();
-        // let mtime_after = std::fs::metadata(config.cache_database_path()).unwrap().modified().unwrap();
-        // assert_eq!(mtime_before, mtime_after);
+        //     # Test that the locking and timeout work.
+        //     start = time.time()
+        //     with lock(config, lock_name, timeout=0.2):
+        //         lock1_acq = time.time()
+        //         with lock(config, lock_name, timeout=0.2):
+        //             lock2_acq = time.time()
+        //     # Assert that we had to wait ~0.1sec to get the second lock.
+        //     assert lock1_acq - start < 0.08
+        //     assert lock2_acq - lock1_acq > 0.17
+        //
+        //     # Test that releasing a lock actually works.
+        //     start = time.time()
+        //     with lock(config, lock_name, timeout=0.2):
+        //         lock1_acq = time.time()
+        //     with lock(config, lock_name, timeout=0.2):
+        //         lock2_acq = time.time()
+        //     # Assert that we had to wait negligible time to get the second lock.
+        //     assert lock1_acq - start < 0.08
+        //     assert lock2_acq - lock1_acq < 0.08
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_all() {
+        // Python source:
+        // def test_update_cache_all(config: Config) -> None:
+        //     """Test that the update all function works."""
+        //     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+        //     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+        //
+        //     # Test that we prune deleted releases too.
+        //     with connect(config) as conn:
+        //         conn.execute(
+        //             """
+        //             INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, disctotal, metahash)
+        //             VALUES ('aaaaaa', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, '0')
+        //             """
+        //         )
+        //
+        //     update_cache(config)
+        //
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        //         assert cursor.fetchone()[0] == 2
+        //         cursor = conn.execute("SELECT COUNT(*) FROM tracks")
+        //         assert cursor.fetchone()[0] == 4
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_multiprocessing() {
+        // Python source:
+        // def test_update_cache_multiprocessing(config: Config) -> None:
+        //     """Test that the update all function works."""
+        //     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+        //     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+        //     update_cache_for_releases(config, force_multiprocessing=True)
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        //         assert cursor.fetchone()[0] == 2
+        //         cursor = conn.execute("SELECT COUNT(*) FROM tracks")
+        //         assert cursor.fetchone()[0] == 4
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases() {
+        // Python source:
+        // def test_update_cache_releases(config: Config) -> None:
+        //     release_dir = config.music_source_dir / TEST_RELEASE_1.name
+        //     shutil.copytree(TEST_RELEASE_1, release_dir)
+        //     update_cache_for_releases(config, [release_dir])
+        //
+        //     # Check that the release directory was given a UUID.
+        //     release_id: str | None = None
+        //     for f in release_dir.iterdir():
+        //         if m := STORED_DATA_FILE_REGEX.match(f.name):
+        //             release_id = m[1]
+        //     assert release_id is not None
+        //
+        //     # Assert that the release metadata was read correctly.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute(
+        //             """
+        //             SELECT id, source_path, title, releasetype, releasedate, compositiondate, catalognumber, new
+        //             FROM releases WHERE id = ?
+        //             """,
+        //             (release_id,),
+        //         )
+        //         row = cursor.fetchone()
+        //         assert row["source_path"] == str(release_dir)
+        //         assert row["title"] == "I Love Blackpink"
+        //         assert row["releasetype"] == "album"
+        //         assert row["releasedate"] == "1990-02-05"
+        //         assert row["compositiondate"] is None
+        //         assert row["catalognumber"] is None
+        //         assert row["new"]
+        //
+        //         cursor = conn.execute(
+        //             "SELECT genre FROM releases_genres WHERE release_id = ?",
+        //             (release_id,),
+        //         )
+        //         genres = {r["genre"] for r in cursor.fetchall()}
+        //         assert genres == {"K-Pop", "Pop"}
+        //
+        //         cursor = conn.execute(
+        //             "SELECT label FROM releases_labels WHERE release_id = ?",
+        //             (release_id,),
+        //         )
+        //         labels = {r["label"] for r in cursor.fetchall()}
+        //         assert labels == {"A Cool Label"}
+        //
+        //         cursor = conn.execute(
+        //             "SELECT artist, role FROM releases_artists WHERE release_id = ?",
+        //             (release_id,),
+        //         )
+        //         artists = {(r["artist"], r["role"]) for r in cursor.fetchall()}
+        //         assert artists == {
+        //             ("BLACKPINK", "main"),
+        //         }
+        //
+        //         for f in release_dir.iterdir():
+        //             if f.suffix != ".m4a":
+        //                 continue
+        //
+        //             # Assert that the track metadata was read correctly.
+        //             cursor = conn.execute(
+        //                 """
+        //                 SELECT
+        //                     id, source_path, title, release_id, tracknumber, discnumber, duration_seconds
+        //                 FROM tracks WHERE source_path = ?
+        //                 """,
+        //                 (str(f),),
+        //             )
+        //             row = cursor.fetchone()
+        //             track_id = row["id"]
+        //             assert row["title"].startswith("Track")
+        //             assert row["release_id"] == release_id
+        //             assert row["tracknumber"] != ""
+        //             assert row["discnumber"] == "1"
+        //             assert row["duration_seconds"] == 2
+        //
+        //             cursor = conn.execute(
+        //                 "SELECT artist, role FROM tracks_artists WHERE track_id = ?",
+        //                 (track_id,),
+        //             )
+        //             artists = {(r["artist"], r["role"]) for r in cursor.fetchall()}
+        //             assert artists == {
+        //                 ("BLACKPINK", "main"),
+        //             }
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_uncached_with_existing_id() {
+        // Python source:
+        // def test_update_cache_releases_uncached_with_existing_id(config: Config) -> None:
+        //     """Test that IDs in filenames are read and preserved."""
+        //     release_dir = config.music_source_dir / TEST_RELEASE_2.name
+        //     shutil.copytree(TEST_RELEASE_2, release_dir)
+        //     update_cache_for_releases(config, [release_dir])
+        //
+        //     # Check that the release directory was given a UUID.
+        //     release_id: str | None = None
+        //     for f in release_dir.iterdir():
+        //         if m := STORED_DATA_FILE_REGEX.match(f.name):
+        //             release_id = m[1]
+        //     assert release_id == "ilovecarly"  # Hardcoded ID for testing.
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_preserves_track_ids_across_rebuilds() {
+        // Python source:
+        // def test_update_cache_releases_preserves_track_ids_across_rebuilds(config: Config) -> None:
+        //     """Test that track IDs are preserved across cache rebuilds."""
+        //     release_dir = config.music_source_dir / TEST_RELEASE_3.name
+        //     shutil.copytree(TEST_RELEASE_3, release_dir)
+        //     update_cache_for_releases(config, [release_dir])
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT id FROM tracks")
+        //         first_track_ids = {r["id"] for r in cursor}
+        //
+        //     # Nuke the database.
+        //     config.cache_database_path.unlink()
+        //     maybe_invalidate_cache_database(config)
+        //
+        //     # Repeat cache population.
+        //     update_cache_for_releases(config, [release_dir])
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT id FROM tracks")
+        //         second_track_ids = {r["id"] for r in cursor}
+        //
+        //     # Assert IDs are equivalent.
+        //     assert first_track_ids == second_track_ids
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_writes_ids_to_tags() {
+        // Python source:
+        // def test_update_cache_releases_writes_ids_to_tags(config: Config) -> None:
+        //     """Test that track IDs and release IDs are written to files."""
+        //     release_dir = config.music_source_dir / TEST_RELEASE_3.name
+        //     shutil.copytree(TEST_RELEASE_3, release_dir)
+        //
+        //     af = AudioTags.from_file(release_dir / "01.m4a")
+        //     assert af.id is None
+        //     assert af.release_id is None
+        //     af = AudioTags.from_file(release_dir / "02.m4a")
+        //     assert af.id is None
+        //     assert af.release_id is None
+        //
+        //     update_cache_for_releases(config, [release_dir])
+        //
+        //     af = AudioTags.from_file(release_dir / "01.m4a")
+        //     assert af.id is not None
+        //     assert af.release_id is not None
+        //     af = AudioTags.from_file(release_dir / "02.m4a")
+        //     assert af.id is not None
+        //     assert af.release_id is not None
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_already_fully_cached() {
+        // Python source:
+        // def test_update_cache_releases_already_fully_cached(config: Config) -> None:
+        //     """Test that a fully cached release No Ops when updated again."""
+        //     release_dir = config.music_source_dir / TEST_RELEASE_1.name
+        //     shutil.copytree(TEST_RELEASE_1, release_dir)
+        //     update_cache_for_releases(config, [release_dir])
+        //     update_cache_for_releases(config, [release_dir])
+        //
+        //     # Assert that the release metadata was read correctly.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute(
+        //             "SELECT id, source_path, title, releasetype, releasedate, new FROM releases",
+        //         )
+        //         row = cursor.fetchone()
+        //         assert row["source_path"] == str(release_dir)
+        //         assert row["title"] == "I Love Blackpink"
+        //         assert row["releasetype"] == "album"
+        //         assert row["releasedate"] == "1990-02-05"
+        //         assert row["new"]
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_to_empty_multi_value_tag() {
+        // Python source:
+        // def test_update_cache_releases_to_empty_multi_value_tag(config: Config) -> None:
+        //     """Test that 1:many relations are properly emptied when they are updated from something to nothing."""
+        //     release_dir = config.music_source_dir / TEST_RELEASE_1.name
+        //     shutil.copytree(TEST_RELEASE_1, release_dir)
+        //
+        //     update_cache(config)
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT EXISTS(SELECT * FROM releases_labels)")
+        //         assert cursor.fetchone()[0]
+        //
+        //     for fn in ["01.m4a", "02.m4a"]:
+        //         af = AudioTags.from_file(release_dir / fn)
+        //         af.label = []
+        //         af.flush(config)
+        //
+        //     update_cache(config)
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT EXISTS(SELECT * FROM releases_labels)")
+        //         assert not cursor.fetchone()[0]
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_disk_update_to_previously_cached() {
+        // Python source:
+        // def test_update_cache_releases_disk_update_to_previously_cached(config: Config) -> None:
+        //     """Test that a cached release is updated after a track updates."""
+        //     release_dir = config.music_source_dir / TEST_RELEASE_1.name
+        //     shutil.copytree(TEST_RELEASE_1, release_dir)
+        //     update_cache_for_releases(config, [release_dir])
+        //     # I'm too lazy to mutagen update the files, so instead we're going to update the database. And
+        //     # then touch a file to signify that "we modified it."
+        //     with connect(config) as conn:
+        //         conn.execute("UPDATE releases SET title = 'An Uncool Album'")
+        //         (release_dir / "01.m4a").touch()
+        //     update_cache_for_releases(config, [release_dir])
+        //
+        //     # Assert that the release metadata was re-read and updated correctly.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute(
+        //             "SELECT id, source_path, title, releasetype, releasedate, new FROM releases",
+        //         )
+        //         row = cursor.fetchone()
+        //         assert row["source_path"] == str(release_dir)
+        //         assert row["title"] == "I Love Blackpink"
+        //         assert row["releasetype"] == "album"
+        //         assert row["releasedate"] == "1990-02-05"
+        //         assert row["new"]
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_disk_update_to_datafile() {
+        // Python source:
+        // def test_update_cache_releases_disk_update_to_datafile(config: Config) -> None:
+        //     """Test that a cached release is updated after a datafile updates."""
+        //     release_dir = config.music_source_dir / TEST_RELEASE_1.name
+        //     shutil.copytree(TEST_RELEASE_1, release_dir)
+        //     update_cache_for_releases(config, [release_dir])
+        //     with connect(config) as conn:
+        //         conn.execute("UPDATE releases SET datafile_mtime = '0' AND new = false")
+        //     update_cache_for_releases(config, [release_dir])
+        //
+        //     # Assert that the release metadata was re-read and updated correctly.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT new, added_at FROM releases")
+        //         row = cursor.fetchone()
+        //         assert row["new"]
+        //         assert row["added_at"]
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_disk_upgrade_old_datafile() {
+        // Python source:
+        // def test_update_cache_releases_disk_upgrade_old_datafile(config: Config) -> None:
+        //     """Test that a legacy invalid datafile is upgraded on index."""
+        //     release_dir = config.music_source_dir / TEST_RELEASE_1.name
+        //     shutil.copytree(TEST_RELEASE_1, release_dir)
+        //     datafile = release_dir / ".rose.lalala.toml"
+        //     datafile.touch()
+        //     update_cache_for_releases(config, [release_dir])
+        //
+        //     # Assert that the release metadata was re-read and updated correctly.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT id, new, added_at FROM releases")
+        //         row = cursor.fetchone()
+        //         assert row["id"] == "lalala"
+        //         assert row["new"]
+        //         assert row["added_at"]
+        //     with datafile.open("r") as fp:
+        //         data = fp.read()
+        //         assert "new = true" in data
+        //         assert "added_at = " in data
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_source_path_renamed() {
+        // Python source:
+        // def test_update_cache_releases_source_path_renamed(config: Config) -> None:
+        //     """Test that a cached release is updated after a directory rename."""
+        //     release_dir = config.music_source_dir / TEST_RELEASE_1.name
+        //     shutil.copytree(TEST_RELEASE_1, release_dir)
+        //     update_cache_for_releases(config, [release_dir])
+        //     moved_release_dir = config.music_source_dir / "moved lol"
+        //     release_dir.rename(moved_release_dir)
+        //     update_cache_for_releases(config, [moved_release_dir])
+        //
+        //     # Assert that the release metadata was re-read and updated correctly.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute(
+        //             "SELECT id, source_path, title, releasetype, releasedate, new FROM releases",
+        //         )
+        //         row = cursor.fetchone()
+        //         assert row["source_path"] == str(moved_release_dir)
+        //         assert row["title"] == "I Love Blackpink"
+        //         assert row["releasetype"] == "album"
+        //         assert row["releasedate"] == "1990-02-05"
+        //         assert row["new"]
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_delete_nonexistent() {
+        // Python source:
+        // def test_update_cache_releases_delete_nonexistent(config: Config) -> None:
+        //     """Test that deleted releases that are no longer on disk are cleared from cache."""
+        //     with connect(config) as conn:
+        //         conn.execute(
+        //             """
+        //             INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, disctotal, metahash)
+        //             VALUES ('aaaaaa', '0000-01-01T00:00:00+00:00', '999', 'nonexistent', 'aa', 'unknown', false, '0')
+        //             """
+        //         )
+        //     update_cache_evict_nonexistent_releases(config)
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        //         assert cursor.fetchone()[0] == 0
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_enforces_max_len() {
+        // Python source:
+        // def test_update_cache_releases_enforces_max_len(config: Config) -> None:
+        //     """Test that an directory with no audio files is skipped."""
+        //     config = dataclasses.replace(config, rename_source_files=True, max_filename_bytes=15)
+        //     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "a")
+        //     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "b")
+        //     shutil.copy(TEST_RELEASE_1 / "01.m4a", config.music_source_dir / "b" / "03.m4a")
+        //     update_cache_for_releases(config)
+        //     assert set(config.music_source_dir.iterdir()) == {
+        //         config.music_source_dir / "BLACKPINK - 199",
+        //         config.music_source_dir / "BLACKPINK - [2]",
+        //     }
+        //     # Nondeterministic: Pick the one with the extra file.
+        //     children_1 = set((config.music_source_dir / "BLACKPINK - 199").iterdir())
+        //     children_2 = set((config.music_source_dir / "BLACKPINK - [2]").iterdir())
+        //     files = children_1 if len(children_1) > len(children_2) else children_2
+        //     release_dir = next(iter(files)).parent
+        //     assert release_dir / "01. Track 1.m4a" in files
+        //     assert release_dir / "01. Tra [2].m4a" in files
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_skips_empty_directory() {
+        // Python source:
+        // def test_update_cache_releases_skips_empty_directory(config: Config) -> None:
+        //     """Test that an directory with no audio files is skipped."""
+        //     rd = config.music_source_dir / "lalala"
+        //     rd.mkdir()
+        //     (rd / "ignoreme.file").touch()
+        //     update_cache_for_releases(config, [rd])
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        //         assert cursor.fetchone()[0] == 0
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_uncaches_empty_directory() {
+        // Python source:
+        // def test_update_cache_releases_uncaches_empty_directory(config: Config) -> None:
+        //     """Test that a previously-cached directory with no audio files now is cleared from cache."""
+        //     release_dir = config.music_source_dir / TEST_RELEASE_1.name
+        //     shutil.copytree(TEST_RELEASE_1, release_dir)
+        //     update_cache_for_releases(config, [release_dir])
+        //     shutil.rmtree(release_dir)
+        //     release_dir.mkdir()
+        //     update_cache_for_releases(config, [release_dir])
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        //         assert cursor.fetchone()[0] == 0
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_evicts_relations() {
+        // Python source:
+        // def test_update_cache_releases_evicts_relations(config: Config) -> None:
+        //     """
+        //     Test that related entities (artist, genre, label) that have been removed from the tags are
+        //     properly evicted from the cache on update.
+        //     """
+        //     release_dir = config.music_source_dir / TEST_RELEASE_2.name
+        //     shutil.copytree(TEST_RELEASE_2, release_dir)
+        //     # Initial cache population.
+        //     update_cache_for_releases(config, [release_dir])
+        //     # Pretend that we have more artists in the cache.
+        //     with connect(config) as conn:
+        //         conn.execute(
+        //             """
+        //             INSERT INTO releases_genres (release_id, genre, position)
+        //             VALUES ('ilovecarly', 'lalala', 2)
+        //             """,
+        //         )
+        //         conn.execute(
+        //             """
+        //             INSERT INTO releases_labels (release_id, label, position)
+        //             VALUES ('ilovecarly', 'lalala', 1)
+        //             """,
+        //         )
+        //         conn.execute(
+        //             """
+        //             INSERT INTO releases_artists (release_id, artist, role, position)
+        //             VALUES ('ilovecarly', 'lalala', 'main', 1)
+        //             """,
+        //         )
+        //         conn.execute(
+        //             """
+        //             INSERT INTO tracks_artists (track_id, artist, role, position)
+        //             SELECT id, 'lalala', 'main', 1 FROM tracks
+        //             """,
+        //         )
+        //     # Second cache refresh.
+        //     update_cache_for_releases(config, [release_dir], force=True)
+        //     # Assert that all of the above were evicted.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT EXISTS (SELECT * FROM releases_genres WHERE genre = 'lalala')")
+        //         assert not cursor.fetchone()[0]
+        //         cursor = conn.execute("SELECT EXISTS (SELECT * FROM releases_labels WHERE label = 'lalala')")
+        //         assert not cursor.fetchone()[0]
+        //         cursor = conn.execute("SELECT EXISTS (SELECT * FROM releases_artists WHERE artist = 'lalala')")
+        //         assert not cursor.fetchone()[0]
+        //         cursor = conn.execute("SELECT EXISTS (SELECT * FROM tracks_artists WHERE artist = 'lalala')")
+        //         assert not cursor.fetchone()[0]
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_ignores_directories() {
+        // Python source:
+        // def test_update_cache_releases_ignores_directories(config: Config) -> None:
+        //     """Test that the ignore_release_directories configuration value works."""
+        //     config = dataclasses.replace(config, ignore_release_directories=["lalala"])
+        //     release_dir = config.music_source_dir / "lalala"
+        //     shutil.copytree(TEST_RELEASE_1, release_dir)
+        //
+        //     # Test that both arg+no-arg ignore the directory.
+        //     update_cache_for_releases(config)
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        //         assert cursor.fetchone()[0] == 0
+        //
+        //     update_cache_for_releases(config)
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        //         assert cursor.fetchone()[0] == 0
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_notices_deleted_track() {
+        // Python source:
+        // def test_update_cache_releases_notices_deleted_track(config: Config) -> None:
+        //     """Test that we notice when a track is deleted."""
+        //     release_dir = config.music_source_dir / TEST_RELEASE_1.name
+        //     shutil.copytree(TEST_RELEASE_1, release_dir)
+        //     update_cache(config)
+        //
+        //     (release_dir / "02.m4a").unlink()
+        //     update_cache(config)
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM tracks")
+        //         assert cursor.fetchone()[0] == 1
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_ignores_partially_written_directory() {
+        // Python source:
+        // def test_update_cache_releases_ignores_partially_written_directory(config: Config) -> None:
+        //     """Test that a partially-written cached release is ignored."""
+        //     # 1. Write the directory and index it. This should give it IDs and shit.
+        //     release_dir = config.music_source_dir / TEST_RELEASE_1.name
+        //     shutil.copytree(TEST_RELEASE_1, release_dir)
+        //     update_cache(config)
+        //
+        //     # 2. Move the directory and "remove" the ID file.
+        //     renamed_release_dir = config.music_source_dir / "lalala"
+        //     release_dir.rename(renamed_release_dir)
+        //     datafile = next(f for f in renamed_release_dir.iterdir() if f.stem.startswith(".rose"))
+        //     tmpfile = datafile.with_name("tmp")
+        //     datafile.rename(tmpfile)
+        //
+        //     # 3. Re-update cache. We should see an empty cache now.
+        //     update_cache(config)
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        //         assert cursor.fetchone()[0] == 0
+        //
+        //     # 4. Put the datafile back. We should now see the release cache again properly.
+        //     datafile.with_name("tmp").rename(datafile)
+        //     update_cache(config)
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        //         assert cursor.fetchone()[0] == 1
+        //
+        //     # 5. Rename and remove the ID file again. We should see an empty cache again.
+        //     release_dir = renamed_release_dir
+        //     renamed_release_dir = config.music_source_dir / "bahaha"
+        //     release_dir.rename(renamed_release_dir)
+        //     next(f for f in renamed_release_dir.iterdir() if f.stem.startswith(".rose")).unlink()
+        //     update_cache(config)
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        //         assert cursor.fetchone()[0] == 0
+        //
+        //     # 6. Run with force=True. This should index the directory and make a new .rose.toml file.
+        //     update_cache(config, force=True)
+        //     assert (renamed_release_dir / datafile.name).is_file()
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM releases")
+        //         assert cursor.fetchone()[0] == 1
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_rename_source_files() {
+        // Python source:
+        // def test_update_cache_rename_source_files(config: Config) -> None:
+        //     """Test that we properly rename the source directory on cache update."""
+        //     config = dataclasses.replace(config, rename_source_files=True)
+        //     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+        //     (config.music_source_dir / TEST_RELEASE_1.name / "cover.jpg").touch()
+        //     update_cache(config)
+        //
+        //     expected_dir = config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]"
+        //     assert expected_dir in list(config.music_source_dir.iterdir())
+        //
+        //     files_in_dir = list(expected_dir.iterdir())
+        //     assert expected_dir / "01. Track 1.m4a" in files_in_dir
+        //     assert expected_dir / "02. Track 2.m4a" in files_in_dir
+        //
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT source_path, cover_image_path FROM releases")
+        //         row = cursor.fetchone()
+        //         assert Path(row["source_path"]) == expected_dir
+        //         assert Path(row["cover_image_path"]) == expected_dir / "cover.jpg"
+        //         cursor = conn.execute("SELECT source_path FROM tracks")
+        //         assert {Path(r[0]) for r in cursor} == {
+        //             expected_dir / "01. Track 1.m4a",
+        //             expected_dir / "02. Track 2.m4a",
+        //         }
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_add_cover_art() {
+        // Python source:
+        // def test_update_cache_add_cover_art(config: Config) -> None:
+        //     """
+        //     Test that adding a cover art (i.e. modifying release w/out modifying tracks) does not affect
+        //     the tracks.
+        //     """
+        //     config = dataclasses.replace(config, rename_source_files=True)
+        //     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+        //     update_cache(config)
+        //     expected_dir = config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]"
+        //
+        //     (expected_dir / "cover.jpg").touch()
+        //     update_cache(config)
+        //
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT source_path, cover_image_path FROM releases")
+        //         row = cursor.fetchone()
+        //         assert Path(row["source_path"]) == expected_dir
+        //         assert Path(row["cover_image_path"]) == expected_dir / "cover.jpg"
+        //         cursor = conn.execute("SELECT source_path FROM tracks")
+        //         assert {Path(r[0]) for r in cursor} == {
+        //             expected_dir / "01. Track 1.m4a",
+        //             expected_dir / "02. Track 2.m4a",
+        //         }
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_rename_source_files_nested_file_directories() {
+        // Python source:
+        // def test_update_cache_rename_source_files_nested_file_directories(config: Config) -> None:
+        //     """Test that we properly rename arbitrarily nested files and clean up the empty dirs."""
+        //     config = dataclasses.replace(config, rename_source_files=True)
+        //     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+        //     (config.music_source_dir / TEST_RELEASE_1.name / "lala").mkdir()
+        //     (config.music_source_dir / TEST_RELEASE_1.name / "01.m4a").rename(
+        //         config.music_source_dir / TEST_RELEASE_1.name / "lala" / "1.m4a"
+        //     )
+        //     update_cache(config)
+        //
+        //     expected_dir = config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]"
+        //     assert expected_dir in list(config.music_source_dir.iterdir())
+        //
+        //     files_in_dir = list(expected_dir.iterdir())
+        //     assert expected_dir / "01. Track 1.m4a" in files_in_dir
+        //     assert expected_dir / "02. Track 2.m4a" in files_in_dir
+        //     assert expected_dir / "lala" not in files_in_dir
+        //
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT source_path FROM releases")
+        //         assert Path(cursor.fetchone()[0]) == expected_dir
+        //         cursor = conn.execute("SELECT source_path FROM tracks")
+        //         assert {Path(r[0]) for r in cursor} == {
+        //             expected_dir / "01. Track 1.m4a",
+        //             expected_dir / "02. Track 2.m4a",
+        //         }
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_rename_source_files_collisions() {
+        // Python source:
+        // def test_update_cache_rename_source_files_collisions(config: Config) -> None:
+        //     """Test that we properly rename arbitrarily nested files and clean up the empty dirs."""
+        //     config = dataclasses.replace(config, rename_source_files=True)
+        //     # Three copies of the same directory, and two instances of Track 1.
+        //     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+        //     shutil.copyfile(
+        //         config.music_source_dir / TEST_RELEASE_1.name / "01.m4a",
+        //         config.music_source_dir / TEST_RELEASE_1.name / "haha.m4a",
+        //     )
+        //     shutil.copytree(config.music_source_dir / TEST_RELEASE_1.name, config.music_source_dir / "Number 2")
+        //     shutil.copytree(config.music_source_dir / TEST_RELEASE_1.name, config.music_source_dir / "Number 3")
+        //     update_cache(config)
+        //
+        //     release_dirs = list(config.music_source_dir.iterdir())
+        //     for expected_dir in [
+        //         config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]",
+        //         config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW] [2]",
+        //         config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW] [3]",
+        //     ]:
+        //         assert expected_dir in release_dirs
+        //
+        //         files_in_dir = list(expected_dir.iterdir())
+        //         assert expected_dir / "01. Track 1.m4a" in files_in_dir
+        //         assert expected_dir / "01. Track 1 [2].m4a" in files_in_dir
+        //         assert expected_dir / "02. Track 2.m4a" in files_in_dir
+        //
+        //         with connect(config) as conn:
+        //             cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(expected_dir),))
+        //             release_id = cursor.fetchone()[0]
+        //             assert release_id
+        //             cursor = conn.execute("SELECT source_path FROM tracks WHERE release_id = ?", (release_id,))
+        //             assert {Path(r[0]) for r in cursor} == {
+        //                 expected_dir / "01. Track 1.m4a",
+        //                 expected_dir / "01. Track 1 [2].m4a",
+        //                 expected_dir / "02. Track 2.m4a",
+        //             }
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_updates_full_text_search() {
+        // Python source:
+        // def test_update_cache_releases_updates_full_text_search(config: Config) -> None:
+        //     release_dir = config.music_source_dir / TEST_RELEASE_1.name
+        //     shutil.copytree(TEST_RELEASE_1, release_dir)
+        //
+        //     update_cache_for_releases(config, [release_dir])
+        //     with connect(config) as conn:
+        //         cursor = conn.execute(
+        //             """
+        //             SELECT rowid, * FROM rules_engine_fts
+        //             """
+        //         )
+        //         cursor = conn.execute(
+        //             """
+        //             SELECT rowid, * FROM tracks
+        //             """
+        //         )
+        //     with connect(config) as conn:
+        //         cursor = conn.execute(
+        //             """
+        //             SELECT t.source_path
+        //             FROM rules_engine_fts s
+        //             JOIN tracks t ON t.rowid = s.rowid
+        //             WHERE s.tracktitle MATCH 'r a c k'
+        //             """
+        //         )
+        //         fnames = {Path(r["source_path"]) for r in cursor}
+        //         assert fnames == {
+        //             release_dir / "01.m4a",
+        //             release_dir / "02.m4a",
+        //         }
+        //
+        //     # And then test the DELETE+INSERT behavior. And that the query still works.
+        //     update_cache_for_releases(config, [release_dir], force=True)
+        //     with connect(config) as conn:
+        //         cursor = conn.execute(
+        //             """
+        //             SELECT t.source_path
+        //             FROM rules_engine_fts s
+        //             JOIN tracks t ON t.rowid = s.rowid
+        //             WHERE s.tracktitle MATCH 'r a c k'
+        //             """
+        //         )
+        //         fnames = {Path(r["source_path"]) for r in cursor}
+        //         assert fnames == {
+        //             release_dir / "01.m4a",
+        //             release_dir / "02.m4a",
+        //         }
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_releases_new_directory_same_path() {
+        // Python source:
+        // def test_update_cache_releases_new_directory_same_path(config: Config) -> None:
+        //     """If a previous release is replaced by a new release with the same path, avoid a source_path unique conflict."""
+        //     release_dir = config.music_source_dir / TEST_RELEASE_1.name
+        //     shutil.copytree(TEST_RELEASE_1, release_dir)
+        //     update_cache(config)
+        //     shutil.rmtree(release_dir)
+        //     shutil.copytree(TEST_RELEASE_2, release_dir)
+        //     # Should not error.
+        //     update_cache(config)
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_collages() {
+        // Python source:
+        // def test_update_cache_collages(config: Config) -> None:
+        //     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+        //     shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
+        //     update_cache(config)
+        //
+        //     # Assert that the collage metadata was read correctly.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT name, source_mtime FROM collages")
+        //         rows = cursor.fetchall()
+        //         assert len(rows) == 1
+        //         row = rows[0]
+        //         assert row["name"] == "Rose Gold"
+        //         assert row["source_mtime"]
+        //
+        //         cursor = conn.execute("SELECT collage_name, release_id, position FROM collages_releases WHERE NOT missing")
+        //         rows = cursor.fetchall()
+        //         assert len(rows) == 1
+        //         row = rows[0]
+        //         assert row["collage_name"] == "Rose Gold"
+        //         assert row["release_id"] == "ilovecarly"
+        //         assert row["position"] == 1
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_collages_missing_release_id() {
+        // Python source:
+        // def test_update_cache_collages_missing_release_id(config: Config) -> None:
+        //     shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
+        //     update_cache(config)
+        //
+        //     # Assert that the releases in the collage were read as missing.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM collages_releases WHERE missing")
+        //         assert cursor.fetchone()[0] == 2
+        //     # Assert that source file was updated to set the releases missing.
+        //     with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
+        //         data = tomllib.load(fp)
+        //     assert len(data["releases"]) == 2
+        //     assert len([r for r in data["releases"] if r["missing"]]) == 2
+        //
+        //     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+        //     shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
+        //     update_cache(config)
+        //
+        //     # Assert that the releases in the collage were unflagged as missing.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM collages_releases WHERE NOT missing")
+        //         assert cursor.fetchone()[0] == 2
+        //     # Assert that source file was updated to remove the missing flag.
+        //     with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
+        //         data = tomllib.load(fp)
+        //     assert len([r for r in data["releases"] if "missing" not in r]) == 2
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_collages_missing_release_id_multiprocessing() {
+        // Python source:
+        // def test_update_cache_collages_missing_release_id_multiprocessing(config: Config) -> None:
+        //     shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
+        //     update_cache(config)
+        //
+        //     # Assert that the releases in the collage were read as missing.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM collages_releases WHERE missing")
+        //         assert cursor.fetchone()[0] == 2
+        //     # Assert that source file was updated to set the releases missing.
+        //     with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
+        //         data = tomllib.load(fp)
+        //     assert len(data["releases"]) == 2
+        //     assert len([r for r in data["releases"] if r["missing"]]) == 2
+        //
+        //     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+        //     shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
+        //     update_cache(config, force_multiprocessing=True)
+        //
+        //     # Assert that the releases in the collage were unflagged as missing.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM collages_releases WHERE NOT missing")
+        //         assert cursor.fetchone()[0] == 2
+        //     # Assert that source file was updated to remove the missing flag.
+        //     with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
+        //         data = tomllib.load(fp)
+        //     assert len([r for r in data["releases"] if "missing" not in r]) == 2
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_collages_on_release_rename() {
+        // Python source:
+        // def test_update_cache_collages_on_release_rename(config: Config) -> None:
+        //     """
+        //     Test that a renamed release source directory does not remove the release from any collages. This
+        //     can occur because the rename operation is executed in SQL as release deletion followed by
+        //     release creation.
+        //     """
+        //     shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
+        //     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+        //     shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
+        //     update_cache(config)
+        //
+        //     (config.music_source_dir / TEST_RELEASE_2.name).rename(config.music_source_dir / "lalala")
+        //     update_cache(config)
+        //
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT collage_name, release_id, position FROM collages_releases")
+        //         rows = [dict(r) for r in cursor]
+        //         assert rows == [
+        //             {"collage_name": "Rose Gold", "release_id": "ilovecarly", "position": 1},
+        //             {"collage_name": "Rose Gold", "release_id": "ilovenewjeans", "position": 2},
+        //         ]
+        //
+        //     # Assert that source file was not updated to remove the release.
+        //     with (config.music_source_dir / "!collages" / "Rose Gold.toml").open("rb") as fp:
+        //         data = tomllib.load(fp)
+        //     assert not [r for r in data["releases"] if "missing" in r]
+        //     assert len(data["releases"]) == 2
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_playlists() {
+        // Python source:
+        // def test_update_cache_playlists(config: Config) -> None:
+        //     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+        //     shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
+        //     update_cache(config)
+        //
+        //     # Assert that the playlist metadata was read correctly.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT name, source_mtime, cover_path FROM playlists")
+        //         rows = cursor.fetchall()
+        //         assert len(rows) == 1
+        //         row = rows[0]
+        //         assert row["name"] == "Lala Lisa"
+        //         assert row["source_mtime"] is not None
+        //         assert row["cover_path"] == str(config.music_source_dir / "!playlists" / "Lala Lisa.jpg")
+        //
+        //         cursor = conn.execute("SELECT playlist_name, track_id, position FROM playlists_tracks ORDER BY position")
+        //         assert [dict(r) for r in cursor] == [
+        //             {"playlist_name": "Lala Lisa", "track_id": "iloveloona", "position": 1},
+        //             {"playlist_name": "Lala Lisa", "track_id": "ilovetwice", "position": 2},
+        //         ]
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_playlists_missing_track_id() {
+        // Python source:
+        // def test_update_cache_playlists_missing_track_id(config: Config) -> None:
+        //     shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
+        //     update_cache(config)
+        //
+        //     # Assert that the tracks in the playlist were read as missing.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM playlists_tracks WHERE missing")
+        //         assert cursor.fetchone()[0] == 2
+        //     # Assert that source file was updated to set the tracks missing.
+        //     with (config.music_source_dir / "!playlists" / "Lala Lisa.toml").open("rb") as fp:
+        //         data = tomllib.load(fp)
+        //     assert len(data["tracks"]) == 2
+        //     assert len([r for r in data["tracks"] if r["missing"]]) == 2
+        //
+        //     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+        //     update_cache(config)
+        //
+        //     # Assert that the tracks in the playlist were unflagged as missing.
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT COUNT(*) FROM playlists_tracks WHERE NOT missing")
+        //         assert cursor.fetchone()[0] == 2
+        //     # Assert that source file was updated to remove the missing flag.
+        //     with (config.music_source_dir / "!playlists" / "Lala Lisa.toml").open("rb") as fp:
+        //         data = tomllib.load(fp)
+        //     assert len([r for r in data["tracks"] if "missing" not in r]) == 2
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_releases_updates_collages_description_meta() {
+        // Python source:
+        // @pytest.mark.parametrize("multiprocessing", [True, False])
+        // def test_update_releases_updates_collages_description_meta(config: Config, multiprocessing: bool) -> None:
+        //     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+        //     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+        //     shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
+        //     shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
+        //     cpath = config.music_source_dir / "!collages" / "Rose Gold.toml"
+        //
+        //     # First cache update: releases are inserted, collage is new. This should update the collage
+        //     # TOML.
+        //     update_cache(config)
+        //     with cpath.open("r") as fp:
+        //         cfg = fp.read()
+        //         assert (
+        //             cfg
+        //             == """\
+        // releases = [
+        //     { uuid = "ilovecarly", description_meta = "[1990-02-05] Carly Rae Jepsen - I Love Carly" },
+        //     { uuid = "ilovenewjeans", description_meta = "[1990-02-05] NewJeans - I Love NewJeans" },
+        // ]
+        // """
+        //         )
+        //
+        //     # Now prep for the second update. Reset the TOML to have garbage again, and update the database
+        //     # such that the virtual dirnames are also incorrect.
+        //     with cpath.open("w") as fp:
+        //         fp.write(
+        //             """\
+        // [[releases]]
+        // uuid = "ilovecarly"
+        // description_meta = "lalala"
+        // [[releases]]
+        // uuid = "ilovenewjeans"
+        // description_meta = "hahaha"
+        // """
+        //         )
+        //
+        //     # Second cache update: releases exist, collages exist, release is "updated." This should also
+        //     # trigger a metadata update.
+        //     update_cache_for_releases(config, force=True, force_multiprocessing=multiprocessing)
+        //     with cpath.open("r") as fp:
+        //         cfg = fp.read()
+        //         assert (
+        //             cfg
+        //             == """\
+        // releases = [
+        //     { uuid = "ilovecarly", description_meta = "[1990-02-05] Carly Rae Jepsen - I Love Carly" },
+        //     { uuid = "ilovenewjeans", description_meta = "[1990-02-05] NewJeans - I Love NewJeans" },
+        // ]
+        // """
+        //         )
+
+        // TODO: Implement test (with both multiprocessing=true and false)
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_tracks_updates_playlists_description_meta() {
+        // Python source:
+        // @pytest.mark.parametrize("multiprocessing", [True, False])
+        // def test_update_tracks_updates_playlists_description_meta(config: Config, multiprocessing: bool) -> None:
+        //     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+        //     shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
+        //     ppath = config.music_source_dir / "!playlists" / "Lala Lisa.toml"
+        //
+        //     # First cache update: tracks are inserted, playlist is new. This should update the playlist
+        //     # TOML.
+        //     update_cache(config)
+        //     with ppath.open("r") as fp:
+        //         cfg = fp.read()
+        //         assert (
+        //             cfg
+        //             == """\
+        // tracks = [
+        //     { uuid = "iloveloona", description_meta = "[1990-02-05] Carly Rae Jepsen - Track 1" },
+        //     { uuid = "ilovetwice", description_meta = "[1990-02-05] Carly Rae Jepsen - Track 2" },
+        // ]
+        // """
+        //         )
+        //
+        //     # Now prep for the second update. Reset the TOML to have garbage again, and update the database
+        //     # such that the virtual filenames are also incorrect.
+        //     with ppath.open("w") as fp:
+        //         fp.write(
+        //             """\
+        // [[tracks]]
+        // uuid = "iloveloona"
+        // description_meta = "lalala"
+        // [[tracks]]
+        // uuid = "ilovetwice"
+        // description_meta = "hahaha"
+        // """
+        //         )
+        //
+        //     # Second cache update: tracks exist, playlists exist, track is "updated." This should also
+        //     # trigger a metadata update.
+        //     update_cache_for_releases(config, force=True, force_multiprocessing=multiprocessing)
+        //     with ppath.open("r") as fp:
+        //         cfg = fp.read()
+        //         assert (
+        //             cfg
+        //             == """\
+        // tracks = [
+        //     { uuid = "iloveloona", description_meta = "[1990-02-05] Carly Rae Jepsen - Track 1" },
+        //     { uuid = "ilovetwice", description_meta = "[1990-02-05] Carly Rae Jepsen - Track 2" },
+        // ]
+        // """
+        //         )
+
+        // TODO: Implement test (with both multiprocessing=true and false)
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_update_cache_playlists_on_release_rename() {
+        // Python source:
+        // def test_update_cache_playlists_on_release_rename(config: Config) -> None:
+        //     """
+        //     Test that a renamed release source directory does not remove any of its tracks any playlists.
+        //     This can occur because when a release is renamed, we remove all tracks from the database and
+        //     then reinsert them.
+        //     """
+        //     shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
+        //     shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
+        //     update_cache(config)
+        //
+        //     (config.music_source_dir / TEST_RELEASE_2.name).rename(config.music_source_dir / "lalala")
+        //     update_cache(config)
+        //
+        //     with connect(config) as conn:
+        //         cursor = conn.execute("SELECT playlist_name, track_id, position FROM playlists_tracks")
+        //         rows = [dict(r) for r in cursor]
+        //         assert rows == [
+        //             {"playlist_name": "Lala Lisa", "track_id": "iloveloona", "position": 1},
+        //             {"playlist_name": "Lala Lisa", "track_id": "ilovetwice", "position": 2},
+        //         ]
+        //
+        //     # Assert that source file was not updated to remove the track.
+        //     with (config.music_source_dir / "!playlists" / "Lala Lisa.toml").open("rb") as fp:
+        //         data = tomllib.load(fp)
+        //     assert not [t for t in data["tracks"] if "missing" in t]
+        //     assert len(data["tracks"]) == 2
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_list_releases() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_list_releases(config: Config) -> None:
+        //     expected = [
+        //         Release(
+        //             datafile_mtime="999",
+        //             id="r1",
+        //             source_path=Path(config.music_source_dir / "r1"),
+        //             cover_image_path=None,
+        //             added_at="0000-01-01T00:00:00+00:00",
+        //             releasetitle="Release 1",
+        //             releasetype="album",
+        //             compositiondate=None,
+        //             catalognumber=None,
+        //             releasedate=RoseDate(2023),
+        //             disctotal=1,
+        //             new=False,
+        //             genres=["Techno", "Deep House"],
+        //             parent_genres=[
+        //                 "Dance",
+        //                 "Electronic",
+        //                 "Electronic Dance Music",
+        //                 "House",
+        //             ],
+        //             originaldate=None,
+        //             edition=None,
+        //             secondary_genres=["Rominimal", "Ambient"],
+        //             parent_secondary_genres=[
+        //                 "Dance",
+        //                 "Electronic",
+        //                 "Electronic Dance Music",
+        //                 "House",
+        //                 "Tech House",
+        //             ],
+        //             descriptors=["Warm", "Hot"],
+        //             labels=["Silk Music"],
+        //             releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+        //             metahash="1",
+        //         ),
+        //         Release(
+        //             datafile_mtime="999",
+        //             id="r2",
+        //             source_path=Path(config.music_source_dir / "r2"),
+        //             cover_image_path=Path(config.music_source_dir / "r2" / "cover.jpg"),
+        //             added_at="0000-01-01T00:00:00+00:00",
+        //             releasetitle="Release 2",
+        //             releasetype="album",
+        //             releasedate=RoseDate(2021),
+        //             compositiondate=None,
+        //             catalognumber="DG-001",
+        //             disctotal=1,
+        //             new=True,
+        //             genres=["Modern Classical"],
+        //             parent_genres=["Classical Music", "Western Classical Music"],
+        //             labels=["Native State"],
+        //             originaldate=RoseDate(2019),
+        //             edition="Deluxe",
+        //             secondary_genres=["Orchestral Music"],
+        //             parent_secondary_genres=[
+        //                 "Classical Music",
+        //                 "Western Classical Music",
+        //             ],
+        //             descriptors=["Wet"],
+        //             releaseartists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
+        //             metahash="2",
+        //         ),
+        //         Release(
+        //             datafile_mtime="999",
+        //             id="r3",
+        //             source_path=Path(config.music_source_dir / "r3"),
+        //             cover_image_path=None,
+        //             added_at="0000-01-01T00:00:00+00:00",
+        //             releasetitle="Release 3",
+        //             releasetype="album",
+        //             releasedate=RoseDate(2021, 4, 20),
+        //             compositiondate=RoseDate(1780),
+        //             catalognumber="DG-002",
+        //             disctotal=1,
+        //             new=False,
+        //             genres=[],
+        //             parent_genres=[],
+        //             labels=[],
+        //             originaldate=None,
+        //             edition=None,
+        //             secondary_genres=[],
+        //             parent_secondary_genres=[],
+        //             descriptors=[],
+        //             releaseartists=ArtistMapping(),
+        //             metahash="3",
+        //         ),
+        //         Release(
+        //             datafile_mtime="999",
+        //             id="r4",
+        //             source_path=Path(config.music_source_dir / "r4"),
+        //             cover_image_path=None,
+        //             added_at="0000-01-01T00:00:00+00:00",
+        //             releasetitle="Release 4",
+        //             releasetype="loosetrack",
+        //             releasedate=RoseDate(2021, 4, 20),
+        //             compositiondate=RoseDate(1780),
+        //             catalognumber="DG-002",
+        //             disctotal=1,
+        //             new=False,
+        //             genres=[],
+        //             parent_genres=[],
+        //             labels=[],
+        //             originaldate=None,
+        //             edition=None,
+        //             secondary_genres=[],
+        //             parent_secondary_genres=[],
+        //             descriptors=[],
+        //             releaseartists=ArtistMapping(),
+        //             metahash="4",
+        //         ),
+        //     ]
+        //
+        //     assert list_releases(config) == expected
+        //     assert list_releases(config, ["r1"]) == expected[:1]
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_get_release_and_associated_tracks() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_get_release_and_associated_tracks(config: Config) -> None:
+        //     release = get_release(config, "r1")
+        //     assert release is not None
+        //     assert release == Release(
+        //         datafile_mtime="999",
+        //         id="r1",
+        //         source_path=Path(config.music_source_dir / "r1"),
+        //         cover_image_path=None,
+        //         added_at="0000-01-01T00:00:00+00:00",
+        //         releasetitle="Release 1",
+        //         releasetype="album",
+        //         releasedate=RoseDate(2023),
+        //         compositiondate=None,
+        //         catalognumber=None,
+        //         disctotal=1,
+        //         new=False,
+        //         genres=["Techno", "Deep House"],
+        //         parent_genres=[
+        //             "Dance",
+        //             "Electronic",
+        //             "Electronic Dance Music",
+        //             "House",
+        //         ],
+        //         labels=["Silk Music"],
+        //         originaldate=None,
+        //         edition=None,
+        //         secondary_genres=["Rominimal", "Ambient"],
+        //         parent_secondary_genres=[
+        //             "Dance",
+        //             "Electronic",
+        //             "Electronic Dance Music",
+        //             "House",
+        //             "Tech House",
+        //         ],
+        //         descriptors=["Warm", "Hot"],
+        //         releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+        //         metahash="1",
+        //     )
+        //
+        //     expected_tracks = [
+        //         Track(
+        //             id="t1",
+        //             source_path=config.music_source_dir / "r1" / "01.m4a",
+        //             source_mtime="999",
+        //             tracktitle="Track 1",
+        //             tracknumber="01",
+        //             tracktotal=2,
+        //             discnumber="01",
+        //             duration_seconds=120,
+        //             trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+        //             metahash="1",
+        //             release=release,
+        //         ),
+        //         Track(
+        //             id="t2",
+        //             source_path=config.music_source_dir / "r1" / "02.m4a",
+        //             source_mtime="999",
+        //             tracktitle="Track 2",
+        //             tracknumber="02",
+        //             tracktotal=2,
+        //             discnumber="01",
+        //             duration_seconds=240,
+        //             trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+        //             metahash="2",
+        //             release=release,
+        //         ),
+        //     ]
+        //
+        //     assert get_tracks_of_release(config, release) == expected_tracks
+        //     assert get_tracks_of_releases(config, [release]) == [(release, expected_tracks)]
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_get_release_applies_artist_aliases() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_get_release_applies_artist_aliases(config: Config) -> None:
+        //     config = dataclasses.replace(
+        //         config,
+        //         artist_aliases_map={"Hype Boy": ["Bass Man"], "Bubble Gum": ["Hype Boy"]},
+        //         artist_aliases_parents_map={"Bass Man": ["Hype Boy"], "Hype Boy": ["Bubble Gum"]},
+        //     )
+        //     release = get_release(config, "r1")
+        //     assert release is not None
+        //     assert release.releaseartists == ArtistMapping(
+        //         main=[
+        //             Artist("Techno Man"),
+        //             Artist("Bass Man"),
+        //             Artist("Hype Boy", True),
+        //             Artist("Bubble Gum", True),
+        //         ],
+        //     )
+        //     tracks = get_tracks_of_release(config, release)
+        //     for t in tracks:
+        //         assert t.trackartists == ArtistMapping(
+        //             main=[
+        //                 Artist("Techno Man"),
+        //                 Artist("Bass Man"),
+        //                 Artist("Hype Boy", True),
+        //                 Artist("Bubble Gum", True),
+        //             ],
+        //         )
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_get_release_logtext() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_get_release_logtext(config: Config) -> None:
+        //     assert get_release_logtext(config, "r1") == "Techno Man & Bass Man - 2023. Release 1"
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_list_tracks() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_list_tracks(config: Config) -> None:
+        //     expected = [
+        //         Track(
+        //             id="t1",
+        //             source_path=config.music_source_dir / "r1" / "01.m4a",
+        //             source_mtime="999",
+        //             tracktitle="Track 1",
+        //             tracknumber="01",
+        //             tracktotal=2,
+        //             discnumber="01",
+        //             duration_seconds=120,
+        //             trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+        //             metahash="1",
+        //             release=Release(...), # Full release object with all fields
+        //         ),
+        //         Track(
+        //             id="t2",
+        //             source_path=config.music_source_dir / "r1" / "02.m4a",
+        //             source_mtime="999",
+        //             tracktitle="Track 2",
+        //             tracknumber="02",
+        //             tracktotal=2,
+        //             discnumber="01",
+        //             duration_seconds=240,
+        //             trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+        //             metahash="2",
+        //             release=Release(...), # Full release object with all fields
+        //         ),
+        //         Track(
+        //             id="t3",
+        //             source_path=config.music_source_dir / "r2" / "01.m4a",
+        //             source_mtime="999",
+        //             tracktitle="Track 1",
+        //             tracknumber="01",
+        //             tracktotal=1,
+        //             discnumber="01",
+        //             duration_seconds=120,
+        //             trackartists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
+        //             metahash="3",
+        //             release=Release(...), # Full release object with all fields
+        //         ),
+        //         Track(
+        //             id="t4",
+        //             source_path=config.music_source_dir / "r3" / "01.m4a",
+        //             source_mtime="999",
+        //             tracktitle="Track 1",
+        //             tracknumber="01",
+        //             tracktotal=1,
+        //             discnumber="01",
+        //             duration_seconds=120,
+        //             trackartists=ArtistMapping(),
+        //             metahash="4",
+        //             release=Release(...), # Full release object with all fields
+        //         ),
+        //         Track(
+        //             id="t5",
+        //             source_path=config.music_source_dir / "r4" / "01.m4a",
+        //             source_mtime="999",
+        //             tracktitle="Track 1",
+        //             tracknumber="01",
+        //             tracktotal=1,
+        //             discnumber="01",
+        //             duration_seconds=120,
+        //             trackartists=ArtistMapping(),
+        //             metahash="5",
+        //             release=Release(...), # Full release object with all fields
+        //         ),
+        //     ]
+        //
+        //     assert list_tracks(config) == expected
+        //     assert list_tracks(config, ["t1", "t2"]) == expected[:2]
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_get_track() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_get_track(config: Config) -> None:
+        //     assert get_track(config, "t1") == Track(
+        //         id="t1",
+        //         source_path=config.music_source_dir / "r1" / "01.m4a",
+        //         source_mtime="999",
+        //         tracktitle="Track 1",
+        //         tracknumber="01",
+        //         tracktotal=2,
+        //         discnumber="01",
+        //         duration_seconds=120,
+        //         trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+        //         metahash="1",
+        //         release=Release(...), # Full release object matching r1
+        //     )
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_track_within_release() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_track_within_release(config: Config) -> None:
+        //     assert track_within_release(config, "t1", "r1")
+        //     assert not track_within_release(config, "t3", "r1")
+        //     assert not track_within_release(config, "lalala", "r1")
+        //     assert not track_within_release(config, "t1", "lalala")
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_track_within_playlist() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_track_within_playlist(config: Config) -> None:
+        //     assert track_within_playlist(config, "t1", "Lala Lisa")
+        //     assert not track_within_playlist(config, "t2", "Lala Lisa")
+        //     assert not track_within_playlist(config, "lalala", "Lala Lisa")
+        //     assert not track_within_playlist(config, "t1", "lalala")
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_release_within_collage() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_release_within_collage(config: Config) -> None:
+        //     assert release_within_collage(config, "r1", "Rose Gold")
+        //     assert not release_within_collage(config, "r1", "Ruby Red")
+        //     assert not release_within_collage(config, "lalala", "Rose Gold")
+        //     assert not release_within_collage(config, "r1", "lalala")
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_get_track_logtext() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_get_track_logtext(config: Config) -> None:
+        //     assert get_track_logtext(config, "t1") == "Techno Man & Bass Man - Track 1 [2023].m4a"
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_list_artists() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_list_artists(config: Config) -> None:
+        //     artists = list_artists(config)
+        //     assert set(artists) == {
+        //         "Techno Man",
+        //         "Bass Man",
+        //         "Violin Woman",
+        //         "Conductor Woman",
+        //     }
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_list_genres() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_list_genres(config: Config) -> None:
+        //     # Test the accumulator too.
+        //     with connect(config) as conn:
+        //         conn.execute("INSERT INTO releases_genres (release_id, genre, position) VALUES ('r3', 'Classical Music', 1)")
+        //     genres = list_genres(config)
+        //     assert set(genres) == {
+        //         GenreEntry("Techno", False),
+        //         GenreEntry("Deep House", False),
+        //         GenreEntry("Dance", False),
+        //         GenreEntry("Electronic", False),
+        //         GenreEntry("Electronic Dance Music", False),
+        //         GenreEntry("House", False),
+        //         GenreEntry("Modern Classical", True),
+        //         GenreEntry("Western Classical Music", True),
+        //         GenreEntry("Classical Music", False),  # Final parent genre has not-new r3.
+        //     }
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    fn test_list_descriptors() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_list_descriptors(config: Config) -> None:
+        //     descriptors = list_descriptors(config)
+        //     assert set(descriptors) == {
+        //         DescriptorEntry("Warm", False),
+        //         DescriptorEntry("Hot", False),
+        //         DescriptorEntry("Wet", True),
+        //     }
+
+        let (config, _temp_dir) = testing::seeded_cache();
+
+        let descriptors = list_descriptors(&config).unwrap();
+        let descriptor_set: std::collections::HashSet<_> = descriptors.into_iter().collect();
+        let expected: std::collections::HashSet<_> = vec![
+            DescriptorEntry {
+                name: "Warm".to_string(),
+                only_new_releases: false,
+            },
+            DescriptorEntry {
+                name: "Hot".to_string(),
+                only_new_releases: false,
+            },
+            DescriptorEntry {
+                name: "Wet".to_string(),
+                only_new_releases: true,
+            },
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(descriptor_set, expected);
+    }
+
+    #[test]
+    fn test_list_labels() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_list_labels(config: Config) -> None:
+        //     labels = list_labels(config)
+        //     assert set(labels) == {
+        //         LabelEntry("Silk Music", False),
+        //         LabelEntry("Native State", True),
+        //     }
+
+        let (config, _temp_dir) = testing::seeded_cache();
+
+        let labels = list_labels(&config).unwrap();
+        let label_set: std::collections::HashSet<_> = labels.into_iter().collect();
+        let expected: std::collections::HashSet<_> = vec![
+            LabelEntry {
+                name: "Silk Music".to_string(),
+                only_new_releases: false,
+            },
+            LabelEntry {
+                name: "Native State".to_string(),
+                only_new_releases: true,
+            },
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(label_set, expected);
+    }
+
+    #[test]
+    fn test_list_collages() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_list_collages(config: Config) -> None:
+        //     collages = list_collages(config)
+        //     assert set(collages) == {"Rose Gold", "Ruby Red"}
+
+        let (config, _temp_dir) = testing::seeded_cache();
+
+        let collages = list_collages(&config).unwrap();
+        let collage_set: std::collections::HashSet<_> = collages.into_iter().map(|c| c.name).collect();
+        let expected: std::collections::HashSet<_> = vec!["Rose Gold".to_string(), "Ruby Red".to_string()].into_iter().collect();
+        assert_eq!(collage_set, expected);
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_get_collage() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_get_collage(config: Config) -> None:
+        //     assert get_collage(config, "Rose Gold") == Collage(
+        //         name="Rose Gold",
+        //         source_mtime="999",
+        //     )
+        //     assert get_collage_releases(config, "Rose Gold") == [
+        //         Release(
+        //             id="r1",
+        //             source_path=config.music_source_dir / "r1",
+        //             cover_image_path=None,
+        //             added_at="0000-01-01T00:00:00+00:00",
+        //             datafile_mtime="999",
+        //             releasetitle="Release 1",
+        //             releasetype="album",
+        //             releasedate=RoseDate(2023),
+        //             compositiondate=None,
+        //             catalognumber=None,
+        //             new=False,
+        //             disctotal=1,
+        //             genres=["Techno", "Deep House"],
+        //             parent_genres=[
+        //                 "Dance",
+        //                 "Electronic",
+        //                 "Electronic Dance Music",
+        //                 "House",
+        //             ],
+        //             labels=["Silk Music"],
+        //             originaldate=None,
+        //             edition=None,
+        //             secondary_genres=["Rominimal", "Ambient"],
+        //             parent_secondary_genres=[
+        //                 "Dance",
+        //                 "Electronic",
+        //                 "Electronic Dance Music",
+        //                 "House",
+        //                 "Tech House",
+        //             ],
+        //             descriptors=["Warm", "Hot"],
+        //             releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+        //             metahash="1",
+        //         ),
+        //         Release(
+        //             id="r2",
+        //             source_path=config.music_source_dir / "r2",
+        //             cover_image_path=config.music_source_dir / "r2" / "cover.jpg",
+        //             added_at="0000-01-01T00:00:00+00:00",
+        //             datafile_mtime="999",
+        //             releasetitle="Release 2",
+        //             releasetype="album",
+        //             releasedate=RoseDate(2021),
+        //             compositiondate=None,
+        //             catalognumber="DG-001",
+        //             new=True,
+        //             disctotal=1,
+        //             genres=["Modern Classical"],
+        //             parent_genres=["Classical Music", "Western Classical Music"],
+        //             labels=["Native State"],
+        //             originaldate=RoseDate(2019),
+        //             edition="Deluxe",
+        //             secondary_genres=["Orchestral Music"],
+        //             parent_secondary_genres=[
+        //                 "Classical Music",
+        //                 "Western Classical Music",
+        //             ],
+        //             descriptors=["Wet"],
+        //             releaseartists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
+        //             metahash="2",
+        //         ),
+        //     ]
+        //
+        //     assert get_collage(config, "Ruby Red") == Collage(
+        //         name="Ruby Red",
+        //         source_mtime="999",
+        //     )
+        //     assert get_collage_releases(config, "Ruby Red") == []
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    fn test_list_playlists() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_list_playlists(config: Config) -> None:
+        //     playlists = list_playlists(config)
+        //     assert set(playlists) == {"Lala Lisa", "Turtle Rabbit"}
+
+        let (config, _temp_dir) = testing::seeded_cache();
+
+        let playlists = list_playlists(&config).unwrap();
+        let playlist_set: std::collections::HashSet<_> = playlists.into_iter().map(|p| p.name).collect();
+        let expected: std::collections::HashSet<_> = vec!["Lala Lisa".to_string(), "Turtle Rabbit".to_string()].into_iter().collect();
+        assert_eq!(playlist_set, expected);
+    }
+
+    #[test]
+    #[ignore = "Not yet implemented"]
+    fn test_get_playlist() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_get_playlist(config: Config) -> None:
+        //     assert get_playlist(config, "Lala Lisa") == Playlist(
+        //         name="Lala Lisa",
+        //         source_mtime="999",
+        //         cover_path=config.music_source_dir / "!playlists" / "Lala Lisa.jpg",
+        //     )
+        //     assert get_playlist_tracks(config, "Lala Lisa") == [
+        //         Track(
+        //             id="t1",
+        //             source_path=config.music_source_dir / "r1" / "01.m4a",
+        //             source_mtime="999",
+        //             tracktitle="Track 1",
+        //             tracknumber="01",
+        //             tracktotal=2,
+        //             discnumber="01",
+        //             duration_seconds=120,
+        //             trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+        //             metahash="1",
+        //             release=Release(
+        //                 datafile_mtime="999",
+        //                 id="r1",
+        //                 source_path=Path(config.music_source_dir / "r1"),
+        //                 cover_image_path=None,
+        //                 added_at="0000-01-01T00:00:00+00:00",
+        //                 releasetitle="Release 1",
+        //                 releasetype="album",
+        //                 releasedate=RoseDate(2023),
+        //                 compositiondate=None,
+        //                 catalognumber=None,
+        //                 disctotal=1,
+        //                 new=False,
+        //                 genres=["Techno", "Deep House"],
+        //                 parent_genres=[
+        //                     "Dance",
+        //                     "Electronic",
+        //                     "Electronic Dance Music",
+        //                     "House",
+        //                 ],
+        //                 labels=["Silk Music"],
+        //                 originaldate=None,
+        //                 edition=None,
+        //                 secondary_genres=["Rominimal", "Ambient"],
+        //                 parent_secondary_genres=[
+        //                     "Dance",
+        //                     "Electronic",
+        //                     "Electronic Dance Music",
+        //                     "House",
+        //                     "Tech House",
+        //                 ],
+        //                 descriptors=["Warm", "Hot"],
+        //                 releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
+        //                 metahash="1",
+        //             ),
+        //         ),
+        //         Track(
+        //             id="t3",
+        //             source_path=config.music_source_dir / "r2" / "01.m4a",
+        //             source_mtime="999",
+        //             tracktitle="Track 1",
+        //             tracknumber="01",
+        //             tracktotal=1,
+        //             discnumber="01",
+        //             duration_seconds=120,
+        //             trackartists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
+        //             metahash="3",
+        //             release=Release(
+        //                 id="r2",
+        //                 source_path=config.music_source_dir / "r2",
+        //                 cover_image_path=config.music_source_dir / "r2" / "cover.jpg",
+        //                 added_at="0000-01-01T00:00:00+00:00",
+        //                 datafile_mtime="999",
+        //                 releasetitle="Release 2",
+        //                 releasetype="album",
+        //                 releasedate=RoseDate(2021),
+        //                 compositiondate=None,
+        //                 catalognumber="DG-001",
+        //                 new=True,
+        //                 disctotal=1,
+        //                 genres=["Modern Classical"],
+        //                 parent_genres=["Classical Music", "Western Classical Music"],
+        //                 labels=["Native State"],
+        //                 originaldate=RoseDate(2019),
+        //                 edition="Deluxe",
+        //                 secondary_genres=["Orchestral Music"],
+        //                 parent_secondary_genres=[
+        //                     "Classical Music",
+        //                     "Western Classical Music",
+        //                 ],
+        //                 descriptors=["Wet"],
+        //                 releaseartists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
+        //                 metahash="2",
+        //             ),
+        //         ),
+        //     ]
+
+        // TODO: Implement test
+    }
+
+    #[test]
+    fn test_artist_exists() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_artist_exists(config: Config) -> None:
+        //     assert artist_exists(config, "Bass Man")
+        //     assert not artist_exists(config, "lalala")
+
+        let (config, _temp_dir) = testing::seeded_cache();
+
+        assert!(artist_exists(&config, "Bass Man").unwrap());
+        assert!(!artist_exists(&config, "lalala").unwrap());
+    }
+
+    #[test]
+    fn test_artist_exists_with_alias() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_artist_exists_with_alias(config: Config) -> None:
+        //     config = dataclasses.replace(
+        //         config,
+        //         artist_aliases_map={"Hype Boy": ["Bass Man"]},
+        //         artist_aliases_parents_map={"Bass Man": ["Hype Boy"]},
+        //     )
+        //     assert artist_exists(config, "Hype Boy")
+
+        let (mut config, _temp_dir) = testing::seeded_cache();
+
+        // Create alias mappings
+        let mut artist_aliases_map = HashMap::new();
+        artist_aliases_map.insert("Hype Boy".to_string(), vec!["Bass Man".to_string()]);
+
+        let mut artist_aliases_parents_map = HashMap::new();
+        artist_aliases_parents_map.insert("Bass Man".to_string(), vec!["Hype Boy".to_string()]);
+
+        config.artist_aliases_map = artist_aliases_map;
+        config.artist_aliases_parents_map = artist_aliases_parents_map;
+
+        assert!(artist_exists(&config, "Hype Boy").unwrap());
+    }
+
+    #[test]
+    fn test_artist_exists_with_alias_transient() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_artist_exists_with_alias_transient(config: Config) -> None:
+        //     config = dataclasses.replace(
+        //         config,
+        //         artist_aliases_map={"Hype Boy": ["Bass Man"], "Bubble Gum": ["Hype Boy"]},
+        //         artist_aliases_parents_map={"Bass Man": ["Hype Boy"], "Hype Boy": ["Bubble Gum"]},
+        //     )
+        //     assert artist_exists(config, "Bubble Gum")
+
+        let (mut config, _temp_dir) = testing::seeded_cache();
+
+        // Create alias mappings
+        let mut artist_aliases_map = HashMap::new();
+        artist_aliases_map.insert("Hype Boy".to_string(), vec!["Bass Man".to_string()]);
+        artist_aliases_map.insert("Bubble Gum".to_string(), vec!["Hype Boy".to_string()]);
+
+        let mut artist_aliases_parents_map = HashMap::new();
+        artist_aliases_parents_map.insert("Bass Man".to_string(), vec!["Hype Boy".to_string()]);
+        artist_aliases_parents_map.insert("Hype Boy".to_string(), vec!["Bubble Gum".to_string()]);
+
+        config.artist_aliases_map = artist_aliases_map;
+        config.artist_aliases_parents_map = artist_aliases_parents_map;
+
+        assert!(artist_exists(&config, "Bubble Gum").unwrap());
+    }
+
+    #[test]
+    fn test_genre_exists() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_genre_exists(config: Config) -> None:
+        //     assert genre_exists(config, "Deep House")
+        //     assert not genre_exists(config, "lalala")
+        //     # Parent genre
+        //     assert genre_exists(config, "Electronic")
+        //     # Child genre
+        //     assert not genre_exists(config, "Lo-Fi House")
+
+        let (config, _temp_dir) = testing::seeded_cache();
+
+        assert!(genre_exists(&config, "Deep House").unwrap());
+        assert!(!genre_exists(&config, "lalala").unwrap());
+        // Parent genre
+        assert!(genre_exists(&config, "Electronic").unwrap());
+        // Child genre
+        assert!(!genre_exists(&config, "Lo-Fi House").unwrap());
+    }
+
+    #[test]
+    fn test_descriptor_exists() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_descriptor_exists(config: Config) -> None:
+        //     assert descriptor_exists(config, "Warm")
+        //     assert not descriptor_exists(config, "Icy")
+
+        let (config, _temp_dir) = testing::seeded_cache();
+
+        assert!(descriptor_exists(&config, "Warm").unwrap());
+        assert!(!descriptor_exists(&config, "Icy").unwrap());
+    }
+
+    #[test]
+    fn test_label_exists() {
+        // Python source:
+        // @pytest.mark.usefixtures("seeded_cache")
+        // def test_label_exists(config: Config) -> None:
+        //     assert label_exists(config, "Silk Music")
+        //     assert not label_exists(config, "Cotton Music")
+
+        let (config, _temp_dir) = testing::seeded_cache();
+
+        assert!(label_exists(&config, "Silk Music").unwrap());
+        assert!(!label_exists(&config, "Cotton Music").unwrap());
     }
 }

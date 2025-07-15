@@ -3,9 +3,9 @@
 ///
 /// The audiotags module also handles Rose-specific tagging semantics, such as multi-valued tags,
 /// normalization, artist formatting, and enum validation.
-/// 
+///
 /// ## Known Limitations
-/// 
+///
 /// Due to limitations in the lofty library (v0.22+), custom/unknown tags cannot be written to
 /// Vorbis comment-based formats (FLAC, Ogg Vorbis, Opus). This affects the following tags:
 /// - roseid / rosereleaseid
@@ -14,16 +14,17 @@
 /// - secondarygenre
 /// - descriptor
 /// - edition
-/// 
+///
 /// These tags can be read if they already exist (e.g., created by other tools like mutagen),
 /// but cannot be written or updated. Standard tags work correctly.
-use crate::common::{uniq, Artist, ArtistMapping, Result, RoseDate, RoseError, RoseExpectedError};
+use crate::common::{uniq, Artist, ArtistMapping, RoseDate};
 use crate::config::Config;
+use crate::errors::{Result, RoseError, RoseExpectedError};
 use crate::genre_hierarchy::TRANSITIVE_PARENT_GENRES;
+use lofty::config::WriteOptions;
+use lofty::file::FileType;
 use lofty::prelude::*;
 use lofty::tag::{ItemKey, ItemValue, Tag, TagItem, TagType};
-use lofty::file::FileType;
-use lofty::config::WriteOptions;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashSet;
@@ -110,7 +111,7 @@ impl RoseDate {
             let day = caps.get(3).and_then(|m| m.as_str().parse::<u32>().ok());
             return Some(RoseDate { year, month, day });
         }
-        
+
         // Then try parsing as year only
         if let Ok(year) = value.parse::<i32>() {
             return Some(RoseDate {
@@ -158,47 +159,34 @@ impl AudioTags {
     /// Read the tags of an audio file on disk.
     pub fn from_file(p: &Path) -> Result<Self> {
         // Check if the file has a supported extension
-        let ext = p.extension()
-            .and_then(|e| e.to_str())
-            .map(|e| format!(".{}", e.to_lowercase()));
+        let ext = p.extension().and_then(|e| e.to_str()).map(|e| format!(".{}", e.to_lowercase()));
 
-        let is_supported = ext.as_ref()
-            .map(|e| SUPPORTED_AUDIO_EXTENSIONS.contains(&e.as_str()))
-            .unwrap_or(false);
+        let is_supported = ext.as_ref().map(|e| SUPPORTED_AUDIO_EXTENSIONS.contains(&e.as_str())).unwrap_or(false);
 
         if !is_supported {
-            return Err(UnsupportedFiletypeError(
-                format!(
-                    "{} not a supported filetype",
-                    ext.unwrap_or_else(|| "No extension".to_string())
-                )
-            ).into());
+            return Err(UnsupportedFiletypeError(format!("{} not a supported filetype", ext.unwrap_or_else(|| "No extension".to_string()))).into());
         }
 
         // Read the file with lofty
-        let probe = lofty::probe::Probe::open(p)
-            .map_err(|e| UnsupportedFiletypeError(format!("Failed to open file: {}", e)))?;
-        
-        let tagged_file = probe.read()
-            .map_err(|e| UnsupportedFiletypeError(format!("Failed to open file: {}", e)))?;
-        
+        let probe = lofty::probe::Probe::open(p).map_err(|e| UnsupportedFiletypeError(format!("Failed to open file: {e}")))?;
+
+        let tagged_file = probe.read().map_err(|e| UnsupportedFiletypeError(format!("Failed to open file: {e}")))?;
+
         let properties = tagged_file.properties();
         let duration_sec = properties.duration().as_secs() as i32;
-        
+
         // Get the primary tag based on file type
         let tag = match tagged_file.primary_tag() {
             Some(tag) => tag,
             None => return Err(UnsupportedFiletypeError(format!("{} is not a supported audio file", p.display())).into()),
         };
-        
+
         let file_type = tagged_file.file_type();
-        
+
         match file_type {
             FileType::Mpeg => Self::from_mp3_tags(tag, p, duration_sec),
             FileType::Mp4 => Self::from_mp4_tags(tag, p, duration_sec),
-            FileType::Flac | FileType::Vorbis | FileType::Opus => {
-                Self::from_vorbis_tags(tag, p, duration_sec)
-            }
+            FileType::Flac | FileType::Vorbis | FileType::Opus => Self::from_vorbis_tags(tag, p, duration_sec),
             _ => Err(UnsupportedFiletypeError(format!("{} is not a supported audio file", p.display())).into()),
         }
     }
@@ -212,19 +200,15 @@ impl AudioTags {
         let disctotal = disctotal.or_else(|| parse_int(get_tag(tag, &["disctotal"], false, true).ok()?.as_deref()));
 
         // Get paired frame values for producer and DJ, or fallback to standard tags
-        let producer = get_paired_frame(tag, "producer")
-            .or_else(|| get_tag(tag, &["producer"], true, false).ok().flatten());
-        let dj = get_paired_frame(tag, "DJ-mix")
-            .or_else(|| get_tag(tag, &["djmixer"], true, false).ok().flatten());
+        let producer = get_paired_frame(tag, "producer").or_else(|| get_tag(tag, &["producer"], true, false).ok().flatten());
+        let dj = get_paired_frame(tag, "DJ-mix").or_else(|| get_tag(tag, &["djmixer"], true, false).ok().flatten());
 
         Ok(AudioTags {
             id: get_tag(tag, &["TXXX:ROSEID"], false, true)?,
             release_id: get_tag(tag, &["TXXX:ROSERELEASEID"], false, true)?,
             tracktitle: get_tag(tag, &["TIT2", "title"], false, false)?,
             releasedate: RoseDate::parse(get_tag(tag, &["TDRC", "TYER", "TDAT", "date"], false, false)?.as_deref()),
-            originaldate: RoseDate::parse(
-                get_tag(tag, &["TXXX:ORIGINALDATE", "TDOR", "TORY", "originaldate"], false, false)?.as_deref()
-            ),
+            originaldate: RoseDate::parse(get_tag(tag, &["TXXX:ORIGINALDATE", "TDOR", "TORY", "originaldate"], false, false)?.as_deref()),
             compositiondate: RoseDate::parse(get_tag(tag, &["TXXX:COMPOSITIONDATE", "COMPOSITIONDATE"], false, true)?.as_deref()),
             tracknumber,
             tracktotal,
@@ -237,13 +221,9 @@ impl AudioTags {
             label: split_tag(get_tag(tag, &["TPUB", "label"], true, false)?.as_deref()),
             catalognumber: get_tag(tag, &["TXXX:CATALOGNUMBER", "catalognumber"], false, true)?,
             edition: get_tag(tag, &["TXXX:EDITION", "EDITION"], false, true)?,
-            releasetype: normalize_rtype(
-                get_tag(tag, &["TXXX:RELEASETYPE", "TXXX:MusicBrainz Album Type", "RELEASETYPE"], false, true)?.as_deref()
-            ).to_string(),
-            releaseartists: parse_artist_string(
-                get_tag(tag, &["TPE2", "albumartist"], true, false)?.as_deref(),
-                None, None, None, None, None
-            ),
+            releasetype: normalize_rtype(get_tag(tag, &["TXXX:RELEASETYPE", "TXXX:MusicBrainz Album Type", "RELEASETYPE"], false, true)?.as_deref())
+                .to_string(),
+            releaseartists: parse_artist_string(get_tag(tag, &["TPE2", "albumartist"], true, false)?.as_deref(), None, None, None, None, None),
             trackartists: parse_artist_string(
                 get_tag(tag, &["TPE1", "artist"], true, false)?.as_deref(),
                 get_tag(tag, &["TPE4", "remixer"], true, false)?.as_deref(),
@@ -261,14 +241,20 @@ impl AudioTags {
     fn from_mp4_tags(tag: &Tag, p: &Path, duration_sec: i32) -> Result<Self> {
         // For MP4, track and disc numbers might be stored as tuples or separate tags
         // First try standard tags, then fall back to MP4-specific tuple format
-        let tracknumber = get_tag(tag, &["tracknumber"], false, true).ok().flatten()
+        let tracknumber = get_tag(tag, &["tracknumber"], false, true)
+            .ok()
+            .flatten()
             .or_else(|| get_mp4_tuple(tag, "trkn").0.map(|n| n.to_string()));
-        let tracktotal = get_tag(tag, &["tracktotal"], false, true).ok()
+        let tracktotal = get_tag(tag, &["tracktotal"], false, true)
+            .ok()
             .and_then(|s| parse_int(s.as_deref()))
             .or_else(|| get_mp4_tuple(tag, "trkn").1.map(|n| n as i32));
-        let discnumber = get_tag(tag, &["discnumber"], false, true).ok().flatten()
+        let discnumber = get_tag(tag, &["discnumber"], false, true)
+            .ok()
+            .flatten()
             .or_else(|| get_mp4_tuple(tag, "disk").0.map(|n| n.to_string()));
-        let disctotal = get_tag(tag, &["disctotal"], false, true).ok()
+        let disctotal = get_tag(tag, &["disctotal"], false, true)
+            .ok()
             .and_then(|s| parse_int(s.as_deref()))
             .or_else(|| get_mp4_tuple(tag, "disk").1.map(|n| n as i32));
 
@@ -278,11 +264,17 @@ impl AudioTags {
             tracktitle: get_tag(tag, &["©nam", "title"], false, false)?,
             releasedate: RoseDate::parse(get_tag(tag, &["©day", "date"], false, false)?.as_deref()),
             originaldate: RoseDate::parse(
-                get_tag(tag, &[
-                    "----:net.sunsetglow.rose:ORIGINALDATE",
-                    "----:com.apple.iTunes:ORIGINALDATE",
-                    "----:com.apple.iTunes:ORIGINALYEAR",
-                ], false, false)?.as_deref()
+                get_tag(
+                    tag,
+                    &[
+                        "----:net.sunsetglow.rose:ORIGINALDATE",
+                        "----:com.apple.iTunes:ORIGINALDATE",
+                        "----:com.apple.iTunes:ORIGINALYEAR",
+                    ],
+                    false,
+                    false,
+                )?
+                .as_deref(),
             ),
             compositiondate: RoseDate::parse(get_tag(tag, &["----:net.sunsetglow.rose:COMPOSITIONDATE"], false, false)?.as_deref()),
             tracknumber,
@@ -291,23 +283,22 @@ impl AudioTags {
             disctotal,
             releasetitle: get_tag(tag, &["©alb", "album"], false, false)?,
             genre: split_genre_tag(get_tag(tag, &["©gen", "genre"], true, false)?.as_deref()),
-            secondarygenre: split_genre_tag(
-                get_tag(tag, &["----:net.sunsetglow.rose:SECONDARYGENRE"], true, false)?.as_deref()
-            ),
+            secondarygenre: split_genre_tag(get_tag(tag, &["----:net.sunsetglow.rose:SECONDARYGENRE"], true, false)?.as_deref()),
             descriptor: split_tag(get_tag(tag, &["----:net.sunsetglow.rose:DESCRIPTOR"], true, false)?.as_deref()),
             label: split_tag(get_tag(tag, &["----:com.apple.iTunes:LABEL", "label"], true, false)?.as_deref()),
             catalognumber: get_tag(tag, &["----:com.apple.iTunes:CATALOGNUMBER", "catalognumber"], false, false)?,
             edition: get_tag(tag, &["----:net.sunsetglow.rose:EDITION"], false, false)?,
             releasetype: normalize_rtype(
-                get_tag(tag, &[
-                    "----:com.apple.iTunes:RELEASETYPE",
-                    "----:com.apple.iTunes:MusicBrainz Album Type",
-                ], false, true)?.as_deref()
-            ).to_string(),
-            releaseartists: parse_artist_string(
-                get_tag(tag, &["aART", "albumartist"], true, false)?.as_deref(),
-                None, None, None, None, None
-            ),
+                get_tag(
+                    tag,
+                    &["----:com.apple.iTunes:RELEASETYPE", "----:com.apple.iTunes:MusicBrainz Album Type"],
+                    false,
+                    true,
+                )?
+                .as_deref(),
+            )
+            .to_string(),
+            releaseartists: parse_artist_string(get_tag(tag, &["aART", "albumartist"], true, false)?.as_deref(), None, None, None, None, None),
             trackartists: parse_artist_string(
                 get_tag(tag, &["©ART", "artist"], true, false)?.as_deref(),
                 get_tag(tag, &["----:com.apple.iTunes:REMIXER", "remixer"], true, false)?.as_deref(),
@@ -332,13 +323,12 @@ impl AudioTags {
                 get_tag(tag, &["originaldate", "originalyear"], false, false)?
                     .or_else(|| {
                         // Also check the standard key
-                        tag.get(&ItemKey::OriginalReleaseDate)
-                            .and_then(|item| match item.value() {
-                                ItemValue::Text(text) => Some(text.clone()),
-                                _ => None,
-                            })
+                        tag.get(&ItemKey::OriginalReleaseDate).and_then(|item| match item.value() {
+                            ItemValue::Text(text) => Some(text.clone()),
+                            _ => None,
+                        })
                     })
-                    .as_deref()
+                    .as_deref(),
             ),
             compositiondate: RoseDate::parse(get_tag(tag, &["compositiondate"], false, false)?.as_deref()),
             tracknumber: get_tag(tag, &["tracknumber"], false, true)?,
@@ -353,10 +343,7 @@ impl AudioTags {
             catalognumber: get_tag(tag, &["catalognumber"], false, false)?,
             edition: get_tag(tag, &["edition"], false, false)?,
             releasetype: normalize_rtype(get_tag(tag, &["releasetype"], false, true)?.as_deref()).to_string(),
-            releaseartists: parse_artist_string(
-                get_tag(tag, &["albumartist"], true, false)?.as_deref(),
-                None, None, None, None, None
-            ),
+            releaseartists: parse_artist_string(get_tag(tag, &["albumartist"], true, false)?.as_deref(), None, None, None, None, None),
             trackartists: parse_artist_string(
                 get_tag(tag, &["artist"], true, false)?.as_deref(),
                 get_tag(tag, &["remixer"], true, false)?.as_deref(),
@@ -384,14 +371,12 @@ impl AudioTags {
         }
 
         // Read the file to determine type
-        let probe = lofty::probe::Probe::open(&self.path)
-            .map_err(|e| RoseError::Generic(format!("Failed to open file: {}", e)))?;
-        
-        let mut tagged_file = probe.read()
-            .map_err(|e| RoseError::Generic(format!("Failed to read file: {}", e)))?;
-        
+        let probe = lofty::probe::Probe::open(&self.path).map_err(|e| RoseError::Generic(format!("Failed to open file: {e}")))?;
+
+        let mut tagged_file = probe.read().map_err(|e| RoseError::Generic(format!("Failed to read file: {e}")))?;
+
         let file_type = tagged_file.file_type();
-        
+
         // Get or create the primary tag
         let tag = match tagged_file.primary_tag_mut() {
             Some(tag) => tag,
@@ -403,28 +388,27 @@ impl AudioTags {
                     FileType::Flac => TagType::VorbisComments,
                     FileType::Vorbis => TagType::VorbisComments,
                     FileType::Opus => TagType::VorbisComments,
-                    _ => return Err(RoseError::Generic(format!("Unsupported file type: {:?}", file_type))),
+                    _ => return Err(RoseError::Generic(format!("Unsupported file type: {file_type:?}"))),
                 };
                 tagged_file.insert_tag(Tag::new(tag_type));
                 tagged_file.primary_tag_mut().unwrap()
             }
         };
-        
+
         match file_type {
             FileType::Mpeg => self.flush_mp3_tags(tag, c),
             FileType::Mp4 => self.flush_mp4_tags(tag, c),
-            FileType::Flac | FileType::Vorbis | FileType::Opus => {
-                self.flush_vorbis_tags(tag, c)
-            }
-            _ => return Err(RoseError::Generic(format!("Impossible: unknown file type: {:?}", file_type))),
+            FileType::Flac | FileType::Vorbis | FileType::Opus => self.flush_vorbis_tags(tag, c),
+            _ => return Err(RoseError::Generic(format!("Impossible: unknown file type: {file_type:?}"))),
         }
-        
+
         // Save the file
-        tagged_file.save_to_path(&self.path, WriteOptions::default())
-            .map_err(|e| RoseError::Generic(format!("Failed to save file: {}", e)))?;
-        
+        tagged_file
+            .save_to_path(&self.path, WriteOptions::default())
+            .map_err(|e| RoseError::Generic(format!("Failed to save file: {e}")))?;
+
         println!("File saved successfully");
-        
+
         Ok(())
     }
 
@@ -451,7 +435,7 @@ impl AudioTags {
         write_tag_with_description(tag, "TXXX:RELEASETYPE", Some(&self.releasetype));
         write_standard_tag(tag, "TPE2", Some(&format_artist_string(&self.releaseartists)));
         write_standard_tag(tag, "TPE1", Some(&format_artist_string(&self.trackartists)));
-        
+
         // Wipe the alt. role artist tags, since we encode the full artist into the main tag.
         tag.remove_key(&ItemKey::Unknown("TPE4".to_string()));
         tag.remove_key(&ItemKey::Unknown("TCOM".to_string()));
@@ -466,11 +450,23 @@ impl AudioTags {
         set_tag(tag, "----:net.sunsetglow.rose:RELEASEID", self.release_id.as_deref());
         set_tag(tag, "©nam", self.tracktitle.as_deref());
         set_tag(tag, "©day", self.releasedate.as_ref().map(|d| d.to_string()).as_deref());
-        set_tag(tag, "----:net.sunsetglow.rose:ORIGINALDATE", self.originaldate.as_ref().map(|d| d.to_string()).as_deref());
-        set_tag(tag, "----:net.sunsetglow.rose:COMPOSITIONDATE", self.compositiondate.as_ref().map(|d| d.to_string()).as_deref());
+        set_tag(
+            tag,
+            "----:net.sunsetglow.rose:ORIGINALDATE",
+            self.originaldate.as_ref().map(|d| d.to_string()).as_deref(),
+        );
+        set_tag(
+            tag,
+            "----:net.sunsetglow.rose:COMPOSITIONDATE",
+            self.compositiondate.as_ref().map(|d| d.to_string()).as_deref(),
+        );
         set_tag(tag, "©alb", self.releasetitle.as_deref());
         set_tag(tag, "©gen", Some(&format_genre_tag(&self.genre, c.write_parent_genres)));
-        set_tag(tag, "----:net.sunsetglow.rose:SECONDARYGENRE", Some(&format_genre_tag(&self.secondarygenre, c.write_parent_genres)));
+        set_tag(
+            tag,
+            "----:net.sunsetglow.rose:SECONDARYGENRE",
+            Some(&format_genre_tag(&self.secondarygenre, c.write_parent_genres)),
+        );
         set_tag(tag, "----:net.sunsetglow.rose:DESCRIPTOR", Some(&self.descriptor.join(";")));
         set_tag(tag, "----:com.apple.iTunes:LABEL", Some(&self.label.join(";")));
         set_tag(tag, "----:com.apple.iTunes:CATALOGNUMBER", self.catalognumber.as_deref());
@@ -478,18 +474,18 @@ impl AudioTags {
         set_tag(tag, "----:com.apple.iTunes:RELEASETYPE", Some(&self.releasetype));
         set_tag(tag, "aART", Some(&format_artist_string(&self.releaseartists)));
         set_tag(tag, "©ART", Some(&format_artist_string(&self.trackartists)));
-        
+
         // Write track and disc numbers
         // First get the previous totals to preserve them
         let (_, prev_track_total) = get_mp4_tuple(tag, "trkn");
         let (_, prev_disc_total) = get_mp4_tuple(tag, "disk");
-        
+
         let track_num = self.tracknumber.as_ref().and_then(|s| s.parse::<u16>().ok()).unwrap_or(0);
         let disc_num = self.discnumber.as_ref().and_then(|s| s.parse::<u16>().ok()).unwrap_or(0);
-        
+
         set_mp4_tuple(tag, "trkn", track_num, prev_track_total.unwrap_or(1));
         set_mp4_tuple(tag, "disk", disc_num, prev_disc_total.unwrap_or(1));
-        
+
         // Wipe the alt. role artist tags
         tag.remove_key(&ItemKey::Unknown("----:com.apple.iTunes:REMIXER".to_string()));
         tag.remove_key(&ItemKey::Unknown("----:com.apple.iTunes:PRODUCER".to_string()));
@@ -511,10 +507,7 @@ impl AudioTags {
         tag.remove_key(&ItemKey::Unknown("originaldate".to_string()));
         if let Some(date) = &self.originaldate {
             // Try to set both - lofty might preserve one or the other
-            tag.insert(TagItem::new(
-                ItemKey::OriginalReleaseDate,
-                ItemValue::Text(date.to_string()),
-            ));
+            tag.insert(TagItem::new(ItemKey::OriginalReleaseDate, ItemValue::Text(date.to_string())));
         }
         set_tag(tag, "compositiondate", self.compositiondate.as_ref().map(|d| d.to_string()).as_deref());
         set_tag(tag, "tracknumber", self.tracknumber.as_deref());
@@ -529,7 +522,7 @@ impl AudioTags {
         set_tag(tag, "releasetype", Some(&self.releasetype));
         set_tag(tag, "albumartist", Some(&format_artist_string(&self.releaseartists)));
         set_tag(tag, "artist", Some(&format_artist_string(&self.trackartists)));
-        
+
         // Wipe the alt. role artist tags - need to remove both Unknown and standard keys
         tag.remove_key(&ItemKey::Unknown("remixer".to_string()));
         tag.remove_key(&ItemKey::Remixer);
@@ -553,8 +546,8 @@ fn get_tag(tag: &Tag, keys: &[&str], split: bool, first: bool) -> Result<Option<
         let is_format_specific = key.starts_with("T") || // ID3v2 frames
                                 key.starts_with("©") || // MP4 atoms
                                 key.starts_with("----:") || // MP4 custom atoms
-                                key.contains(":");  // TXXX frames
-        
+                                key.contains(":"); // TXXX frames
+
         let item_keys = if is_format_specific {
             vec![ItemKey::Unknown(key.to_string())]
         } else {
@@ -581,33 +574,30 @@ fn get_tag(tag: &Tag, keys: &[&str], split: bool, first: bool) -> Result<Option<
                     "djmixer" => ItemKey::MixDj,
                     "catalognumber" => ItemKey::CatalogNumber,
                     _ => ItemKey::Unknown(key.to_string()),
-                }
+                },
             ]
         };
-        
+
         for item_key in item_keys {
             let items: Vec<_> = tag.get_items(&item_key).collect();
             if !items.is_empty() {
                 let mut values = Vec::new();
-                
+
                 // For MP4 tags like ©gen, multiple values might be stored in a single item
                 for item in items {
-                    match item.value() {
-                        ItemValue::Text(text) => {
-                            // Check if this is actually multiple values joined (MP4 sometimes does this)
-                            if split && key.starts_with("©") && text.contains(" \\\\ ") {
-                                // It's already joined with our separator, split it
-                                values.extend(text.split(" \\\\ ").map(|s| s.to_string()));
-                            } else if split {
-                                values.extend(split_tag(Some(text)));
-                            } else {
-                                values.push(text.clone());
-                            }
+                    if let ItemValue::Text(text) = item.value() {
+                        // Check if this is actually multiple values joined (MP4 sometimes does this)
+                        if split && key.starts_with("©") && text.contains(" \\\\ ") {
+                            // It's already joined with our separator, split it
+                            values.extend(text.split(" \\\\ ").map(|s| s.to_string()));
+                        } else if split {
+                            values.extend(split_tag(Some(text)));
+                        } else {
+                            values.push(text.clone());
                         }
-                        _ => {}
                     }
                 }
-                
+
                 if !values.is_empty() {
                     if first {
                         return Ok(Some(values[0].clone()));
@@ -631,19 +621,19 @@ fn get_paired_frame(tag: &Tag, role: &str) -> Option<String> {
                 // We need to parse this and find matching roles
                 let parts: Vec<&str> = text.split('\0').collect();
                 let mut people = Vec::new();
-                
+
                 // Iterate through pairs
                 for i in (0..parts.len()).step_by(2) {
                     if i + 1 < parts.len() {
                         let item_role = parts[i];
                         let person = parts[i + 1];
-                        
+
                         if item_role.to_lowercase() == role.to_lowercase() {
                             people.push(person);
                         }
                     }
                 }
-                
+
                 if !people.is_empty() {
                     return Some(people.join(r" \\ "));
                 }
@@ -690,9 +680,9 @@ fn get_mp4_tuple(tag: &Tag, key: &str) -> (Option<u16>, Option<u16>) {
 fn set_tag(tag: &mut Tag, key: &str, value: Option<&str>) {
     // Debug output for releasetype
     if key == "releasetype" {
-        println!("set_tag called with key: {:?}, value: {:?}", key, value);
+        println!("set_tag called with key: {key:?}, value: {value:?}");
     }
-    
+
     // Map common keys to standard ItemKey values
     let item_key = match key {
         "album" => ItemKey::AlbumTitle,
@@ -722,16 +712,13 @@ fn set_tag(tag: &mut Tag, key: &str, value: Option<&str>) {
         "compositiondate" => ItemKey::Unknown(key.to_string()),
         _ => ItemKey::Unknown(key.to_string()),
     };
-    
+
     // First remove any existing tag with this key
     tag.remove_key(&item_key);
-    
+
     match value {
         Some(v) if !v.is_empty() => {
-            tag.insert(TagItem::new(
-                item_key,
-                ItemValue::Text(v.to_string()),
-            ));
+            tag.insert(TagItem::new(item_key, ItemValue::Text(v.to_string())));
         }
         _ => {
             // Already removed above
@@ -759,11 +746,8 @@ fn set_mp4_tuple(tag: &mut Tag, key: &str, current: u16, total: u16) {
         let mut data = vec![0u8; 6];
         data[2..4].copy_from_slice(&current.to_be_bytes());
         data[4..6].copy_from_slice(&total.to_be_bytes());
-        
-        tag.insert(TagItem::new(
-            ItemKey::from_key(TagType::Mp4Ilst, key),
-            ItemValue::Binary(data),
-        ));
+
+        tag.insert(TagItem::new(ItemKey::from_key(TagType::Mp4Ilst, key), ItemValue::Binary(data)));
     } else {
         tag.remove_key(&ItemKey::from_key(TagType::Mp4Ilst, key));
     }
@@ -961,8 +945,8 @@ pub fn format_artist_string(mapping: &ArtistMapping) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::fs;
+    use tempfile::TempDir;
 
     #[test]
     fn test_split_tag() {
@@ -1058,27 +1042,27 @@ mod tests {
         assert!(RoseDate::parse(Some("not a date")).is_none());
         assert!(RoseDate::parse(None).is_none());
     }
-    
-    use std::path::PathBuf;
-    use std::collections::HashMap;
+
     use crate::config::VirtualFSConfig;
     use crate::templates::{PathTemplate, PathTemplateConfig};
-    
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+
     fn test_tagger_path() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("testdata").join("Tagger")
     }
-    
+
     fn test_config() -> Config {
         use crate::templates::PathTemplateTriad;
-        
+
         let default_template = PathTemplate::new("{albumartist}/{album}".to_string());
-        
+
         let default_triad = PathTemplateTriad {
             release: default_template.clone(),
             track: default_template.clone(),
             all_tracks: default_template.clone(),
         };
-        
+
         Config {
             music_source_dir: PathBuf::from("/tmp"),
             cache_dir: PathBuf::from("/tmp/.rose"),
@@ -1122,46 +1106,67 @@ mod tests {
             },
         }
     }
-    
+
     #[test]
     fn test_getters_flac() {
         test_getters_helper("track1.flac", "1", 2);
     }
-    
+
     #[test]
     fn test_getters_m4a() {
         test_getters_helper("track2.m4a", "2", 2);
     }
-    
+
     #[test]
     fn test_getters_mp3() {
         test_getters_helper("track3.mp3", "3", 1);
     }
-    
+
     #[test]
     fn test_getters_vorbis() {
         test_getters_helper("track4.vorbis.ogg", "4", 1);
     }
-    
+
     #[test]
     #[ignore = "Opus files cannot be read by lofty - 'Vorbis: File missing magic signature'"]
     fn test_getters_opus() {
         test_getters_helper("track5.opus.ogg", "5", 1);
     }
-    
+
     fn test_getters_helper(filename: &str, track_num: &str, duration: i32) {
         let path = test_tagger_path().join(filename);
         let af = AudioTags::from_file(&path).unwrap();
-        
+
         if filename == "track2.m4a" {
             println!("M4A releaseartists: {:?}", af.releaseartists);
         }
-        
+
         assert_eq!(af.releasetitle, Some("A Cool Album".to_string()));
         assert_eq!(af.releasetype, "album");
-        assert_eq!(af.releasedate, Some(RoseDate { year: Some(1990), month: Some(2), day: Some(5) }));
-        assert_eq!(af.originaldate, Some(RoseDate { year: Some(1990), month: None, day: None }));
-        assert_eq!(af.compositiondate, Some(RoseDate { year: Some(1984), month: None, day: None }));
+        assert_eq!(
+            af.releasedate,
+            Some(RoseDate {
+                year: Some(1990),
+                month: Some(2),
+                day: Some(5)
+            })
+        );
+        assert_eq!(
+            af.originaldate,
+            Some(RoseDate {
+                year: Some(1990),
+                month: None,
+                day: None
+            })
+        );
+        assert_eq!(
+            af.compositiondate,
+            Some(RoseDate {
+                year: Some(1984),
+                month: None,
+                day: None
+            })
+        );
         // Note: lofty only reads the first genre from MP4 files with multiple genres
         // This is a limitation of the lofty library
         if filename == "track2.m4a" {
@@ -1180,91 +1185,106 @@ mod tests {
         } else {
             assert_eq!(af.releaseartists.main, vec![Artist::new("Artist A"), Artist::new("Artist B")]);
         }
-        
+
         assert_eq!(af.tracknumber, Some(track_num.to_string()));
         assert_eq!(af.tracktotal, Some(5));
         assert_eq!(af.discnumber, Some("1".to_string()));
         assert_eq!(af.disctotal, Some(1));
-        
-        assert_eq!(af.tracktitle, Some(format!("Track {}", track_num)));
+
+        assert_eq!(af.tracktitle, Some(format!("Track {track_num}")));
         // Note: lofty only reads the first artist per role from MP4 files
         if filename == "track2.m4a" {
-            assert_eq!(af.trackartists, ArtistMapping {
-                main: vec![Artist::new("Artist A"), Artist::new("Artist B")],  // main artists are combined
-                guest: vec![Artist::new("Artist C"), Artist::new("Artist D")],  // guest artists are combined
-                remixer: vec![Artist::new("Artist AB")],
-                producer: vec![Artist::new("Artist CD")],
-                composer: vec![Artist::new("Artist EF")],
-                conductor: vec![Artist::new("Artist GH")],
-                djmixer: vec![Artist::new("Artist IJ")],
-            });
+            assert_eq!(
+                af.trackartists,
+                ArtistMapping {
+                    main: vec![Artist::new("Artist A"), Artist::new("Artist B")],  // main artists are combined
+                    guest: vec![Artist::new("Artist C"), Artist::new("Artist D")], // guest artists are combined
+                    remixer: vec![Artist::new("Artist AB")],
+                    producer: vec![Artist::new("Artist CD")],
+                    composer: vec![Artist::new("Artist EF")],
+                    conductor: vec![Artist::new("Artist GH")],
+                    djmixer: vec![Artist::new("Artist IJ")],
+                }
+            );
         } else {
-            assert_eq!(af.trackartists, ArtistMapping {
-                main: vec![Artist::new("Artist A"), Artist::new("Artist B")],
-                guest: vec![Artist::new("Artist C"), Artist::new("Artist D")],
-                remixer: vec![Artist::new("Artist AB"), Artist::new("Artist BC")],
-                producer: vec![Artist::new("Artist CD"), Artist::new("Artist DE")],
-                composer: vec![Artist::new("Artist EF"), Artist::new("Artist FG")],
-                conductor: vec![Artist::new("Artist GH"), Artist::new("Artist HI")],
-                djmixer: vec![Artist::new("Artist IJ"), Artist::new("Artist JK")],
-            });
+            assert_eq!(
+                af.trackartists,
+                ArtistMapping {
+                    main: vec![Artist::new("Artist A"), Artist::new("Artist B")],
+                    guest: vec![Artist::new("Artist C"), Artist::new("Artist D")],
+                    remixer: vec![Artist::new("Artist AB"), Artist::new("Artist BC")],
+                    producer: vec![Artist::new("Artist CD"), Artist::new("Artist DE")],
+                    composer: vec![Artist::new("Artist EF"), Artist::new("Artist FG")],
+                    conductor: vec![Artist::new("Artist GH"), Artist::new("Artist HI")],
+                    djmixer: vec![Artist::new("Artist IJ"), Artist::new("Artist JK")],
+                }
+            );
         }
         assert_eq!(af.duration_sec, duration);
     }
-    
+
     #[test]
     fn test_flush_flac() {
         test_flush_helper("track1.flac", "1", 2).unwrap();
     }
-    
+
     #[test]
     #[ignore = "M4A custom tags not being written - lofty limitation"]
     fn test_flush_m4a() {
         test_flush_helper("track2.m4a", "2", 2).unwrap();
     }
-    
+
     #[test]
     #[ignore = "TXXX frames not being written properly for MP3 - lofty limitation"]
     fn test_flush_mp3() {
         test_flush_helper("track3.mp3", "3", 1).unwrap();
     }
-    
+
     #[test]
     fn test_flush_vorbis() {
         test_flush_helper("track4.vorbis.ogg", "4", 1).unwrap();
     }
-    
+
     #[test]
     #[ignore = "Opus custom tags not written by lofty"]
     fn test_flush_opus() {
         test_flush_helper("track5.opus.ogg", "5", 1).unwrap();
     }
-    
+
     fn test_flush_helper(filename: &str, track_num: &str, duration: i32) -> Result<()> {
         let temp_dir = TempDir::new().unwrap();
         let src_path = test_tagger_path().join(filename);
         let dst_path = temp_dir.path().join(filename);
         fs::copy(&src_path, &dst_path).unwrap();
-        
-        
+
         let mut af = AudioTags::from_file(&dst_path).unwrap();
-        
+
         // Modify the djmixer artist to test that we clear the original tag
         af.trackartists.djmixer = vec![Artist::new("New")];
         // Also test date writing
-        af.originaldate = Some(RoseDate { year: Some(1990), month: Some(4), day: Some(20) });
-        
+        af.originaldate = Some(RoseDate {
+            year: Some(1990),
+            month: Some(4),
+            day: Some(20),
+        });
+
         let config = test_config();
         af.flush(&config, true).unwrap();
-        
-        
+
         // Read back and verify
         let af = AudioTags::from_file(&dst_path).unwrap();
-        
+
         assert_eq!(af.releasetitle, Some("A Cool Album".to_string()));
         // TODO: Fix releasetype writing for Vorbis comments - lofty seems to reject Unknown("releasetype")
         // assert_eq!(af.releasetype, "album");
-        assert_eq!(af.releasedate, Some(RoseDate { year: Some(1990), month: Some(2), day: Some(5) }));
+        assert_eq!(
+            af.releasedate,
+            Some(RoseDate {
+                year: Some(1990),
+                month: Some(2),
+                day: Some(5)
+            })
+        );
         // TODO: Fix TXXX frames not being written properly for MP3
         // assert_eq!(af.originaldate, Some(RoseDate { year: Some(1990), month: Some(4), day: Some(20) }));
         // TODO: Fix custom Unknown tags not being written
@@ -1281,26 +1301,28 @@ mod tests {
         } else {
             assert_eq!(af.releaseartists.main, vec![Artist::new("Artist A"), Artist::new("Artist B")]);
         }
-        
+
         assert_eq!(af.tracknumber, Some(track_num.to_string()));
         assert_eq!(af.discnumber, Some("1".to_string()));
-        
-        assert_eq!(af.tracktitle, Some(format!("Track {}", track_num)));
-        assert_eq!(af.trackartists, ArtistMapping {
-            main: vec![Artist::new("Artist A"), Artist::new("Artist B")],
-            guest: vec![Artist::new("Artist C"), Artist::new("Artist D")],
-            remixer: vec![Artist::new("Artist AB"), Artist::new("Artist BC")],
-            producer: vec![Artist::new("Artist CD"), Artist::new("Artist DE")],
-            composer: vec![Artist::new("Artist EF"), Artist::new("Artist FG")],
-            conductor: vec![Artist::new("Artist GH"), Artist::new("Artist HI")],
-            djmixer: vec![Artist::new("New")],  // Changed!
-        });
+
+        assert_eq!(af.tracktitle, Some(format!("Track {track_num}")));
+        assert_eq!(
+            af.trackartists,
+            ArtistMapping {
+                main: vec![Artist::new("Artist A"), Artist::new("Artist B")],
+                guest: vec![Artist::new("Artist C"), Artist::new("Artist D")],
+                remixer: vec![Artist::new("Artist AB"), Artist::new("Artist BC")],
+                producer: vec![Artist::new("Artist CD"), Artist::new("Artist DE")],
+                composer: vec![Artist::new("Artist EF"), Artist::new("Artist FG")],
+                conductor: vec![Artist::new("Artist GH"), Artist::new("Artist HI")],
+                djmixer: vec![Artist::new("New")], // Changed!
+            }
+        );
         assert_eq!(af.duration_sec, duration);
-        
+
         Ok(())
     }
-    
-    
+
     #[test]
     #[ignore = "Parent genres require custom tags which lofty cannot write"]
     fn test_write_parent_genres() {
@@ -1308,146 +1330,149 @@ mod tests {
         let src_path = test_tagger_path().join("track1.flac");
         let dst_path = temp_dir.path().join("track1.flac");
         fs::copy(&src_path, &dst_path).unwrap();
-        
+
         let mut af = AudioTags::from_file(&dst_path).unwrap();
-        
+
         // Modify djmixer and date
         af.trackartists.djmixer = vec![Artist::new("New")];
-        af.originaldate = Some(RoseDate { year: Some(1990), month: Some(4), day: Some(20) });
-        
+        af.originaldate = Some(RoseDate {
+            year: Some(1990),
+            month: Some(4),
+            day: Some(20),
+        });
+
         let mut config = test_config();
         config.write_parent_genres = true;
         af.flush(&config, true).unwrap();
-        
+
         // Check raw tags with lofty
         let probe = lofty::probe::Probe::open(&dst_path).unwrap();
         let tagged_file = probe.read().unwrap();
         let tag = tagged_file.primary_tag().unwrap();
-        
+
         if let Some(item) = tag.get(&ItemKey::Unknown("genre".to_string())) {
             if let ItemValue::Text(text) = item.value() {
                 assert_eq!(text, "Electronic;House\\\\PARENTS:\\\\Dance;Electronic Dance Music");
             }
         }
-        
+
         if let Some(item) = tag.get(&ItemKey::Unknown("secondarygenre".to_string())) {
             if let ItemValue::Text(text) = item.value() {
                 assert_eq!(text, "Minimal;Ambient");
             }
         }
-        
+
         // Read back and verify genres are parsed correctly
         let af = AudioTags::from_file(&dst_path).unwrap();
         assert_eq!(af.genre, vec!["Electronic", "House"]);
         assert_eq!(af.secondarygenre, vec!["Minimal", "Ambient"]);
     }
-    
+
     #[test]
     #[ignore = "ID assignment requires custom tags which lofty cannot write"]
     fn test_id_assignment_flac() {
         test_id_assignment_helper("track1.flac");
     }
-    
+
     #[test]
     #[ignore = "ID assignment requires custom tags which lofty cannot write"]
     fn test_id_assignment_m4a() {
         test_id_assignment_helper("track2.m4a");
     }
-    
+
     #[test]
     #[ignore = "ID assignment requires custom tags which lofty cannot write"]
     fn test_id_assignment_mp3() {
         test_id_assignment_helper("track3.mp3");
     }
-    
+
     #[test]
     #[ignore = "ID assignment requires custom tags which lofty cannot write"]
     fn test_id_assignment_vorbis() {
         test_id_assignment_helper("track4.vorbis.ogg");
     }
-    
+
     #[test]
     #[ignore = "ID assignment requires custom tags which lofty cannot write"]
     fn test_id_assignment_opus() {
         test_id_assignment_helper("track5.opus.ogg");
     }
-    
+
     fn test_id_assignment_helper(filename: &str) {
         let temp_dir = TempDir::new().unwrap();
         let src_path = test_tagger_path().join(filename);
         let dst_path = temp_dir.path().join(filename);
         fs::copy(&src_path, &dst_path).unwrap();
-        
+
         let mut af = AudioTags::from_file(&dst_path).unwrap();
         af.id = Some("ahaha".to_string());
         af.release_id = Some("bahaha".to_string());
-        
+
         let config = test_config();
         af.flush(&config, true).unwrap();
-        
+
         let af = AudioTags::from_file(&dst_path).unwrap();
         assert_eq!(af.id, Some("ahaha".to_string()));
         assert_eq!(af.release_id, Some("bahaha".to_string()));
     }
-    
+
     #[test]
     #[ignore = "Release type normalization requires custom tags which lofty cannot write"]
     fn test_releasetype_normalization_flac() {
         test_releasetype_normalization_helper("track1.flac");
     }
-    
+
     #[test]
     #[ignore = "Release type normalization requires custom tags which lofty cannot write"]
     fn test_releasetype_normalization_m4a() {
         test_releasetype_normalization_helper("track2.m4a");
     }
-    
+
     #[test]
     #[ignore = "Release type normalization requires custom tags which lofty cannot write"]
     fn test_releasetype_normalization_mp3() {
         test_releasetype_normalization_helper("track3.mp3");
     }
-    
+
     #[test]
     #[ignore = "Release type normalization requires custom tags which lofty cannot write"]
     fn test_releasetype_normalization_vorbis() {
         test_releasetype_normalization_helper("track4.vorbis.ogg");
     }
-    
+
     #[test]
     #[ignore = "Release type normalization requires custom tags which lofty cannot write"]
     fn test_releasetype_normalization_opus() {
         test_releasetype_normalization_helper("track5.opus.ogg");
     }
-    
+
     fn test_releasetype_normalization_helper(filename: &str) {
         let temp_dir = TempDir::new().unwrap();
         let src_path = test_tagger_path().join(filename);
         let dst_path = temp_dir.path().join(filename);
         fs::copy(&src_path, &dst_path).unwrap();
-        
+
         // Check that release type is read correctly
         let mut af = AudioTags::from_file(&dst_path).unwrap();
         assert_eq!(af.releasetype, "album");
-        
+
         // Assert that attempting to flush a stupid value fails
         af.releasetype = "lalala".to_string();
         let config = test_config();
         assert!(af.flush(&config, true).is_err());
-        
+
         // Flush it anyways without validation
         af.flush(&config, false).unwrap();
-        
+
         // Check that stupid release type is normalized as unknown
         let mut af = AudioTags::from_file(&dst_path).unwrap();
         assert_eq!(af.releasetype, "unknown");
-        
+
         // And now assert that the read is case insensitive
         af.releasetype = "ALBUM".to_string();
         af.flush(&config, false).unwrap();
-        
+
         let af = AudioTags::from_file(&dst_path).unwrap();
         assert_eq!(af.releasetype, "album");
     }
 }
-
