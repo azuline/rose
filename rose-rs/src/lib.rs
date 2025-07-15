@@ -1,4 +1,6 @@
 // Internal modules - not exposed to library users
+mod audiotags;
+mod cache;
 mod common;
 mod config;
 mod genre_hierarchy;
@@ -19,6 +21,7 @@ pub use common::{
     Artist,
     ArtistMapping,
     Result,
+    RoseDate,
     // Errors
     RoseError,
     RoseExpectedError,
@@ -50,6 +53,12 @@ pub use rule_parser::{
 
 // From config module
 pub use config::{get_config_path, Config, VirtualFSConfig};
+
+// From audiotags module
+pub use audiotags::{
+    format_artist_string, parse_artist_string, AudioTags, UnsupportedFiletypeError, UnsupportedTagValueTypeError, SUPPORTED_AUDIO_EXTENSIONS,
+    SUPPORTED_RELEASE_TYPES,
+};
 
 // from rose.audiotags import (
 //     SUPPORTED_AUDIO_EXTENSIONS,

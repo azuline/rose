@@ -6,11 +6,12 @@ use sha2::{Digest, Sha256};
 /// The common module is our ugly grab bag of common toys. Though a fully generalized common module
 /// is _typically_ a bad idea, we have few enough things in it that it's OK for now.
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use thiserror::Error;
 use tracing::debug;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{fmt as tracing_fmt, EnvFilter};
 use unicode_normalization::UnicodeNormalization;
 
 pub const VERSION: &str = include_str!(".version");
@@ -70,6 +71,15 @@ pub struct Artist {
     pub alias: bool,
 }
 
+impl Artist {
+    pub fn new(name: &str) -> Self {
+        Artist {
+            name: name.to_string(),
+            alias: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ArtistMapping {
@@ -126,6 +136,31 @@ impl ArtistMapping {
             ("conductor", &self.conductor),
             ("djmixer", &self.djmixer),
         ]
+    }
+}
+
+/// Represents a date with optional month and day components
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RoseDate {
+    pub year: Option<i32>,
+    pub month: Option<u32>,
+    pub day: Option<u32>,
+}
+
+impl RoseDate {
+    pub fn new(year: Option<i32>, month: Option<u32>, day: Option<u32>) -> Self {
+        RoseDate { year, month, day }
+    }
+}
+
+impl fmt::Display for RoseDate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match (self.year, self.month, self.day) {
+            (Some(y), Some(m), Some(d)) => write!(f, "{y:04}-{m:02}-{d:02}"),
+            (Some(y), Some(m), None) => write!(f, "{y:04}-{m:02}"),
+            (Some(y), None, None) => write!(f, "{y:04}"),
+            _ => write!(f, ""),
+        }
     }
 }
 
@@ -232,7 +267,7 @@ pub fn initialize_logging(logger_name: Option<&str>, output: &str) -> Result<()>
 
     match output {
         "stderr" => {
-            let subscriber = fmt()
+            let subscriber = tracing_fmt()
                 .with_env_filter(env_filter)
                 .with_target(!log_despite_testing)
                 .with_thread_ids(log_despite_testing)
@@ -246,7 +281,7 @@ pub fn initialize_logging(logger_name: Option<&str>, output: &str) -> Result<()>
             let file_appender = tracing_appender::rolling::daily(log_dir, "rose.log");
             let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
 
-            let subscriber = fmt()
+            let subscriber = tracing_fmt()
                 .with_env_filter(env_filter)
                 .with_writer(non_blocking)
                 .with_ansi(false)

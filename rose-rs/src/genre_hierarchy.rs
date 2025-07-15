@@ -62,6 +62,41 @@ pub static IMMEDIATE_CHILD_GENRES: Lazy<HashMap<String, Vec<String>>> = Lazy::ne
     immediate_children
 });
 
+/// Wrapper for genre hierarchy operations
+pub struct GenreHierarchy;
+
+impl GenreHierarchy {
+    /// Get the transitive parent genres for a given genre
+    pub fn transitive_parents(genre: &str) -> Option<&Vec<String>> {
+        TRANSITIVE_PARENT_GENRES.get(genre)
+    }
+
+    /// Get the parent genres for a given genre (alias for transitive_parents)
+    pub fn parents(genre: &str) -> Option<&Vec<String>> {
+        Self::transitive_parents(genre)
+    }
+
+    /// Get the transitive child genres for a given genre
+    pub fn transitive_children(genre: &str) -> Option<&Vec<String>> {
+        TRANSITIVE_CHILD_GENRES.get(genre)
+    }
+
+    /// Get the immediate child genres for a given genre
+    pub fn immediate_children(genre: &str) -> Option<&Vec<String>> {
+        IMMEDIATE_CHILD_GENRES.get(genre)
+    }
+}
+
+// Create a static instance for convenience
+pub static GENRE_HIERARCHY: GenreHierarchy = GenreHierarchy;
+
+// Secondary genres (placeholder - would be populated from actual data)
+pub static SECONDARY_GENRES: Lazy<std::collections::HashSet<&'static str>> = Lazy::new(|| {
+    // These are genres that are considered secondary/sub-genres
+    // TODO: Load from proper source
+    ["psychedelic", "ambient", "minimal", "experimental", "atmospheric"].iter().copied().collect()
+});
+
 #[cfg(test)]
 mod tests {
     use super::*;
