@@ -662,8 +662,57 @@ pub fn update_cache_for_collages(_c: &Config, _collage_names: Option<Vec<String>
 //         )
 //         for row in cursor:
 //             logger.info(f"Evicted missing collage {row['name']} from cache")
-pub fn update_cache_evict_nonexistent_collages(_c: &Config) -> Result<()> {
-    // TODO: Implement
+pub fn update_cache_evict_nonexistent_collages(c: &Config) -> Result<()> {
+    debug!("Evicting cached collages that are not on disk");
+    
+    let collages_dir = c.music_source_dir.join("!collages");
+    let mut collage_names = Vec::new();
+    
+    if collages_dir.exists() {
+        for entry in fs::read_dir(&collages_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() && path.extension() == Some(std::ffi::OsStr::new("toml")) {
+                if let Some(stem) = path.file_stem() {
+                    collage_names.push(stem.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+    
+    let conn = connect(c)?;
+    
+    if collage_names.is_empty() {
+        // Delete all collages if none exist on disk
+        let mut stmt = conn.prepare("DELETE FROM collages RETURNING name")?;
+        let deleted_names: Vec<String> = stmt
+            .query_map([], |row| row.get(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        for name in deleted_names {
+            info!("Evicted missing collage {} from cache", name);
+        }
+    } else {
+        // Delete collages not in the list
+        let placeholders = vec!["?"; collage_names.len()].join(",");
+        let query = format!(
+            "DELETE FROM collages WHERE name NOT IN ({}) RETURNING name",
+            placeholders
+        );
+        
+        let mut stmt = conn.prepare(&query)?;
+        let deleted_names: Vec<String> = stmt
+            .query_map(
+                rusqlite::params_from_iter(&collage_names),
+                |row| row.get(0)
+            )?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        for name in deleted_names {
+            info!("Evicted missing collage {} from cache", name);
+        }
+    }
+    
     Ok(())
 }
 
@@ -726,8 +775,57 @@ pub fn update_cache_for_playlists(_c: &Config, _playlist_names: Option<Vec<Strin
 //         )
 //         for row in cursor:
 //             logger.info(f"Evicted missing playlist {row['name']} from cache")
-pub fn update_cache_evict_nonexistent_playlists(_c: &Config) -> Result<()> {
-    // TODO: Implement
+pub fn update_cache_evict_nonexistent_playlists(c: &Config) -> Result<()> {
+    debug!("Evicting cached playlists that are not on disk");
+    
+    let playlists_dir = c.music_source_dir.join("!playlists");
+    let mut playlist_names = Vec::new();
+    
+    if playlists_dir.exists() {
+        for entry in fs::read_dir(&playlists_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() && path.extension() == Some(std::ffi::OsStr::new("toml")) {
+                if let Some(stem) = path.file_stem() {
+                    playlist_names.push(stem.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+    
+    let conn = connect(c)?;
+    
+    if playlist_names.is_empty() {
+        // Delete all playlists if none exist on disk
+        let mut stmt = conn.prepare("DELETE FROM playlists RETURNING name")?;
+        let deleted_names: Vec<String> = stmt
+            .query_map([], |row| row.get(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        for name in deleted_names {
+            info!("Evicted missing playlist {} from cache", name);
+        }
+    } else {
+        // Delete playlists not in the list
+        let placeholders = vec!["?"; playlist_names.len()].join(",");
+        let query = format!(
+            "DELETE FROM playlists WHERE name NOT IN ({}) RETURNING name",
+            placeholders
+        );
+        
+        let mut stmt = conn.prepare(&query)?;
+        let deleted_names: Vec<String> = stmt
+            .query_map(
+                rusqlite::params_from_iter(&playlist_names),
+                |row| row.get(0)
+            )?
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        for name in deleted_names {
+            info!("Evicted missing playlist {} from cache", name);
+        }
+    }
+    
     Ok(())
 }
 
