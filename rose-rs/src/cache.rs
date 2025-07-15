@@ -15,7 +15,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tracing::debug;
+use tracing::{debug, info};
 
 static CACHE_SCHEMA: &str = include_str!("cache.sql");
 
@@ -436,67 +436,532 @@ pub fn update_cache(
     Ok(())
 }
 
-// Placeholder functions - to be implemented
+// def update_cache_for_releases(
+//     c: Config,
+//     # Leave as None to update all releases.
+//     release_dirs: list[Path] | None = None,
+//     force: bool = False,
+//     # For testing.
+//     force_multiprocessing: bool = False,
+// ) -> None:
+//     """
+//     Update the read cache to match the data for any passed-in releases. If a directory lacks a
+//     .rose.{uuid}.toml datafile, create the datafile for the release and set it to the initial state.
+//
+//     This is a hot path and is thus performance-optimized. The bottleneck is disk accesses, so we
+//     structure this function in order to minimize them. We solely read files that have changed since
+//     last run and batch writes together. We trade higher memory for reduced disk accesses.
+//     Concretely, we:
+//
+//     1. Execute one big SQL query at the start to fetch the relevant previous caches.
+//     2. Skip reading a file's data if the mtime has not changed since the previous cache update.
+//     3. Batch SQLite write operations to the end of this function, and only execute a SQLite upsert
+//        if the read data differs from the previous caches.
+//
+//     We also shard the directories across multiple processes and execute them simultaneously.
+//     """
+//     release_dirs = release_dirs or [Path(d.path) for d in os.scandir(c.music_source_dir) if d.is_dir()]
+//     release_dirs = [
+//         d
+//         for d in release_dirs
+//         if d.name != "!collages" and d.name != "!playlists" and d.name not in c.ignore_release_directories
+//     ]
+//     if not release_dirs:
+//         logger.debug("No-Op: No whitelisted releases passed into update_cache_for_releases")
+//         return
+//     logger.debug(f"Refreshing the read cache for {len(release_dirs)} releases")
+//     if len(release_dirs) < 10:
+//         logger.debug(f"Refreshing cached data for {', '.join([r.name for r in release_dirs])}")
+//
+//     # If the number of releases changed is less than 50; do not bother with all that multiprocessing
+//     # gunk: instead, directly call the executor.
+//     #
+//     # This has an added benefit of not spawning processes from the virtual filesystem and watchdog
+//     # processes, as those processes always update the cache for one release at a time and are
+//     # multithreaded. Starting other processes from threads is bad!
+//     if not force_multiprocessing and len(release_dirs) < 50:
+//         logger.debug(f"Running cache update executor in same process because {len(release_dirs)=} < 50")
+//         _update_cache_for_releases_executor(c, release_dirs, force)
+//         return
+//
+//     # Batch size defaults to equal split across all processes. However, if the number of directories
+//     # is small, we shrink the # of processes to save on overhead.
+//     num_proc = c.max_proc
+//     if len(release_dirs) < c.max_proc * 50:
+//         num_proc = max(1, math.ceil(len(release_dirs) // 50))
+//     batch_size = len(release_dirs) // num_proc + 1
+//
+//     manager = multiprocessing.Manager()
+//     # Have each process propagate the collages and playlists it wants to update back upwards. We
+//     # will dispatch the force updater only once in the main process, instead of many times in each
+//     # process.
+//     collages_to_force_update = manager.list()
+//     playlists_to_force_update = manager.list()
+//
+//     errors: list[BaseException] = []
+//
+//     logger.debug("Creating multiprocessing pool to parallelize cache executors.")
+//     with multiprocessing.Pool(processes=c.max_proc) as pool:
+//         # At 0, no batch. At 1, 1 batch. At 49, 1 batch. At 50, 1 batch. At 51, 2 batches.
+//         for i in range(0, len(release_dirs), batch_size):
+//             logger.debug(f"Spawning release cache update process for releases [{i}, {i + batch_size})")
+//             pool.apply_async(
+//                 _update_cache_for_releases_executor,
+//                 (
+//                     c,
+//                     release_dirs[i : i + batch_size],
+//                     force,
+//                     collages_to_force_update,
+//                     playlists_to_force_update,
+//                 ),
+//                 error_callback=lambda e: errors.append(e),
+//             )
+//         pool.close()
+//         pool.join()
+//
+//     if errors:
+//         raise ExceptionGroup("Exception occurred in cache update subprocesses", errors)  # type: ignore
+//
+//     if collages_to_force_update:
+//         update_cache_for_collages(c, uniq(list(collages_to_force_update)), force=True)
+//     if playlists_to_force_update:
+//         update_cache_for_playlists(c, uniq(list(playlists_to_force_update)), force=True)
+//
+// def _update_cache_for_releases_executor(
+//     c: Config,
+//     release_dirs: list[Path],
+//     force: bool,
+//     # If these are not None, we will store the collages and playlists to update in here instead of
+//     # invoking the update functions directly. If these are None, we will not put anything in them
+//     # and instead invoke update_cache_for_{collages,playlists} directly. This is a Bad Pattern, but
+//     # good enough.
+//     collages_to_force_update_receiver: list[str] | None = None,
+//     playlists_to_force_update_receiver: list[str] | None = None,
+// ) -> None:
+//     """The implementation logic, split out for multiprocessing."""
+//     # NOTE: This is a very large function (~850 lines) that handles the actual cache update logic.
+//     # It performs the following steps:
+//     # 1. Scans directories and reads .rose.{uuid}.toml files
+//     # 2. Batch queries existing cache data
+//     # 3. Compares mtimes and metadata to determine what needs updating
+//     # 4. Reads audio file tags for new/changed tracks
+//     # 5. Batch inserts/updates the database
+//     # 6. Updates full-text search tables
+//     # 7. Handles collage and playlist references
+//     # The full implementation can be found in cache_py.rs lines 986-1833
 pub fn update_cache_for_releases(_c: &Config, _release_dirs: Option<Vec<PathBuf>>, _force: bool, _force_multiprocessing: bool) -> Result<()> {
-    // TODO: Implement - see cache_py.rs for Python implementation
+    // TODO: Implement
     Ok(())
 }
 
-pub fn update_cache_evict_nonexistent_releases(_c: &Config) -> Result<()> {
-    // TODO: Implement - see cache_py.rs for Python implementation
+// def update_cache_evict_nonexistent_releases(c: Config) -> None:
+//     logger.debug("Evicting cached releases that are not on disk")
+//     dirs = [Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()]
+//     with connect(c) as conn:
+//         cursor = conn.execute(
+//             f"""
+//             DELETE FROM releases
+//             WHERE source_path NOT IN ({','.join(['?'] * len(dirs))})
+//             RETURNING source_path
+//             """,
+//             [str(d) for d in dirs],
+//         )
+//         for row in cursor:
+//             logger.info(f"Evicted missing release {row['source_path']} from cache")
+pub fn update_cache_evict_nonexistent_releases(c: &Config) -> Result<()> {
+    debug!("evicting cached releases that are not on disk");
+    
+    // Get all directories in the music source directory
+    let dirs: Vec<String> = fs::read_dir(&c.music_source_dir)?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_type().map(|t| t.is_dir()).unwrap_or(false))
+        .filter_map(|entry| entry.path().canonicalize().ok())
+        .map(|path| path.to_string_lossy().to_string())
+        .collect();
+    
+    if dirs.is_empty() {
+        return Ok(());
+    }
+    
+    let conn = connect(c)?;
+    
+    // Build the query with proper number of placeholders
+    let placeholders = dirs.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let query = format!(
+        "DELETE FROM releases WHERE source_path NOT IN ({}) RETURNING source_path",
+        placeholders
+    );
+    
+    let mut stmt = conn.prepare(&query)?;
+    let mut rows = stmt.query(rusqlite::params_from_iter(&dirs))?;
+    
+    while let Some(row) = rows.next()? {
+        let source_path: String = row.get(0)?;
+        info!("evicted missing release {} from cache", source_path);
+    }
+    
     Ok(())
 }
 
+// def update_cache_for_collages(
+//     c: Config,
+//     # Leave as None to update all collages.
+//     collage_names: list[str] | None = None,
+//     force: bool = False,
+// ) -> None:
+//     """
+//     Update the read cache to match the data for all stored collages.
+//
+//     This is performance-optimized in a similar way to the update releases function. We:
+//
+//     1. Execute one big SQL query at the start to fetch the relevant previous caches.
+//     2. Skip reading a file's data if the mtime has not changed since the previous cache update.
+//     3. Only execute a SQLite upsert if the read data differ from the previous caches.
+//
+//     However, we do not batch writes to the end of the function, nor do we process the collages in
+//     parallel. This is because we should have far fewer collages than releases.
+//     """
+//     collage_dir = c.music_source_dir / "!collages"
+//     collage_dir.mkdir(exist_ok=True)
+//
+//     files: list[tuple[Path, str, os.DirEntry[str]]] = []
+//     for f in os.scandir(str(collage_dir)):
+//         path = Path(f.path)
+//         if path.suffix != ".toml":
+//             continue
+//         if not path.is_file():
+//             logger.debug(f"Skipping processing collage {path.name} because it is not a file")
+//             continue
+//         if collage_names is None or path.stem in collage_names:
+//             files.append((path.resolve(), path.stem, f))
+//     logger.debug(f"Refreshing the read cache for {len(files)} collages")
 pub fn update_cache_for_collages(_c: &Config, _collage_names: Option<Vec<String>>, _force: bool) -> Result<()> {
-    // TODO: Implement - see cache_py.rs for Python implementation
+    // TODO: Implement
     Ok(())
 }
 
+// def update_cache_evict_nonexistent_collages(c: Config) -> None:
+//     logger.debug("Evicting cached collages that are not on disk")
+//     collage_names: list[str] = []
+//     collage_dir = c.music_source_dir / "!collages"
+//     for f in os.scandir(str(collage_dir)):
+//         path = Path(f.path)
+//         if path.suffix == ".toml" and path.is_file():
+//             collage_names.append(path.stem)
+//
+//     with connect(c) as conn:
+//         cursor = conn.execute(
+//             f"""
+//             DELETE FROM collages
+//             WHERE name NOT IN ({','.join(['?'] * len(collage_names))})
+//             RETURNING name
+//             """
+//             if collage_names
+//             else "DELETE FROM collages RETURNING name",
+//             collage_names,
+//         )
+//         for row in cursor:
+//             logger.info(f"Evicted missing collage {row['name']} from cache")
 pub fn update_cache_evict_nonexistent_collages(_c: &Config) -> Result<()> {
-    // TODO: Implement - see cache_py.rs for Python implementation
+    // TODO: Implement
     Ok(())
 }
 
+// def update_cache_for_playlists(
+//     c: Config,
+//     # Leave as None to update all playlists.
+//     playlist_names: list[str] | None = None,
+//     force: bool = False,
+// ) -> None:
+//     """
+//     Update the read cache to match the data for all stored playlists.
+//
+//     This is performance-optimized in a similar way to the update releases function. We:
+//
+//     1. Execute one big SQL query at the start to fetch the relevant previous caches.
+//     2. Skip reading a file's data if the mtime has not changed since the previous cache update.
+//     3. Only execute a SQLite upsert if the read data differ from the previous caches.
+//
+//     However, we do not batch writes to the end of the function, nor do we process the playlists in
+//     parallel. This is because we should have far fewer playlists than releases.
+//     """
+//     playlist_dir = c.music_source_dir / "!playlists"
+//     playlist_dir.mkdir(exist_ok=True)
+//
+//     files: list[tuple[Path, str, os.DirEntry[str]]] = []
+//     for f in os.scandir(str(playlist_dir)):
+//         path = Path(f.path)
+//         if path.suffix != ".toml":
+//             continue
+//         if not path.is_file():
+//             logger.debug(f"Skipping processing playlist {path.name} because it is not a file")
+//             continue
+//         if playlist_names is None or path.stem in playlist_names:
+//             files.append((path.resolve(), path.stem, f))
+//     logger.debug(f"Refreshing the read cache for {len(files)} playlists")
 pub fn update_cache_for_playlists(_c: &Config, _playlist_names: Option<Vec<String>>, _force: bool) -> Result<()> {
-    // TODO: Implement - see cache_py.rs for Python implementation
+    // TODO: Implement
     Ok(())
 }
 
+// def update_cache_evict_nonexistent_playlists(c: Config) -> None:
+//     logger.debug("Evicting cached playlists that are not on disk")
+//     playlist_names: list[str] = []
+//     playlist_dir = c.music_source_dir / "!playlists"
+//     for f in os.scandir(str(playlist_dir)):
+//         path = Path(f.path)
+//         if path.suffix == ".toml" and path.is_file():
+//             playlist_names.append(path.stem)
+//
+//     with connect(c) as conn:
+//         cursor = conn.execute(
+//             f"""
+//             DELETE FROM playlists
+//             WHERE name NOT IN ({','.join(['?'] * len(playlist_names))})
+//             RETURNING name
+//             """
+//             if playlist_names
+//             else "DELETE FROM playlists RETURNING name",
+//             playlist_names,
+//         )
+//         for row in cursor:
+//             logger.info(f"Evicted missing playlist {row['name']} from cache")
 pub fn update_cache_evict_nonexistent_playlists(_c: &Config) -> Result<()> {
-    // TODO: Implement - see cache_py.rs for Python implementation
+    // TODO: Implement
     Ok(())
 }
 
 // Additional placeholder functions needed by lib.rs
-pub fn get_release(_c: &Config, _id: &str) -> Result<Option<Release>> {
-    // TODO: Implement - see cache_py.rs for Python implementation
-    Ok(None)
+// def get_release(c: Config, release_id: str) -> Release | None:
+//     with connect(c) as conn:
+//         cursor = conn.execute(
+//             "SELECT * FROM releases_view WHERE id = ?",
+//             (release_id,),
+//         )
+//         row = cursor.fetchone()
+//         if not row:
+//             return None
+//         return cached_release_from_view(c, row)
+pub fn get_release(c: &Config, release_id: &str) -> Result<Option<Release>> {
+    let conn = connect(c)?;
+    let mut stmt = conn.prepare("SELECT * FROM releases_view WHERE id = ?1")?;
+    
+    let release = stmt.query_row(params![release_id], |row| {
+        cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+    }).optional()?;
+    
+    Ok(release)
 }
 
-pub fn list_releases(_c: &Config) -> Result<Vec<Release>> {
-    // TODO: Implement - see cache_py.rs for Python implementation
-    Ok(Vec::new())
+// def list_releases(
+//     c: Config,
+//     # The or_labels/or_genres/or_descriptors fields contain labels/genres/descriptors that we are going
+//     # to union together when filtering. We want releases that have at least one of the labels and at
+//     # least one of the genres.
+//     #
+//     # Labels, Genres, and Descriptors are three separate fields, so we still intersect them together.
+//     # That is, to match, a release must match at least one of the labels and genres. But both labels
+//     # and genres must have a match.
+//     or_labels: list[str] | None = None,
+//     or_genres: list[str] | None = None,
+//     or_descriptors: list[str] | None = None,
+// ) -> list[Release]:
+//     """Fetch all releases. Can be filtered. By default, returns all releases."""
+//     filter_sql = ""
+//     filter_params: list[str] = []
+//     if or_labels:
+//         filter_sql += f"""
+//             AND id IN (
+//               SELECT release_id FROM releases_labels
+//               WHERE label IN ({','.join(['?'] * len(or_labels))})
+//             )
+//         """
+//         filter_params.extend(or_labels)
+//     if or_genres:
+//         filter_sql += f"""
+//             AND id IN (
+//               SELECT release_id FROM releases_genres
+//               WHERE genre IN ({','.join(['?'] * len(or_genres))})
+//             )
+//         """
+//         filter_params.extend(or_genres)
+//     if or_descriptors:
+//         filter_sql += f"""
+//             AND id IN (
+//               SELECT release_id FROM releases_descriptors
+//               WHERE descriptor IN ({','.join(['?'] * len(or_descriptors))})
+//             )
+//         """
+//         filter_params.extend(or_descriptors)
+//
+//     releases: list[Release] = []
+//     with connect(c) as conn:
+//         cursor = conn.execute(
+//             f"SELECT * FROM releases_view WHERE true {filter_sql} ORDER BY id",
+//             filter_params,
+//         )
+//         for row in cursor:
+//             releases.append(cached_release_from_view(c, row))
+//     return releases
+pub fn list_releases(c: &Config) -> Result<Vec<Release>> {
+    // For now, implement without filters - just return all releases
+    // TODO: Implement full filtering support with or_labels, or_genres, or_descriptors
+    let conn = connect(c)?;
+    let mut stmt = conn.prepare("SELECT * FROM releases_view ORDER BY id")?;
+    
+    let releases = stmt.query_map([], |row| {
+        cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+    })?
+    .collect::<std::result::Result<Vec<_>, _>>()?;
+    
+    Ok(releases)
 }
 
+// def get_track(c: Config, uuid: str) -> Track | None:
+//     with connect(c) as conn:
+//         cursor = conn.execute(
+//             "SELECT * FROM tracks_view WHERE id = ?",
+//             (uuid,),
+//         )
+//         row = cursor.fetchone()
+//         if not row:
+//             return None
+//         release = get_release(c, row["release_id"])
+//         assert release is not None
+//         return cached_track_from_view(c, row, release)
 pub fn get_track(_c: &Config, _id: &str) -> Result<Option<Track>> {
-    // TODO: Implement - see cache_py.rs for Python implementation
+    // TODO: Implement
     Ok(None)
 }
 
+// def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[Track]:
+//     """
+//     Fetch all tracks. If track_ids is specified, only fetches tracks with an exact ID match.
+//     Otherwise, returns all tracks in the library.
+//     """
+//     query = "SELECT * FROM tracks_view"
+//     params: list[str] = []
+//
+//     if track_ids is not None:
+//         if not track_ids:
+//             return []
+//         query += f" WHERE id IN ({','.join(['?'] * len(track_ids))})"
+//         params.extend(track_ids)
+//
+//     query += " ORDER BY source_path"
+//
+//     tracks: list[Track] = []
+//     releases: dict[str, Release] = {}
+//     with connect(c) as conn:
+//         cursor = conn.execute(query, params)
+//         for row in cursor:
+//             release_id = row["release_id"]
+//             if release_id not in releases:
+//                 release = get_release(c, release_id)
+//                 assert release is not None
+//                 releases[release_id] = release
+//             tracks.append(cached_track_from_view(c, row, releases[release_id]))
+//     return tracks
 pub fn list_tracks(_c: &Config) -> Result<Vec<Track>> {
-    // TODO: Implement - see cache_py.rs for Python implementation
+    // TODO: Implement
     Ok(Vec::new())
 }
 
-pub fn list_collages(_c: &Config) -> Result<Vec<Collage>> {
-    // TODO: Implement - see cache_py.rs for Python implementation
-    Ok(Vec::new())
+// def list_collages(c: Config) -> list[str]:
+//     with connect(c) as conn:
+//         cursor = conn.execute("SELECT name FROM collages ORDER BY name")
+//         return [row["name"] for row in cursor]
+pub fn list_collages(c: &Config) -> Result<Vec<Collage>> {
+    let conn = connect(c)?;
+    let mut stmt = conn.prepare("SELECT name, source_mtime FROM collages ORDER BY name")?;
+    let collages = stmt.query_map([], |row| {
+        Ok(Collage {
+            name: row.get(0)?,
+            source_mtime: row.get(1)?,
+        })
+    })?
+    .collect::<std::result::Result<Vec<_>, _>>()?;
+    
+    Ok(collages)
 }
 
-pub fn list_playlists(_c: &Config) -> Result<Vec<Playlist>> {
-    // TODO: Implement - see cache_py.rs for Python implementation
-    Ok(Vec::new())
+// def list_playlists(c: Config) -> list[str]:
+//     with connect(c) as conn:
+//         cursor = conn.execute("SELECT name FROM playlists ORDER BY name")
+//         return [row["name"] for row in cursor]
+pub fn list_playlists(c: &Config) -> Result<Vec<Playlist>> {
+    let conn = connect(c)?;
+    let mut stmt = conn.prepare("SELECT name, source_mtime, cover_path FROM playlists ORDER BY name")?;
+    let playlists = stmt.query_map([], |row| {
+        Ok(Playlist {
+            name: row.get(0)?,
+            source_mtime: row.get(1)?,
+            cover_path: row.get::<_, Option<String>>(2)?.map(PathBuf::from),
+        })
+    })?
+    .collect::<std::result::Result<Vec<_>, _>>()?;
+    
+    Ok(playlists)
 }
+
+// Additional types and functions from Python implementation:
+//
+// @dataclasses.dataclass(slots=True, frozen=True)
+// class GenreEntry:
+//     genre: str
+//     only_new_releases: bool
+//
+// @dataclasses.dataclass(slots=True, frozen=True)
+// class DescriptorEntry:
+//     descriptor: str
+//     only_new_releases: bool
+//
+// @dataclasses.dataclass(slots=True, frozen=True)
+// class LabelEntry:
+//     label: str
+//     only_new_releases: bool
+//
+// def list_genres(c: Config) -> list[GenreEntry]:
+//     # Implementation in cache_py.rs lines 2837-2854
+//
+// def genre_exists(c: Config, genre: str) -> bool:
+//     # Implementation in cache_py.rs lines 2857-2865
+//
+// def list_descriptors(c: Config) -> list[DescriptorEntry]:
+//     # Implementation in cache_py.rs lines 2874-2890
+//
+// def descriptor_exists(c: Config, descriptor: str) -> bool:
+//     # Implementation in cache_py.rs lines 2893-2899
+//
+// def list_labels(c: Config) -> list[LabelEntry]:
+//     # Implementation in cache_py.rs lines 2908-2920
+//
+// def label_exists(c: Config, label: str) -> bool:
+//     # Implementation in cache_py.rs lines 2921-2927
+//
+// def list_artists(c: Config) -> list[str]:
+//     # Implementation in cache_py.rs lines 2808-2812
+//
+// def artist_exists(c: Config, artist: str) -> bool:
+//     # Implementation in cache_py.rs lines 2814-2827
+//
+// def get_collage(c: Config, collage_name: str) -> Collage | None:
+//     # Implementation in cache_py.rs lines 2774-2787
+//
+// def get_collage_releases(c: Config, collage_name: str) -> list[Release]:
+//     # Implementation in cache_py.rs lines 2789-2806
+//
+// def get_playlist(c: Config, playlist_name: str) -> Playlist | None:
+//     # Implementation in cache_py.rs lines 2711-2732
+//
+// def get_playlist_tracks(c: Config, playlist_name: str) -> list[Track]:
+//     # Implementation in cache_py.rs lines 2734-2766
+//
+// def filter_releases(...) -> list[Release]:
+//     # Large function for filtering releases - Implementation in cache_py.rs lines 2252-2344
+//
+// def filter_tracks(...) -> list[Track]:
+//     # Large function for filtering tracks - Implementation in cache_py.rs lines 2346-2457
 
 #[cfg(test)]
 mod tests {

@@ -80,7 +80,7 @@ impl Artist {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ArtistMapping {
     pub main: Vec<Artist>,
@@ -173,6 +173,11 @@ pub fn uniq<T: Eq + std::hash::Hash + Clone>(xs: Vec<T>) -> Vec<T> {
         }
     }
     result
+}
+
+/// Flatten a nested vector into a single vector
+pub fn flatten<T>(nested: Vec<Vec<T>>) -> Vec<T> {
+    nested.into_iter().flatten().collect()
 }
 
 static ILLEGAL_FS_CHARS_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r#"[:\?<>\\\*\|"/]"#).unwrap());

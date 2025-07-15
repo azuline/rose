@@ -16,9 +16,7 @@ This document outlines the plan for completing the Rust port of the Rose music l
 
 ### ❌ Not Started (Python code present)
 1. **rule_parser.rs** - Rules DSL parser (Python code present, needs translation)
-
-### ❌ Not Started
-2. **audiotags.rs** - Audio file metadata reading/writing
+2. **audiotags.rs** - Audio file metadata reading/writing (Placeholder implementation only - needs full implementation with lofty crate and all tests from audiotags_test.py)
 2. **cache.rs** - SQLite database layer
 3. **rules.rs** - Rules execution engine
 4. **releases.rs** - Release management
@@ -136,6 +134,9 @@ Layer 7:
 
 ### Translation Guidelines
 1. **DO NOT DELETE PYTHON CODE** - Keep original Python code as comments in the Rust files until fully translated
+   - **CRITICAL**: Never move Python code to separate files - always keep it commented in the same file being translated
+   - If a Python function is too large, add a reference comment with line numbers to cache_py.rs
+   - Comment out Python code using `//` line comments to ensure it doesn't interfere with Rust compilation
 2. Preserve Python docstrings as Rust doc comments
 3. Maintain same function names and signatures where possible
 4. Use idiomatic Rust patterns:
