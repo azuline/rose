@@ -1,3 +1,6 @@
+// Allow dead code warnings during development
+#![allow(dead_code)]
+
 // Internal modules - not exposed to library users
 mod audiotags;
 mod cache;
