@@ -1,6 +1,9 @@
 // Internal modules - not exposed to library users
 mod common;
+mod config;
 mod genre_hierarchy;
+mod rule_parser;
+mod templates;
 
 #[cfg(test)]
 mod testing;
@@ -22,6 +25,31 @@ pub use common::{
     // Constants
     VERSION,
 };
+
+// From rule_parser module
+pub use rule_parser::{
+    Action,
+    ActionBehavior,
+    AddAction,
+    DeleteAction,
+    ExpandableTag,
+    // Errors
+    InvalidRuleError,
+    Matcher,
+    Pattern,
+    // Action types
+    ReplaceAction,
+    // Core types
+    Rule,
+    RuleSyntaxError,
+    SedAction,
+    SplitAction,
+    // Tag types
+    Tag,
+};
+
+// From config module
+pub use config::{get_config_path, Config, VirtualFSConfig};
 
 // from rose.audiotags import (
 //     SUPPORTED_AUDIO_EXTENSIONS,

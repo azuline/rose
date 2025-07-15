@@ -41,14 +41,14 @@ pub fn seeded_cache() -> (crate::common::Config, TempDir) {
     let source_dir = base_path.join("source");
 
     let dirpaths = vec![source_dir.join("r1"), source_dir.join("r2"), source_dir.join("r3"), source_dir.join("r4")];
-    let musicpaths = vec![
+    let musicpaths = [
         source_dir.join("r1").join("01.m4a"),
         source_dir.join("r1").join("02.m4a"),
         source_dir.join("r2").join("01.m4a"),
         source_dir.join("r3").join("01.m4a"),
         source_dir.join("r4").join("01.m4a"),
     ];
-    let imagepaths = vec![source_dir.join("r2").join("cover.jpg"), source_dir.join("!playlists").join("Lala Lisa.jpg")];
+    let imagepaths = [source_dir.join("r2").join("cover.jpg"), source_dir.join("!playlists").join("Lala Lisa.jpg")];
 
     let conn = Connection::open(base_path.join("cache").join("cache.sqlite3")).expect("failed to open database");
     conn.execute_batch(include_str!("cache.sql")).expect("failed to create schema");

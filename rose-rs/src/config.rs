@@ -1,523 +1,730 @@
-"""
-The config module provides the config spec and parsing logic.
+/// The config module provides the config spec and parsing logic.
+///
+/// We take special care to optimize the configuration experience: Rose provides detailed errors when an
+/// invalid configuration is detected, and emits warnings when unrecognized keys are found.
+use directories::ProjectDirs;
+use std::collections::{HashMap, VecDeque};
+use std::path::{Path, PathBuf};
+use thiserror::Error;
+use toml::Value;
+use tracing::warn;
 
-We take special care to optimize the configuration experience: Rose provides detailed errors when an
-invalid configuration is detected, and emits warnings when unrecognized keys are found.
-"""
+use crate::common::{Result, RoseError, RoseExpectedError};
+use crate::rule_parser::{Rule, RuleSyntaxError};
+use crate::templates::{PathTemplate, PathTemplateConfig, DEFAULT_TEMPLATE_PAIR};
 
-from __future__ import annotations
+#[derive(Error, Debug)]
+pub enum ConfigError {
+    #[error(transparent)]
+    Expected(#[from] RoseExpectedError),
+    #[error(transparent)]
+    RuleSyntax(#[from] RuleSyntaxError),
+}
 
-import contextlib
-import functools
-import logging
-import multiprocessing
-import tomllib
-from collections import defaultdict, deque
-from copy import deepcopy
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
+impl From<ConfigError> for RoseError {
+    fn from(err: ConfigError) -> Self {
+        match err {
+            ConfigError::Expected(e) => RoseError::Expected(e),
+            ConfigError::RuleSyntax(e) => RoseError::Generic(e.to_string()),
+        }
+    }
+}
 
-import appdirs
+fn get_config_dir() -> Result<PathBuf> {
+    let proj_dirs = ProjectDirs::from("", "", "rose").ok_or_else(|| RoseError::Generic("Failed to get project directories".to_string()))?;
+    let config_dir = proj_dirs.config_dir().to_path_buf();
+    std::fs::create_dir_all(&config_dir)?;
+    Ok(config_dir)
+}
 
-from rose.common import RoseExpectedError
-from rose.rule_parser import Rule, RuleSyntaxError
-from rose.templates import (
-    DEFAULT_TEMPLATE_PAIR,
-    InvalidPathTemplateError,
-    PathTemplate,
-    PathTemplateConfig,
-)
+fn get_cache_dir() -> Result<PathBuf> {
+    let proj_dirs = ProjectDirs::from("", "", "rose").ok_or_else(|| RoseError::Generic("Failed to get project directories".to_string()))?;
+    let cache_dir = proj_dirs.cache_dir().to_path_buf();
+    std::fs::create_dir_all(&cache_dir)?;
+    Ok(cache_dir)
+}
 
-XDG_CONFIG_ROSE = Path(appdirs.user_config_dir("rose"))
-XDG_CONFIG_ROSE.mkdir(parents=True, exist_ok=True)
-CONFIG_PATH = XDG_CONFIG_ROSE / "config.toml"
+pub fn get_config_path() -> Result<PathBuf> {
+    Ok(get_config_dir()?.join("config.toml"))
+}
 
-XDG_CACHE_ROSE = Path(appdirs.user_cache_dir("rose"))
-XDG_CACHE_ROSE.mkdir(parents=True, exist_ok=True)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VirtualFSConfig {
+    pub mount_dir: PathBuf,
 
-logger = logging.getLogger(__name__)
+    pub artists_whitelist: Option<Vec<String>>,
+    pub genres_whitelist: Option<Vec<String>>,
+    pub descriptors_whitelist: Option<Vec<String>>,
+    pub labels_whitelist: Option<Vec<String>>,
+    pub artists_blacklist: Option<Vec<String>>,
+    pub genres_blacklist: Option<Vec<String>>,
+    pub descriptors_blacklist: Option<Vec<String>>,
+    pub labels_blacklist: Option<Vec<String>>,
 
+    pub hide_genres_with_only_new_releases: bool,
+    pub hide_descriptors_with_only_new_releases: bool,
+    pub hide_labels_with_only_new_releases: bool,
+}
 
-class ConfigNotFoundError(RoseExpectedError):
-    pass
+impl VirtualFSConfig {
+    /// Modifies `data` by removing any keys read.
+    fn parse(cfgpath: &Path, data: &mut toml::value::Table) -> std::result::Result<VirtualFSConfig, ConfigError> {
+        let mount_dir = match data.remove("mount_dir") {
+            Some(Value::String(s)) => shellexpand::tilde(&s).into_owned().into(),
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for vfs.mount_dir in configuration file ({}): must be a path",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => return Err(RoseExpectedError::Generic(format!("Missing key vfs.mount_dir in configuration file ({})", cfgpath.display())).into()),
+        };
 
+        let artists_whitelist = match data.remove("artists_whitelist") {
+            Some(Value::Array(arr)) => {
+                let mut result = Vec::new();
+                for v in arr {
+                    match v {
+                        Value::String(s) => result.push(s),
+                        _ => {
+                            return Err(RoseExpectedError::Generic(format!(
+                                "Invalid value for vfs.artists_whitelist in configuration file ({}): Each artist must be of type str: got {:?}",
+                                cfgpath.display(),
+                                v.type_str()
+                            ))
+                            .into())
+                        }
+                    }
+                }
+                Some(result)
+            }
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for vfs.artists_whitelist in configuration file ({}): Must be a list[str]",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => None,
+        };
 
-class ConfigDecodeError(RoseExpectedError):
-    pass
+        let genres_whitelist = match data.remove("genres_whitelist") {
+            Some(Value::Array(arr)) => {
+                let mut result = Vec::new();
+                for v in arr {
+                    match v {
+                        Value::String(s) => result.push(s),
+                        _ => {
+                            return Err(RoseExpectedError::Generic(format!(
+                                "Invalid value for vfs.genres_whitelist in configuration file ({}): Each genre must be of type str: got {:?}",
+                                cfgpath.display(),
+                                v.type_str()
+                            ))
+                            .into())
+                        }
+                    }
+                }
+                Some(result)
+            }
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for vfs.genres_whitelist in configuration file ({}): Must be a list[str]",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => None,
+        };
 
+        let descriptors_whitelist = match data.remove("descriptors_whitelist") {
+            Some(Value::Array(arr)) => {
+                let mut result = Vec::new();
+                for v in arr {
+                    match v {
+                        Value::String(s) => result.push(s),
+                        _ => {
+                            return Err(RoseExpectedError::Generic(format!(
+                                "Invalid value for vfs.descriptors_whitelist in configuration file ({}): Each descriptor must be of type str: got {:?}",
+                                cfgpath.display(),
+                                v.type_str()
+                            ))
+                            .into())
+                        }
+                    }
+                }
+                Some(result)
+            }
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for vfs.descriptors_whitelist in configuration file ({}): Must be a list[str]",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => None,
+        };
 
-class MissingConfigKeyError(RoseExpectedError):
-    pass
+        let labels_whitelist = match data.remove("labels_whitelist") {
+            Some(Value::Array(arr)) => {
+                let mut result = Vec::new();
+                for v in arr {
+                    match v {
+                        Value::String(s) => result.push(s),
+                        _ => {
+                            return Err(RoseExpectedError::Generic(format!(
+                                "Invalid value for vfs.labels_whitelist in configuration file ({}): Each label must be of type str: got {:?}",
+                                cfgpath.display(),
+                                v.type_str()
+                            ))
+                            .into())
+                        }
+                    }
+                }
+                Some(result)
+            }
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for vfs.labels_whitelist in configuration file ({}): Must be a list[str]",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => None,
+        };
 
+        let artists_blacklist = match data.remove("artists_blacklist") {
+            Some(Value::Array(arr)) => {
+                let mut result = Vec::new();
+                for v in arr {
+                    match v {
+                        Value::String(s) => result.push(s),
+                        _ => {
+                            return Err(RoseExpectedError::Generic(format!(
+                                "Invalid value for vfs.artists_blacklist in configuration file ({}): Each artist must be of type str: got {:?}",
+                                cfgpath.display(),
+                                v.type_str()
+                            ))
+                            .into())
+                        }
+                    }
+                }
+                Some(result)
+            }
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for vfs.artists_blacklist in configuration file ({}): Must be a list[str]",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => None,
+        };
 
-class InvalidConfigValueError(RoseExpectedError, ValueError):
-    pass
+        let genres_blacklist = match data.remove("genres_blacklist") {
+            Some(Value::Array(arr)) => {
+                let mut result = Vec::new();
+                for v in arr {
+                    match v {
+                        Value::String(s) => result.push(s),
+                        _ => {
+                            return Err(RoseExpectedError::Generic(format!(
+                                "Invalid value for vfs.genres_blacklist in configuration file ({}): Each genre must be of type str: got {:?}",
+                                cfgpath.display(),
+                                v.type_str()
+                            ))
+                            .into())
+                        }
+                    }
+                }
+                Some(result)
+            }
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for vfs.genres_blacklist in configuration file ({}): Must be a list[str]",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => None,
+        };
 
+        let descriptors_blacklist = match data.remove("descriptors_blacklist") {
+            Some(Value::Array(arr)) => {
+                let mut result = Vec::new();
+                for v in arr {
+                    match v {
+                        Value::String(s) => result.push(s),
+                        _ => {
+                            return Err(RoseExpectedError::Generic(format!(
+                                "Invalid value for vfs.descriptors_blacklist in configuration file ({}): Each descriptor must be of type str: got {:?}",
+                                cfgpath.display(),
+                                v.type_str()
+                            ))
+                            .into())
+                        }
+                    }
+                }
+                Some(result)
+            }
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for vfs.descriptors_blacklist in configuration file ({}): Must be a list[str]",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => None,
+        };
 
-@dataclass(frozen=True)
-class VirtualFSConfig:
-    mount_dir: Path
+        let labels_blacklist = match data.remove("labels_blacklist") {
+            Some(Value::Array(arr)) => {
+                let mut result = Vec::new();
+                for v in arr {
+                    match v {
+                        Value::String(s) => result.push(s),
+                        _ => {
+                            return Err(RoseExpectedError::Generic(format!(
+                                "Invalid value for vfs.labels_blacklist in configuration file ({}): Each label must be of type str: got {:?}",
+                                cfgpath.display(),
+                                v.type_str()
+                            ))
+                            .into())
+                        }
+                    }
+                }
+                Some(result)
+            }
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for vfs.labels_blacklist in configuration file ({}): Must be a list[str]",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => None,
+        };
 
-    artists_whitelist: list[str] | None
-    genres_whitelist: list[str] | None
-    descriptors_whitelist: list[str] | None
-    labels_whitelist: list[str] | None
-    artists_blacklist: list[str] | None
-    genres_blacklist: list[str] | None
-    descriptors_blacklist: list[str] | None
-    labels_blacklist: list[str] | None
+        if artists_whitelist.is_some() && artists_blacklist.is_some() {
+            return Err(RoseExpectedError::Generic(format!(
+                "Cannot specify both vfs.artists_whitelist and vfs.artists_blacklist in configuration file ({}): must specify only one or the other",
+                cfgpath.display()
+            ))
+            .into());
+        }
+        if genres_whitelist.is_some() && genres_blacklist.is_some() {
+            return Err(RoseExpectedError::Generic(format!(
+                "Cannot specify both vfs.genres_whitelist and vfs.genres_blacklist in configuration file ({}): must specify only one or the other",
+                cfgpath.display()
+            ))
+            .into());
+        }
+        if labels_whitelist.is_some() && labels_blacklist.is_some() {
+            return Err(RoseExpectedError::Generic(format!(
+                "Cannot specify both vfs.labels_whitelist and vfs.labels_blacklist in configuration file ({}): must specify only one or the other",
+                cfgpath.display()
+            ))
+            .into());
+        }
 
-    hide_genres_with_only_new_releases: bool
-    hide_descriptors_with_only_new_releases: bool
-    hide_labels_with_only_new_releases: bool
+        let hide_genres_with_only_new_releases = match data.remove("hide_genres_with_only_new_releases") {
+            Some(Value::Boolean(b)) => b,
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for vfs.hide_genres_with_only_new_releases in configuration file ({}): Must be a bool",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => false,
+        };
 
-    @classmethod
-    def parse(cls, cfgpath: Path, data: dict[str, Any]) -> VirtualFSConfig:
-        """Modifies `config` by deleting any keys read."""
-        try:
-            mount_dir = Path(data["mount_dir"]).expanduser()
-            del data["mount_dir"]
-        except KeyError as e:
-            raise MissingConfigKeyError(f"Missing key vfs.mount_dir in configuration file ({cfgpath})") from e
-        except (ValueError, TypeError) as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for vfs.mount_dir in configuration file ({cfgpath}): must be a path"
-            ) from e
+        let hide_descriptors_with_only_new_releases = match data.remove("hide_descriptors_with_only_new_releases") {
+            Some(Value::Boolean(b)) => b,
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for vfs.hide_descriptors_with_only_new_releases in configuration file ({}): Must be a bool",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => false,
+        };
 
-        try:
-            artists_whitelist = data["artists_whitelist"]
-            del data["artists_whitelist"]
-            if not isinstance(artists_whitelist, list):
-                raise ValueError(f"Must be a list[str]: got {type(artists_whitelist)}")
-            for s in artists_whitelist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each artist must be of type str: got {type(s)}")
-        except KeyError:
-            artists_whitelist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for vfs.artists_whitelist in configuration file ({cfgpath}): {e}"
-            ) from e
+        let hide_labels_with_only_new_releases = match data.remove("hide_labels_with_only_new_releases") {
+            Some(Value::Boolean(b)) => b,
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for vfs.hide_labels_with_only_new_releases in configuration file ({}): Must be a bool",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => false,
+        };
 
-        try:
-            genres_whitelist = data["genres_whitelist"]
-            del data["genres_whitelist"]
-            if not isinstance(genres_whitelist, list):
-                raise ValueError(f"Must be a list[str]: got {type(genres_whitelist)}")
-            for s in genres_whitelist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each genre must be of type str: got {type(s)}")
-        except KeyError:
-            genres_whitelist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for vfs.genres_whitelist in configuration file ({cfgpath}): {e}"
-            ) from e
+        Ok(VirtualFSConfig {
+            mount_dir,
+            artists_whitelist,
+            genres_whitelist,
+            descriptors_whitelist,
+            labels_whitelist,
+            artists_blacklist,
+            genres_blacklist,
+            descriptors_blacklist,
+            labels_blacklist,
+            hide_genres_with_only_new_releases,
+            hide_descriptors_with_only_new_releases,
+            hide_labels_with_only_new_releases,
+        })
+    }
+}
 
-        try:
-            descriptors_whitelist = data["descriptors_whitelist"]
-            del data["descriptors_whitelist"]
-            if not isinstance(descriptors_whitelist, list):
-                raise ValueError(f"Must be a list[str]: got {type(descriptors_whitelist)}")
-            for s in descriptors_whitelist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each descriptor must be of type str: got {type(s)}")
-        except KeyError:
-            descriptors_whitelist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for vfs.descriptors_whitelist in configuration file ({cfgpath}): {e}"
-            ) from e
+#[derive(Debug, Clone)]
+pub struct Config {
+    pub music_source_dir: PathBuf,
+    pub cache_dir: PathBuf,
+    /// Maximum parallel processes for cache updates. Defaults to nproc/2.
+    pub max_proc: usize,
+    pub ignore_release_directories: Vec<String>,
 
-        try:
-            labels_whitelist = data["labels_whitelist"]
-            del data["labels_whitelist"]
-            if not isinstance(labels_whitelist, list):
-                raise ValueError(f"Must be a list[str]: got {type(labels_whitelist)}")
-            for s in labels_whitelist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each label must be of type str: got {type(s)}")
-        except KeyError:
-            labels_whitelist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for vfs.labels_whitelist in configuration file ({cfgpath}): {e}"
-            ) from e
+    pub rename_source_files: bool,
+    pub max_filename_bytes: usize,
+    pub cover_art_stems: Vec<String>,
+    pub valid_art_exts: Vec<String>,
+    pub write_parent_genres: bool,
 
-        try:
-            artists_blacklist = data["artists_blacklist"]
-            del data["artists_blacklist"]
-            if not isinstance(artists_blacklist, list):
-                raise ValueError(f"Must be a list[str]: got {type(artists_blacklist)}")
-            for s in artists_blacklist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each artist must be of type str: got {type(s)}")
-        except KeyError:
-            artists_blacklist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for vfs.artists_blacklist in configuration file ({cfgpath}): {e}"
-            ) from e
+    /// A map from parent artist -> subartists.
+    pub artist_aliases_map: HashMap<String, Vec<String>>,
+    /// A map from subartist -> parent artists.
+    pub artist_aliases_parents_map: HashMap<String, Vec<String>>,
 
-        try:
-            genres_blacklist = data["genres_blacklist"]
-            del data["genres_blacklist"]
-            if not isinstance(genres_blacklist, list):
-                raise ValueError(f"Must be a list[str]: got {type(genres_blacklist)}")
-            for s in genres_blacklist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each genre must be of type str: got {type(s)}")
-        except KeyError:
-            genres_blacklist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for vfs.genres_blacklist in configuration file ({cfgpath}): {e}"
-            ) from e
+    pub path_templates: PathTemplateConfig,
+    pub stored_metadata_rules: Vec<Rule>,
 
-        try:
-            descriptors_blacklist = data["descriptors_blacklist"]
-            del data["descriptors_blacklist"]
-            if not isinstance(descriptors_blacklist, list):
-                raise ValueError(f"Must be a list[str]: got {type(descriptors_blacklist)}")
-            for s in descriptors_blacklist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each descriptor must be of type str: got {type(s)}")
-        except KeyError:
-            descriptors_blacklist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for vfs.descriptors_blacklist in configuration file ({cfgpath}): {e}"
-            ) from e
+    pub vfs: VirtualFSConfig,
+}
 
-        try:
-            labels_blacklist = data["labels_blacklist"]
-            del data["labels_blacklist"]
-            if not isinstance(labels_blacklist, list):
-                raise ValueError(f"Must be a list[str]: got {type(labels_blacklist)}")
-            for s in labels_blacklist:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each label must be of type str: got {type(s)}")
-        except KeyError:
-            labels_blacklist = None
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for vfs.labels_blacklist in configuration file ({cfgpath}): {e}"
-            ) from e
+impl Config {
+    pub fn parse(config_path_override: Option<&Path>) -> Result<Config> {
+        // As we parse, delete consumed values from the data dictionary. If any are left over at the
+        // end of the config, warn that unknown config keys were found.
+        let cfgpath = match config_path_override {
+            Some(p) => p.to_path_buf(),
+            None => get_config_path()?,
+        };
 
-        if artists_whitelist and artists_blacklist:
-            raise InvalidConfigValueError(
-                f"Cannot specify both vfs.artists_whitelist and vfs.artists_blacklist in configuration file ({cfgpath}): must specify only one or the other"
-            )
-        if genres_whitelist and genres_blacklist:
-            raise InvalidConfigValueError(
-                f"Cannot specify both vfs.genres_whitelist and vfs.genres_blacklist in configuration file ({cfgpath}): must specify only one or the other"
-            )
-        if labels_whitelist and labels_blacklist:
-            raise InvalidConfigValueError(
-                f"Cannot specify both vfs.labels_whitelist and vfs.labels_blacklist in configuration file ({cfgpath}): must specify only one or the other"
-            )
+        let cfgtext = std::fs::read_to_string(&cfgpath).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                RoseExpectedError::Generic(format!("Configuration file not found ({})", cfgpath.display()))
+            } else {
+                RoseExpectedError::Generic(format!("Failed to read configuration file: {e}"))
+            }
+        })?;
 
-        try:
-            hide_genres_with_only_new_releases = data["hide_genres_with_only_new_releases"]
-            del data["hide_genres_with_only_new_releases"]
-            if not isinstance(hide_genres_with_only_new_releases, bool):
-                raise ValueError(f"Must be a bool: got {type(hide_genres_with_only_new_releases)}")
-        except KeyError:
-            hide_genres_with_only_new_releases = False
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for vfs.hide_genres_with_only_new_releases in configuration file ({cfgpath}): {e}"
-            ) from e
+        let mut data: toml::value::Table =
+            toml::from_str(&cfgtext).map_err(|e| RoseExpectedError::Generic(format!("Failed to decode configuration file: invalid TOML: {e}")))?;
 
-        try:
-            hide_descriptors_with_only_new_releases = data["hide_descriptors_with_only_new_releases"]
-            del data["hide_descriptors_with_only_new_releases"]
-            if not isinstance(hide_descriptors_with_only_new_releases, bool):
-                raise ValueError(f"Must be a bool: got {type(hide_descriptors_with_only_new_releases)}")
-        except KeyError:
-            hide_descriptors_with_only_new_releases = False
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for vfs.hide_descriptors_with_only_new_releases in configuration file ({cfgpath}): {e}"
-            ) from e
+        let music_source_dir = match data.remove("music_source_dir") {
+            Some(Value::String(s)) => shellexpand::tilde(&s).into_owned().into(),
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for music_source_dir in configuration file ({}): must be a path",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => return Err(RoseExpectedError::Generic(format!("Missing key music_source_dir in configuration file ({})", cfgpath.display())).into()),
+        };
 
-        try:
-            hide_labels_with_only_new_releases = data["hide_labels_with_only_new_releases"]
-            del data["hide_labels_with_only_new_releases"]
-            if not isinstance(hide_labels_with_only_new_releases, bool):
-                raise ValueError(f"Must be a bool: got {type(hide_labels_with_only_new_releases)}")
-        except KeyError:
-            hide_labels_with_only_new_releases = False
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for vfs.hide_labels_with_only_new_releases in configuration file ({cfgpath}): {e}"
-            ) from e
+        let cache_dir = match data.remove("cache_dir") {
+            Some(Value::String(s)) => {
+                let expanded: PathBuf = shellexpand::tilde(&s).into_owned().into();
+                std::fs::create_dir_all(&expanded)?;
+                expanded
+            }
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for cache_dir in configuration file ({}): must be a path",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => {
+                let dir = get_cache_dir()?;
+                std::fs::create_dir_all(&dir)?;
+                dir
+            }
+        };
 
-        return VirtualFSConfig(
-            mount_dir=mount_dir,
-            artists_whitelist=artists_whitelist,
-            genres_whitelist=genres_whitelist,
-            descriptors_whitelist=descriptors_whitelist,
-            labels_whitelist=labels_whitelist,
-            artists_blacklist=artists_blacklist,
-            genres_blacklist=genres_blacklist,
-            descriptors_blacklist=descriptors_blacklist,
-            labels_blacklist=labels_blacklist,
-            hide_genres_with_only_new_releases=hide_genres_with_only_new_releases,
-            hide_descriptors_with_only_new_releases=hide_descriptors_with_only_new_releases,
-            hide_labels_with_only_new_releases=hide_labels_with_only_new_releases,
-        )
+        let max_proc = match data.remove("max_proc") {
+            Some(Value::Integer(i)) => {
+                if i <= 0 {
+                    return Err(RoseExpectedError::Generic(format!(
+                        "Invalid value for max_proc in configuration file ({}): must be a positive integer",
+                        cfgpath.display()
+                    ))
+                    .into());
+                }
+                i as usize
+            }
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for max_proc in configuration file ({}): must be a positive integer",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => std::cmp::max(1, num_cpus::get() / 2),
+        };
 
+        let mut artist_aliases_map: HashMap<String, Vec<String>> = HashMap::new();
+        let mut artist_aliases_parents_map: HashMap<String, Vec<String>> = HashMap::new();
+        if let Some(Value::Array(aliases)) = data.remove("artist_aliases") {
+            for entry in aliases {
+                let table = entry.as_table().ok_or_else(|| {
+                    RoseExpectedError::Generic(format!(
+                        "Invalid value for artist_aliases in configuration file ({}): must be a list of {{ artist = str, aliases = list[str] }} records",
+                        cfgpath.display()
+                    ))
+                })?;
 
-@dataclass(frozen=True)
-class Config:
-    music_source_dir: Path
-    cache_dir: Path
-    # Maximum parallel processes for cache updates. Defaults to nproc/2.
-    max_proc: int
-    ignore_release_directories: list[str]
+                let artist = table
+                    .get("artist")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        RoseExpectedError::Generic(format!(
+                            "Invalid value for artist_aliases in configuration file ({}): must be a list of {{ artist = str, aliases = list[str] }} records",
+                            cfgpath.display()
+                        ))
+                    })?
+                    .to_string();
 
-    rename_source_files: bool
-    max_filename_bytes: int
-    cover_art_stems: list[str]
-    valid_art_exts: list[str]
-    write_parent_genres: bool
+                let aliases_arr = table.get("aliases").and_then(|v| v.as_array()).ok_or_else(|| {
+                    RoseExpectedError::Generic(format!(
+                        "Invalid value for artist_aliases in configuration file ({}): must be a list of {{ artist = str, aliases = list[str] }} records",
+                        cfgpath.display()
+                    ))
+                })?;
 
-    # A map from parent artist -> subartists.
-    artist_aliases_map: dict[str, list[str]]
-    # A map from subartist -> parent artists.
-    artist_aliases_parents_map: dict[str, list[str]]
+                let mut aliases_vec = Vec::new();
+                for alias in aliases_arr {
+                    let alias_str = alias.as_str().ok_or_else(|| {
+                        RoseExpectedError::Generic(format!(
+                            "Invalid value for artist_aliases in configuration file ({}): must be a list of {{ artist = str, aliases = list[str] }} records",
+                            cfgpath.display()
+                        ))
+                    })?;
+                    aliases_vec.push(alias_str.to_string());
+                    artist_aliases_parents_map.entry(alias_str.to_string()).or_default().push(artist.clone());
+                }
+                artist_aliases_map.insert(artist, aliases_vec);
+            }
+        }
 
-    path_templates: PathTemplateConfig
-    stored_metadata_rules: list[Rule]
+        let cover_art_stems = match data.remove("cover_art_stems") {
+            Some(Value::Array(arr)) => {
+                let mut result = Vec::new();
+                for v in arr {
+                    match v {
+                        Value::String(s) => result.push(s.to_lowercase()),
+                        _ => {
+                            return Err(RoseExpectedError::Generic(format!(
+                                "Invalid value for cover_art_stems in configuration file ({}): Each cover art stem must be of type str: got {:?}",
+                                cfgpath.display(),
+                                v.type_str()
+                            ))
+                            .into())
+                        }
+                    }
+                }
+                result
+            }
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for cover_art_stems in configuration file ({}): Must be a list[str]",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => vec!["folder".to_string(), "cover".to_string(), "art".to_string(), "front".to_string()],
+        };
 
-    vfs: VirtualFSConfig
+        let valid_art_exts = match data.remove("valid_art_exts") {
+            Some(Value::Array(arr)) => {
+                let mut result = Vec::new();
+                for v in arr {
+                    match v {
+                        Value::String(s) => result.push(s.to_lowercase()),
+                        _ => {
+                            return Err(RoseExpectedError::Generic(format!(
+                                "Invalid value for valid_art_exts in configuration file ({}): Each art extension must be of type str: got {:?}",
+                                cfgpath.display(),
+                                v.type_str()
+                            ))
+                            .into())
+                        }
+                    }
+                }
+                result
+            }
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for valid_art_exts in configuration file ({}): Must be a list[str]",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => vec!["jpg".to_string(), "jpeg".to_string(), "png".to_string()],
+        };
 
-    @classmethod
-    def parse(cls, config_path_override: Path | None = None) -> Config:
-        # As we parse, delete consumed values from the data dictionary. If any are left over at the
-        # end of the config, warn that unknown config keys were found.
-        cfgpath = config_path_override or CONFIG_PATH
-        cfgtext = ""
-        try:
-            with cfgpath.open("r") as fp:
-                cfgtext = fp.read()
-                data = tomllib.loads(cfgtext)
-        except FileNotFoundError as e:
-            raise ConfigNotFoundError(f"Configuration file not found ({cfgpath})") from e
-        except tomllib.TOMLDecodeError as e:
-            raise ConfigDecodeError(f"Failed to decode configuration file: invalid TOML: {e}") from e
+        let write_parent_genres = match data.remove("write_parent_genres") {
+            Some(Value::Boolean(b)) => b,
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for write_parent_genres in configuration file ({}): Must be a bool",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => false,
+        };
 
-        try:
-            music_source_dir = Path(data["music_source_dir"]).expanduser()
-            del data["music_source_dir"]
-        except KeyError as e:
-            raise MissingConfigKeyError(f"Missing key music_source_dir in configuration file ({cfgpath})") from e
-        except (ValueError, TypeError) as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for music_source_dir in configuration file ({cfgpath}): must be a path"
-            ) from e
+        let max_filename_bytes = match data.remove("max_filename_bytes") {
+            Some(Value::Integer(i)) => i as usize,
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for max_filename_bytes in configuration file ({}): Must be an int",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => 180,
+        };
 
-        try:
-            cache_dir = Path(data["cache_dir"]).expanduser()
-            del data["cache_dir"]
-        except KeyError:
-            cache_dir = XDG_CACHE_ROSE
-        except (TypeError, ValueError) as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for cache_dir in configuration file ({cfgpath}): must be a path"
-            ) from e
-        cache_dir.mkdir(parents=True, exist_ok=True)
+        let rename_source_files = match data.remove("rename_source_files") {
+            Some(Value::Boolean(b)) => b,
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for rename_source_files in configuration file ({}): Must be a bool",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => false,
+        };
 
-        try:
-            max_proc = int(data["max_proc"])
-            del data["max_proc"]
-            if max_proc <= 0:
-                raise ValueError(f"must be a positive integer: got {max_proc}")
-        except KeyError:
-            max_proc = max(1, multiprocessing.cpu_count() // 2)
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for max_proc in configuration file ({cfgpath}): must be a positive integer"
-            ) from e
+        let ignore_release_directories = match data.remove("ignore_release_directories") {
+            Some(Value::Array(arr)) => {
+                let mut result = Vec::new();
+                for v in arr {
+                    match v {
+                        Value::String(s) => result.push(s),
+                        _ => {
+                            return Err(RoseExpectedError::Generic(format!(
+                                "Invalid value for ignore_release_directories in configuration file ({}): Each release directory must be of type str: got {:?}",
+                                cfgpath.display(),
+                                v.type_str()
+                            ))
+                            .into())
+                        }
+                    }
+                }
+                result
+            }
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!(
+                    "Invalid value for ignore_release_directories in configuration file ({}): Must be a list[str]",
+                    cfgpath.display()
+                ))
+                .into())
+            }
+            None => vec![],
+        };
 
-        artist_aliases_map: dict[str, list[str]] = defaultdict(list)
-        artist_aliases_parents_map: dict[str, list[str]] = defaultdict(list)
-        try:
-            for entry in data.get("artist_aliases", []):
-                if not isinstance(entry["artist"], str):
-                    raise ValueError(f"Artists must be of type str: got {type(entry["artist"])}")
-                artist_aliases_map[entry["artist"]] = entry["aliases"]
-                if not isinstance(entry["aliases"], list):
-                    raise ValueError(f"Aliases must be of type list[str]: got {type(entry["aliases"])}")
-                for s in entry["aliases"]:
-                    if not isinstance(s, str):
-                        raise ValueError(f"Each alias must be of type str: got {type(s)}")
-                    artist_aliases_parents_map[s].append(entry["artist"])
-            with contextlib.suppress(KeyError):
-                del data["artist_aliases"]
-        except (ValueError, TypeError, KeyError) as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for artist_aliases in configuration file ({cfgpath}): must be a list of {{ artist = str, aliases = list[str] }} records"
-            ) from e
+        let mut stored_metadata_rules = Vec::new();
+        if let Some(Value::Array(rules)) = data.remove("stored_metadata_rules") {
+            for rule_val in rules {
+                let rule_table = rule_val.as_table().ok_or_else(|| {
+                    RoseExpectedError::Generic(format!(
+                        "Invalid value in stored_metadata_rules in configuration file ({}): list values must be a dict",
+                        cfgpath.display()
+                    ))
+                })?;
 
-        try:
-            cover_art_stems = data["cover_art_stems"]
-            del data["cover_art_stems"]
-            if not isinstance(cover_art_stems, list):
-                raise ValueError(f"Must be a list[str]: got {type(cover_art_stems)}")
-            for s in cover_art_stems:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each cover art stem must be of type str: got {type(s)}")
-        except KeyError:
-            cover_art_stems = ["folder", "cover", "art", "front"]
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for cover_art_stems in configuration file ({cfgpath}): {e}"
-            ) from e
+                let matcher = rule_table.get("matcher").and_then(|v| v.as_str()).ok_or_else(|| {
+                    RoseExpectedError::Generic(format!(
+                        "Missing key `matcher` in stored_metadata_rules in configuration file ({}): rule {:?}",
+                        cfgpath.display(),
+                        rule_table
+                    ))
+                })?;
 
-        try:
-            valid_art_exts = data["valid_art_exts"]
-            del data["valid_art_exts"]
-            if not isinstance(valid_art_exts, list):
-                raise ValueError(f"Must be a list[str]: got {type(valid_art_exts)}")
-            for s in valid_art_exts:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each art extension must be of type str: got {type(s)}")
-        except KeyError:
-            valid_art_exts = ["jpg", "jpeg", "png"]
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for valid_art_exts in configuration file ({cfgpath}): {e}"
-            ) from e
+                let actions = rule_table.get("actions").and_then(|v| v.as_array()).ok_or_else(|| {
+                    RoseExpectedError::Generic(format!(
+                        "Missing key `actions` in stored_metadata_rules in configuration file ({}): rule {:?}",
+                        cfgpath.display(),
+                        rule_table
+                    ))
+                })?;
 
-        cover_art_stems = [x.lower() for x in cover_art_stems]
-        valid_art_exts = [x.lower() for x in valid_art_exts]
+                let mut actions_vec = Vec::new();
+                for action in actions {
+                    let action_str = action.as_str().ok_or_else(|| {
+                        RoseExpectedError::Generic(format!(
+                            "Invalid value for `actions` in stored_metadata_rules in configuration file ({}): rule {:?}: must be a list of strings",
+                            cfgpath.display(),
+                            rule_table
+                        ))
+                    })?;
+                    actions_vec.push(action_str.to_string());
+                }
 
-        try:
-            write_parent_genres = data["write_parent_genres"]
-            del data["write_parent_genres"]
-            if not isinstance(write_parent_genres, bool):
-                raise ValueError(f"Must be a bool: got {type(write_parent_genres)}")
-        except KeyError:
-            write_parent_genres = False
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for write_parent_genres in configuration file ({cfgpath}): {e}"
-            ) from e
+                let mut ignore_vec = Vec::new();
+                if let Some(ignore) = rule_table.get("ignore").and_then(|v| v.as_array()) {
+                    for i in ignore {
+                        let i_str = i.as_str().ok_or_else(|| {
+                            RoseExpectedError::Generic(format!(
+                                "Invalid value for `ignore` in stored_metadata_rules in configuration file ({}): rule {:?}: must be a list of strings",
+                                cfgpath.display(),
+                                rule_table
+                            ))
+                        })?;
+                        ignore_vec.push(i_str.to_string());
+                    }
+                }
 
-        try:
-            max_filename_bytes = data["max_filename_bytes"]
-            del data["max_filename_bytes"]
-            if not isinstance(max_filename_bytes, int):
-                raise ValueError(f"Must be an int: got {type(max_filename_bytes)}")
-        except KeyError:
-            max_filename_bytes = 180
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for max_filename_bytes in configuration file ({cfgpath}): {e}"
-            ) from e
+                let rule = Rule::parse(matcher, actions_vec, if ignore_vec.is_empty() { None } else { Some(ignore_vec) }).map_err(|e| {
+                    RoseExpectedError::Generic(format!(
+                        "Failed to parse stored_metadata_rules in configuration file ({}): rule {:?}: {}",
+                        cfgpath.display(),
+                        rule_table,
+                        e
+                    ))
+                })?;
+                stored_metadata_rules.push(rule);
+            }
+        }
 
-        try:
-            rename_source_files = data["rename_source_files"]
-            del data["rename_source_files"]
-            if not isinstance(rename_source_files, bool):
-                raise ValueError(f"Must be a bool: got {type(rename_source_files)}")
-        except KeyError:
-            rename_source_files = False
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for rename_source_files in configuration file ({cfgpath}): {e}"
-            ) from e
+        // Get the potential default template before evaluating the rest.
+        let mut default_templates = DEFAULT_TEMPLATE_PAIR.clone();
+        let path_template_config = if let Some(Value::Table(mut path_templates)) = data.remove("path_templates") {
+            if let Some(Value::Table(mut default)) = path_templates.remove("default") {
+                if let Some(Value::String(s)) = default.remove("release") {
+                    default_templates.release = PathTemplate::new(s);
+                }
+                if let Some(Value::String(s)) = default.remove("track") {
+                    default_templates.track = PathTemplate::new(s);
+                }
+                if let Some(Value::String(s)) = default.remove("all_tracks") {
+                    default_templates.all_tracks = PathTemplate::new(s);
+                }
+            }
 
-        try:
-            ignore_release_directories = data["ignore_release_directories"]
-            del data["ignore_release_directories"]
-            if not isinstance(ignore_release_directories, list):
-                raise ValueError(f"Must be a list[str]: got {type(ignore_release_directories)}")
-            for s in ignore_release_directories:
-                if not isinstance(s, str):
-                    raise ValueError(f"Each release directory must be of type str: got {type(s)}")
-        except KeyError:
-            ignore_release_directories = []
-        except ValueError as e:
-            raise InvalidConfigValueError(
-                f"Invalid value for ignore_release_directories in configuration file ({cfgpath}): {e}"
-            ) from e
+            let mut path_template_config = PathTemplateConfig::with_defaults(default_templates.clone());
 
-        stored_metadata_rules: list[Rule] = []
-        for d in data.get("stored_metadata_rules", []):
-            if not isinstance(d, dict):
-                raise InvalidConfigValueError(
-                    f"Invalid value in stored_metadata_rules in configuration file ({cfgpath}): list values must be a dict: got {type(d)}"
-                )
-
-            try:
-                matcher = d["matcher"]
-            except KeyError as e:
-                raise InvalidConfigValueError(
-                    f"Missing key `matcher` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}"
-                ) from e
-            if not isinstance(matcher, str):
-                raise InvalidConfigValueError(
-                    f"Invalid value for `matcher` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}: must be a string"
-                )
-
-            try:
-                actions = d["actions"]
-            except KeyError as e:
-                raise InvalidConfigValueError(
-                    f"Missing key `actions` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}"
-                ) from e
-            if not isinstance(actions, list):
-                raise InvalidConfigValueError(
-                    f"Invalid value for `actions` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}: must be a list of strings"
-                )
-            for action in actions:
-                if not isinstance(action, str):
-                    raise InvalidConfigValueError(
-                        f"Invalid value for `actions` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}: must be a list of strings: got {type(action)}"
-                    )
-
-            ignore = d.get("ignore", [])
-            if not isinstance(ignore, list):
-                raise InvalidConfigValueError(
-                    f"Invalid value for `ignore` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}: must be a list of strings"
-                )
-            for i in ignore:
-                if not isinstance(i, str):
-                    raise InvalidConfigValueError(
-                        f"Invalid value for `ignore` in stored_metadata_rules in configuration file ({cfgpath}): rule {d}: must be a list of strings: got {type(i)}"
-                    )
-
-            try:
-                stored_metadata_rules.append(Rule.parse(matcher, actions, ignore))
-            except RuleSyntaxError as e:
-                raise InvalidConfigValueError(
-                    f"Failed to parse stored_metadata_rules in configuration file ({cfgpath}): rule {d}: {e}"
-                ) from e
-        if "stored_metadata_rules" in data:
-            del data["stored_metadata_rules"]
-
-        # Get the potential default template before evaluating the rest.
-        default_templates = deepcopy(DEFAULT_TEMPLATE_PAIR)
-        with contextlib.suppress(KeyError):
-            default_templates.release = PathTemplate(data["path_templates"]["default"]["release"])
-            del data["path_templates"]["default"]["release"]
-        with contextlib.suppress(KeyError):
-            default_templates.track = PathTemplate(data["path_templates"]["default"]["track"])
-            del data["path_templates"]["default"]["track"]
-        with contextlib.suppress(KeyError):
-            default_templates.all_tracks = PathTemplate(data["path_templates"]["default"]["all_tracks"])
-            del data["path_templates"]["default"]["all_tracks"]
-        with contextlib.suppress(KeyError):
-            if not data["path_templates"]["default"]:
-                del data["path_templates"]["default"]
-
-        path_templates = PathTemplateConfig.with_defaults(default_templates)
-        if tmpl_config := data.get("path_templates", None):
-            for key in [
+            // Parse all the other template sections
+            for key in &[
                 "source",
                 "releases",
                 "releases_new",
@@ -529,135 +736,171 @@ class Config:
                 "labels",
                 "loose_tracks",
                 "collages",
-            ]:
-                with contextlib.suppress(KeyError):
-                    getattr(path_templates, key).release = PathTemplate(tmpl_config[key]["release"])
-                    del tmpl_config[key]["release"]
-                with contextlib.suppress(KeyError):
-                    getattr(path_templates, key).track = PathTemplate(tmpl_config[key]["track"])
-                    del tmpl_config[key]["track"]
-                with contextlib.suppress(KeyError):
-                    getattr(path_templates, key).all_tracks = PathTemplate(tmpl_config[key]["all_tracks"])
-                    del tmpl_config[key]["all_tracks"]
-                with contextlib.suppress(KeyError):
-                    if not tmpl_config[key]:
-                        del tmpl_config[key]
+            ] {
+                if let Some(Value::Table(mut section)) = path_templates.remove(*key) {
+                    let field = match *key {
+                        "source" => &mut path_template_config.source,
+                        "releases" => &mut path_template_config.releases,
+                        "releases_new" => &mut path_template_config.releases_new,
+                        "releases_added_on" => &mut path_template_config.releases_added_on,
+                        "releases_released_on" => &mut path_template_config.releases_released_on,
+                        "artists" => &mut path_template_config.artists,
+                        "genres" => &mut path_template_config.genres,
+                        "descriptors" => &mut path_template_config.descriptors,
+                        "labels" => &mut path_template_config.labels,
+                        "loose_tracks" => &mut path_template_config.loose_tracks,
+                        "collages" => &mut path_template_config.collages,
+                        _ => unreachable!(),
+                    };
 
-            with contextlib.suppress(KeyError):
-                path_templates.playlists = PathTemplate(tmpl_config["playlists"])
-                del tmpl_config["playlists"]
-        with contextlib.suppress(KeyError):
-            if not data["path_templates"]:
-                del data["path_templates"]
+                    if let Some(Value::String(s)) = section.remove("release") {
+                        field.release = PathTemplate::new(s);
+                    }
+                    if let Some(Value::String(s)) = section.remove("track") {
+                        field.track = PathTemplate::new(s);
+                    }
+                    if let Some(Value::String(s)) = section.remove("all_tracks") {
+                        field.all_tracks = PathTemplate::new(s);
+                    }
+                }
+            }
 
-        vfs_config = VirtualFSConfig.parse(cfgpath, data.get("vfs", {}))
+            if let Some(Value::String(s)) = path_templates.remove("playlists") {
+                path_template_config.playlists = PathTemplate::new(s);
+            }
 
-        if data:
-            unrecognized_accessors: list[str] = []
-            # Do a DFS over the data keys to assemble the map of unknown keys. State is a tuple of
-            # ("accessor", node).
-            dfs_state: deque[tuple[str, dict[str, Any]]] = deque([("", data)])
-            while dfs_state:
-                accessor, node = dfs_state.pop()
-                if isinstance(node, dict):
-                    for k, v in node.items():
-                        child_accessor = k if not accessor else f"{accessor}.{k}"
-                        dfs_state.append((child_accessor, v))
-                    continue
-                unrecognized_accessors.append(accessor)
-            if unrecognized_accessors:
-                logger.warning(f"Unrecognized options found in configuration file: {", ".join(unrecognized_accessors)}")
+            // Re-add remaining path_templates if any
+            if !path_templates.is_empty() {
+                data.insert("path_templates".to_string(), Value::Table(path_templates));
+            }
 
-        return Config(
-            music_source_dir=music_source_dir,
-            cache_dir=cache_dir,
-            max_proc=max_proc,
-            artist_aliases_map=artist_aliases_map,
-            artist_aliases_parents_map=artist_aliases_parents_map,
-            cover_art_stems=cover_art_stems,
-            valid_art_exts=valid_art_exts,
-            write_parent_genres=write_parent_genres,
-            max_filename_bytes=max_filename_bytes,
-            path_templates=path_templates,
-            rename_source_files=rename_source_files,
-            ignore_release_directories=ignore_release_directories,
-            stored_metadata_rules=stored_metadata_rules,
-            vfs=vfs_config,
-        )
+            path_template_config
+        } else {
+            PathTemplateConfig::with_defaults(default_templates.clone())
+        };
 
-    @functools.cached_property
-    def valid_cover_arts(self) -> list[str]:
-        return [s + "." + e for s in self.cover_art_stems for e in self.valid_art_exts]
+        let mut vfs_data = match data.remove("vfs") {
+            Some(Value::Table(t)) => t,
+            Some(_) => {
+                return Err(RoseExpectedError::Generic(format!("Invalid value for vfs in configuration file ({}): must be a table", cfgpath.display())).into())
+            }
+            None => toml::value::Table::new(),
+        };
 
-    @functools.cached_property
-    def cache_database_path(self) -> Path:
-        return self.cache_dir / "cache.sqlite3"
+        let vfs = VirtualFSConfig::parse(&cfgpath, &mut vfs_data).map_err(|e| -> RoseError { e.into() })?;
 
-    @functools.cached_property
-    def watchdog_pid_path(self) -> Path:
-        return self.cache_dir / "watchdog.pid"
+        // Re-add remaining vfs data if any
+        if !vfs_data.is_empty() {
+            data.insert("vfs".to_string(), Value::Table(vfs_data));
+        }
 
-    def validate_path_templates_expensive(self) -> None:
-        """
-        Validate all the path templates. This is expensive, so we don't do it when reading the
-        configuration, only on demand.
-        """
-        try:
-            self.path_templates.parse()
-        except InvalidPathTemplateError as e:
-            raise InvalidConfigValueError(f"Invalid path template in for template {e.key}: {e}") from e
+        // Check for unrecognized keys
+        if !data.is_empty() {
+            let mut unrecognized_accessors = Vec::new();
+            // Do a DFS over the data keys to assemble the map of unknown keys. State is a tuple of
+            // ("accessor", node).
+            let mut dfs_state: VecDeque<(String, &Value)> = VecDeque::new();
+            for (k, v) in &data {
+                dfs_state.push_back((k.clone(), v));
+            }
 
-# TESTS
+            while let Some((accessor, node)) = dfs_state.pop_back() {
+                match node {
+                    Value::Table(t) => {
+                        for (k, v) in t {
+                            let child_accessor = if accessor.is_empty() { k.clone() } else { format!("{accessor}.{k}") };
+                            dfs_state.push_back((child_accessor, v));
+                        }
+                    }
+                    _ => unrecognized_accessors.push(accessor),
+                }
+            }
 
-import tempfile
-from pathlib import Path
+            if !unrecognized_accessors.is_empty() {
+                warn!("Unrecognized options found in configuration file: {}", unrecognized_accessors.join(", "));
+            }
+        }
 
-import click
-import pytest
+        Ok(Config {
+            music_source_dir,
+            cache_dir,
+            max_proc,
+            artist_aliases_map,
+            artist_aliases_parents_map,
+            cover_art_stems,
+            valid_art_exts,
+            write_parent_genres,
+            max_filename_bytes,
+            path_templates: path_template_config,
+            rename_source_files,
+            ignore_release_directories,
+            stored_metadata_rules,
+            vfs,
+        })
+    }
 
-from rose.config import (
-    Config,
-    ConfigNotFoundError,
-    InvalidConfigValueError,
-    MissingConfigKeyError,
-    VirtualFSConfig,
-)
-from rose.rule_parser import (
-    Action,
-    Matcher,
-    Pattern,
-    ReplaceAction,
-    Rule,
-    SplitAction,
-)
-from rose.templates import PathTemplate, PathTemplateConfig, PathTemplateTriad
+    pub fn valid_cover_arts(&self) -> Vec<String> {
+        let mut result = Vec::new();
+        for stem in &self.cover_art_stems {
+            for ext in &self.valid_art_exts {
+                result.push(format!("{stem}.{ext}"));
+            }
+        }
+        result
+    }
 
+    pub fn cache_database_path(&self) -> PathBuf {
+        self.cache_dir.join("cache.sqlite3")
+    }
 
-def test_config_minimal() -> None:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "config.toml"
-        with path.open("w") as fp:
-            fp.write(
-                """
+    pub fn watchdog_pid_path(&self) -> PathBuf {
+        self.cache_dir.join("watchdog.pid")
+    }
+
+    pub fn validate_path_templates_expensive(&self) -> Result<()> {
+        // Validate all the path templates. This is expensive, so we don't do it when reading the
+        // configuration, only on demand.
+        self.path_templates
+            .parse()
+            .map_err(|e| RoseExpectedError::Generic(format!("Invalid path template in for template {}: {}", e.key, e)).into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rule_parser::ActionBehavior;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_config_minimal() {
+        let tmpdir = TempDir::new().unwrap();
+        let path = tmpdir.path().join("config.toml");
+        std::fs::write(
+            &path,
+            r#"
                 music_source_dir = "~/.music-src"
                 vfs.mount_dir = "~/music"
-                """
-            )
+            "#,
+        )
+        .unwrap();
 
-        c = Config.parse(config_path_override=path)
-        assert c.music_source_dir == Path.home() / ".music-src"
-        assert c.vfs.mount_dir == Path.home() / "music"
+        let c = Config::parse(Some(&path)).unwrap();
+        assert_eq!(c.music_source_dir, PathBuf::from(shellexpand::tilde("~/.music-src").into_owned()));
+        assert_eq!(c.vfs.mount_dir, PathBuf::from(shellexpand::tilde("~/music").into_owned()));
+    }
 
-
-def test_config_full() -> None:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "config.toml"
-        cache_dir = Path(tmpdir) / "cache"
-        with path.open("w") as fp:
-            fp.write(
-                f"""
+    #[test]
+    fn test_config_full() {
+        let tmpdir = TempDir::new().unwrap();
+        let path = tmpdir.path().join("config.toml");
+        let cache_dir = tmpdir.path().join("cache");
+        std::fs::write(
+            &path,
+            format!(
+                r#"
                 music_source_dir = "~/.music-src"
-                cache_dir = "{cache_dir}"
+                cache_dir = "{}"
                 max_proc = 8
                 artist_aliases = [
                   {{ artist = "Abakus", aliases = ["Cinnamon Chasers"] }},
@@ -723,565 +966,212 @@ def test_config_full() -> None:
                 hide_genres_with_only_new_releases = true
                 hide_descriptors_with_only_new_releases = true
                 hide_labels_with_only_new_releases = true
-                """
-            )
-
-        c = Config.parse(config_path_override=path)
-        assert c == Config(
-            music_source_dir=Path.home() / ".music-src",
-            cache_dir=cache_dir,
-            max_proc=8,
-            artist_aliases_map={
-                "Abakus": ["Cinnamon Chasers"],
-                "tripleS": [
-                    "EVOLution",
-                    "LOVElution",
-                    "+(KR)ystal Eyes",
-                    "Acid Angel From Asia",
-                    "Acid Eyes",
-                ],
-            },
-            artist_aliases_parents_map={
-                "Cinnamon Chasers": ["Abakus"],
-                "EVOLution": ["tripleS"],
-                "LOVElution": ["tripleS"],
-                "+(KR)ystal Eyes": ["tripleS"],
-                "Acid Angel From Asia": ["tripleS"],
-                "Acid Eyes": ["tripleS"],
-            },
-            cover_art_stems=["aa", "bb"],
-            valid_art_exts=["tiff"],
-            write_parent_genres=True,
-            max_filename_bytes=255,
-            rename_source_files=True,
-            path_templates=PathTemplateConfig(
-                source=PathTemplateTriad(
-                    release=PathTemplate("{{ title }}"),
-                    track=PathTemplate("{{ title }}"),
-                    all_tracks=PathTemplate("{{ title }}"),
-                ),
-                releases=PathTemplateTriad(
-                    release=PathTemplate("{{ title }}"),
-                    track=PathTemplate("{{ title }}"),
-                    all_tracks=PathTemplate("{{ title }}"),
-                ),
-                releases_new=PathTemplateTriad(
-                    release=PathTemplate("{{ title }}"),
-                    track=PathTemplate("{{ title }}"),
-                    all_tracks=PathTemplate("{{ title }}"),
-                ),
-                releases_added_on=PathTemplateTriad(
-                    release=PathTemplate("{{ title }}"),
-                    track=PathTemplate("{{ title }}"),
-                    all_tracks=PathTemplate("{{ title }}"),
-                ),
-                releases_released_on=PathTemplateTriad(
-                    release=PathTemplate("{{ title }}"),
-                    track=PathTemplate("{{ title }}"),
-                    all_tracks=PathTemplate("{{ title }}"),
-                ),
-                artists=PathTemplateTriad(
-                    release=PathTemplate("{{ title }}"),
-                    track=PathTemplate("{{ title }}"),
-                    all_tracks=PathTemplate("{{ title }}"),
-                ),
-                genres=PathTemplateTriad(
-                    release=PathTemplate("{{ title }}"),
-                    track=PathTemplate("{{ title }}"),
-                    all_tracks=PathTemplate("{{ title }}"),
-                ),
-                descriptors=PathTemplateTriad(
-                    release=PathTemplate("{{ title }}"),
-                    track=PathTemplate("{{ title }}"),
-                    all_tracks=PathTemplate("{{ title }}"),
-                ),
-                labels=PathTemplateTriad(
-                    release=PathTemplate("{{ title }}"),
-                    track=PathTemplate("{{ title }}"),
-                    all_tracks=PathTemplate("{{ title }}"),
-                ),
-                loose_tracks=PathTemplateTriad(
-                    release=PathTemplate("{{ title }}"),
-                    track=PathTemplate("{{ title }}"),
-                    all_tracks=PathTemplate("{{ title }}"),
-                ),
-                collages=PathTemplateTriad(
-                    release=PathTemplate("{{ title }}"),
-                    track=PathTemplate("{{ title }}"),
-                    all_tracks=PathTemplate("{{ title }}"),
-                ),
-                playlists=PathTemplate("{{ title }}"),
-            ),
-            ignore_release_directories=["dummy boy"],
-            stored_metadata_rules=[
-                Rule(
-                    matcher=Matcher(["tracktitle"], Pattern("lala")),
-                    actions=[
-                        Action(
-                            behavior=ReplaceAction(replacement="hihi"),
-                            tags=["tracktitle"],
-                            pattern=Pattern("lala"),
-                        )
-                    ],
-                    ignore=[],
-                ),
-                Rule(
-                    matcher=Matcher(["trackartist[main]"], Pattern("haha")),
-                    actions=[
-                        Action(
-                            behavior=ReplaceAction(replacement="bibi"),
-                            tags=["trackartist[main]"],
-                            pattern=Pattern("haha"),
-                        ),
-                        Action(
-                            behavior=SplitAction(delimiter=" "),
-                            tags=["trackartist[main]"],
-                            pattern=Pattern("haha"),
-                        ),
-                    ],
-                    ignore=[Matcher(["releasetitle"], Pattern("blabla"))],
-                ),
-            ],
-            vfs=VirtualFSConfig(
-                mount_dir=Path.home() / "music",
-                artists_whitelist=None,
-                genres_whitelist=None,
-                descriptors_whitelist=None,
-                labels_whitelist=None,
-                hide_genres_with_only_new_releases=True,
-                hide_descriptors_with_only_new_releases=True,
-                hide_labels_with_only_new_releases=True,
-                artists_blacklist=["www"],
-                genres_blacklist=["xxx"],
-                descriptors_blacklist=["yyy"],
-                labels_blacklist=["zzz"],
+                "#,
+                cache_dir.display()
             ),
         )
+        .unwrap();
 
+        let c = Config::parse(Some(&path)).unwrap();
 
-def test_config_whitelist() -> None:
-    """Since whitelist and blacklist are mutually exclusive, we can't test them in the same test."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "config.toml"
-        with path.open("w") as fp:
-            fp.write(
-                """
+        // Check basic fields
+        assert_eq!(c.music_source_dir, PathBuf::from(shellexpand::tilde("~/.music-src").into_owned()));
+        assert_eq!(c.cache_dir, cache_dir);
+        assert_eq!(c.max_proc, 8);
+        assert_eq!(c.cover_art_stems, vec!["aa", "bb"]);
+        assert_eq!(c.valid_art_exts, vec!["tiff"]);
+        assert!(c.write_parent_genres);
+        assert_eq!(c.max_filename_bytes, 255);
+        assert!(c.rename_source_files);
+        assert_eq!(c.ignore_release_directories, vec!["dummy boy"]);
+
+        // Check artist aliases
+        assert_eq!(c.artist_aliases_map.get("Abakus"), Some(&vec!["Cinnamon Chasers".to_string()]));
+        assert_eq!(
+            c.artist_aliases_map.get("tripleS"),
+            Some(&vec![
+                "EVOLution".to_string(),
+                "LOVElution".to_string(),
+                "+(KR)ystal Eyes".to_string(),
+                "Acid Angel From Asia".to_string(),
+                "Acid Eyes".to_string(),
+            ])
+        );
+        assert_eq!(c.artist_aliases_parents_map.get("Cinnamon Chasers"), Some(&vec!["Abakus".to_string()]));
+
+        // Check stored metadata rules
+        assert_eq!(c.stored_metadata_rules.len(), 2);
+        assert_eq!(c.stored_metadata_rules[0].matcher.tags, vec![crate::rule_parser::Tag::TrackTitle]);
+        assert_eq!(c.stored_metadata_rules[0].matcher.pattern.needle, "lala");
+        assert_eq!(c.stored_metadata_rules[0].actions.len(), 1);
+        match &c.stored_metadata_rules[0].actions[0].behavior {
+            ActionBehavior::Replace(r) => assert_eq!(r.replacement, "hihi"),
+            _ => panic!("Expected replace action"),
+        }
+
+        // Check VFS config
+        assert_eq!(c.vfs.mount_dir, PathBuf::from(shellexpand::tilde("~/music").into_owned()));
+        assert_eq!(c.vfs.artists_blacklist, Some(vec!["www".to_string()]));
+        assert_eq!(c.vfs.genres_blacklist, Some(vec!["xxx".to_string()]));
+        assert_eq!(c.vfs.descriptors_blacklist, Some(vec!["yyy".to_string()]));
+        assert_eq!(c.vfs.labels_blacklist, Some(vec!["zzz".to_string()]));
+        assert!(c.vfs.hide_genres_with_only_new_releases);
+        assert!(c.vfs.hide_descriptors_with_only_new_releases);
+        assert!(c.vfs.hide_labels_with_only_new_releases);
+    }
+
+    #[test]
+    fn test_config_whitelist() {
+        let tmpdir = TempDir::new().unwrap();
+        let path = tmpdir.path().join("config.toml");
+        std::fs::write(
+            &path,
+            r#"
                 music_source_dir = "~/.music-src"
                 vfs.mount_dir = "~/music"
                 vfs.artists_whitelist = [ "www" ]
                 vfs.genres_whitelist = [ "xxx" ]
                 vfs.descriptors_whitelist = [ "yyy" ]
                 vfs.labels_whitelist = [ "zzz" ]
-                """
-            )
-
-        c = Config.parse(config_path_override=path)
-        assert c.vfs.artists_whitelist == ["www"]
-        assert c.vfs.genres_whitelist == ["xxx"]
-        assert c.vfs.descriptors_whitelist == ["yyy"]
-        assert c.vfs.labels_whitelist == ["zzz"]
-        assert c.vfs.artists_blacklist is None
-        assert c.vfs.genres_blacklist is None
-        assert c.vfs.descriptors_blacklist is None
-        assert c.vfs.labels_blacklist is None
-
-
-def test_config_not_found() -> None:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "config.toml"
-        with pytest.raises(ConfigNotFoundError):
-            Config.parse(config_path_override=path)
-
-
-def test_config_missing_key_validation() -> None:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "config.toml"
-        path.touch()
-
-        def append(x: str) -> None:
-            with path.open("a") as fp:
-                fp.write("\n" + x)
-
-        append('music_source_dir = "/"')
-        with pytest.raises(MissingConfigKeyError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert str(excinfo.value) == f"Missing key vfs.mount_dir in configuration file ({path})"
-
-
-def test_config_value_validation() -> None:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "config.toml"
-        path.touch()
-
-        def write(x: str) -> None:
-            with path.open("w") as fp:
-                fp.write(x)
-
-        config = ""
-
-        # music_source_dir
-        write("music_source_dir = 123")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value) == f"Invalid value for music_source_dir in configuration file ({path}): must be a path"
+            "#,
         )
-        config += '\nmusic_source_dir = "~/.music-src"'
+        .unwrap();
 
-        # cache_dir
-        write(config + "\ncache_dir = 123")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert str(excinfo.value) == f"Invalid value for cache_dir in configuration file ({path}): must be a path"
-        config += '\ncache_dir = "~/.cache/rose"'
+        let c = Config::parse(Some(&path)).unwrap();
+        assert_eq!(c.vfs.artists_whitelist, Some(vec!["www".to_string()]));
+        assert_eq!(c.vfs.genres_whitelist, Some(vec!["xxx".to_string()]));
+        assert_eq!(c.vfs.descriptors_whitelist, Some(vec!["yyy".to_string()]));
+        assert_eq!(c.vfs.labels_whitelist, Some(vec!["zzz".to_string()]));
+        assert_eq!(c.vfs.artists_blacklist, None);
+        assert_eq!(c.vfs.genres_blacklist, None);
+        assert_eq!(c.vfs.descriptors_blacklist, None);
+        assert_eq!(c.vfs.labels_blacklist, None);
+    }
 
-        # max_proc
-        write(config + '\nmax_proc = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for max_proc in configuration file ({path}): must be a positive integer"
-        )
-        config += "\nmax_proc = 8"
+    #[test]
+    fn test_config_not_found() {
+        let tmpdir = TempDir::new().unwrap();
+        let path = tmpdir.path().join("config.toml");
+        let err = Config::parse(Some(&path)).unwrap_err();
+        match err {
+            RoseError::Expected(RoseExpectedError::Generic(msg)) => {
+                assert!(msg.contains("Configuration file not found"));
+            }
+            _ => panic!("Expected configuration not found error"),
+        }
+    }
 
-        # artist_aliases
-        write(config + '\nartist_aliases = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"
-        )
-        write(config + '\nartist_aliases = ["lalala"]')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"
-        )
-        write(config + '\nartist_aliases = [["lalala"]]')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"
-        )
-        write(config + '\nartist_aliases = [{artist="lalala", aliases="lalala"}]')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"
-        )
-        write(config + '\nartist_aliases = [{artist="lalala", aliases=[123]}]')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"
-        )
-        config += '\nartist_aliases = [{artist="tripleS", aliases=["EVOLution"]}]'
+    #[test]
+    fn test_config_missing_key_validation() {
+        let tmpdir = TempDir::new().unwrap();
+        let path = tmpdir.path().join("config.toml");
+        std::fs::write(&path, r#"music_source_dir = "/""#).unwrap();
 
-        # cover_art_stems
-        write(config + '\ncover_art_stems = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for cover_art_stems in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\ncover_art_stems = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for cover_art_stems in configuration file ({path}): Each cover art stem must be of type str: got <class 'int'>"
-        )
-        config += '\ncover_art_stems = [ "cover" ]'
+        let err = Config::parse(Some(&path)).unwrap_err();
+        match err {
+            RoseError::Expected(RoseExpectedError::Generic(msg)) => {
+                assert!(msg.contains("Missing key vfs.mount_dir"));
+            }
+            _ => panic!("Expected missing key error"),
+        }
+    }
 
-        # valid_art_exts
-        write(config + '\nvalid_art_exts = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for valid_art_exts in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\nvalid_art_exts = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for valid_art_exts in configuration file ({path}): Each art extension must be of type str: got <class 'int'>"
-        )
-        config += '\nvalid_art_exts = [ "jpg" ]'
+    #[test]
+    fn test_config_value_validation() {
+        let tmpdir = TempDir::new().unwrap();
+        let path = tmpdir.path().join("config.toml");
 
-        # write_parent_genres
-        write(config + '\nwrite_parent_genres = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for write_parent_genres in configuration file ({path}): Must be a bool: got <class 'str'>"
-        )
+        // Test music_source_dir validation
+        std::fs::write(&path, "music_source_dir = 123").unwrap();
+        let err = Config::parse(Some(&path)).unwrap_err();
+        match err {
+            RoseError::Expected(RoseExpectedError::Generic(msg)) => {
+                assert!(msg.contains("Invalid value for music_source_dir"));
+                assert!(msg.contains("must be a path"));
+            }
+            _ => panic!("Expected invalid value error"),
+        }
 
-        # max_filename_bytes
-        write(config + '\nmax_filename_bytes = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for max_filename_bytes in configuration file ({path}): Must be an int: got <class 'str'>"
+        // Test max_proc validation
+        std::fs::write(
+            &path,
+            r#"
+            music_source_dir = "~/.music-src"
+            vfs.mount_dir = "~/music"
+            max_proc = "lalala"
+            "#,
         )
-        config += "\nmax_filename_bytes = 240"
+        .unwrap();
+        let err = Config::parse(Some(&path)).unwrap_err();
+        match err {
+            RoseError::Expected(RoseExpectedError::Generic(msg)) => {
+                assert!(msg.contains("Invalid value for max_proc"));
+                assert!(msg.contains("must be a positive integer"));
+            }
+            _ => panic!("Expected invalid value error"),
+        }
 
-        # ignore_release_directories
-        write(config + '\nignore_release_directories = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for ignore_release_directories in configuration file ({path}): Must be a list[str]: got <class 'str'>"
+        // Test negative max_proc
+        std::fs::write(
+            &path,
+            r#"
+            music_source_dir = "~/.music-src"
+            vfs.mount_dir = "~/music"
+            max_proc = -1
+            "#,
         )
-        write(config + "\nignore_release_directories = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for ignore_release_directories in configuration file ({path}): Each release directory must be of type str: got <class 'int'>"
-        )
-        config += '\nignore_release_directories = [ ".stversions" ]'
+        .unwrap();
+        let err = Config::parse(Some(&path)).unwrap_err();
+        match err {
+            RoseError::Expected(RoseExpectedError::Generic(msg)) => {
+                assert!(msg.contains("Invalid value for max_proc"));
+                assert!(msg.contains("must be a positive integer"));
+            }
+            _ => panic!("Expected invalid value error"),
+        }
+    }
 
-        # stored_metadata_rules
-        write(config + '\nstored_metadata_rules = ["lalala"]')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value in stored_metadata_rules in configuration file ({path}): list values must be a dict: got <class 'str'>"
-        )
-        write(config + '\nstored_metadata_rules = [{ matcher = "tracktitle:hi", actions = ["delete:hi"] }]')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            click.unstyle(str(excinfo.value))
-            == f"""\
-Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'matcher': 'tracktitle:hi', 'actions': ['delete:hi']}}: Failed to parse action 1, invalid syntax:
+    #[test]
+    fn test_vfs_config_value_validation() {
+        let tmpdir = TempDir::new().unwrap();
+        let path = tmpdir.path().join("config.toml");
 
-    delete:hi
-           ^
-           Found another section after the action kind, but the delete action has no parameters. Please remove this section.
-"""
+        // Test mount_dir validation
+        std::fs::write(
+            &path,
+            r#"
+            music_source_dir = "~/.music-src"
+            [vfs]
+            mount_dir = 123
+            "#,
         )
-        write(
-            config
-            + '\nstored_metadata_rules = [{ matcher = "tracktitle:hi", actions = ["delete"], ignore = ["tracktitle:bye:"] }]'
-        )
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            click.unstyle(str(excinfo.value))
-            == f"""\
-Failed to parse stored_metadata_rules in configuration file ({path}): rule {{'matcher': 'tracktitle:hi', 'actions': ['delete'], 'ignore': ['tracktitle:bye:']}}: Failed to parse ignore, invalid syntax:
+        .unwrap();
+        let err = Config::parse(Some(&path)).unwrap_err();
+        match err {
+            RoseError::Expected(RoseExpectedError::Generic(msg)) => {
+                assert!(msg.contains("Invalid value for vfs.mount_dir"));
+                assert!(msg.contains("must be a path"));
+            }
+            _ => panic!("Expected invalid value error"),
+        }
 
-    tracktitle:bye:
-                   ^
-                   No flags specified: Please remove this section (by deleting the colon) or specify one of the supported flags: `i` (case insensitive).
-"""
+        // Test whitelist/blacklist mutual exclusion
+        std::fs::write(
+            &path,
+            r#"
+            music_source_dir = "~/.music-src"
+            vfs.mount_dir = "~/music"
+            vfs.artists_whitelist = ["a"]
+            vfs.artists_blacklist = ["b"]
+            "#,
         )
-
-        # rename_source_files
-        write(config + '\nrename_source_files = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for rename_source_files in configuration file ({path}): Must be a bool: got <class 'str'>"
-        )
-
-
-def test_vfs_config_value_validation() -> None:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "config.toml"
-        path.touch()
-
-        def write(x: str) -> None:
-            with path.open("w") as fp:
-                fp.write(x)
-
-        config = 'music_source_dir = "~/.music-src"\n[vfs]\n'
-        write(config)
-
-        # mount_dir
-        write(config + "\nmount_dir = 123")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert str(excinfo.value) == f"Invalid value for vfs.mount_dir in configuration file ({path}): must be a path"
-        config += '\nmount_dir = "~/music"'
-
-        # artists_whitelist
-        write(config + '\nartists_whitelist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.artists_whitelist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\nartists_whitelist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.artists_whitelist in configuration file ({path}): Each artist must be of type str: got <class 'int'>"
-        )
-
-        # genres_whitelist
-        write(config + '\ngenres_whitelist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.genres_whitelist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\ngenres_whitelist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.genres_whitelist in configuration file ({path}): Each genre must be of type str: got <class 'int'>"
-        )
-
-        # labels_whitelist
-        write(config + '\nlabels_whitelist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.labels_whitelist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\nlabels_whitelist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.labels_whitelist in configuration file ({path}): Each label must be of type str: got <class 'int'>"
-        )
-
-        # artists_blacklist
-        write(config + '\nartists_blacklist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.artists_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\nartists_blacklist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.artists_blacklist in configuration file ({path}): Each artist must be of type str: got <class 'int'>"
-        )
-
-        # genres_blacklist
-        write(config + '\ngenres_blacklist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.genres_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\ngenres_blacklist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.genres_blacklist in configuration file ({path}): Each genre must be of type str: got <class 'int'>"
-        )
-
-        # descriptors_blacklist
-        write(config + '\ndescriptors_blacklist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.descriptors_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\ndescriptors_blacklist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.descriptors_blacklist in configuration file ({path}): Each descriptor must be of type str: got <class 'int'>"
-        )
-
-        # labels_blacklist
-        write(config + '\nlabels_blacklist = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.labels_blacklist in configuration file ({path}): Must be a list[str]: got <class 'str'>"
-        )
-        write(config + "\nlabels_blacklist = [123]")
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.labels_blacklist in configuration file ({path}): Each label must be of type str: got <class 'int'>"
-        )
-
-        # artists_whitelist + artists_blacklist
-        write(config + '\nartists_whitelist = ["a"]\nartists_blacklist = ["b"]')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Cannot specify both vfs.artists_whitelist and vfs.artists_blacklist in configuration file ({path}): must specify only one or the other"
-        )
-
-        # genres_whitelist + genres_blacklist
-        write(config + '\ngenres_whitelist = ["a"]\ngenres_blacklist = ["b"]')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Cannot specify both vfs.genres_whitelist and vfs.genres_blacklist in configuration file ({path}): must specify only one or the other"
-        )
-
-        # labels_whitelist + labels_blacklist
-        write(config + '\nlabels_whitelist = ["a"]\nlabels_blacklist = ["b"]')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Cannot specify both vfs.labels_whitelist and vfs.labels_blacklist in configuration file ({path}): must specify only one or the other"
-        )
-
-        # hide_genres_with_only_new_releases
-        write(config + '\nhide_genres_with_only_new_releases = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.hide_genres_with_only_new_releases in configuration file ({path}): Must be a bool: got <class 'str'>"
-        )
-
-        # hide_descriptors_with_only_new_releases
-        write(config + '\nhide_descriptors_with_only_new_releases = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.hide_descriptors_with_only_new_releases in configuration file ({path}): Must be a bool: got <class 'str'>"
-        )
-
-        # hide_labels_with_only_new_releases
-        write(config + '\nhide_labels_with_only_new_releases = "lalala"')
-        with pytest.raises(InvalidConfigValueError) as excinfo:
-            Config.parse(config_path_override=path)
-        assert (
-            str(excinfo.value)
-            == f"Invalid value for vfs.hide_labels_with_only_new_releases in configuration file ({path}): Must be a bool: got <class 'str'>"
-        )
+        .unwrap();
+        let err = Config::parse(Some(&path)).unwrap_err();
+        match err {
+            RoseError::Expected(RoseExpectedError::Generic(msg)) => {
+                assert!(msg.contains("Cannot specify both vfs.artists_whitelist and vfs.artists_blacklist"));
+            }
+            _ => panic!("Expected mutual exclusion error"),
+        }
+    }
+}

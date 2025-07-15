@@ -1,9 +1,9 @@
 max_width = 160
-comment_width = 70
-empty_item_single_line = false
-imports_layout = "HorizontalVertical"
+# comment_width = 70
+# empty_item_single_line = false
+# imports_layout = "HorizontalVertical"
 newline_style = "Unix"
-normalize_comments = true
-group_imports = "StdExternalCrate"
+# normalize_comments = true
+# group_imports = "StdExternalCrate"
 use_field_init_shorthand = true
-wrap_comments = true
+# wrap_comments = true

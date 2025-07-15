@@ -57,6 +57,8 @@ pub enum RoseExpectedError {
     CollageDoesNotExist { name: String },
     #[error("Playlist does not exist: {name}")]
     PlaylistDoesNotExist { name: String },
+    #[error("{0}")]
+    InvalidRule(String),
 }
 
 pub type Result<T> = std::result::Result<T, RoseError>;

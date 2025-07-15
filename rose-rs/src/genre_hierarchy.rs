@@ -70,9 +70,9 @@ mod tests {
     fn test_genre_hierarchy_loads() {
         let _ = crate::testing::init();
         // Test that the lazy statics initialize without panic
-        assert!(TRANSITIVE_PARENT_GENRES.len() > 0);
-        assert!(TRANSITIVE_CHILD_GENRES.len() > 0);
-        assert!(IMMEDIATE_CHILD_GENRES.len() > 0);
+        assert!(!TRANSITIVE_PARENT_GENRES.is_empty());
+        assert!(!TRANSITIVE_CHILD_GENRES.is_empty());
+        assert!(!IMMEDIATE_CHILD_GENRES.is_empty());
     }
 
     #[test]

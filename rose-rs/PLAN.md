@@ -135,17 +135,20 @@ Layer 7:
 - **Logging**: tracing (not log/log4rs)
 
 ### Translation Guidelines
-1. Preserve Python docstrings as Rust doc comments
-2. Maintain same function names and signatures where possible
-3. Use idiomatic Rust patterns:
+1. **DO NOT DELETE PYTHON CODE** - Keep original Python code as comments in the Rust files until fully translated
+2. Preserve Python docstrings as Rust doc comments
+3. Maintain same function names and signatures where possible
+4. Use idiomatic Rust patterns:
    - Iterators instead of loops where appropriate
    - Pattern matching for control flow
    - Option/Result for nullable/fallible operations
-4. Only modify control flow for borrow checker compliance
-5. Keep data structures similar but use Rust idioms:
+5. Only modify control flow for borrow checker compliance
+6. Keep data structures similar but use Rust idioms:
    - Vec instead of list
    - HashMap instead of dict
    - PathBuf instead of Path strings
+7. Maintain exact same behavior and testing behavior
+8. Do not modify control flow or guarantees under test
 
 ### Testing Strategy
 1. Port all Python tests to Rust
