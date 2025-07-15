@@ -70,7 +70,7 @@ impl RoseDate {
     pub fn parse(value: Option<&str>) -> Option<Self> {
         let value = value?;
 
-        // Try parsing as just year
+        // Try parsing as just year first - this matches Python behavior
         if let Ok(year) = value.parse::<i32>() {
             if (1000..=9999).contains(&year) {
                 return Some(RoseDate {
@@ -81,7 +81,7 @@ impl RoseDate {
             }
         }
 
-        // Try parsing as full date
+        // Try parsing as full date - Python behavior matches this exactly
         if let Some(captures) = DATE_REGEX.captures(value) {
             if let (Some(year), Some(month), Some(day)) = (
                 captures.get(1).and_then(|m| m.as_str().parse::<i32>().ok()),
@@ -208,11 +208,11 @@ impl AudioTags {
         let (tracknumber, tracktotal) = parse_track_number(tag);
         let (discnumber, disctotal) = parse_disc_number(tag);
 
-        // Parse dates
+        // Parse dates - prioritize year over full date to match Python behavior
         let year_str = tag.year().map(|y| y.to_string());
         let releasedate = RoseDate::parse(
-            tag.get_string(&ItemKey::RecordingDate)
-                .or(year_str.as_deref()),
+            year_str.as_deref()
+                .or(tag.get_string(&ItemKey::RecordingDate)),
         );
 
         let originaldate = match tag.tag_type() {
@@ -220,7 +220,7 @@ impl AudioTags {
             TagType::Mp4Ilst => RoseDate::parse(
                 get_mp4_freeform(tag, "net.sunsetglow.rose:ORIGINALDATE").as_deref(),
             ),
-            _ => RoseDate::parse(tag.get_string(&ItemKey::Unknown("originaldate".to_string()))),
+            _ => RoseDate::parse(tag.get_string(&ItemKey::OriginalReleaseDate)),
         };
 
         let compositiondate = match tag.tag_type() {
@@ -297,11 +297,11 @@ impl AudioTags {
                 )
             }
             TagType::Mp4Ilst => (
-                split_tag(get_mp4_freeform(tag, "com.apple.iTunes:REMIXER").as_deref()),
-                split_tag(get_mp4_freeform(tag, "com.apple.iTunes:PRODUCER").as_deref()),
+                split_tag(tag.get_string(&ItemKey::Remixer)),
+                split_tag(tag.get_string(&ItemKey::Producer)),
                 split_tag(tag.get_string(&ItemKey::Composer)),
-                split_tag(get_mp4_freeform(tag, "com.apple.iTunes:CONDUCTOR").as_deref()),
-                split_tag(get_mp4_freeform(tag, "com.apple.iTunes:DJMIXER").as_deref()),
+                split_tag(tag.get_string(&ItemKey::Conductor)),
+                split_tag(tag.get_string(&ItemKey::MixDj)),
             ),
             _ => (
                 split_tag(tag.get_string(&ItemKey::Unknown("remixer".to_string()))),
@@ -405,6 +405,10 @@ impl AudioTags {
         // Set dates
         if let Some(date) = &self.releasedate {
             tag.set_year(date.year as u32);
+            // Set recording date if we have full date info
+            if date.month.is_some() && date.day.is_some() {
+                tag.insert_text(ItemKey::RecordingDate, date.to_string());
+            }
         }
 
         // Set genres
@@ -430,6 +434,12 @@ impl AudioTags {
                         .map(|d| d.to_string())
                         .as_deref(),
                 );
+                // Set original release date
+                if let Some(date) = &self.originaldate {
+                    tag.insert_text(ItemKey::OriginalReleaseDate, date.to_string());
+                } else {
+                    tag.remove_key(&ItemKey::OriginalReleaseDate);
+                }
                 set_id3_txxx(
                     tag,
                     "SECONDARYGENRE",
@@ -488,11 +498,11 @@ impl AudioTags {
                 set_mp4_freeform(tag, "com.apple.iTunes:RELEASETYPE", Some(&self.releasetype));
 
                 // Clear artist role tags
-                remove_mp4_freeform(tag, "com.apple.iTunes:REMIXER");
-                remove_mp4_freeform(tag, "com.apple.iTunes:PRODUCER");
+                tag.remove_key(&ItemKey::Remixer);
+                tag.remove_key(&ItemKey::Producer);
                 tag.remove_key(&ItemKey::Composer);
-                remove_mp4_freeform(tag, "com.apple.iTunes:CONDUCTOR");
-                remove_mp4_freeform(tag, "com.apple.iTunes:DJMIXER");
+                tag.remove_key(&ItemKey::Conductor);
+                tag.remove_key(&ItemKey::MixDj);
             }
             _ => {
                 // FLAC/Vorbis comments
@@ -590,6 +600,8 @@ impl AudioTags {
                     "Failed to save tags: {e}"
                 )))
             })?;
+
+        // Releasetype normalization is done during reading, not writing
 
         Ok(())
     }
@@ -828,6 +840,6 @@ fn set_mp4_freeform(tag: &mut Tag, name: &str, value: Option<&str>) {
     }
 }
 
-fn remove_mp4_freeform(tag: &mut Tag, name: &str) {
+fn _remove_mp4_freeform(tag: &mut Tag, name: &str) {
     tag.remove_key(&ItemKey::Unknown(format!("----:{name}")));
 }

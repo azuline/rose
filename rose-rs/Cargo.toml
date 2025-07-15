@@ -26,3 +26,11 @@ walkdir = "2.5"
 
 [dev-dependencies]
 tempfile = "3.8"
+
+[[bin]]
+name = "debug_tags"
+path = "src/debug_tags.rs"
+
+[[bin]]
+name = "test_genre"
+path = "src/test_genre.rs"

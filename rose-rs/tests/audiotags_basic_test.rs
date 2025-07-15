@@ -1,5 +1,4 @@
 use rose_rs::audiotags::*;
-use rose_rs::common::Artist;
 use rose_rs::config::Config;
 use std::fs;
 use std::path::PathBuf;

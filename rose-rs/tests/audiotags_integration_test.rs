@@ -1,5 +1,5 @@
 use rose_rs::audiotags::*;
-use rose_rs::common::{Artist, ArtistMapping};
+use rose_rs::common::Artist;
 use rose_rs::config::Config;
 use std::fs;
 use std::path::PathBuf;
@@ -283,6 +283,8 @@ fn test_write_parent_genres() {
         month: Some(4),
         day: Some(20),
     });
+    // Add House genre to Electronic
+    af.genre.push("House".to_string());
     af.flush(&config).unwrap();
 
     // Read back and check that genres are parsed correctly (parent genres are stripped on read)

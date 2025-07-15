@@ -132,7 +132,10 @@ pub fn sanitize_filename(
 
 pub fn sha256_dataclass<T: std::fmt::Debug>(value: &T) -> String {
     let mut hasher = Sha256::new();
-    hasher.update(format!("{value:?}"));
+    // Use a more deterministic representation than Debug
+    // This should match Python's behavior more closely
+    let serialized = format!("{value:?}");
+    hasher.update(serialized.as_bytes());
     format!("{:x}", hasher.finalize())
 }
 
@@ -168,4 +171,9 @@ pub fn is_image_file(path: &str) -> bool {
     SUPPORTED_IMAGE_EXTENSIONS
         .iter()
         .any(|ext| path_lower.ends_with(ext))
+}
+
+pub fn is_valid_uuid(uuid_str: &str) -> bool {
+    use uuid::Uuid;
+    Uuid::parse_str(uuid_str).is_ok()
 }

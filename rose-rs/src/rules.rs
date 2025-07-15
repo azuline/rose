@@ -125,8 +125,11 @@ pub fn execute_metadata_rule(
 
     // TODO: Implement confirmation prompt if needed
     if !confirm_yes && changes.len() > enter_number_to_confirm_above_count {
-        // Would prompt user here
-        unimplemented!("User confirmation prompts not yet implemented");
+        // Would prompt user here - for now, just error out
+        return Err(RoseError::Generic(format!(
+            "Too many changes ({}) require confirmation. Use --confirm-yes to proceed.",
+            changes.len()
+        )));
     }
 
     if !dry_run {
