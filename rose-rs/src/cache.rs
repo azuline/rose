@@ -687,7 +687,7 @@ pub fn update_cache_evict_nonexistent_collages(c: &Config) -> Result<()> {
         let mut stmt = conn.prepare("DELETE FROM collages RETURNING name")?;
         let deleted_names: Vec<String> = stmt
             .query_map([], |row| row.get(0))?
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
         
         for name in deleted_names {
             info!("Evicted missing collage {} from cache", name);
@@ -706,7 +706,7 @@ pub fn update_cache_evict_nonexistent_collages(c: &Config) -> Result<()> {
                 rusqlite::params_from_iter(&collage_names),
                 |row| row.get(0)
             )?
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
         
         for name in deleted_names {
             info!("Evicted missing collage {} from cache", name);
@@ -800,7 +800,7 @@ pub fn update_cache_evict_nonexistent_playlists(c: &Config) -> Result<()> {
         let mut stmt = conn.prepare("DELETE FROM playlists RETURNING name")?;
         let deleted_names: Vec<String> = stmt
             .query_map([], |row| row.get(0))?
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
         
         for name in deleted_names {
             info!("Evicted missing playlist {} from cache", name);
@@ -819,7 +819,7 @@ pub fn update_cache_evict_nonexistent_playlists(c: &Config) -> Result<()> {
                 rusqlite::params_from_iter(&playlist_names),
                 |row| row.get(0)
             )?
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
         
         for name in deleted_names {
             info!("Evicted missing playlist {} from cache", name);
@@ -927,9 +927,34 @@ pub fn list_releases(c: &Config) -> Result<Vec<Release>> {
 //         release = get_release(c, row["release_id"])
 //         assert release is not None
 //         return cached_track_from_view(c, row, release)
-pub fn get_track(_c: &Config, _id: &str) -> Result<Option<Track>> {
-    // TODO: Implement
-    Ok(None)
+pub fn get_track(c: &Config, id: &str) -> Result<Option<Track>> {
+    let conn = connect(c)?;
+    
+    // First get the track data to find release_id
+    let track_query = "SELECT * FROM tracks_view WHERE id = ?";
+    let mut track_stmt = conn.prepare(track_query)?;
+    
+    let track_result: Option<String> = track_stmt
+        .query_row([id], |row| row.get("release_id"))
+        .optional()?;
+    
+    if let Some(release_id) = track_result {
+        // Get the release
+        let release = get_release(c, &release_id)?;
+        if let Some(release) = release {
+            // Now get the full track with the release
+            let track = track_stmt.query_row([id], |row| {
+                cached_track_from_view(c, row, Arc::new(release.clone()), true)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+            })?;
+            Ok(Some(track))
+        } else {
+            // Release not found, even though track references it
+            Ok(None)
+        }
+    } else {
+        Ok(None)
+    }
 }
 
 // def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[Track]:
@@ -960,9 +985,77 @@ pub fn get_track(_c: &Config, _id: &str) -> Result<Option<Track>> {
 //                 releases[release_id] = release
 //             tracks.append(cached_track_from_view(c, row, releases[release_id]))
 //     return tracks
-pub fn list_tracks(_c: &Config) -> Result<Vec<Track>> {
-    // TODO: Implement
-    Ok(Vec::new())
+pub fn list_tracks(c: &Config) -> Result<Vec<Track>> {
+    list_tracks_with_filter(c, None)
+}
+
+pub fn list_tracks_with_filter(c: &Config, track_ids: Option<Vec<String>>) -> Result<Vec<Track>> {
+    let conn = connect(c)?;
+    
+    // Build query
+    let query = if let Some(ref ids) = track_ids {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let placeholders = vec!["?"; ids.len()].join(",");
+        format!("SELECT * FROM tracks_view WHERE id IN ({}) ORDER BY source_path", placeholders)
+    } else {
+        "SELECT * FROM tracks_view ORDER BY source_path".to_string()
+    };
+    
+    // First pass: collect release IDs and get releases
+    let mut release_ids = HashSet::<String>::new();
+    let mut releases = std::collections::HashMap::<String, Arc<Release>>::new();
+    
+    {
+        let mut stmt = conn.prepare(&query)?;
+        
+        // Collect release IDs
+        if let Some(ref ids) = track_ids {
+            let rows = stmt.query_map(rusqlite::params_from_iter(ids), |row| {
+                row.get::<_, String>("release_id")
+            })?;
+            for release_id in rows {
+                release_ids.insert(release_id?);
+            }
+        } else {
+            let rows = stmt.query_map([], |row| {
+                row.get::<_, String>("release_id")
+            })?;
+            for release_id in rows {
+                release_ids.insert(release_id?);
+            }
+        }
+    }
+    
+    // Fetch all needed releases
+    for release_id in &release_ids {
+        if let Some(release) = get_release(c, release_id)? {
+            releases.insert(release_id.clone(), Arc::new(release));
+        }
+    }
+    
+    // Second pass: build tracks with releases
+    let mut tracks = Vec::new();
+    let mut stmt = conn.prepare(&query)?;
+    
+    let params: Vec<&dyn rusqlite::ToSql> = if let Some(ref ids) = track_ids {
+        ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect()
+    } else {
+        vec![]
+    };
+    
+    let mut rows = stmt.query(params.as_slice())?;
+    
+    while let Some(row) = rows.next()? {
+        let release_id: String = row.get("release_id")?;
+        if let Some(release) = releases.get(&release_id) {
+            let track = cached_track_from_view(c, row, release.clone(), true)?;
+            tracks.push(track);
+        }
+    }
+    
+    Ok(tracks)
 }
 
 // def list_collages(c: Config) -> list[str]:
