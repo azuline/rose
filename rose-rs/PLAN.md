@@ -3,6 +3,8 @@
 ## Overview
 This document outlines the plan for completing the Rust port of the Rose music library management system. The porting strategy follows a bottom-up approach based on module dependencies, starting with foundational modules and building up to higher-level functionality.
 
+Our approach is a test driven development approach. We want to port over all the tests from rose-py and then make sure that they are all implemented effectively.
+
 ## Current Status
 
 ### ✅ Completed Modules
