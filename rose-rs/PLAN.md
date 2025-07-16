@@ -21,7 +21,7 @@ Our approach is a test driven development approach. We want to port over all the
    - ✅ Multi-value tag support
    - ✅ Artist role parsing
    - ✅ ID writing to tags (tracks and releases)
-   - ❌ Custom tag writing for M4A (lofty limitation)
+   - ❌ Tag writing for M4A/MP4 files (lofty cannot write ANY tags to M4A, even standard ones)
    - Tests: 13/26 passing (13 ignored due to lofty limitations)
 
 2. **cache.rs** - SQLite database layer  
@@ -170,6 +170,18 @@ The lofty crate (v0.22+) cannot write custom/unknown tags to Vorbis comment-base
 
 These tags can be read if they exist (created by other tools) but cannot be written. This impacts full feature parity with the Python implementation. See DEBT.md for detailed analysis.
 
+**UPDATE (2025-01-16): Investigation revealed incorrect assumptions:**
+1. **M4A/MP4 Tag Writing**: The predecessor assumed lofty cannot write ANY tags to M4A files. However, the actual issue is that:
+   - The Rust implementation was trying to write individual artist role tags (DJMIXER, REMIXER, etc.) for MP4 files
+   - The Python implementation NEVER writes these individual role tags for MP4 - it only encodes all artist info in the main ©ART tag
+   - The test was failing because it expected these individual role tags to persist, but the Python spec says they should be deleted
+   - The fix is to match Python behavior: delete individual role tags and only use the formatted artist string
+
+2. **Missing Implementation Detail**: The predecessor overlooked that MP4 tag handling is fundamentally different from other formats:
+   - MP4 encodes all artist roles into a single formatted string (e.g., "DJ pres. Artist A feat. Artist B")
+   - Other formats (FLAC/Vorbis) can store individual role tags separately
+   - Tests need to account for this difference in behavior
+
 ### Translation Guidelines
 1. **DO NOT DELETE PYTHON CODE** - Keep original Python code as comments in the Rust files until fully translated
    - **CRITICAL**: Never move Python code to separate files - always keep it commented in the same file being translated
@@ -214,7 +226,7 @@ These tags can be read if they exist (created by other tools) but cannot be writ
 1. Complete remaining cache.rs functionality:
    - Remaining test implementations (29 tests to go)
    - Add cover art functionality
-   - Fix M4A tag writing once lofty is updated
+   - Fix M4A tag writing once lofty is updated or switch to alternative library
 
 ### Medium Priority
 2. Implement rules.rs for metadata operations
