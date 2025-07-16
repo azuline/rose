@@ -77,9 +77,7 @@ pub fn maybe_invalidate_cache_database(c: &Config) -> Result<()> {
 
         if exists {
             let result: Option<(String, String, String)> = conn
-                .query_row("SELECT schema_hash, config_hash, version FROM _schema_hash", [], |row| {
-                    Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-                })
+                .query_row("SELECT schema_hash, config_hash, version FROM _schema_hash", [], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
                 .optional()?;
 
             if let Some((db_schema_hash, db_config_hash, db_version)) = result {
@@ -110,10 +108,7 @@ pub fn maybe_invalidate_cache_database(c: &Config) -> Result<()> {
         )
         ",
     )?;
-    conn.execute(
-        "INSERT INTO _schema_hash (schema_hash, config_hash, version) VALUES (?1, ?2, ?3)",
-        params![schema_hash, config_hash, VERSION],
-    )?;
+    conn.execute("INSERT INTO _schema_hash (schema_hash, config_hash, version) VALUES (?1, ?2, ?3)", params![schema_hash, config_hash, VERSION])?;
 
     Ok(())
 }
@@ -137,11 +132,8 @@ impl<'a> Drop for Lock<'a> {
 pub fn lock<'a>(c: &'a Config, name: &str, timeout: f64) -> Result<Lock<'a>> {
     loop {
         let conn = connect(c)?;
-        let max_valid_until: Option<f64> = conn
-            .query_row("SELECT MAX(valid_until) FROM locks WHERE name = ?1", params![name], |row| {
-                row.get::<_, Option<f64>>(0)
-            })
-            .unwrap_or(None);
+        let max_valid_until: Option<f64> =
+            conn.query_row("SELECT MAX(valid_until) FROM locks WHERE name = ?1", params![name], |row| row.get::<_, Option<f64>>(0)).unwrap_or(None);
 
         // If a lock exists, sleep until the lock is available. All locks should be very
         // short lived, so this shouldn't be a big performance penalty.
@@ -287,9 +279,9 @@ impl Release {
             datafile_mtime: self.datafile_mtime.clone(),
             releasetitle: self.releasetitle.clone(),
             releasetype: self.releasetype.clone(),
-            releasedate: self.releasedate.clone(),
-            originaldate: self.originaldate.clone(),
-            compositiondate: self.compositiondate.clone(),
+            releasedate: self.releasedate,
+            originaldate: self.originaldate,
+            compositiondate: self.compositiondate,
             edition: self.edition.clone(),
             catalognumber: self.catalognumber.clone(),
             new: self.new,
@@ -359,10 +351,7 @@ fn _split(xs: &str) -> Vec<String> {
 /// and zip them together. This is how we extract certain array fields from the database.
 fn _unpack<'a>(xxs: &'a [&'a str]) -> Vec<Vec<&'a str>> {
     let mut result = Vec::new();
-    let split_lists: Vec<Vec<&str>> = xxs
-        .iter()
-        .map(|xs| if xs.is_empty() { Vec::new() } else { xs.split(" ¬ ").collect() })
-        .collect();
+    let split_lists: Vec<Vec<&str>> = xxs.iter().map(|xs| if xs.is_empty() { Vec::new() } else { xs.split(" ¬ ").collect() }).collect();
 
     if split_lists.is_empty() {
         return result;
@@ -705,12 +694,7 @@ pub fn update_cache_for_releases(c: &Config, release_dirs: Option<Vec<PathBuf>>,
 
     debug!("refreshing the read cache for {} releases", release_dirs.len());
     if release_dirs.len() < 10 {
-        let names: Vec<String> = release_dirs
-            .iter()
-            .filter_map(|p| p.file_name())
-            .filter_map(|n| n.to_str())
-            .map(|s| s.to_string())
-            .collect();
+        let names: Vec<String> = release_dirs.iter().filter_map(|p| p.file_name()).filter_map(|n| n.to_str()).map(|s| s.to_string()).collect();
         debug!("refreshing cached data for {}", names.join(", "));
     }
 
@@ -741,43 +725,33 @@ pub fn update_cache_for_releases(c: &Config, release_dirs: Option<Vec<PathBuf>>,
     let errors = Arc::new(Mutex::new(Vec::<String>::new()));
 
     // Process batches in parallel
-    release_dirs
-        .chunks(batch_size)
-        .collect::<Vec<_>>()
-        .par_iter()
-        .enumerate()
-        .for_each(|(i, batch)| {
-            debug!(
-                "spawning release cache update process for batch {} (releases [{}, {}))",
-                i,
-                i * batch_size,
-                (i + 1) * batch_size
-            );
+    release_dirs.chunks(batch_size).collect::<Vec<_>>().par_iter().enumerate().for_each(|(i, batch)| {
+        debug!("spawning release cache update process for batch {} (releases [{}, {}))", i, i * batch_size, (i + 1) * batch_size);
 
-            let mut collages_batch = Vec::new();
-            let mut playlists_batch = Vec::new();
+        let mut collages_batch = Vec::new();
+        let mut playlists_batch = Vec::new();
 
-            match _update_cache_for_releases_executor(c, batch, force, Some(&mut collages_batch), Some(&mut playlists_batch)) {
-                Ok(()) => {
-                    // Add collages and playlists to force update
-                    if !collages_batch.is_empty() {
-                        if let Ok(mut collages) = collages_to_force_update.lock() {
-                            collages.extend(collages_batch);
-                        }
-                    }
-                    if !playlists_batch.is_empty() {
-                        if let Ok(mut playlists) = playlists_to_force_update.lock() {
-                            playlists.extend(playlists_batch);
-                        }
+        match _update_cache_for_releases_executor(c, batch, force, Some(&mut collages_batch), Some(&mut playlists_batch)) {
+            Ok(()) => {
+                // Add collages and playlists to force update
+                if !collages_batch.is_empty() {
+                    if let Ok(mut collages) = collages_to_force_update.lock() {
+                        collages.extend(collages_batch);
                     }
                 }
-                Err(e) => {
-                    if let Ok(mut errs) = errors.lock() {
-                        errs.push(format!("Error processing batch {}: {}", i, e));
+                if !playlists_batch.is_empty() {
+                    if let Ok(mut playlists) = playlists_to_force_update.lock() {
+                        playlists.extend(playlists_batch);
                     }
                 }
             }
-        });
+            Err(e) => {
+                if let Ok(mut errs) = errors.lock() {
+                    errs.push(format!("Error processing batch {}: {}", i, e));
+                }
+            }
+        }
+    });
 
     // Check for errors
     let errors = errors.lock().unwrap();
@@ -928,10 +902,7 @@ fn _update_cache_for_releases_executor(
 
         // Check if directory has any audio files
         let first_audio_file = files.iter().find(|f| {
-            f.extension()
-                .and_then(|e| e.to_str())
-                .map(|e| SUPPORTED_AUDIO_EXTENSIONS.contains(&format!(".{}", e.to_lowercase()).as_str()))
-                .unwrap_or(false)
+            f.extension().and_then(|e| e.to_str()).map(|e| SUPPORTED_AUDIO_EXTENSIONS.contains(&format!(".{}", e.to_lowercase()).as_str())).unwrap_or(false)
         });
 
         if first_audio_file.is_none() {
@@ -947,10 +918,7 @@ fn _update_cache_for_releases_executor(
         // Fetch release from cache or create new one
         let (mut release, cached_tracks) = if let Some(id) = &preexisting_release_id {
             cached_releases.remove(id).unwrap_or_else(|| {
-                debug!(
-                    "first-time unidentified release found at release {}, writing UUID and new",
-                    source_path.display()
-                );
+                debug!("first-time unidentified release found at release {}, writing UUID and new", source_path.display());
                 release_dirty = true;
                 let new_release = Release {
                     id: String::new(),
@@ -979,10 +947,7 @@ fn _update_cache_for_releases_executor(
                 (new_release, HashMap::new())
             })
         } else {
-            debug!(
-                "first-time unidentified release found at release {}, writing UUID and new",
-                source_path.display()
-            );
+            debug!("first-time unidentified release found at release {}, writing UUID and new", source_path.display());
             release_dirty = true;
             let new_release = Release {
                 id: String::new(),
@@ -1059,16 +1024,12 @@ fn _update_cache_for_releases_executor(
         // Read audio tags from files
         let mut pulled_release_tags = false;
         let mut track_totals: HashMap<String, i32> = HashMap::new();
-        let disctotal;
 
         // Filter for audio files only
         let audio_files: Vec<&PathBuf> = files
             .iter()
             .filter(|f| {
-                f.extension()
-                    .and_then(|e| e.to_str())
-                    .map(|e| SUPPORTED_AUDIO_EXTENSIONS.contains(&format!(".{}", e.to_lowercase()).as_str()))
-                    .unwrap_or(false)
+                f.extension().and_then(|e| e.to_str()).map(|e| SUPPORTED_AUDIO_EXTENSIONS.contains(&format!(".{}", e.to_lowercase()).as_str())).unwrap_or(false)
             })
             .collect();
 
@@ -1090,10 +1051,7 @@ fn _update_cache_for_releases_executor(
             }
 
             // Read tags from the audio file
-            debug!(
-                "track cache miss for {}, reading tags from disk",
-                f.file_name().unwrap_or_default().to_string_lossy()
-            );
+            debug!("track cache miss for {}, reading tags from disk", f.file_name().unwrap_or_default().to_string_lossy());
 
             match AudioTags::from_file(f) {
                 Ok(mut tags) => {
@@ -1116,19 +1074,19 @@ fn _update_cache_for_releases_executor(
 
                         if tags.releasedate != release.releasedate {
                             debug!("release date change detected for {}, updating", source_path.display());
-                            release.releasedate = tags.releasedate.clone();
+                            release.releasedate = tags.releasedate;
                             release_dirty = true;
                         }
 
                         if tags.originaldate != release.originaldate {
                             debug!("release original date change detected for {}, updating", source_path.display());
-                            release.originaldate = tags.originaldate.clone();
+                            release.originaldate = tags.originaldate;
                             release_dirty = true;
                         }
 
                         if tags.compositiondate != release.compositiondate {
                             debug!("release composition date change detected for {}, updating", source_path.display());
-                            release.compositiondate = tags.compositiondate.clone();
+                            release.compositiondate = tags.compositiondate;
                             release_dirty = true;
                         }
 
@@ -1286,7 +1244,7 @@ fn _update_cache_for_releases_executor(
         }
 
         // Update disc total
-        disctotal = track_totals.len() as i32;
+        let disctotal = track_totals.len() as i32;
         if disctotal != release.disctotal {
             debug!("disc total change detected for {}, updating", source_path.display());
             release.disctotal = disctotal;
@@ -1360,7 +1318,7 @@ fn _update_cache_for_releases_executor(
                 }
 
                 // We'll need to update track paths in the database
-                for (track_path, _) in &cached_tracks {
+                for track_path in cached_tracks.keys() {
                     if let Ok(relative) = Path::new(track_path).strip_prefix(&old_source_path) {
                         let new_track_path = source_path.join(relative);
                         upd_unknown_cached_tracks_args.push((track_path.clone(), vec![new_track_path.to_string_lossy().to_string()]));
@@ -1413,12 +1371,8 @@ fn _update_cache_for_releases_executor(
                     }
 
                     if final_track_path != track_path {
-                        fs::rename(&track_path, &final_track_path)?;
-                        info!(
-                            "renamed track file {} to {}",
-                            current_filename,
-                            final_track_path.file_name().unwrap_or_default().to_string_lossy()
-                        );
+                        fs::rename(track_path, &final_track_path)?;
+                        info!("renamed track file {} to {}", current_filename, final_track_path.file_name().unwrap_or_default().to_string_lossy());
 
                         // Update the track path in the arguments
                         track_args[1] = final_track_path.to_string_lossy().to_string();
@@ -1646,10 +1600,7 @@ fn execute_cache_updates(
         // Delete and re-insert genres
         if !upd_release_ids.is_empty() {
             let placeholders = vec!["?"; upd_release_ids.len()].join(",");
-            tx.execute(
-                &format!("DELETE FROM releases_genres WHERE release_id IN ({})", placeholders),
-                rusqlite::params_from_iter(&upd_release_ids),
-            )?;
+            tx.execute(&format!("DELETE FROM releases_genres WHERE release_id IN ({})", placeholders), rusqlite::params_from_iter(&upd_release_ids))?;
         }
 
         if !upd_release_genre_args.is_empty() {
@@ -1662,18 +1613,12 @@ fn execute_cache_updates(
         // Delete and re-insert secondary genres
         if !upd_release_ids.is_empty() {
             let placeholders = vec!["?"; upd_release_ids.len()].join(",");
-            tx.execute(
-                &format!("DELETE FROM releases_secondary_genres WHERE release_id IN ({})", placeholders),
-                rusqlite::params_from_iter(&upd_release_ids),
-            )?;
+            tx.execute(&format!("DELETE FROM releases_secondary_genres WHERE release_id IN ({})", placeholders), rusqlite::params_from_iter(&upd_release_ids))?;
         }
 
         if !upd_release_secondary_genre_args.is_empty() {
             let values_placeholder = vec!["(?,?,?)"; upd_release_secondary_genre_args.len()].join(",");
-            let query = format!(
-                "INSERT INTO releases_secondary_genres (release_id, genre, position) VALUES {}",
-                values_placeholder
-            );
+            let query = format!("INSERT INTO releases_secondary_genres (release_id, genre, position) VALUES {}", values_placeholder);
             let flattened: Vec<String> = upd_release_secondary_genre_args.into_iter().flatten().collect();
             tx.execute(&query, rusqlite::params_from_iter(&flattened))?;
         }
@@ -1681,18 +1626,12 @@ fn execute_cache_updates(
         // Delete and re-insert descriptors
         if !upd_release_ids.is_empty() {
             let placeholders = vec!["?"; upd_release_ids.len()].join(",");
-            tx.execute(
-                &format!("DELETE FROM releases_descriptors WHERE release_id IN ({})", placeholders),
-                rusqlite::params_from_iter(&upd_release_ids),
-            )?;
+            tx.execute(&format!("DELETE FROM releases_descriptors WHERE release_id IN ({})", placeholders), rusqlite::params_from_iter(&upd_release_ids))?;
         }
 
         if !upd_release_descriptor_args.is_empty() {
             let values_placeholder = vec!["(?,?,?)"; upd_release_descriptor_args.len()].join(",");
-            let query = format!(
-                "INSERT INTO releases_descriptors (release_id, descriptor, position) VALUES {}",
-                values_placeholder
-            );
+            let query = format!("INSERT INTO releases_descriptors (release_id, descriptor, position) VALUES {}", values_placeholder);
             let flattened: Vec<String> = upd_release_descriptor_args.into_iter().flatten().collect();
             tx.execute(&query, rusqlite::params_from_iter(&flattened))?;
         }
@@ -1700,10 +1639,7 @@ fn execute_cache_updates(
         // Delete and re-insert labels
         if !upd_release_ids.is_empty() {
             let placeholders = vec!["?"; upd_release_ids.len()].join(",");
-            tx.execute(
-                &format!("DELETE FROM releases_labels WHERE release_id IN ({})", placeholders),
-                rusqlite::params_from_iter(&upd_release_ids),
-            )?;
+            tx.execute(&format!("DELETE FROM releases_labels WHERE release_id IN ({})", placeholders), rusqlite::params_from_iter(&upd_release_ids))?;
         }
 
         if !upd_release_label_args.is_empty() {
@@ -1716,10 +1652,7 @@ fn execute_cache_updates(
         // Delete and re-insert artists
         if !upd_release_ids.is_empty() {
             let placeholders = vec!["?"; upd_release_ids.len()].join(",");
-            tx.execute(
-                &format!("DELETE FROM releases_artists WHERE release_id IN ({})", placeholders),
-                rusqlite::params_from_iter(&upd_release_ids),
-            )?;
+            tx.execute(&format!("DELETE FROM releases_artists WHERE release_id IN ({})", placeholders), rusqlite::params_from_iter(&upd_release_ids))?;
         }
 
         if !upd_release_artist_args.is_empty() {
@@ -1743,10 +1676,7 @@ fn execute_cache_updates(
 
         if !track_ids_to_delete.is_empty() {
             let placeholders = vec!["?"; track_ids_to_delete.len()].join(",");
-            tx.execute(
-                &format!("DELETE FROM tracks WHERE id IN ({})", placeholders),
-                rusqlite::params_from_iter(&track_ids_to_delete),
-            )?;
+            tx.execute(&format!("DELETE FROM tracks WHERE id IN ({})", placeholders), rusqlite::params_from_iter(&track_ids_to_delete))?;
         }
     }
 
@@ -1783,19 +1713,13 @@ fn execute_cache_updates(
         if !upd_track_ids.is_empty() {
             debug!("Deleting track artists for {} track IDs: {:?}", upd_track_ids.len(), &upd_track_ids);
             let placeholders = vec!["?"; upd_track_ids.len()].join(",");
-            tx.execute(
-                &format!("DELETE FROM tracks_artists WHERE track_id IN ({})", placeholders),
-                rusqlite::params_from_iter(&upd_track_ids),
-            )?;
+            tx.execute(&format!("DELETE FROM tracks_artists WHERE track_id IN ({})", placeholders), rusqlite::params_from_iter(&upd_track_ids))?;
         }
 
         if !upd_track_artist_args.is_empty() {
             // Insert one by one, converting position to integer
             for args in upd_track_artist_args {
-                debug!(
-                    "Inserting track artist: track_id={}, artist={}, role={}, position={}",
-                    &args[0], &args[1], &args[2], &args[3]
-                );
+                debug!("Inserting track artist: track_id={}, artist={}, role={}, position={}", &args[0], &args[1], &args[2], &args[3]);
 
                 match tx.execute(
                     "INSERT INTO tracks_artists (track_id, artist, role, position) VALUES (?1, ?2, ?3, ?4)",
@@ -1804,19 +1728,14 @@ fn execute_cache_updates(
                     Ok(_) => {}
                     Err(e) => {
                         // Check if the track exists
-                        let track_exists: bool = tx
-                            .query_row("SELECT EXISTS(SELECT 1 FROM tracks WHERE id = ?)", [&args[0]], |row| row.get(0))
-                            .unwrap_or(false);
+                        let track_exists: bool =
+                            tx.query_row("SELECT EXISTS(SELECT 1 FROM tracks WHERE id = ?)", [&args[0]], |row| row.get(0)).unwrap_or(false);
 
                         // Check if the role exists
-                        let role_exists: bool = tx
-                            .query_row("SELECT EXISTS(SELECT 1 FROM artist_role_enum WHERE value = ?)", [&args[2]], |row| row.get(0))
-                            .unwrap_or(false);
+                        let role_exists: bool =
+                            tx.query_row("SELECT EXISTS(SELECT 1 FROM artist_role_enum WHERE value = ?)", [&args[2]], |row| row.get(0)).unwrap_or(false);
 
-                        error!(
-                            "Failed to insert track artist: track_exists={}, role_exists={}, error={:?}",
-                            track_exists, role_exists, e
-                        );
+                        error!("Failed to insert track artist: track_exists={}, role_exists={}, error={:?}", track_exists, role_exists, e);
                         return Err(e.into());
                     }
                 }
@@ -2048,7 +1967,7 @@ pub fn update_cache_for_collages(c: &Config, collage_names: Option<Vec<String>>,
         if path.extension() == Some(std::ffi::OsStr::new("toml")) && path.is_file() {
             if let Some(stem) = path.file_stem() {
                 let name = stem.to_string_lossy().to_string();
-                if collage_names.as_ref().map_or(true, |names| names.contains(&name)) {
+                if collage_names.as_ref().is_none_or(|names| names.contains(&name)) {
                     files.push((path.canonicalize()?, name, entry));
                 }
             }
@@ -2067,9 +1986,7 @@ pub fn update_cache_for_collages(c: &Config, collage_names: Option<Vec<String>>,
         let query = format!("SELECT name, source_mtime FROM collages WHERE name IN ({})", placeholders);
 
         let mut stmt = conn.prepare(&query)?;
-        let rows = stmt.query_map(rusqlite::params_from_iter(&names), |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })?;
+        let rows = stmt.query_map(rusqlite::params_from_iter(&names), |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?;
 
         for row in rows {
             let (name, mtime) = row?;
@@ -2251,7 +2168,7 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
         if path.extension() == Some(std::ffi::OsStr::new("toml")) && path.is_file() {
             if let Some(stem) = path.file_stem() {
                 let name = stem.to_string_lossy().to_string();
-                if playlist_names.as_ref().map_or(true, |names| names.contains(&name)) {
+                if playlist_names.as_ref().is_none_or(|names| names.contains(&name)) {
                     files.push((path.canonicalize()?, name, entry));
                 }
             }
@@ -2270,9 +2187,7 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
         let query = format!("SELECT name, source_mtime FROM playlists WHERE name IN ({})", placeholders);
 
         let mut stmt = conn.prepare(&query)?;
-        let rows = stmt.query_map(rusqlite::params_from_iter(&names), |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })?;
+        let rows = stmt.query_map(rusqlite::params_from_iter(&names), |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?;
 
         for row in rows {
             let (name, mtime) = row?;
@@ -2425,9 +2340,7 @@ pub fn get_release(c: &Config, release_id: &str) -> Result<Option<Release>> {
     let mut stmt = conn.prepare("SELECT * FROM releases_view WHERE id = ?1")?;
 
     let release = stmt
-        .query_row(params![release_id], |row| {
-            cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
-        })
+        .query_row(params![release_id], |row| cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e))))
         .optional()?;
 
     Ok(release)
@@ -2490,9 +2403,7 @@ pub fn list_releases(c: &Config) -> Result<Vec<Release>> {
     let mut stmt = conn.prepare("SELECT * FROM releases_view ORDER BY id")?;
 
     let releases = stmt
-        .query_map([], |row| {
-            cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
-        })?
+        .query_map([], |row| cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(releases)
@@ -2787,10 +2698,7 @@ pub fn list_genres(c: &Config) -> Result<Vec<GenreEntry>> {
     }
 
     // Convert to sorted vector
-    let mut genres: Vec<GenreEntry> = genre_map
-        .into_iter()
-        .map(|(name, only_new_releases)| GenreEntry { name, only_new_releases })
-        .collect();
+    let mut genres: Vec<GenreEntry> = genre_map.into_iter().map(|(name, only_new_releases)| GenreEntry { name, only_new_releases }).collect();
     genres.sort_by(|a, b| a.name.cmp(&b.name));
 
     Ok(genres)
@@ -3177,7 +3085,7 @@ mod tests {
         let _ = testing::init();
 
         // Test default_true
-        assert_eq!(default_true(), true);
+        assert!(default_true());
 
         // Test default_added_at returns a valid ISO8601 timestamp
         let timestamp = default_added_at();
@@ -3187,7 +3095,7 @@ mod tests {
         // Test deserializing with defaults
         let json = "{}";
         let data: StoredDataFile = serde_json::from_str(json).unwrap();
-        assert_eq!(data.new, true);
+        assert!(data.new);
         assert!(data.added_at.contains('T'));
     }
 
@@ -3225,9 +3133,7 @@ mod tests {
         // Check that the schema was properly initialized
         let conn = connect(&config).unwrap();
         let mut stmt = conn.prepare("SELECT schema_hash, config_hash, version FROM _schema_hash").unwrap();
-        let result = stmt
-            .query_row([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?)))
-            .unwrap();
+        let result = stmt.query_row([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?))).unwrap();
 
         assert_eq!(result.0, expected_schema_hash);
         assert!(!result.1.is_empty()); // config_hash should be populated
@@ -3274,9 +3180,7 @@ mod tests {
         // Check that the database was migrated
         let conn = connect(&config).unwrap();
         let mut stmt = conn.prepare("SELECT schema_hash, config_hash, version FROM _schema_hash").unwrap();
-        let result = stmt
-            .query_row([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?)))
-            .unwrap();
+        let result = stmt.query_row([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?))).unwrap();
 
         assert_eq!(result.0, expected_schema_hash);
         assert!(!result.1.is_empty()); // config_hash should be populated
@@ -3372,9 +3276,7 @@ mod tests {
         assert_eq!(count, 4, "Should have 4 releases after update");
 
         // Check that the fake release was deleted
-        let exists: bool = conn
-            .query_row("SELECT EXISTS(SELECT 1 FROM releases WHERE id = 'aaaaaa')", [], |row| row.get(0))
-            .unwrap();
+        let exists: bool = conn.query_row("SELECT EXISTS(SELECT 1 FROM releases WHERE id = 'aaaaaa')", [], |row| row.get(0)).unwrap();
         assert!(!exists, "Fake release should have been deleted");
 
         // Check that we have tracks (seeded cache has 5 tracks based on the debug output)
@@ -3458,9 +3360,7 @@ mod tests {
             assert!(new, "Release should be marked as new");
 
             // Check that tracks exist for the release
-            let track_count: i32 = conn
-                .query_row("SELECT COUNT(*) FROM tracks WHERE release_id = ?", [&id], |row| row.get(0))
-                .unwrap();
+            let track_count: i32 = conn.query_row("SELECT COUNT(*) FROM tracks WHERE release_id = ?", [&id], |row| row.get(0)).unwrap();
             assert!(track_count > 0, "Release should have tracks");
         }
     }
@@ -3553,17 +3453,7 @@ mod tests {
         conn.execute(
             "INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, disctotal, metahash, new) 
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![
-                "test-release-id",
-                "/test/path",
-                "2024-01-01T00:00:00Z",
-                "999",
-                "Test Release",
-                "album",
-                1,
-                "test-hash",
-                true
-            ],
+            params!["test-release-id", "/test/path", "2024-01-01T00:00:00Z", "999", "Test Release", "album", 1, "test-hash", true],
         )
         .unwrap();
 
@@ -3598,9 +3488,7 @@ mod tests {
 
         // Assert that the release metadata was read correctly
         let conn = connect(&config).unwrap();
-        let mut stmt = conn
-            .prepare("SELECT id, source_path, title, releasetype, releasedate, new FROM releases")
-            .unwrap();
+        let mut stmt = conn.prepare("SELECT id, source_path, title, releasetype, releasedate, new FROM releases").unwrap();
         let mut rows = stmt.query([]).unwrap();
 
         let row = rows.next().unwrap().unwrap();
@@ -4628,7 +4516,7 @@ mod tests {
         assert_eq!(release.releasetitle, "Release 1");
         assert_eq!(release.releasetype, "album");
         assert_eq!(release.releasedate, Some(RoseDate::new(Some(2023), None, None)));
-        assert_eq!(release.new, false);
+        assert!(!release.new);
         assert_eq!(release.genres, vec!["Techno", "Deep House"]);
         assert!(release.parent_genres.contains(&"Electronic".to_string()));
         assert!(release.parent_genres.contains(&"Dance".to_string()));
@@ -4676,25 +4564,25 @@ mod tests {
         // Check that aliases are applied
         assert_eq!(release.releaseartists.main.len(), 4);
         assert_eq!(release.releaseartists.main[0].name, "Techno Man");
-        assert_eq!(release.releaseartists.main[0].alias, false);
+        assert!(!release.releaseartists.main[0].alias);
         assert_eq!(release.releaseartists.main[1].name, "Bass Man");
-        assert_eq!(release.releaseartists.main[1].alias, false);
+        assert!(!release.releaseartists.main[1].alias);
         assert_eq!(release.releaseartists.main[2].name, "Hype Boy");
-        assert_eq!(release.releaseartists.main[2].alias, true);
+        assert!(release.releaseartists.main[2].alias);
         assert_eq!(release.releaseartists.main[3].name, "Bubble Gum");
-        assert_eq!(release.releaseartists.main[3].alias, true);
+        assert!(release.releaseartists.main[3].alias);
 
         let tracks = get_tracks_of_release(&config, &release).unwrap();
         for track in tracks {
             assert_eq!(track.trackartists.main.len(), 4);
             assert_eq!(track.trackartists.main[0].name, "Techno Man");
-            assert_eq!(track.trackartists.main[0].alias, false);
+            assert!(!track.trackartists.main[0].alias);
             assert_eq!(track.trackartists.main[1].name, "Bass Man");
-            assert_eq!(track.trackartists.main[1].alias, false);
+            assert!(!track.trackartists.main[1].alias);
             assert_eq!(track.trackartists.main[2].name, "Hype Boy");
-            assert_eq!(track.trackartists.main[2].alias, true);
+            assert!(track.trackartists.main[2].alias);
             assert_eq!(track.trackartists.main[3].name, "Bubble Gum");
-            assert_eq!(track.trackartists.main[3].alias, true);
+            assert!(track.trackartists.main[3].alias);
         }
     }
 
@@ -4807,14 +4695,8 @@ mod tests {
 
         let artists = list_artists(&config).unwrap();
         let artist_set: HashSet<String> = artists.into_iter().collect();
-        let expected: HashSet<String> = vec![
-            "Techno Man".to_string(),
-            "Bass Man".to_string(),
-            "Violin Woman".to_string(),
-            "Conductor Woman".to_string(),
-        ]
-        .into_iter()
-        .collect();
+        let expected: HashSet<String> =
+            vec!["Techno Man".to_string(), "Bass Man".to_string(), "Violin Woman".to_string(), "Conductor Woman".to_string()].into_iter().collect();
 
         assert_eq!(artist_set, expected);
     }
@@ -4825,11 +4707,7 @@ mod tests {
 
         // Test the accumulator too - add Classical Music to r3
         let conn = connect(&config).unwrap();
-        conn.execute(
-            "INSERT INTO releases_genres (release_id, genre, position) VALUES ('r3', 'Classical Music', 1)",
-            [],
-        )
-        .unwrap();
+        conn.execute("INSERT INTO releases_genres (release_id, genre, position) VALUES ('r3', 'Classical Music', 1)", []).unwrap();
         drop(conn);
 
         let genres = list_genres(&config).unwrap();

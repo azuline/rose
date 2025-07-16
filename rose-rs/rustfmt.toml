@@ -1,4 +1,10 @@
 max_width = 160
+array_width = 160
+attr_fn_like_width = 160
+chain_width = 160
+comment_width = 80
+condense_wildcard_suffixes = true
+fn_call_width = 160
 # comment_width = 70
 # empty_item_single_line = false
 # imports_layout = "HorizontalVertical"

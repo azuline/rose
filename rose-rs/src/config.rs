@@ -444,11 +444,9 @@ impl Config {
                 expanded
             }
             Some(_) => {
-                return Err(RoseExpectedError::Generic(format!(
-                    "Invalid value for cache_dir in configuration file ({}): must be a path",
-                    cfgpath.display()
-                ))
-                .into())
+                return Err(
+                    RoseExpectedError::Generic(format!("Invalid value for cache_dir in configuration file ({}): must be a path", cfgpath.display())).into()
+                )
             }
             None => {
                 let dir = get_cache_dir()?;
@@ -860,9 +858,7 @@ impl Config {
     pub fn validate_path_templates_expensive(&self) -> Result<()> {
         // Validate all the path templates. This is expensive, so we don't do it when reading the
         // configuration, only on demand.
-        self.path_templates
-            .parse()
-            .map_err(|e| RoseExpectedError::Generic(format!("Invalid path template in for template {}: {}", e.key, e)).into())
+        self.path_templates.parse().map_err(|e| RoseExpectedError::Generic(format!("Invalid path template in for template {}: {}", e.key, e)).into())
     }
 }
 

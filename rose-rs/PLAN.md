@@ -5,7 +5,7 @@ This document outlines the plan for completing the Rust port of the Rose music l
 
 Our approach is a test driven development approach. We want to port over all the tests from rose-py and then make sure that they are all implemented effectively.
 
-## Current Status (Updated: 2025-07-16)
+## Current Status (Updated: 2025-01-16)
 
 ### ✅ Completed Modules (100% Feature Parity)
 1. **common.rs** - Core utilities, error types, and basic data structures
@@ -14,14 +14,17 @@ Our approach is a test driven development approach. We want to port over all the
 4. **config.rs** - Configuration parsing with full test coverage
 5. **templates.rs** - Path templating system with tera integration
 6. **rule_parser.rs** - Rules DSL parser with comprehensive parsing logic
+7. **audiotags.rs** - Audio file metadata reading/writing
+   - ✅ Complete re-implementation without lofty library
+   - ✅ Format-specific libraries: id3 (MP3), mp4ameta (M4A), metaflac (FLAC), ogg (OGG/Opus)
+   - ✅ Multi-value tag support for all formats
+   - ✅ Artist role parsing and formatting
+   - ✅ Custom Rose ID tags (ROSEID, ROSERELEASEID)
+   - ✅ Parent genre tracking
+   - ✅ All tests passing (8/8)
+   - ⚠️ OGG/Opus writing not yet implemented
 
 ### ⚠️ Partially Completed (Limited Feature Parity)
-1. **audiotags.rs** - Audio file metadata reading/writing
-   - ✅ Basic tag reading/writing for standard tags
-   - ✅ Multi-value tag support
-   - ✅ Artist role parsing
-   - ✅ ID writing to tags (tracks and releases)
-   - Tests: 13/26 passing (13 ignored due to lofty limitations)
 
 2. **cache.rs** - SQLite database layer  
    - ✅ Basic database connection and schema

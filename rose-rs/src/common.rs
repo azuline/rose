@@ -46,21 +46,7 @@ pub struct ArtistMapping {
 
 impl ArtistMapping {
     pub fn all(&self) -> Vec<Artist> {
-        uniq(
-            [
-                &self.main,
-                &self.guest,
-                &self.remixer,
-                &self.producer,
-                &self.composer,
-                &self.conductor,
-                &self.djmixer,
-            ]
-            .into_iter()
-            .flatten()
-            .cloned()
-            .collect(),
-        )
+        uniq([&self.main, &self.guest, &self.remixer, &self.producer, &self.composer, &self.conductor, &self.djmixer].into_iter().flatten().cloned().collect())
     }
 
     pub fn dump(&self) -> HashMap<String, Vec<Artist>> {
@@ -103,27 +89,23 @@ impl RoseDate {
     pub fn new(year: Option<i32>, month: Option<u32>, day: Option<u32>) -> Self {
         RoseDate { year, month, day }
     }
-    
+
     pub fn parse(value: Option<&str>) -> Option<RoseDate> {
         let value = value?;
-        
+
         // Try to parse as just a year
         if let Ok(year) = value.parse::<i32>() {
             return Some(RoseDate::new(Some(year), None, None));
         }
-        
+
         // Try to parse as a full date (YYYY-MM-DD)
         let parts: Vec<&str> = value.split('-').collect();
         if parts.len() == 3 {
-            if let (Ok(year), Ok(month), Ok(day)) = (
-                parts[0].parse::<i32>(),
-                parts[1].parse::<u32>(),
-                parts[2].parse::<u32>()
-            ) {
+            if let (Ok(year), Ok(month), Ok(day)) = (parts[0].parse::<i32>(), parts[1].parse::<u32>(), parts[2].parse::<u32>()) {
                 return Some(RoseDate::new(Some(year), Some(month), Some(day)));
             }
         }
-        
+
         None
     }
 }

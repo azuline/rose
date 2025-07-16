@@ -125,11 +125,7 @@ mod tests {
     fn test_transitive_children() {
         let _ = crate::testing::init();
         // If "Electronic" is a parent of "16-bit", then "16-bit" should be in Electronic's children
-        if TRANSITIVE_PARENT_GENRES
-            .get("16-bit")
-            .map(|p| p.contains(&"Electronic".to_string()))
-            .unwrap_or(false)
-        {
+        if TRANSITIVE_PARENT_GENRES.get("16-bit").map(|p| p.contains(&"Electronic".to_string())).unwrap_or(false) {
             if let Some(children) = TRANSITIVE_CHILD_GENRES.get("Electronic") {
                 assert!(children.contains(&"16-bit".to_string()));
             }

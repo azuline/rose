@@ -1143,16 +1143,9 @@ pub struct Rule {
 impl Rule {
     pub fn parse(matcher: &str, actions: Vec<String>, ignore: Option<Vec<String>>) -> Result<Rule, RuleSyntaxError> {
         let parsed_matcher = Matcher::parse(matcher)?;
-        let parsed_actions = actions
-            .into_iter()
-            .enumerate()
-            .map(|(i, a)| Action::parse(&a, Some(i + 1), Some(&parsed_matcher)))
-            .collect::<Result<Vec<_>, _>>()?;
-        let parsed_ignore = ignore
-            .unwrap_or_default()
-            .into_iter()
-            .map(|v| Matcher::parse_with_name(&v, "ignore"))
-            .collect::<Result<Vec<_>, _>>()?;
+        let parsed_actions =
+            actions.into_iter().enumerate().map(|(i, a)| Action::parse(&a, Some(i + 1), Some(&parsed_matcher))).collect::<Result<Vec<_>, _>>()?;
+        let parsed_ignore = ignore.unwrap_or_default().into_iter().map(|v| Matcher::parse_with_name(&v, "ignore")).collect::<Result<Vec<_>, _>>()?;
 
         Ok(Rule {
             matcher: parsed_matcher,
@@ -1351,10 +1344,7 @@ mod tests {
 
         // Test that rules are quoted properly.
         let rule = Rule::parse(r"tracktitle,releaseartist,genre::: ", vec![r"sed::::; ".to_string()], None).unwrap();
-        assert_eq!(
-            rule.to_string(),
-            r"matcher='tracktitle,releaseartist,genre::: ' action='tracktitle,releaseartist,genre::: /sed::::; '"
-        );
+        assert_eq!(rule.to_string(), r"matcher='tracktitle,releaseartist,genre::: ' action='tracktitle,releaseartist,genre::: /sed::::; '");
 
         // Test that custom action matcher is printed properly.
         let rule = Rule::parse("tracktitle:Track", vec!["genre:lala/replace:lalala".to_string()], None).unwrap();
@@ -1367,23 +1357,14 @@ mod tests {
 
     #[test]
     fn test_rule_parse_matcher() {
-        assert_eq!(
-            Matcher::parse("tracktitle:Track").unwrap(),
-            Matcher::new(vec![ExpandableTag::Tag(Tag::TrackTitle)], Pattern::new("Track".to_string()))
-        );
+        assert_eq!(Matcher::parse("tracktitle:Track").unwrap(), Matcher::new(vec![ExpandableTag::Tag(Tag::TrackTitle)], Pattern::new("Track".to_string())));
         assert_eq!(
             Matcher::parse("tracktitle,tracknumber:Track").unwrap(),
-            Matcher::new(
-                vec![ExpandableTag::Tag(Tag::TrackTitle), ExpandableTag::Tag(Tag::TrackNumber)],
-                Pattern::new("Track".to_string())
-            )
+            Matcher::new(vec![ExpandableTag::Tag(Tag::TrackTitle), ExpandableTag::Tag(Tag::TrackNumber)], Pattern::new("Track".to_string()))
         );
         assert_eq!(
             Matcher::parse(r"tracktitle,tracknumber:Tr::ck").unwrap(),
-            Matcher::new(
-                vec![ExpandableTag::Tag(Tag::TrackTitle), ExpandableTag::Tag(Tag::TrackNumber)],
-                Pattern::new("Tr:ck".to_string())
-            )
+            Matcher::new(vec![ExpandableTag::Tag(Tag::TrackTitle), ExpandableTag::Tag(Tag::TrackNumber)], Pattern::new("Tr:ck".to_string()))
         );
         assert_eq!(
             Matcher::parse("tracktitle,tracknumber:Track:i").unwrap(),
@@ -1392,24 +1373,15 @@ mod tests {
                 Pattern::with_options("Track".to_string(), false, false, false, true)
             )
         );
-        assert_eq!(
-            Matcher::parse(r"tracktitle:").unwrap(),
-            Matcher::new(vec![ExpandableTag::Tag(Tag::TrackTitle)], Pattern::new("".to_string()))
-        );
+        assert_eq!(Matcher::parse(r"tracktitle:").unwrap(), Matcher::new(vec![ExpandableTag::Tag(Tag::TrackTitle)], Pattern::new("".to_string())));
 
         assert_eq!(
             Matcher::parse("tracktitle:^Track").unwrap(),
-            Matcher::new(
-                vec![ExpandableTag::Tag(Tag::TrackTitle)],
-                Pattern::with_options("Track".to_string(), false, true, false, false)
-            )
+            Matcher::new(vec![ExpandableTag::Tag(Tag::TrackTitle)], Pattern::with_options("Track".to_string(), false, true, false, false))
         );
         assert_eq!(
             Matcher::parse("tracktitle:Track$").unwrap(),
-            Matcher::new(
-                vec![ExpandableTag::Tag(Tag::TrackTitle)],
-                Pattern::with_options("Track".to_string(), false, false, true, false)
-            )
+            Matcher::new(vec![ExpandableTag::Tag(Tag::TrackTitle)], Pattern::with_options("Track".to_string(), false, false, true, false))
         );
         assert_eq!(
             Matcher::parse(r"tracktitle:\^Track").unwrap(),
@@ -1524,10 +1496,7 @@ mod tests {
         );
 
         // Test that case insensitivity is inherited from the matcher.
-        let matcher_ci = Matcher::new(
-            vec![ExpandableTag::Tag(Tag::TrackTitle)],
-            Pattern::with_options("haha".to_string(), false, false, false, true),
-        );
+        let matcher_ci = Matcher::new(vec![ExpandableTag::Tag(Tag::TrackTitle)], Pattern::with_options("haha".to_string(), false, false, false, true));
         assert_eq!(
             Action::parse("replace:lalala", Some(1), Some(&matcher_ci)).unwrap(),
             Action {
@@ -1753,11 +1722,7 @@ mod tests {
 
     #[test]
     fn test_rule_parsing_end_to_end_2() {
-        let test_cases = vec![
-            (r"tracktitle:\^Track", "delete"),
-            (r"tracktitle:Track\$", "delete"),
-            (r"tracktitle:\^Track\$", "delete"),
-        ];
+        let test_cases = vec![(r"tracktitle:\^Track", "delete"), (r"tracktitle:Track\$", "delete"), (r"tracktitle:\^Track\$", "delete")];
 
         for (matcher, action) in test_cases {
             let rule = Rule::parse(matcher, vec![action.to_string()], None).unwrap();
@@ -1767,10 +1732,7 @@ mod tests {
 
     #[test]
     fn test_rule_parsing_end_to_end_3() {
-        let test_cases = vec![
-            ("tracktitle:Track", "genre:lala/replace:lalala"),
-            ("tracktitle,genre,trackartist:Track", "tracktitle,genre,artist/delete"),
-        ];
+        let test_cases = vec![("tracktitle:Track", "genre:lala/replace:lalala"), ("tracktitle,genre,trackartist:Track", "tracktitle,genre,artist/delete")];
 
         for (matcher, action) in test_cases {
             let rule = Rule::parse(matcher, vec![action.to_string()], None).unwrap();

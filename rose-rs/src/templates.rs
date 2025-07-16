@@ -83,10 +83,7 @@ impl PathTemplateConfig {
         };
 
         let releases_released_on = PathTemplateTriad {
-            release: PathTemplate::new(format!(
-                "[{{{{ originaldate or releasedate or '0000-00-00' }}}}] {}",
-                default_triad.release.text
-            )),
+            release: PathTemplate::new(format!("[{{{{ originaldate or releasedate or '0000-00-00' }}}}] {}", default_triad.release.text)),
             track: default_triad.track.clone(),
             all_tracks: default_triad.all_tracks.clone(),
         };
@@ -293,18 +290,10 @@ fn artistsarrayfmt(value: &tera::Value, _: &HashMap<String, tera::Value>) -> ter
 fn artistsfmt(value: &tera::Value, args: &HashMap<String, tera::Value>) -> tera::Result<tera::Value> {
     let mapping = value.as_object().ok_or_else(|| tera::Error::msg("artistsfmt: expected object"))?;
 
-    let omit = args
-        .get("omit")
-        .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
-        .unwrap_or_default();
+    let omit = args.get("omit").and_then(|v| v.as_array()).map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>()).unwrap_or_default();
 
     let format_artists = |key: &str| -> String {
-        mapping
-            .get(key)
-            .and_then(|v| artistsarrayfmt(v, &HashMap::new()).ok())
-            .and_then(|v| v.as_str().map(|s| s.to_string()))
-            .unwrap_or_default()
+        mapping.get(key).and_then(|v| artistsarrayfmt(v, &HashMap::new()).ok()).and_then(|v| v.as_str().map(|s| s.to_string())).unwrap_or_default()
     };
 
     let mut result = format_artists("main");
@@ -728,10 +717,7 @@ mod tests {
         };
         release.releasetype = "single".to_string();
 
-        assert_eq!(
-            evaluate_release_template(&templates.source.release, &release, None, None),
-            "A1, A2 & A3 (feat. BB) (prod. PP) - 2023. Title - Single"
-        );
+        assert_eq!(evaluate_release_template(&templates.source.release, &release, None, None), "A1, A2 & A3 (feat. BB) (prod. PP) - 2023. Title - Single");
         assert_eq!(
             evaluate_release_template(&templates.collages.release, &release, None, Some("4")),
             "4. A1, A2 & A3 (feat. BB) (prod. PP) - 2023. Title - Single"
@@ -739,23 +725,14 @@ mod tests {
 
         let mut release = empty_cached_release();
         release.releasetitle = "Title".to_string();
-        assert_eq!(
-            evaluate_release_template(&templates.source.release, &release, None, None),
-            "Unknown Artists - Title"
-        );
-        assert_eq!(
-            evaluate_release_template(&templates.collages.release, &release, None, Some("4")),
-            "4. Unknown Artists - Title"
-        );
+        assert_eq!(evaluate_release_template(&templates.source.release, &release, None, None), "Unknown Artists - Title");
+        assert_eq!(evaluate_release_template(&templates.collages.release, &release, None, Some("4")), "4. Unknown Artists - Title");
 
         let mut track = empty_cached_track();
         track.tracknumber = "2".to_string();
         track.tracktitle = "Trick".to_string();
         assert_eq!(evaluate_track_template(&templates.source.track, &track, None, None), "02. Trick.m4a");
-        assert_eq!(
-            evaluate_track_template(&templates.playlists, &track, None, Some("4")),
-            "4. Unknown Artists - Trick.m4a"
-        );
+        assert_eq!(evaluate_track_template(&templates.playlists, &track, None, Some("4")), "4. Unknown Artists - Trick.m4a");
 
         let mut track = empty_cached_track();
         track.release.disctotal = 2;
@@ -767,14 +744,8 @@ mod tests {
             guest: vec![Artist::new("Hi"), Artist::new("High"), Artist::new("Hye")],
             ..Default::default()
         };
-        assert_eq!(
-            evaluate_track_template(&templates.source.track, &track, None, None),
-            "04-02. Trick (feat. Hi, High & Hye).m4a"
-        );
-        assert_eq!(
-            evaluate_track_template(&templates.playlists, &track, None, Some("4")),
-            "4. Main (feat. Hi, High & Hye) - Trick.m4a"
-        );
+        assert_eq!(evaluate_track_template(&templates.source.track, &track, None, None), "04-02. Trick (feat. Hi, High & Hye).m4a");
+        assert_eq!(evaluate_track_template(&templates.playlists, &track, None, Some("4")), "4. Main (feat. Hi, High & Hye) - Trick.m4a");
     }
 
     #[test]
