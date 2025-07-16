@@ -259,7 +259,7 @@ These tags can be read if they exist (created by other tools) but cannot be writ
 | rule_parser.rs | ~600 | ✅ | 100% | Fully implemented |
 | genre_hierarchy.rs | ~100 | ✅ | 100% | Data module |
 | audiotags.rs | ~900 | 13/26 | 70% | Limited by lofty |
-| cache.rs | ~2100 | 14/66 | 60% | Major update functions implemented, track/release updates working |
+| cache.rs | ~4000 | 43/72 | 75% | Core functionality complete, multiprocessing added |
 | rules.rs | 0 | 0 | 0% | Not started |
 | releases.rs | 0 | 0 | 0% | Not started |
 | tracks.rs | 0 | 0 | 0% | Not started |
