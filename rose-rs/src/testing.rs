@@ -2,11 +2,11 @@ use crate::config::{Config, VirtualFSConfig};
 use crate::templates::{PathTemplateConfig, DEFAULT_TEMPLATE_PAIR};
 use rusqlite::Connection;
 use std::fs;
+use std::io;
+use std::path::Path;
 #[cfg(test)]
 use std::sync::Once;
 use tempfile::TempDir;
-use std::path::Path;
-use std::io;
 
 #[cfg(test)]
 static INIT: Once = Once::new();
@@ -294,14 +294,14 @@ pub fn copy_dir_all(src: &Path, dst: &Path) -> io::Result<()> {
     if !dst.exists() {
         fs::create_dir_all(dst)?;
     }
-    
+
     for entry in fs::read_dir(src)? {
         let entry = entry?;
         let ty = entry.file_type()?;
         let src_path = entry.path();
         let file_name = entry.file_name();
         let dst_path = dst.join(&file_name);
-        
+
         if ty.is_dir() {
             copy_dir_all(&src_path, &dst_path)?;
         } else {

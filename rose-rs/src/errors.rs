@@ -23,6 +23,8 @@ pub enum RoseError {
     SystemTime(#[from] std::time::SystemTimeError),
     #[error("Invalid configuration: {0}")]
     InvalidConfiguration(String),
+    #[error("Cache update error: {0}")]
+    CacheUpdateError(String),
 }
 
 /// These errors are printed without traceback.
