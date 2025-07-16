@@ -73,3 +73,43 @@ The project uses SQLite with a schema defined in `src/cache.sql`.
 
 - All log lines should be in lowercase.
 - Prefer to raise errors over emit `warn!` or `error!` log lines. Fail fast and fail loudly.
+
+## Testing
+
+The project provides shared test fixtures in `src/testing.rs`. Always use these fixtures instead of creating your own:
+
+### Available Test Fixtures
+
+1. **`testing::init()`** - Initialize test environment with logging. Returns a `TempDir`.
+2. **`testing::config()`** - Create a test config with empty directories. Returns `(Config, TempDir)`.
+3. **`testing::seeded_cache()`** - Create a test environment with pre-populated SQLite database and fake files. Returns `(Config, TempDir)`.
+4. **`testing::copy_dir_all()`** - Helper to recursively copy directories.
+
+### Usage Example
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing;
+
+    #[test]
+    fn test_something() {
+        let (config, _temp_dir) = testing::config();
+        // Use config for testing...
+    }
+
+    #[test]
+    fn test_with_data() {
+        let (config, _temp_dir) = testing::seeded_cache();
+        // Database is pre-populated with test releases, tracks, etc.
+    }
+}
+```
+
+### Test Data in `seeded_cache()`
+- 4 releases (r1-r4) with various metadata
+- 5 tracks (t1-t5) with artist associations
+- 2 collages ("Rose Gold", "Ruby Red")
+- 2 playlists ("Lala Lisa", "Turtle Rabbit")
+- Genres, labels, descriptors, and artist relationships

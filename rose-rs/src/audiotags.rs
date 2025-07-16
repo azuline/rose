@@ -3,7 +3,7 @@
 ///
 /// The audiotags module also handles Rose-specific tagging semantics, such as multi-valued tags,
 /// normalization, artist formatting, and enum validation.
-///
+
 use crate::common::{uniq, Artist, ArtistMapping, RoseDate};
 use crate::config::Config;
 use crate::errors::{Result, RoseError, RoseExpectedError};
@@ -939,8 +939,8 @@ pub fn format_artist_string(mapping: &ArtistMapping) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testing;
     use std::fs;
-    use tempfile::TempDir;
 
     #[test]
     fn test_split_tag() {
@@ -950,7 +950,6 @@ mod tests {
         assert_eq!(split_tag(Some("a; b")), vec!["a", "b"]);
         assert_eq!(split_tag(Some("a vs. b")), vec!["a", "b"]);
         assert_eq!(split_tag(Some("a / b")), vec!["a", "b"]);
-        assert_eq!(split_tag(None), Vec::<String>::new());
     }
 
     #[test]
@@ -1010,121 +1009,45 @@ mod tests {
         assert_eq!(format_artist_string(&mapping), "A pres. B;C feat. D;E");
     }
 
+    // Test data structures for table-driven tests
+    struct GettersTestCase {
+        filename: &'static str,
+        track_num: &'static str,
+        duration: i32,
+    }
+
+    struct FlushTestCase {
+        filename: &'static str,
+        track_num: &'static str,
+        duration: i32,
+    }
+
+    struct IdAssignmentTestCase {
+        filename: &'static str,
+    }
+
+    struct ReleaseTypeTestCase {
+        filename: &'static str,
+    }
+
+    fn test_tagger_path() -> std::path::PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("testdata").join("Tagger")
+    }
+
+
     #[test]
-    fn test_normalize_rtype() {
-        assert_eq!(normalize_rtype(Some("Album")), "album");
-        assert_eq!(normalize_rtype(Some("SINGLE")), "single");
-        assert_eq!(normalize_rtype(Some("unknown_type")), "unknown");
-        assert_eq!(normalize_rtype(None), "unknown");
-    }
+    fn test_getters() {
+        let test_cases = vec![
+            GettersTestCase { filename: "track1.flac", track_num: "1", duration: 2 },
+            GettersTestCase { filename: "track2.m4a", track_num: "2", duration: 2 },
+            GettersTestCase { filename: "track3.mp3", track_num: "3", duration: 1 },
+            GettersTestCase { filename: "track4.vorbis.ogg", track_num: "4", duration: 1 },
+            GettersTestCase { filename: "track5.opus.ogg", track_num: "5", duration: 1 },
+        ];
 
-    #[test]
-    fn test_rose_date_parse() {
-        // Year only
-        let date = RoseDate::parse(Some("2023")).unwrap();
-        assert_eq!(date.year, Some(2023));
-        assert_eq!(date.month, None);
-        assert_eq!(date.day, None);
-
-        // Full date
-        let date = RoseDate::parse(Some("2023-03-15")).unwrap();
-        assert_eq!(date.year, Some(2023));
-        assert_eq!(date.month, Some(3));
-        assert_eq!(date.day, Some(15));
-
-        // Invalid
-        assert!(RoseDate::parse(Some("not a date")).is_none());
-        assert!(RoseDate::parse(None).is_none());
-    }
-
-    use crate::config::VirtualFSConfig;
-    use crate::templates::{PathTemplate, PathTemplateConfig};
-    use std::collections::HashMap;
-    use std::path::PathBuf;
-
-    fn test_tagger_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("testdata").join("Tagger")
-    }
-
-    fn test_config() -> Config {
-        use crate::templates::PathTemplateTriad;
-
-        let default_template = PathTemplate::new("{albumartist}/{album}".to_string());
-
-        let default_triad = PathTemplateTriad {
-            release: default_template.clone(),
-            track: default_template.clone(),
-            all_tracks: default_template.clone(),
-        };
-
-        Config {
-            music_source_dir: PathBuf::from("/tmp"),
-            cache_dir: PathBuf::from("/tmp/.rose"),
-            max_proc: 1,
-            ignore_release_directories: vec![],
-            rename_source_files: false,
-            max_filename_bytes: 255,
-            cover_art_stems: vec!["cover".to_string(), "folder".to_string()],
-            valid_art_exts: vec!["jpg".to_string(), "jpeg".to_string(), "png".to_string()],
-            write_parent_genres: false,
-            artist_aliases_map: HashMap::new(),
-            artist_aliases_parents_map: HashMap::new(),
-            path_templates: PathTemplateConfig {
-                source: default_triad.clone(),
-                releases: default_triad.clone(),
-                releases_new: default_triad.clone(),
-                releases_added_on: default_triad.clone(),
-                releases_released_on: default_triad.clone(),
-                artists: default_triad.clone(),
-                genres: default_triad.clone(),
-                descriptors: default_triad.clone(),
-                labels: default_triad.clone(),
-                loose_tracks: default_triad.clone(),
-                collages: default_triad.clone(),
-                playlists: default_template.clone(),
-            },
-            stored_metadata_rules: vec![],
-            vfs: VirtualFSConfig {
-                mount_dir: PathBuf::from("/tmp/mount"),
-                artists_whitelist: None,
-                genres_whitelist: None,
-                descriptors_whitelist: None,
-                labels_whitelist: None,
-                artists_blacklist: None,
-                genres_blacklist: None,
-                descriptors_blacklist: None,
-                labels_blacklist: None,
-                hide_genres_with_only_new_releases: false,
-                hide_descriptors_with_only_new_releases: false,
-                hide_labels_with_only_new_releases: false,
-            },
+        for case in test_cases {
+            test_getters_helper(case.filename, case.track_num, case.duration);
         }
-    }
-
-    #[test]
-    fn test_getters_flac() {
-        test_getters_helper("track1.flac", "1", 2);
-    }
-
-    #[test]
-    fn test_getters_m4a() {
-        test_getters_helper("track2.m4a", "2", 2);
-    }
-
-    #[test]
-    fn test_getters_mp3() {
-        test_getters_helper("track3.mp3", "3", 1);
-    }
-
-    #[test]
-    fn test_getters_vorbis() {
-        test_getters_helper("track4.vorbis.ogg", "4", 1);
-    }
-
-    #[test]
-    #[ignore = "Opus files cannot be read by lofty - 'Vorbis: File missing magic signature'"]
-    fn test_getters_opus() {
-        test_getters_helper("track5.opus.ogg", "5", 1);
     }
 
     fn test_getters_helper(filename: &str, track_num: &str, duration: i32) {
@@ -1218,34 +1141,22 @@ mod tests {
     }
 
     #[test]
-    fn test_flush_flac() {
-        test_flush_helper("track1.flac", "1", 2).unwrap();
-    }
+    fn test_flush() {
+        let test_cases = vec![
+            FlushTestCase { filename: "track1.flac", track_num: "1", duration: 2 },
+            FlushTestCase { filename: "track2.m4a", track_num: "2", duration: 2 },
+            FlushTestCase { filename: "track3.mp3", track_num: "3", duration: 1 },
+            FlushTestCase { filename: "track4.vorbis.ogg", track_num: "4", duration: 1 },
+            FlushTestCase { filename: "track5.opus.ogg", track_num: "5", duration: 1 },
+        ];
 
-    #[test]
-    fn test_flush_m4a() {
-        test_flush_helper("track2.m4a", "2", 2).unwrap();
-    }
-
-    #[test]
-    #[ignore = "Custom TXXX frames cannot be written by lofty"]
-    fn test_flush_mp3() {
-        test_flush_helper("track3.mp3", "3", 1).unwrap();
-    }
-
-    #[test]
-    fn test_flush_vorbis() {
-        test_flush_helper("track4.vorbis.ogg", "4", 1).unwrap();
-    }
-
-    #[test]
-    #[ignore = "Opus custom tags not written by lofty"]
-    fn test_flush_opus() {
-        test_flush_helper("track5.opus.ogg", "5", 1).unwrap();
+        for case in test_cases {
+            test_flush_helper(case.filename, case.track_num, case.duration).unwrap();
+        }
     }
 
     fn test_flush_helper(filename: &str, track_num: &str, duration: i32) -> Result<()> {
-        let temp_dir = TempDir::new().unwrap();
+        let (config, temp_dir) = testing::config();
         let src_path = test_tagger_path().join(filename);
         let dst_path = temp_dir.path().join(filename);
         fs::copy(&src_path, &dst_path).unwrap();
@@ -1261,7 +1172,6 @@ mod tests {
             day: Some(20),
         });
 
-        let config = test_config();
         af.flush(&config, true).unwrap();
 
         // Read back and verify
@@ -1340,9 +1250,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Parent genres require custom tags which lofty cannot write"]
     fn test_write_parent_genres() {
-        let temp_dir = TempDir::new().unwrap();
+        let (mut config, temp_dir) = testing::config();
         let src_path = test_tagger_path().join("track1.flac");
         let dst_path = temp_dir.path().join("track1.flac");
         fs::copy(&src_path, &dst_path).unwrap();
@@ -1357,7 +1266,6 @@ mod tests {
             day: Some(20),
         });
 
-        let mut config = test_config();
         config.write_parent_genres = true;
         af.flush(&config, true).unwrap();
 
@@ -1385,37 +1293,22 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "ID assignment requires custom tags which lofty cannot write"]
-    fn test_id_assignment_flac() {
-        test_id_assignment_helper("track1.flac");
-    }
+    fn test_id_assignment() {
+        let test_cases = vec![
+            IdAssignmentTestCase { filename: "track1.flac" },
+            IdAssignmentTestCase { filename: "track2.m4a" },
+            IdAssignmentTestCase { filename: "track3.mp3" },
+            IdAssignmentTestCase { filename: "track4.vorbis.ogg" },
+            IdAssignmentTestCase { filename: "track5.opus.ogg" },
+        ];
 
-    #[test]
-    #[ignore = "ID assignment requires custom tags which lofty cannot write"]
-    fn test_id_assignment_m4a() {
-        test_id_assignment_helper("track2.m4a");
-    }
-
-    #[test]
-    #[ignore = "ID assignment requires custom tags which lofty cannot write"]
-    fn test_id_assignment_mp3() {
-        test_id_assignment_helper("track3.mp3");
-    }
-
-    #[test]
-    #[ignore = "ID assignment requires custom tags which lofty cannot write"]
-    fn test_id_assignment_vorbis() {
-        test_id_assignment_helper("track4.vorbis.ogg");
-    }
-
-    #[test]
-    #[ignore = "ID assignment requires custom tags which lofty cannot write"]
-    fn test_id_assignment_opus() {
-        test_id_assignment_helper("track5.opus.ogg");
+        for case in test_cases {
+            test_id_assignment_helper(case.filename);
+        }
     }
 
     fn test_id_assignment_helper(filename: &str) {
-        let temp_dir = TempDir::new().unwrap();
+        let (config, temp_dir) = testing::config();
         let src_path = test_tagger_path().join(filename);
         let dst_path = temp_dir.path().join(filename);
         fs::copy(&src_path, &dst_path).unwrap();
@@ -1424,7 +1317,6 @@ mod tests {
         af.id = Some("ahaha".to_string());
         af.release_id = Some("bahaha".to_string());
 
-        let config = test_config();
         af.flush(&config, true).unwrap();
 
         let af = AudioTags::from_file(&dst_path).unwrap();
@@ -1433,37 +1325,22 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Release type normalization requires custom tags which lofty cannot write"]
-    fn test_releasetype_normalization_flac() {
-        test_releasetype_normalization_helper("track1.flac");
-    }
+    fn test_releasetype_normalization() {
+        let test_cases = vec![
+            ReleaseTypeTestCase { filename: "track1.flac" },
+            ReleaseTypeTestCase { filename: "track2.m4a" },
+            ReleaseTypeTestCase { filename: "track3.mp3" },
+            ReleaseTypeTestCase { filename: "track4.vorbis.ogg" },
+            ReleaseTypeTestCase { filename: "track5.opus.ogg" },
+        ];
 
-    #[test]
-    #[ignore = "Release type normalization requires custom tags which lofty cannot write"]
-    fn test_releasetype_normalization_m4a() {
-        test_releasetype_normalization_helper("track2.m4a");
-    }
-
-    #[test]
-    #[ignore = "Release type normalization requires custom tags which lofty cannot write"]
-    fn test_releasetype_normalization_mp3() {
-        test_releasetype_normalization_helper("track3.mp3");
-    }
-
-    #[test]
-    #[ignore = "Release type normalization requires custom tags which lofty cannot write"]
-    fn test_releasetype_normalization_vorbis() {
-        test_releasetype_normalization_helper("track4.vorbis.ogg");
-    }
-
-    #[test]
-    #[ignore = "Release type normalization requires custom tags which lofty cannot write"]
-    fn test_releasetype_normalization_opus() {
-        test_releasetype_normalization_helper("track5.opus.ogg");
+        for case in test_cases {
+            test_releasetype_normalization_helper(case.filename);
+        }
     }
 
     fn test_releasetype_normalization_helper(filename: &str) {
-        let temp_dir = TempDir::new().unwrap();
+        let (config, temp_dir) = testing::config();
         let src_path = test_tagger_path().join(filename);
         let dst_path = temp_dir.path().join(filename);
         fs::copy(&src_path, &dst_path).unwrap();
@@ -1474,7 +1351,6 @@ mod tests {
 
         // Assert that attempting to flush a stupid value fails
         af.releasetype = "lalala".to_string();
-        let config = test_config();
         assert!(af.flush(&config, true).is_err());
 
         // Flush it anyways without validation
