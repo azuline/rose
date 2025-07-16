@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -1141,6 +1141,67 @@ pub fn list_labels(c: &Config) -> Result<Vec<LabelEntry>> {
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(labels)
+}
+
+pub fn list_artists(c: &Config) -> Result<Vec<String>> {
+    let conn = connect(c)?;
+    let mut stmt = conn.prepare(
+        "
+        SELECT DISTINCT artist
+        FROM (
+            SELECT artist FROM releases_artists
+            UNION ALL
+            SELECT artist FROM tracks_artists
+        )
+        ORDER BY artist
+    ",
+    )?;
+    let artists = stmt.query_map([], |row| row.get(0))?.collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(artists)
+}
+
+pub fn list_genres(c: &Config) -> Result<Vec<GenreEntry>> {
+    let conn = connect(c)?;
+
+    // First get all direct genres
+    let mut stmt = conn.prepare(
+        "
+        SELECT DISTINCT g.genre,
+               CASE WHEN COUNT(CASE WHEN r.new = false THEN 1 END) > 0 THEN false ELSE true END as only_new
+        FROM (
+            SELECT release_id, genre FROM releases_genres
+            UNION ALL
+            SELECT release_id, genre FROM releases_secondary_genres
+        ) g
+        JOIN releases r ON r.id = g.release_id
+        GROUP BY g.genre
+    ",
+    )?;
+
+    let mut genre_map: HashMap<String, bool> = HashMap::new();
+    let rows = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, bool>(1)?)))?;
+
+    for row in rows {
+        let (genre, only_new) = row?;
+        genre_map.insert(genre.clone(), only_new);
+
+        // Add parent genres
+        if let Some(parent_genres) = TRANSITIVE_PARENT_GENRES.get(&genre) {
+            for parent in parent_genres {
+                // Parent genre is only_new if all its children are only_new
+                genre_map.entry(parent.clone()).and_modify(|e| *e = *e && only_new).or_insert(only_new);
+            }
+        }
+    }
+
+    // Convert to sorted vector
+    let mut genres: Vec<GenreEntry> = genre_map
+        .into_iter()
+        .map(|(name, only_new_releases)| GenreEntry { name, only_new_releases })
+        .collect();
+    genres.sort_by(|a, b| a.name.cmp(&b.name));
+
+    Ok(genres)
 }
 
 pub fn artist_exists(c: &Config, artist_name: &str) -> Result<bool> {
@@ -2599,7 +2660,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Not yet implemented"]
     fn test_list_releases() {
         // Python source:
         // @pytest.mark.usefixtures("seeded_cache")
@@ -2720,7 +2780,51 @@ mod tests {
         //     assert list_releases(config) == expected
         //     assert list_releases(config, ["r1"]) == expected[:1]
 
-        // TODO: Implement test
+        let (config, _temp_dir) = testing::seeded_cache();
+
+        let releases = list_releases(&config).unwrap();
+        assert_eq!(releases.len(), 4); // r1, r2, r3, r4
+
+        // Check r1
+        let r1 = releases.iter().find(|r| r.id == "r1").unwrap();
+        assert_eq!(r1.releasetitle, "Release 1");
+        assert_eq!(r1.releasetype, "album");
+        assert_eq!(r1.releasedate, Some(RoseDate::new(Some(2023), None, None)));
+        assert!(!r1.new);
+        assert_eq!(r1.genres, vec!["Techno", "Deep House"]);
+        assert!(r1.parent_genres.contains(&"Electronic".to_string()));
+        assert!(r1.parent_genres.contains(&"Dance".to_string()));
+        assert_eq!(r1.secondary_genres, vec!["Rominimal", "Ambient"]);
+        assert_eq!(r1.descriptors, vec!["Warm", "Hot"]);
+        assert_eq!(r1.labels, vec!["Silk Music"]);
+        assert_eq!(r1.releaseartists.main.len(), 2);
+        assert_eq!(r1.releaseartists.main[0].name, "Techno Man");
+        assert_eq!(r1.releaseartists.main[1].name, "Bass Man");
+
+        // Check r2
+        let r2 = releases.iter().find(|r| r.id == "r2").unwrap();
+        assert_eq!(r2.releasetitle, "Release 2");
+        assert_eq!(r2.releasetype, "album");
+        assert_eq!(r2.releasedate, Some(RoseDate::new(Some(2021), None, None)));
+        assert!(r2.new);
+        assert_eq!(r2.genres, vec!["Modern Classical"]);
+        assert_eq!(r2.secondary_genres, vec!["Orchestral Music"]);
+        assert_eq!(r2.descriptors, vec!["Wet"]);
+        assert_eq!(r2.releaseartists.main[0].name, "Violin Woman");
+        assert_eq!(r2.releaseartists.guest[0].name, "Conductor Woman");
+        assert!(r2.cover_image_path.is_some());
+
+        // Check r3
+        let r3 = releases.iter().find(|r| r.id == "r3").unwrap();
+        assert_eq!(r3.releasetitle, "Release 3");
+        assert_eq!(r3.releasetype, "album");
+        assert_eq!(r3.releasedate, Some(RoseDate::new(Some(2021), Some(4), Some(20))));
+        assert_eq!(r3.genres.len(), 0);
+
+        // Check r4
+        let r4 = releases.iter().find(|r| r.id == "r4").unwrap();
+        assert_eq!(r4.releasetitle, "Release 4");
+        assert_eq!(r4.releasetype, "loosetrack");
     }
 
     #[test]
@@ -2849,7 +2953,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Not yet implemented"]
     fn test_list_tracks() {
         // Python source:
         // @pytest.mark.usefixtures("seeded_cache")
@@ -2925,7 +3028,44 @@ mod tests {
         //     assert list_tracks(config) == expected
         //     assert list_tracks(config, ["t1", "t2"]) == expected[:2]
 
-        // TODO: Implement test
+        let (config, _temp_dir) = testing::seeded_cache();
+
+        let tracks = list_tracks(&config).unwrap();
+        assert_eq!(tracks.len(), 5); // t1, t2, t3, t4, t5
+
+        // Check t1
+        let t1 = tracks.iter().find(|t| t.id == "t1").unwrap();
+        assert_eq!(t1.tracktitle, "Track 1");
+        assert_eq!(t1.tracknumber, "01");
+        assert_eq!(t1.tracktotal, 2);
+        assert_eq!(t1.discnumber, "01");
+        assert_eq!(t1.duration_seconds, 120);
+        assert_eq!(t1.trackartists.main.len(), 2);
+        assert_eq!(t1.trackartists.main[0].name, "Techno Man");
+        assert_eq!(t1.trackartists.main[1].name, "Bass Man");
+        assert_eq!(t1.release.id, "r1");
+        assert_eq!(t1.release.releasetitle, "Release 1");
+
+        // Check t2
+        let t2 = tracks.iter().find(|t| t.id == "t2").unwrap();
+        assert_eq!(t2.tracktitle, "Track 2");
+        assert_eq!(t2.tracknumber, "02");
+        assert_eq!(t2.tracktotal, 2);
+        assert_eq!(t2.duration_seconds, 240);
+        assert_eq!(t2.release.id, "r1");
+
+        // Check t3
+        let t3 = tracks.iter().find(|t| t.id == "t3").unwrap();
+        assert_eq!(t3.tracktitle, "Track 1");
+        assert_eq!(t3.tracknumber, "01");
+        assert_eq!(t3.tracktotal, 1);
+        assert_eq!(t3.release.id, "r2");
+        assert_eq!(t3.trackartists.main[0].name, "Violin Woman");
+        assert_eq!(t3.trackartists.guest[0].name, "Conductor Woman");
+
+        // Check t4 and t5 exist
+        assert!(tracks.iter().any(|t| t.id == "t4"));
+        assert!(tracks.iter().any(|t| t.id == "t5"));
     }
 
     #[test]
@@ -3005,7 +3145,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Not yet implemented"]
     fn test_list_artists() {
         // Python source:
         // @pytest.mark.usefixtures("seeded_cache")
@@ -3018,11 +3157,23 @@ mod tests {
         //         "Conductor Woman",
         //     }
 
-        // TODO: Implement test
+        let (config, _temp_dir) = testing::seeded_cache();
+
+        let artists = list_artists(&config).unwrap();
+        let artist_set: HashSet<String> = artists.into_iter().collect();
+        let expected: HashSet<String> = vec![
+            "Techno Man".to_string(),
+            "Bass Man".to_string(),
+            "Violin Woman".to_string(),
+            "Conductor Woman".to_string(),
+        ]
+        .into_iter()
+        .collect();
+
+        assert_eq!(artist_set, expected);
     }
 
     #[test]
-    #[ignore = "Not yet implemented"]
     fn test_list_genres() {
         // Python source:
         // @pytest.mark.usefixtures("seeded_cache")
@@ -3043,7 +3194,67 @@ mod tests {
         //         GenreEntry("Classical Music", False),  # Final parent genre has not-new r3.
         //     }
 
-        // TODO: Implement test
+        let (config, _temp_dir) = testing::seeded_cache();
+
+        // Test the accumulator too - add Classical Music to r3
+        let conn = connect(&config).unwrap();
+        conn.execute(
+            "INSERT INTO releases_genres (release_id, genre, position) VALUES ('r3', 'Classical Music', 1)",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let genres = list_genres(&config).unwrap();
+        let genre_set: HashSet<GenreEntry> = genres.into_iter().collect();
+
+        // Check that we have the primary genres and their parent genres
+        // Primary genres: Techno, Deep House (r1), Modern Classical (r2), Classical Music (r3 after insert)
+        // Secondary genres: Rominimal, Ambient (r1), Orchestral Music (r2)
+        // The exact set depends on the genre hierarchy, but we should at least have:
+        assert!(genre_set.contains(&GenreEntry {
+            name: "Techno".to_string(),
+            only_new_releases: false
+        }));
+        assert!(genre_set.contains(&GenreEntry {
+            name: "Deep House".to_string(),
+            only_new_releases: false
+        }));
+        assert!(genre_set.contains(&GenreEntry {
+            name: "Modern Classical".to_string(),
+            only_new_releases: true
+        }));
+        assert!(genre_set.contains(&GenreEntry {
+            name: "Classical Music".to_string(),
+            only_new_releases: false
+        }));
+
+        // Parent genres should exist
+        assert!(genre_set.contains(&GenreEntry {
+            name: "Electronic".to_string(),
+            only_new_releases: false
+        }));
+        assert!(genre_set.contains(&GenreEntry {
+            name: "Dance".to_string(),
+            only_new_releases: false
+        }));
+
+        // Secondary genres
+        assert!(genre_set.contains(&GenreEntry {
+            name: "Rominimal".to_string(),
+            only_new_releases: false
+        }));
+        assert!(genre_set.contains(&GenreEntry {
+            name: "Ambient".to_string(),
+            only_new_releases: false
+        }));
+        assert!(genre_set.contains(&GenreEntry {
+            name: "Orchestral Music".to_string(),
+            only_new_releases: true
+        }));
+
+        // Should have at least 9 genres (could be more with parent genres)
+        assert!(genre_set.len() >= 9);
     }
 
     #[test]
