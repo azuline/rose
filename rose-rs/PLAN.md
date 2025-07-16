@@ -20,7 +20,8 @@ Our approach is a test driven development approach. We want to port over all the
    - ✅ Basic tag reading/writing for standard tags
    - ✅ Multi-value tag support
    - ✅ Artist role parsing
-   - ❌ Custom tag writing (lofty v0.22+ limitation - see DEBT.md)
+   - ✅ ID writing to tags (tracks and releases)
+   - ❌ Custom tag writing for M4A (lofty limitation)
    - Tests: 13/26 passing (13 ignored due to lofty limitations)
 
 2. **cache.rs** - SQLite database layer  
@@ -35,9 +36,11 @@ Our approach is a test driven development approach. We want to port over all the
    - ✅ update_cache_for_playlists with TOML parsing
    - ✅ Full cache update logic (update_cache function)
    - ✅ Helper functions for stored data files
-   - ❌ Full-text search update functions
-   - ❌ File renaming logic (rename_source_files)
-   - Tests: 14/66 implemented (3 more passing)
+   - ✅ Full-text search update functions (process_string_for_fts)
+   - ✅ File renaming logic (rename_source_files)
+   - ✅ Multiprocessing support with Rayon
+   - ✅ Track and Release ID persistence to audio files
+   - Tests: 43/72 passing (29 ignored, mostly due to M4A limitations)
 
 ### ❌ Not Started
 1. **rules.rs** - Rules execution engine
@@ -209,10 +212,9 @@ These tags can be read if they exist (created by other tools) but cannot be writ
 
 ### Immediate Priority
 1. Complete remaining cache.rs functionality:
-   - Full-text search update functions
-   - File renaming logic (rename_source_files)
-   - Remaining test implementations (52 tests to go)
+   - Remaining test implementations (29 tests to go)
    - Add cover art functionality
+   - Fix M4A tag writing once lofty is updated
 
 ### Medium Priority
 2. Implement rules.rs for metadata operations
