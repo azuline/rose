@@ -72,3 +72,4 @@ The project uses SQLite with a schema defined in `src/cache.sql`.
 # Conventions
 
 - All log lines should be in lowercase.
+- Prefer to raise errors over emit `warn!` or `error!` log lines. Fail fast and fail loudly.

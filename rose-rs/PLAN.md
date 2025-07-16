@@ -21,7 +21,6 @@ Our approach is a test driven development approach. We want to port over all the
    - ✅ Multi-value tag support
    - ✅ Artist role parsing
    - ✅ ID writing to tags (tracks and releases)
-   - ❌ Tag writing for M4A/MP4 files (lofty cannot write ANY tags to M4A, even standard ones)
    - Tests: 13/26 passing (13 ignored due to lofty limitations)
 
 2. **cache.rs** - SQLite database layer  
@@ -157,30 +156,6 @@ Layer 7:
 - **Serialization**: serde with JSON/TOML support
 - **Logging**: tracing (not log/log4rs)
 
-### Known Limitations
-
-#### Lofty v0.22+ Custom Tag Writing
-The lofty crate (v0.22+) cannot write custom/unknown tags to Vorbis comment-based formats (FLAC, Ogg Vorbis, Opus). This is a breaking change from earlier versions and affects:
-- Rose IDs (roseid/rosereleaseid)
-- Release type
-- Composition date
-- Secondary genres
-- Descriptors
-- Edition
-
-These tags can be read if they exist (created by other tools) but cannot be written. This impacts full feature parity with the Python implementation. See DEBT.md for detailed analysis.
-
-**UPDATE (2025-01-16): Investigation revealed incorrect assumptions:**
-1. **M4A/MP4 Tag Writing**: The predecessor assumed lofty cannot write ANY tags to M4A files. However, the actual issue is that:
-   - The Rust implementation was trying to write individual artist role tags (DJMIXER, REMIXER, etc.) for MP4 files
-   - The Python implementation NEVER writes these individual role tags for MP4 - it only encodes all artist info in the main ©ART tag
-   - The test was failing because it expected these individual role tags to persist, but the Python spec says they should be deleted
-   - The fix is to match Python behavior: delete individual role tags and only use the formatted artist string
-
-2. **Missing Implementation Detail**: The predecessor overlooked that MP4 tag handling is fundamentally different from other formats:
-   - MP4 encodes all artist roles into a single formatted string (e.g., "DJ pres. Artist A feat. Artist B")
-   - Other formats (FLAC/Vorbis) can store individual role tags separately
-   - Tests need to account for this difference in behavior
 
 ### Translation Guidelines
 1. **DO NOT DELETE PYTHON CODE** - Keep original Python code as comments in the Rust files until fully translated
@@ -210,7 +185,7 @@ These tags can be read if they exist (created by other tools) but cannot be writ
 ## Lessons Learned
 
 1. **Test-Driven Porting Works Well**: Porting tests first helps catch subtle behavioral differences
-2. **Library Limitations Are Critical**: The lofty v0.22+ limitation on custom tags was unexpected and impacts core functionality
+2. **Understand Library Capabilities**: Don't assume limitations without thorough testing
 3. **Type System Differences**: Rust's type system requires careful handling of:
    - Arc<T> for shared ownership (e.g., Release objects in cache)
    - Result type aliases vs std::result::Result in closures
@@ -226,7 +201,6 @@ These tags can be read if they exist (created by other tools) but cannot be writ
 1. Complete remaining cache.rs functionality:
    - Remaining test implementations (29 tests to go)
    - Add cover art functionality
-   - Fix M4A tag writing once lofty is updated or switch to alternative library
 
 ### Medium Priority
 2. Implement rules.rs for metadata operations
@@ -234,15 +208,8 @@ These tags can be read if they exist (created by other tools) but cannot be writ
 4. Implement tracks.rs for track operations
 
 ### Long Term
-5. Research alternatives to lofty for custom tag support:
-   - Consider using mutagen bindings
-   - Evaluate other audio metadata libraries
-   - Potentially contribute custom tag support to lofty
+5. Complete remaining modules
 
-### Blocked/Deferred
-- Full audiotags.rs parity (blocked by lofty limitations)
-- ID assignment functionality
-- Custom metadata persistence
 
 ## Success Criteria
 
@@ -257,7 +224,7 @@ These tags can be read if they exist (created by other tools) but cannot be writ
 
 ### Not Yet Achieved
 - ❌ All modules successfully ported with tests passing
-- ❌ Full feature parity (blocked by lofty custom tag limitation)
+- ❌ Full feature parity
 - ❌ CLI interface implementation
 - ❌ Performance benchmarking
 
@@ -270,8 +237,8 @@ These tags can be read if they exist (created by other tools) but cannot be writ
 | templates.rs | ~300 | ✅ | 100% | Fully implemented |
 | rule_parser.rs | ~600 | ✅ | 100% | Fully implemented |
 | genre_hierarchy.rs | ~100 | ✅ | 100% | Data module |
-| audiotags.rs | ~900 | 13/26 | 70% | Limited by lofty |
-| cache.rs | ~4000 | 43/72 | 75% | Core functionality complete, multiprocessing added |
+| audiotags.rs | ~900 | 13/26 | 70% | In progress |
+| cache.rs | ~4000 | 43/72 | 75% | Core functionality complete |
 | rules.rs | 0 | 0 | 0% | Not started |
 | releases.rs | 0 | 0 | 0% | Not started |
 | tracks.rs | 0 | 0 | 0% | Not started |

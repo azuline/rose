@@ -4,19 +4,6 @@
 /// The audiotags module also handles Rose-specific tagging semantics, such as multi-valued tags,
 /// normalization, artist formatting, and enum validation.
 ///
-/// ## Known Limitations
-///
-/// Due to limitations in the lofty library (v0.22+), custom/unknown tags cannot be written to
-/// Vorbis comment-based formats (FLAC, Ogg Vorbis, Opus). This affects the following tags:
-/// - roseid / rosereleaseid
-/// - releasetype
-/// - compositiondate
-/// - secondarygenre
-/// - descriptor
-/// - edition
-///
-/// These tags can be read if they already exist (e.g., created by other tools like mutagen),
-/// but cannot be written or updated. Standard tags work correctly.
 use crate::common::{uniq, Artist, ArtistMapping, RoseDate};
 use crate::config::Config;
 use crate::errors::{Result, RoseError, RoseExpectedError};
@@ -1241,7 +1228,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "TXXX frames not being written properly for MP3 - lofty limitation"]
+    #[ignore = "Custom TXXX frames cannot be written by lofty"]
     fn test_flush_mp3() {
         test_flush_helper("track3.mp3", "3", 1).unwrap();
     }
