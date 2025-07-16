@@ -2960,125 +2960,6 @@ mod tests {
 
     #[test]
     fn test_list_releases() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_list_releases(config: Config) -> None:
-        //     expected = [
-        //         Release(
-        //             datafile_mtime="999",
-        //             id="r1",
-        //             source_path=Path(config.music_source_dir / "r1"),
-        //             cover_image_path=None,
-        //             added_at="0000-01-01T00:00:00+00:00",
-        //             releasetitle="Release 1",
-        //             releasetype="album",
-        //             compositiondate=None,
-        //             catalognumber=None,
-        //             releasedate=RoseDate(2023),
-        //             disctotal=1,
-        //             new=False,
-        //             genres=["Techno", "Deep House"],
-        //             parent_genres=[
-        //                 "Dance",
-        //                 "Electronic",
-        //                 "Electronic Dance Music",
-        //                 "House",
-        //             ],
-        //             originaldate=None,
-        //             edition=None,
-        //             secondary_genres=["Rominimal", "Ambient"],
-        //             parent_secondary_genres=[
-        //                 "Dance",
-        //                 "Electronic",
-        //                 "Electronic Dance Music",
-        //                 "House",
-        //                 "Tech House",
-        //             ],
-        //             descriptors=["Warm", "Hot"],
-        //             labels=["Silk Music"],
-        //             releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-        //             metahash="1",
-        //         ),
-        //         Release(
-        //             datafile_mtime="999",
-        //             id="r2",
-        //             source_path=Path(config.music_source_dir / "r2"),
-        //             cover_image_path=Path(config.music_source_dir / "r2" / "cover.jpg"),
-        //             added_at="0000-01-01T00:00:00+00:00",
-        //             releasetitle="Release 2",
-        //             releasetype="album",
-        //             releasedate=RoseDate(2021),
-        //             compositiondate=None,
-        //             catalognumber="DG-001",
-        //             disctotal=1,
-        //             new=True,
-        //             genres=["Modern Classical"],
-        //             parent_genres=["Classical Music", "Western Classical Music"],
-        //             labels=["Native State"],
-        //             originaldate=RoseDate(2019),
-        //             edition="Deluxe",
-        //             secondary_genres=["Orchestral Music"],
-        //             parent_secondary_genres=[
-        //                 "Classical Music",
-        //                 "Western Classical Music",
-        //             ],
-        //             descriptors=["Wet"],
-        //             releaseartists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
-        //             metahash="2",
-        //         ),
-        //         Release(
-        //             datafile_mtime="999",
-        //             id="r3",
-        //             source_path=Path(config.music_source_dir / "r3"),
-        //             cover_image_path=None,
-        //             added_at="0000-01-01T00:00:00+00:00",
-        //             releasetitle="Release 3",
-        //             releasetype="album",
-        //             releasedate=RoseDate(2021, 4, 20),
-        //             compositiondate=RoseDate(1780),
-        //             catalognumber="DG-002",
-        //             disctotal=1,
-        //             new=False,
-        //             genres=[],
-        //             parent_genres=[],
-        //             labels=[],
-        //             originaldate=None,
-        //             edition=None,
-        //             secondary_genres=[],
-        //             parent_secondary_genres=[],
-        //             descriptors=[],
-        //             releaseartists=ArtistMapping(),
-        //             metahash="3",
-        //         ),
-        //         Release(
-        //             datafile_mtime="999",
-        //             id="r4",
-        //             source_path=Path(config.music_source_dir / "r4"),
-        //             cover_image_path=None,
-        //             added_at="0000-01-01T00:00:00+00:00",
-        //             releasetitle="Release 4",
-        //             releasetype="loosetrack",
-        //             releasedate=RoseDate(2021, 4, 20),
-        //             compositiondate=RoseDate(1780),
-        //             catalognumber="DG-002",
-        //             disctotal=1,
-        //             new=False,
-        //             genres=[],
-        //             parent_genres=[],
-        //             labels=[],
-        //             originaldate=None,
-        //             edition=None,
-        //             secondary_genres=[],
-        //             parent_secondary_genres=[],
-        //             descriptors=[],
-        //             releaseartists=ArtistMapping(),
-        //             metahash="4",
-        //         ),
-        //     ]
-        //
-        //     assert list_releases(config) == expected
-        //     assert list_releases(config, ["r1"]) == expected[:1]
-
         let (config, _temp_dir) = testing::seeded_cache();
 
         let releases = list_releases(&config).unwrap();
@@ -3128,79 +3009,6 @@ mod tests {
 
     #[test]
     fn test_get_release_and_associated_tracks() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_get_release_and_associated_tracks(config: Config) -> None:
-        //     release = get_release(config, "r1")
-        //     assert release is not None
-        //     assert release == Release(
-        //         datafile_mtime="999",
-        //         id="r1",
-        //         source_path=Path(config.music_source_dir / "r1"),
-        //         cover_image_path=None,
-        //         added_at="0000-01-01T00:00:00+00:00",
-        //         releasetitle="Release 1",
-        //         releasetype="album",
-        //         releasedate=RoseDate(2023),
-        //         compositiondate=None,
-        //         catalognumber=None,
-        //         disctotal=1,
-        //         new=False,
-        //         genres=["Techno", "Deep House"],
-        //         parent_genres=[
-        //             "Dance",
-        //             "Electronic",
-        //             "Electronic Dance Music",
-        //             "House",
-        //         ],
-        //         labels=["Silk Music"],
-        //         originaldate=None,
-        //         edition=None,
-        //         secondary_genres=["Rominimal", "Ambient"],
-        //         parent_secondary_genres=[
-        //             "Dance",
-        //             "Electronic",
-        //             "Electronic Dance Music",
-        //             "House",
-        //             "Tech House",
-        //         ],
-        //         descriptors=["Warm", "Hot"],
-        //         releaseartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-        //         metahash="1",
-        //     )
-        //
-        //     expected_tracks = [
-        //         Track(
-        //             id="t1",
-        //             source_path=config.music_source_dir / "r1" / "01.m4a",
-        //             source_mtime="999",
-        //             tracktitle="Track 1",
-        //             tracknumber="01",
-        //             tracktotal=2,
-        //             discnumber="01",
-        //             duration_seconds=120,
-        //             trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-        //             metahash="1",
-        //             release=release,
-        //         ),
-        //         Track(
-        //             id="t2",
-        //             source_path=config.music_source_dir / "r1" / "02.m4a",
-        //             source_mtime="999",
-        //             tracktitle="Track 2",
-        //             tracknumber="02",
-        //             tracktotal=2,
-        //             discnumber="01",
-        //             duration_seconds=240,
-        //             trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-        //             metahash="2",
-        //             release=release,
-        //         ),
-        //     ]
-        //
-        //     assert get_tracks_of_release(config, release) == expected_tracks
-        //     assert get_tracks_of_releases(config, [release]) == [(release, expected_tracks)]
-
         let (config, _temp_dir) = testing::seeded_cache();
         
         let release = get_release(&config, "r1").unwrap().unwrap();
@@ -3286,80 +3094,6 @@ mod tests {
 
     #[test]
     fn test_list_tracks() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_list_tracks(config: Config) -> None:
-        //     expected = [
-        //         Track(
-        //             id="t1",
-        //             source_path=config.music_source_dir / "r1" / "01.m4a",
-        //             source_mtime="999",
-        //             tracktitle="Track 1",
-        //             tracknumber="01",
-        //             tracktotal=2,
-        //             discnumber="01",
-        //             duration_seconds=120,
-        //             trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-        //             metahash="1",
-        //             release=Release(...), # Full release object with all fields
-        //         ),
-        //         Track(
-        //             id="t2",
-        //             source_path=config.music_source_dir / "r1" / "02.m4a",
-        //             source_mtime="999",
-        //             tracktitle="Track 2",
-        //             tracknumber="02",
-        //             tracktotal=2,
-        //             discnumber="01",
-        //             duration_seconds=240,
-        //             trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-        //             metahash="2",
-        //             release=Release(...), # Full release object with all fields
-        //         ),
-        //         Track(
-        //             id="t3",
-        //             source_path=config.music_source_dir / "r2" / "01.m4a",
-        //             source_mtime="999",
-        //             tracktitle="Track 1",
-        //             tracknumber="01",
-        //             tracktotal=1,
-        //             discnumber="01",
-        //             duration_seconds=120,
-        //             trackartists=ArtistMapping(main=[Artist("Violin Woman")], guest=[Artist("Conductor Woman")]),
-        //             metahash="3",
-        //             release=Release(...), # Full release object with all fields
-        //         ),
-        //         Track(
-        //             id="t4",
-        //             source_path=config.music_source_dir / "r3" / "01.m4a",
-        //             source_mtime="999",
-        //             tracktitle="Track 1",
-        //             tracknumber="01",
-        //             tracktotal=1,
-        //             discnumber="01",
-        //             duration_seconds=120,
-        //             trackartists=ArtistMapping(),
-        //             metahash="4",
-        //             release=Release(...), # Full release object with all fields
-        //         ),
-        //         Track(
-        //             id="t5",
-        //             source_path=config.music_source_dir / "r4" / "01.m4a",
-        //             source_mtime="999",
-        //             tracktitle="Track 1",
-        //             tracknumber="01",
-        //             tracktotal=1,
-        //             discnumber="01",
-        //             duration_seconds=120,
-        //             trackartists=ArtistMapping(),
-        //             metahash="5",
-        //             release=Release(...), # Full release object with all fields
-        //         ),
-        //     ]
-        //
-        //     assert list_tracks(config) == expected
-        //     assert list_tracks(config, ["t1", "t2"]) == expected[:2]
-
         let (config, _temp_dir) = testing::seeded_cache();
 
         let tracks = list_tracks(&config).unwrap();
@@ -3402,23 +3136,6 @@ mod tests {
 
     #[test]
     fn test_get_track() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_get_track(config: Config) -> None:
-        //     assert get_track(config, "t1") == Track(
-        //         id="t1",
-        //         source_path=config.music_source_dir / "r1" / "01.m4a",
-        //         source_mtime="999",
-        //         tracktitle="Track 1",
-        //         tracknumber="01",
-        //         tracktotal=2,
-        //         discnumber="01",
-        //         duration_seconds=120,
-        //         trackartists=ArtistMapping(main=[Artist("Techno Man"), Artist("Bass Man")]),
-        //         metahash="1",
-        //         release=Release(...), # Full release object matching r1
-        //     )
-
         let (config, _temp_dir) = testing::seeded_cache();
         
         let track = get_track(&config, "t1").unwrap().unwrap();
@@ -3458,14 +3175,6 @@ mod tests {
 
     #[test]
     fn test_release_within_collage() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_release_within_collage(config: Config) -> None:
-        //     assert release_within_collage(config, "r1", "Rose Gold")
-        //     assert not release_within_collage(config, "r1", "Ruby Red")
-        //     assert not release_within_collage(config, "lalala", "Rose Gold")
-        //     assert not release_within_collage(config, "r1", "lalala")
-
         let (config, _temp_dir) = testing::seeded_cache();
         
         assert!(release_within_collage(&config, "r1", "Rose Gold").unwrap());
@@ -3482,17 +3191,6 @@ mod tests {
 
     #[test]
     fn test_list_artists() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_list_artists(config: Config) -> None:
-        //     artists = list_artists(config)
-        //     assert set(artists) == {
-        //         "Techno Man",
-        //         "Bass Man",
-        //         "Violin Woman",
-        //         "Conductor Woman",
-        //     }
-
         let (config, _temp_dir) = testing::seeded_cache();
 
         let artists = list_artists(&config).unwrap();
@@ -3511,25 +3209,6 @@ mod tests {
 
     #[test]
     fn test_list_genres() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_list_genres(config: Config) -> None:
-        //     # Test the accumulator too.
-        //     with connect(config) as conn:
-        //         conn.execute("INSERT INTO releases_genres (release_id, genre, position) VALUES ('r3', 'Classical Music', 1)")
-        //     genres = list_genres(config)
-        //     assert set(genres) == {
-        //         GenreEntry("Techno", False),
-        //         GenreEntry("Deep House", False),
-        //         GenreEntry("Dance", False),
-        //         GenreEntry("Electronic", False),
-        //         GenreEntry("Electronic Dance Music", False),
-        //         GenreEntry("House", False),
-        //         GenreEntry("Modern Classical", True),
-        //         GenreEntry("Western Classical Music", True),
-        //         GenreEntry("Classical Music", False),  # Final parent genre has not-new r3.
-        //     }
-
         let (config, _temp_dir) = testing::seeded_cache();
 
         // Test the accumulator too - add Classical Music to r3
@@ -3595,16 +3274,6 @@ mod tests {
 
     #[test]
     fn test_list_descriptors() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_list_descriptors(config: Config) -> None:
-        //     descriptors = list_descriptors(config)
-        //     assert set(descriptors) == {
-        //         DescriptorEntry("Warm", False),
-        //         DescriptorEntry("Hot", False),
-        //         DescriptorEntry("Wet", True),
-        //     }
-
         let (config, _temp_dir) = testing::seeded_cache();
 
         let descriptors = list_descriptors(&config).unwrap();
@@ -3630,15 +3299,6 @@ mod tests {
 
     #[test]
     fn test_list_labels() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_list_labels(config: Config) -> None:
-        //     labels = list_labels(config)
-        //     assert set(labels) == {
-        //         LabelEntry("Silk Music", False),
-        //         LabelEntry("Native State", True),
-        //     }
-
         let (config, _temp_dir) = testing::seeded_cache();
 
         let labels = list_labels(&config).unwrap();
@@ -3660,12 +3320,6 @@ mod tests {
 
     #[test]
     fn test_list_collages() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_list_collages(config: Config) -> None:
-        //     collages = list_collages(config)
-        //     assert set(collages) == {"Rose Gold", "Ruby Red"}
-
         let (config, _temp_dir) = testing::seeded_cache();
 
         let collages = list_collages(&config).unwrap();
@@ -3716,12 +3370,6 @@ mod tests {
 
     #[test]
     fn test_list_playlists() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_list_playlists(config: Config) -> None:
-        //     playlists = list_playlists(config)
-        //     assert set(playlists) == {"Lala Lisa", "Turtle Rabbit"}
-
         let (config, _temp_dir) = testing::seeded_cache();
 
         let playlists = list_playlists(&config).unwrap();
@@ -3796,16 +3444,6 @@ mod tests {
 
     #[test]
     fn test_artist_exists_with_alias_transient() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_artist_exists_with_alias_transient(config: Config) -> None:
-        //     config = dataclasses.replace(
-        //         config,
-        //         artist_aliases_map={"Hype Boy": ["Bass Man"], "Bubble Gum": ["Hype Boy"]},
-        //         artist_aliases_parents_map={"Bass Man": ["Hype Boy"], "Hype Boy": ["Bubble Gum"]},
-        //     )
-        //     assert artist_exists(config, "Bubble Gum")
-
         let (mut config, _temp_dir) = testing::seeded_cache();
 
         // Create alias mappings
@@ -3825,16 +3463,6 @@ mod tests {
 
     #[test]
     fn test_genre_exists() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_genre_exists(config: Config) -> None:
-        //     assert genre_exists(config, "Deep House")
-        //     assert not genre_exists(config, "lalala")
-        //     # Parent genre
-        //     assert genre_exists(config, "Electronic")
-        //     # Child genre
-        //     assert not genre_exists(config, "Lo-Fi House")
-
         let (config, _temp_dir) = testing::seeded_cache();
 
         assert!(genre_exists(&config, "Deep House").unwrap());
@@ -3847,12 +3475,6 @@ mod tests {
 
     #[test]
     fn test_descriptor_exists() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_descriptor_exists(config: Config) -> None:
-        //     assert descriptor_exists(config, "Warm")
-        //     assert not descriptor_exists(config, "Icy")
-
         let (config, _temp_dir) = testing::seeded_cache();
 
         assert!(descriptor_exists(&config, "Warm").unwrap());
@@ -3861,12 +3483,6 @@ mod tests {
 
     #[test]
     fn test_label_exists() {
-        // Python source:
-        // @pytest.mark.usefixtures("seeded_cache")
-        // def test_label_exists(config: Config) -> None:
-        //     assert label_exists(config, "Silk Music")
-        //     assert not label_exists(config, "Cotton Music")
-
         let (config, _temp_dir) = testing::seeded_cache();
 
         assert!(label_exists(&config, "Silk Music").unwrap());
