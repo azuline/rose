@@ -5,7 +5,7 @@ This document outlines the plan for completing the Rust port of the Rose music l
 
 Our approach is a test driven development approach. We want to port over all the tests from rose-py and then make sure that they are all implemented effectively.
 
-## Current Status (Updated: 2025-07-15)
+## Current Status (Updated: 2025-07-16)
 
 ### ✅ Completed Modules (100% Feature Parity)
 1. **common.rs** - Core utilities, error types, and basic data structures
@@ -25,14 +25,19 @@ Our approach is a test driven development approach. We want to port over all the
 
 2. **cache.rs** - SQLite database layer  
    - ✅ Basic database connection and schema
-   - ✅ Eviction functions (collages, playlists)
+   - ✅ Eviction functions (collages, playlists, releases)
    - ✅ get_track, list_tracks, list_tracks_with_filter
    - ✅ list_collages, list_playlists
    - ✅ list_descriptors, list_labels
    - ✅ artist_exists, genre_exists, descriptor_exists, label_exists
-   - ❌ Full cache update logic
-   - ❌ Release/collage/playlist management
-   - Tests: 11/66 implemented (7 translated today)
+   - ✅ update_cache_for_releases with track handling
+   - ✅ update_cache_for_collages with TOML parsing
+   - ✅ update_cache_for_playlists with TOML parsing
+   - ✅ Full cache update logic (update_cache function)
+   - ✅ Helper functions for stored data files
+   - ❌ Full-text search update functions
+   - ❌ File renaming logic (rename_source_files)
+   - Tests: 14/66 implemented (3 more passing)
 
 ### ❌ Not Started
 1. **rules.rs** - Rules execution engine
@@ -203,12 +208,11 @@ These tags can be read if they exist (created by other tools) but cannot be writ
 ## Next Steps
 
 ### Immediate Priority
-1. Complete cache.rs implementation:
-   - update_cache_for_releases
-   - update_cache_for_collages  
-   - update_cache_for_playlists
-   - Full cache update logic
-   - Implement stubbed tests where possible
+1. Complete remaining cache.rs functionality:
+   - Full-text search update functions
+   - File renaming logic (rename_source_files)
+   - Remaining test implementations (52 tests to go)
+   - Add cover art functionality
 
 ### Medium Priority
 2. Implement rules.rs for metadata operations
@@ -253,7 +257,7 @@ These tags can be read if they exist (created by other tools) but cannot be writ
 | rule_parser.rs | ~600 | ✅ | 100% | Fully implemented |
 | genre_hierarchy.rs | ~100 | ✅ | 100% | Data module |
 | audiotags.rs | ~900 | 13/26 | 70% | Limited by lofty |
-| cache.rs | ~1200 | 11/66 | 25% | Core functions + some tests implemented |
+| cache.rs | ~2100 | 14/66 | 60% | Major update functions implemented, track/release updates working |
 | rules.rs | 0 | 0 | 0% | Not started |
 | releases.rs | 0 | 0 | 0% | Not started |
 | tracks.rs | 0 | 0 | 0% | Not started |

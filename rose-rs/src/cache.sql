@@ -102,9 +102,9 @@ INSERT INTO artist_role_enum (value) VALUES
 CREATE TABLE releases_artists (
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
     artist TEXT,
-    role TEXT REFERENCES artist_role_enum(value) NOT NULL,
+    role TEXT NOT NULL REFERENCES artist_role_enum(value),
     position INTEGER NOT NULL,
-    PRIMARY KEY (release_id, artist, role)
+    PRIMARY KEY (release_id, artist, role),
     UNIQUE (release_id, position)
 );
 CREATE INDEX releases_artists_release_id_position ON releases_artists(release_id, position);
@@ -113,7 +113,7 @@ CREATE INDEX releases_artists_artist ON releases_artists(artist);
 CREATE TABLE tracks_artists (
     track_id TEXT REFERENCES tracks(id) ON DELETE CASCADE,
     artist TEXT,
-    role TEXT REFERENCES artist_role_enum(value) NOT NULL,
+    role TEXT NOT NULL REFERENCES artist_role_enum(value),
     position INTEGER NOT NULL,
     PRIMARY KEY (track_id, artist, role),
     UNIQUE (track_id, position)

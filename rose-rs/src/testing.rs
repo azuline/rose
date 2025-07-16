@@ -5,6 +5,8 @@ use std::fs;
 #[cfg(test)]
 use std::sync::Once;
 use tempfile::TempDir;
+use std::path::Path;
+use std::io;
 
 #[cfg(test)]
 static INIT: Once = Once::new();
@@ -284,4 +286,27 @@ pub fn source_dir() -> (Config, TempDir) {
     // return config.music_source_dir
 
     (config, temp_dir)
+}
+
+// Recursively copy a directory and all its contents
+#[cfg(test)]
+pub fn copy_dir_all(src: &Path, dst: &Path) -> io::Result<()> {
+    if !dst.exists() {
+        fs::create_dir_all(dst)?;
+    }
+    
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let src_path = entry.path();
+        let file_name = entry.file_name();
+        let dst_path = dst.join(&file_name);
+        
+        if ty.is_dir() {
+            copy_dir_all(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path)?;
+        }
+    }
+    Ok(())
 }

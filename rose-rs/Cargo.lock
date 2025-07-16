@@ -930,6 +930,7 @@ dependencies = [
  "tracing-subscriber",
  "unicode-normalization",
  "uuid",
+ "walkdir",
 ]
 
 [[package]]

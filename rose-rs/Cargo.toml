@@ -27,6 +27,7 @@ rusqlite = { version = "0.32", features = ["bundled", "chrono", "functions"] }
 rayon = "1.10"
 num_cpus = "1.16"
 shellexpand = "3.1"
+walkdir = "2.5"
 
 [dev-dependencies]
 tempfile = "3.8"

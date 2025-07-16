@@ -15,6 +15,14 @@ pub enum RoseError {
     Serialization(#[from] serde_json::Error),
     #[error("Regex error: {0}")]
     Regex(#[from] regex::Error),
+    #[error("TOML deserialization error: {0}")]
+    TomlDe(#[from] toml::de::Error),
+    #[error("TOML serialization error: {0}")]
+    TomlSer(#[from] toml::ser::Error),
+    #[error("System time error: {0}")]
+    SystemTime(#[from] std::time::SystemTimeError),
+    #[error("Invalid configuration: {0}")]
+    InvalidConfiguration(String),
 }
 
 /// These errors are printed without traceback.
