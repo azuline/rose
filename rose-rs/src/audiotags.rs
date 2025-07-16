@@ -1148,11 +1148,6 @@ mod tests {
         ];
 
         for case in test_cases {
-            // Skip OGG/Opus files since flush is not implemented
-            if case.filename.ends_with(".ogg") {
-                continue;
-            }
-
             let (config, temp_dir) = testing::config();
             let src_path = test_tagger_path().join(case.filename);
             let dst_path = temp_dir.path().join(case.filename);
@@ -1256,11 +1251,6 @@ mod tests {
         ];
 
         for case in test_cases {
-            // Skip OGG/Opus files since flush is not implemented
-            if case.filename.ends_with(".ogg") {
-                continue;
-            }
-
             let (config, temp_dir) = testing::config();
             let src_path = test_tagger_path().join(case.filename);
             let dst_path = temp_dir.path().join(case.filename);
@@ -1293,11 +1283,6 @@ mod tests {
         ];
 
         for case in test_cases {
-            // Skip OGG/Opus files since flush is not implemented
-            if case.filename.ends_with(".ogg") {
-                continue;
-            }
-
             let (config, temp_dir) = testing::config();
             let src_path = test_tagger_path().join(case.filename);
             let dst_path = temp_dir.path().join(case.filename);
