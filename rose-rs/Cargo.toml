@@ -22,7 +22,12 @@ toml = "0.8"
 tera = "1.19"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.10", features = ["v7", "serde"] }
-lofty = "0.22.4"
+id3 = "1.14"
+mp4ameta = "0.11"
+metaflac = "0.2"
+ogg = "0.9"
+opus_headers = "0.1"
+mp3-duration = "0.1"
 rusqlite = { version = "0.32", features = ["bundled", "chrono", "functions"] }
 rayon = "1.10"
 num_cpus = "1.16"
