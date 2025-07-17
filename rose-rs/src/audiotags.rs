@@ -262,14 +262,9 @@ impl AudioTags {
             ),
             releaseartists: parse_artist_string(
                 {
-                    // Collect all album artists, fall back to artists if none
+                    // Collect all album artists (no fallback, matching Python behavior)
                     let album_artists: Vec<String> = tag.album_artists().map(|s| s.to_string()).collect();
-                    if album_artists.is_empty() {
-                        let artists: Vec<String> = tag.artists().map(|s| s.to_string()).collect();
-                        if artists.is_empty() { None } else { Some(artists.join(";")) }
-                    } else {
-                        Some(album_artists.join(";"))
-                    }
+                    if album_artists.is_empty() { None } else { Some(album_artists.join(";")) }
                 }.as_deref(),
                 None, None, None, None, None
             ),
@@ -808,6 +803,10 @@ impl AudioTags {
         // Note: Python deletes all role-specific artist tags and only writes the formatted strings
         add_tag(&mut vorbis, "ALBUMARTIST", Some(&format_artist_string(&self.releaseartists)));
         add_tag(&mut vorbis, "ARTIST", Some(&format_artist_string(&self.trackartists)));
+        
+        // Wipe the alt. role artist tags, since we encode the full artist into the main tag
+        // Python explicitly deletes these tags
+        // We don't add them to the new VorbisComments, effectively deleting them
         
         // Replace the existing tag with our VorbisComments
         tagged_file.insert_tag(vorbis.into());
