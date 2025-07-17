@@ -266,14 +266,14 @@ where
     D: serde::Deserializer<'de>,
 {
     use serde::de::Deserialize;
-    
+
     #[derive(Deserialize)]
     #[serde(untagged)]
     enum StringOrDatetime {
         String(String),
         Datetime(toml::value::Datetime),
     }
-    
+
     match StringOrDatetime::deserialize(deserializer)? {
         StringOrDatetime::String(s) => Ok(s),
         StringOrDatetime::Datetime(dt) => Ok(dt.to_string()),
@@ -557,119 +557,6 @@ pub fn update_cache(
     Ok(())
 }
 
-// def update_cache_for_releases(
-//     c: Config,
-//     # Leave as None to update all releases.
-//     release_dirs: list[Path] | None = None,
-//     force: bool = False,
-//     # For testing.
-//     force_multiprocessing: bool = False,
-// ) -> None:
-//     """
-//     Update the read cache to match the data for any passed-in releases. If a directory lacks a
-//     .rose.{uuid}.toml datafile, create the datafile for the release and set it to the initial state.
-//
-//     This is a hot path and is thus performance-optimized. The bottleneck is disk accesses, so we
-//     structure this function in order to minimize them. We solely read files that have changed since
-//     last run and batch writes together. We trade higher memory for reduced disk accesses.
-//     Concretely, we:
-//
-//     1. Execute one big SQL query at the start to fetch the relevant previous caches.
-//     2. Skip reading a file's data if the mtime has not changed since the previous cache update.
-//     3. Batch SQLite write operations to the end of this function, and only execute a SQLite upsert
-//        if the read data differs from the previous caches.
-//
-//     We also shard the directories across multiple processes and execute them simultaneously.
-//     """
-//     release_dirs = release_dirs or [Path(d.path) for d in os.scandir(c.music_source_dir) if d.is_dir()]
-//     release_dirs = [
-//         d
-//         for d in release_dirs
-//         if d.name != "!collages" and d.name != "!playlists" and d.name not in c.ignore_release_directories
-//     ]
-//     if not release_dirs:
-//         logger.debug("No-Op: No whitelisted releases passed into update_cache_for_releases")
-//         return
-//     logger.debug(f"Refreshing the read cache for {len(release_dirs)} releases")
-//     if len(release_dirs) < 10:
-//         logger.debug(f"Refreshing cached data for {', '.join([r.name for r in release_dirs])}")
-//
-//     # If the number of releases changed is less than 50; do not bother with all that multiprocessing
-//     # gunk: instead, directly call the executor.
-//     #
-//     # This has an added benefit of not spawning processes from the virtual filesystem and watchdog
-//     # processes, as those processes always update the cache for one release at a time and are
-//     # multithreaded. Starting other processes from threads is bad!
-//     if not force_multiprocessing and len(release_dirs) < 50:
-//         logger.debug(f"Running cache update executor in same process because {len(release_dirs)=} < 50")
-//         _update_cache_for_releases_executor(c, release_dirs, force)
-//         return
-//
-//     # Batch size defaults to equal split across all processes. However, if the number of directories
-//     # is small, we shrink the # of processes to save on overhead.
-//     num_proc = c.max_proc
-//     if len(release_dirs) < c.max_proc * 50:
-//         num_proc = max(1, math.ceil(len(release_dirs) // 50))
-//     batch_size = len(release_dirs) // num_proc + 1
-//
-//     manager = multiprocessing.Manager()
-//     # Have each process propagate the collages and playlists it wants to update back upwards. We
-//     # will dispatch the force updater only once in the main process, instead of many times in each
-//     # process.
-//     collages_to_force_update = manager.list()
-//     playlists_to_force_update = manager.list()
-//
-//     errors: list[BaseException] = []
-//
-//     logger.debug("Creating multiprocessing pool to parallelize cache executors.")
-//     with multiprocessing.Pool(processes=c.max_proc) as pool:
-//         # At 0, no batch. At 1, 1 batch. At 49, 1 batch. At 50, 1 batch. At 51, 2 batches.
-//         for i in range(0, len(release_dirs), batch_size):
-//             logger.debug(f"Spawning release cache update process for releases [{i}, {i + batch_size})")
-//             pool.apply_async(
-//                 _update_cache_for_releases_executor,
-//                 (
-//                     c,
-//                     release_dirs[i : i + batch_size],
-//                     force,
-//                     collages_to_force_update,
-//                     playlists_to_force_update,
-//                 ),
-//                 error_callback=lambda e: errors.append(e),
-//             )
-//         pool.close()
-//         pool.join()
-//
-//     if errors:
-//         raise ExceptionGroup("Exception occurred in cache update subprocesses", errors)  # type: ignore
-//
-//     if collages_to_force_update:
-//         update_cache_for_collages(c, uniq(list(collages_to_force_update)), force=True)
-//     if playlists_to_force_update:
-//         update_cache_for_playlists(c, uniq(list(playlists_to_force_update)), force=True)
-//
-// def _update_cache_for_releases_executor(
-//     c: Config,
-//     release_dirs: list[Path],
-//     force: bool,
-//     # If these are not None, we will store the collages and playlists to update in here instead of
-//     # invoking the update functions directly. If these are None, we will not put anything in them
-//     # and instead invoke update_cache_for_{collages,playlists} directly. This is a Bad Pattern, but
-//     # good enough.
-//     collages_to_force_update_receiver: list[str] | None = None,
-//     playlists_to_force_update_receiver: list[str] | None = None,
-// ) -> None:
-//     """The implementation logic, split out for multiprocessing."""
-//     # NOTE: This is a very large function (~850 lines) that handles the actual cache update logic.
-//     # It performs the following steps:
-//     # 1. Scans directories and reads .rose.{uuid}.toml files
-//     # 2. Batch queries existing cache data
-//     # 3. Compares mtimes and metadata to determine what needs updating
-//     # 4. Reads audio file tags for new/changed tracks
-//     # 5. Batch inserts/updates the database
-//     # 6. Updates full-text search tables
-//     # 7. Handles collage and playlist references
-//     # The full implementation can be found in cache_py.rs lines 986-1833
 /// Update the read cache to match the data for any passed-in releases. If a directory lacks a
 /// .rose.{uuid}.toml datafile, create the datafile for the release and set it to the initial state.
 ///
@@ -1222,9 +1109,9 @@ fn _update_cache_for_releases_executor(
                             tags.duration_sec.to_string(),
                             // Generate a unique metahash for each track
                             // In the real implementation, this should be a hash of the track metadata
-                            format!("track_metahash_{}", track_id)
+                            format!("track_metahash_{}", track_id),
                         ]);
-                    upd_track_ids.push(track_id.clone());
+                        upd_track_ids.push(track_id.clone());
 
                         // Add track artists
                         let mut artist_pos = 0;
@@ -1269,10 +1156,8 @@ fn _update_cache_for_releases_executor(
         if !unknown_cached_tracks.is_empty() {
             debug!("deleting {} unknown tracks from cache", unknown_cached_tracks.len());
             // Get track IDs for the unknown tracks
-            let track_ids_to_delete: Vec<String> = unknown_cached_tracks
-                .iter()
-                .filter_map(|path| cached_tracks.get(path).map(|track| track.id.clone()))
-                .collect();
+            let track_ids_to_delete: Vec<String> =
+                unknown_cached_tracks.iter().filter_map(|path| cached_tracks.get(path).map(|track| track.id.clone())).collect();
             upd_unknown_cached_tracks_args.push((release.id.clone(), track_ids_to_delete));
         }
 
@@ -1403,14 +1288,14 @@ fn _update_cache_for_releases_executor(
                 };
 
                 let current_filename = track_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
-                
+
                 // Calculate the wanted path at the release root directory
                 let wanted_path = release.source_path.join(&wanted_filename);
-                
+
                 // Check if we need to rename or move the file
                 let needs_move = track_path.parent() != Some(&release.source_path);
                 let needs_rename = current_filename != wanted_filename;
-                
+
                 if needs_move || needs_rename {
                     // Handle collisions
                     let mut final_track_path = wanted_path.clone();
@@ -1421,7 +1306,7 @@ fn _update_cache_for_releases_executor(
                         let ext_len = if extension.is_empty() { 0 } else { 1 + extension.len() }; // +1 for dot
                         let suffix_len = collision_suffix.len() + ext_len;
                         let available_for_stem = c.max_filename_bytes.saturating_sub(suffix_len);
-                        
+
                         // Get the original stem (without extension)
                         let original_stem = wanted_stem.as_str();
                         let stem_bytes = original_stem.as_bytes();
@@ -1430,19 +1315,19 @@ fn _update_cache_for_releases_executor(
                         } else {
                             original_stem.to_string()
                         };
-                        
+
                         let collision_filename = if extension.is_empty() {
                             format!("{}{}", truncated_stem, collision_suffix)
                         } else {
                             format!("{}{}.{}", truncated_stem, collision_suffix, extension)
                         };
-                        
+
                         final_track_path = release.source_path.join(collision_filename);
                         collision_no += 1;
                     }
 
                     if final_track_path != track_path {
-                        fs::rename(&track_path, &final_track_path)?;
+                        fs::rename(track_path, &final_track_path)?;
                         info!("renamed/moved track file {} to {}", track_path.display(), final_track_path.display());
 
                         // Clean up empty parent directories if the file was moved out of a subdirectory
@@ -1614,7 +1499,7 @@ fn handle_stored_data_file(
         if release.id.is_empty() {
             release.id = preexisting_release_id.as_ref().unwrap().clone();
         }
-        
+
         // Check if datafile mtime changed
         let datafile_path = source_path.join(format!(".rose.{}.toml", preexisting_release_id.as_ref().unwrap()));
         let datafile_mtime = fs::metadata(&datafile_path)?.modified()?.duration_since(UNIX_EPOCH)?.as_secs().to_string();
@@ -1779,10 +1664,7 @@ fn execute_cache_updates(
 
     // Update track paths for renamed directories
     for (track_id, new_path) in upd_track_path_changes {
-        tx.execute(
-            "UPDATE tracks SET source_path = ?1 WHERE id = ?2",
-            params![&new_path, &track_id],
-        )?;
+        tx.execute("UPDATE tracks SET source_path = ?1 WHERE id = ?2", params![&new_path, &track_id])?;
     }
 
     // Insert/update tracks
@@ -1941,11 +1823,11 @@ fn execute_cache_updates(
     }
 
     tx.commit()?;
-    
+
     // After committing, find collages and playlists that need to be updated
     let mut update_collages = Vec::new();
     let mut update_playlists = Vec::new();
-    
+
     if !upd_release_ids.is_empty() {
         // Find collages that contain the updated releases
         let conn = connect(c)?;
@@ -1963,7 +1845,7 @@ fn execute_cache_updates(
             update_collages.push(collage?);
         }
     }
-    
+
     if !upd_track_ids.is_empty() {
         // Find playlists that contain the updated tracks
         let conn = connect(c)?;
@@ -1981,7 +1863,7 @@ fn execute_cache_updates(
             update_playlists.push(playlist?);
         }
     }
-    
+
     // Update the affected collages and playlists with force=true
     if !update_collages.is_empty() {
         update_cache_for_collages(c, Some(update_collages), true)?;
@@ -1989,24 +1871,10 @@ fn execute_cache_updates(
     if !update_playlists.is_empty() {
         update_cache_for_playlists(c, Some(update_playlists), true)?;
     }
-    
+
     Ok(())
 }
 
-// def update_cache_evict_nonexistent_releases(c: Config) -> None:
-//     logger.debug("Evicting cached releases that are not on disk")
-//     dirs = [Path(d.path).resolve() for d in os.scandir(c.music_source_dir) if d.is_dir()]
-//     with connect(c) as conn:
-//         cursor = conn.execute(
-//             f"""
-//             DELETE FROM releases
-//             WHERE source_path NOT IN ({','.join(['?'] * len(dirs))})
-//             RETURNING source_path
-//             """,
-//             [str(d) for d in dirs],
-//         )
-//         for row in cursor:
-//             logger.info(f"Evicted missing release {row['source_path']} from cache")
 pub fn update_cache_evict_nonexistent_releases(c: &Config) -> Result<()> {
     debug!("evicting cached releases that are not on disk");
 
@@ -2045,40 +1913,6 @@ pub fn update_cache_evict_nonexistent_releases(c: &Config) -> Result<()> {
     Ok(())
 }
 
-// def update_cache_for_collages(
-//     c: Config,
-//     # Leave as None to update all collages.
-//     collage_names: list[str] | None = None,
-//     force: bool = False,
-// ) -> None:
-//     """
-//     Update the read cache to match the data for all stored collages.
-//
-//     This is performance-optimized in a similar way to the update releases function. We:
-//
-//     1. Execute one big SQL query at the start to fetch the relevant previous caches.
-//     2. Skip reading a file's data if the mtime has not changed since the previous cache update.
-//     3. Only execute a SQLite upsert if the read data differ from the previous caches.
-//
-//     However, we do not batch writes to the end of the function, nor do we process the collages in
-//     parallel. This is because we should have far fewer collages than releases.
-//     """
-//     collage_dir = c.music_source_dir / "!collages"
-//     collage_dir.mkdir(exist_ok=True)
-//
-//     files: list[tuple[Path, str, os.DirEntry[str]]] = []
-//     for f in os.scandir(str(collage_dir)):
-//         path = Path(f.path)
-//         if path.suffix != ".toml":
-//             continue
-//         if not path.is_file():
-//             logger.debug(f"Skipping processing collage {path.name} because it is not a file")
-//             continue
-//         if collage_names is None or path.stem in collage_names:
-//             files.append((path.resolve(), path.stem, f))
-//     logger.debug(f"Refreshing the read cache for {len(files)} collages")
-/// Update the read cache to match the data for all stored collages.
-///
 /// This is performance-optimized in a similar way to the update releases function. We:
 ///
 /// 1. Execute one big SQL query at the start to fetch the relevant previous caches.
@@ -2155,15 +1989,11 @@ pub fn update_cache_for_collages(c: &Config, collage_names: Option<Vec<String>>,
                 if let Some(uuid_val) = release.get("uuid").and_then(|v| v.as_str()) {
                     let uuid = uuid_val.to_string();
                     // Check if release exists in database
-                    let exists: bool = conn.query_row(
-                        "SELECT EXISTS(SELECT 1 FROM releases WHERE id = ?1)",
-                        params![&uuid],
-                        |row| row.get(0)
-                    )?;
-                    
+                    let exists: bool = conn.query_row("SELECT EXISTS(SELECT 1 FROM releases WHERE id = ?1)", params![&uuid], |row| row.get(0))?;
+
                     let currently_missing = release.get("missing").and_then(|v| v.as_bool()).unwrap_or(false);
                     let should_be_missing = !exists;
-                    
+
                     // Update missing status if needed
                     if should_be_missing != currently_missing {
                         data_changed = true;
@@ -2175,7 +2005,7 @@ pub fn update_cache_for_collages(c: &Config, collage_names: Option<Vec<String>>,
                             }
                         }
                     }
-                    
+
                     release_positions.push((uuid, position as i32 + 1, should_be_missing));
                 }
             }
@@ -2211,13 +2041,11 @@ pub fn update_cache_for_collages(c: &Config, collage_names: Option<Vec<String>>,
         // Update description_metas for all releases
         let mut desc_map = HashMap::new();
         if !release_positions.is_empty() {
-            let release_ids: Vec<String> = release_positions.iter()
-                .map(|(id, _, _)| id.clone())
-                .collect();
+            let release_ids: Vec<String> = release_positions.iter().map(|(id, _, _)| id.clone()).collect();
             let placeholders = vec!["?"; release_ids.len()].join(",");
             let query = format!(
                 "SELECT id, releasetitle, originaldate, releasedate, releaseartist_names, releaseartist_roles 
-                 FROM releases_view WHERE id IN ({})", 
+                 FROM releases_view WHERE id IN ({})",
                 placeholders
             );
             let mut stmt = conn.prepare(&query)?;
@@ -2229,16 +2057,16 @@ pub fn update_cache_for_collages(c: &Config, collage_names: Option<Vec<String>>,
                 let date_str_to_parse = original_date.as_deref().filter(|s| !s.is_empty()).or(release_date.as_deref().filter(|s| !s.is_empty()));
                 let date = RoseDate::parse(date_str_to_parse);
                 let date_str = date.map(|d| format!("[{}]", d)).unwrap_or_else(|| "[0000-00-00]".to_string());
-                
+
                 let artist_names: String = row.get("releaseartist_names")?;
                 let artist_roles: String = row.get("releaseartist_roles")?;
-                let artists = _unpack_artists(&c, &artist_names, &artist_roles, false);
+                let artists = _unpack_artists(c, &artist_names, &artist_roles, false);
                 let artist_str = crate::audiotags::format_artist_string(&artists);
-                
+
                 let meta = format!("{} {} - {}", date_str, artist_str, title);
                 Ok((id, meta))
             })?;
-            
+
             for row in rows {
                 let (id, meta) = row?;
                 desc_map.insert(id, meta);
@@ -2250,7 +2078,7 @@ pub fn update_cache_for_collages(c: &Config, collage_names: Option<Vec<String>>,
             let mut data_changed = false;
             let content = fs::read_to_string(&path)?;
             let mut data: toml::Value = toml::from_str(&content)?;
-            
+
             if let Some(releases_array) = data.get_mut("releases").and_then(|v| v.as_array_mut()) {
                 for release in releases_array.iter_mut() {
                     if let Some(uuid) = release.get("uuid").and_then(|v| v.as_str()) {
@@ -2259,7 +2087,7 @@ pub fn update_cache_for_collages(c: &Config, collage_names: Option<Vec<String>>,
                             if release.get("missing").and_then(|v| v.as_bool()).unwrap_or(false) {
                                 final_desc.push_str(" {MISSING}");
                             }
-                            
+
                             if let Some(table) = release.as_table_mut() {
                                 let current = table.get("description_meta").and_then(|v| v.as_str()).unwrap_or("");
                                 if current != final_desc {
@@ -2271,7 +2099,7 @@ pub fn update_cache_for_collages(c: &Config, collage_names: Option<Vec<String>>,
                     }
                 }
             }
-            
+
             // Write back the file if data changed
             if data_changed {
                 let content = toml::to_string(&data)?;
@@ -2325,62 +2153,6 @@ pub fn update_cache_evict_nonexistent_collages(c: &Config) -> Result<()> {
     Ok(())
 }
 
-// def update_cache_evict_nonexistent_collages(c: Config) -> None:
-//     logger.debug("Evicting cached collages that are not on disk")
-//     collage_names: list[str] = []
-//     collage_dir = c.music_source_dir / "!collages"
-//     for f in os.scandir(str(collage_dir)):
-//         path = Path(f.path)
-//         if path.suffix == ".toml" and path.is_file():
-//             collage_names.append(path.stem)
-//
-//     with connect(c) as conn:
-//         cursor = conn.execute(
-//             f"""
-//             DELETE FROM collages
-//             WHERE name NOT IN ({','.join(['?'] * len(collage_names))})
-//             RETURNING name
-//             """
-//             if collage_names
-//             else "DELETE FROM collages RETURNING name",
-//             collage_names,
-//         )
-//         for row in cursor:
-//             logger.info(f"Evicted missing collage {row['name']} from cache")
-// Already implemented above
-
-// def update_cache_for_playlists(
-//     c: Config,
-//     # Leave as None to update all playlists.
-//     playlist_names: list[str] | None = None,
-//     force: bool = False,
-// ) -> None:
-//     """
-//     Update the read cache to match the data for all stored playlists.
-//
-//     This is performance-optimized in a similar way to the update releases function. We:
-//
-//     1. Execute one big SQL query at the start to fetch the relevant previous caches.
-//     2. Skip reading a file's data if the mtime has not changed since the previous cache update.
-//     3. Only execute a SQLite upsert if the read data differ from the previous caches.
-//
-//     However, we do not batch writes to the end of the function, nor do we process the playlists in
-//     parallel. This is because we should have far fewer playlists than releases.
-//     """
-//     playlist_dir = c.music_source_dir / "!playlists"
-//     playlist_dir.mkdir(exist_ok=True)
-//
-//     files: list[tuple[Path, str, os.DirEntry[str]]] = []
-//     for f in os.scandir(str(playlist_dir)):
-//         path = Path(f.path)
-//         if path.suffix != ".toml":
-//             continue
-//         if not path.is_file():
-//             logger.debug(f"Skipping processing playlist {path.name} because it is not a file")
-//             continue
-//         if playlist_names is None or path.stem in playlist_names:
-//             files.append((path.resolve(), path.stem, f))
-//     logger.debug(f"Refreshing the read cache for {len(files)} playlists")
 /// Update the read cache to match the data for all stored playlists.
 ///
 /// This is performance-optimized in a similar way to the update releases function. We:
@@ -2467,15 +2239,11 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
                 if let Some(uuid_val) = track.get("uuid").and_then(|v| v.as_str()) {
                     let uuid = uuid_val.to_string();
                     // Check if track exists in database
-                    let exists: bool = conn.query_row(
-                        "SELECT EXISTS(SELECT 1 FROM tracks WHERE id = ?1)",
-                        params![&uuid],
-                        |row| row.get(0)
-                    )?;
-                    
+                    let exists: bool = conn.query_row("SELECT EXISTS(SELECT 1 FROM tracks WHERE id = ?1)", params![&uuid], |row| row.get(0))?;
+
                     let currently_missing = track.get("missing").and_then(|v| v.as_bool()).unwrap_or(false);
                     let should_be_missing = !exists;
-                    
+
                     // Update missing status if needed
                     if should_be_missing != currently_missing {
                         data_changed = true;
@@ -2487,7 +2255,7 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
                             }
                         }
                     }
-                    
+
                     track_positions.push((uuid, position as i32 + 1, should_be_missing));
                 }
             }
@@ -2525,9 +2293,7 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
         // Update description_metas for all tracks
         let mut desc_map = HashMap::new();
         if !track_positions.is_empty() {
-            let track_ids: Vec<String> = track_positions.iter()
-                .map(|(id, _, _)| id.clone())
-                .collect();
+            let track_ids: Vec<String> = track_positions.iter().map(|(id, _, _)| id.clone()).collect();
             let placeholders = vec!["?"; track_ids.len()].join(",");
             let query = format!(
                 "SELECT
@@ -2539,7 +2305,7 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
                     r.releasedate
                 FROM tracks_view t
                 JOIN releases_view r ON r.id = t.release_id
-                WHERE t.id IN ({})", 
+                WHERE t.id IN ({})",
                 placeholders
             );
             let mut stmt = conn.prepare(&query)?;
@@ -2550,18 +2316,18 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
                 let artist_roles: String = row.get(3)?;
                 let original_date: Option<String> = row.get(4)?;
                 let release_date: Option<String> = row.get(5)?;
-                
+
                 let date_str_to_parse = original_date.as_deref().filter(|s| !s.is_empty()).or(release_date.as_deref().filter(|s| !s.is_empty()));
                 let date = RoseDate::parse(date_str_to_parse);
                 let date_str = date.map(|d| format!("[{}]", d)).unwrap_or_else(|| "[0000-00-00]".to_string());
-                
-                let artists = _unpack_artists(&c, &artist_names, &artist_roles, false);
+
+                let artists = _unpack_artists(c, &artist_names, &artist_roles, false);
                 let artist_str = crate::audiotags::format_artist_string(&artists);
-                
+
                 let meta = format!("{} {} - {}", date_str, artist_str, title);
                 Ok((id, meta))
             })?;
-            
+
             for row in rows {
                 let (id, meta) = row?;
                 desc_map.insert(id, meta);
@@ -2573,7 +2339,7 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
             let mut data_changed = false;
             let content = fs::read_to_string(&path)?;
             let mut data: toml::Value = toml::from_str(&content)?;
-            
+
             if let Some(tracks_array) = data.get_mut("tracks").and_then(|v| v.as_array_mut()) {
                 for track in tracks_array.iter_mut() {
                     if let Some(uuid) = track.get("uuid").and_then(|v| v.as_str()) {
@@ -2582,7 +2348,7 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
                             if track.get("missing").and_then(|v| v.as_bool()).unwrap_or(false) {
                                 final_desc.push_str(" {MISSING}");
                             }
-                            
+
                             if let Some(table) = track.as_table_mut() {
                                 let current = table.get("description_meta").and_then(|v| v.as_str()).unwrap_or("");
                                 if current != final_desc {
@@ -2594,7 +2360,7 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
                     }
                 }
             }
-            
+
             // Write back the file if data changed
             if data_changed {
                 let content = toml::to_string(&data)?;
@@ -2648,41 +2414,6 @@ pub fn update_cache_evict_nonexistent_playlists(c: &Config) -> Result<()> {
     Ok(())
 }
 
-// def update_cache_evict_nonexistent_playlists(c: Config) -> None:
-//     logger.debug("Evicting cached playlists that are not on disk")
-//     playlist_names: list[str] = []
-//     playlist_dir = c.music_source_dir / "!playlists"
-//     for f in os.scandir(str(playlist_dir)):
-//         path = Path(f.path)
-//         if path.suffix == ".toml" and path.is_file():
-//             playlist_names.append(path.stem)
-//
-//     with connect(c) as conn:
-//         cursor = conn.execute(
-//             f"""
-//             DELETE FROM playlists
-//             WHERE name NOT IN ({','.join(['?'] * len(playlist_names))})
-//             RETURNING name
-//             """
-//             if playlist_names
-//             else "DELETE FROM playlists RETURNING name",
-//             playlist_names,
-//         )
-//         for row in cursor:
-//             logger.info(f"Evicted missing playlist {row['name']} from cache")
-// Already implemented above
-
-// Additional placeholder functions needed by lib.rs
-// def get_release(c: Config, release_id: str) -> Release | None:
-//     with connect(c) as conn:
-//         cursor = conn.execute(
-//             "SELECT * FROM releases_view WHERE id = ?",
-//             (release_id,),
-//         )
-//         row = cursor.fetchone()
-//         if not row:
-//             return None
-//         return cached_release_from_view(c, row)
 pub fn get_release(c: &Config, release_id: &str) -> Result<Option<Release>> {
     let conn = connect(c)?;
     let mut stmt = conn.prepare("SELECT * FROM releases_view WHERE id = ?1")?;
@@ -2757,18 +2488,6 @@ pub fn list_releases(c: &Config) -> Result<Vec<Release>> {
     Ok(releases)
 }
 
-// def get_track(c: Config, uuid: str) -> Track | None:
-//     with connect(c) as conn:
-//         cursor = conn.execute(
-//             "SELECT * FROM tracks_view WHERE id = ?",
-//             (uuid,),
-//         )
-//         row = cursor.fetchone()
-//         if not row:
-//             return None
-//         release = get_release(c, row["release_id"])
-//         assert release is not None
-//         return cached_track_from_view(c, row, release)
 pub fn get_track(c: &Config, id: &str) -> Result<Option<Track>> {
     let conn = connect(c)?;
 
@@ -2796,51 +2515,7 @@ pub fn get_track(c: &Config, id: &str) -> Result<Option<Track>> {
     }
 }
 
-// def list_tracks(c: Config, track_ids: list[str] | None = None) -> list[Track]:
-//     """
-//     Fetch all tracks. If track_ids is specified, only fetches tracks with an exact ID match.
-//     Otherwise, returns all tracks in the library.
-//     """
-//     query = "SELECT * FROM tracks_view"
-//     params: list[str] = []
-//
-//     if track_ids is not None:
-//         if not track_ids:
-//             return []
-//         query += f" WHERE id IN ({','.join(['?'] * len(track_ids))})"
-//         params.extend(track_ids)
-//
-//     query += " ORDER BY source_path"
-//
-//     tracks: list[Track] = []
-//     releases: dict[str, Release] = {}
-//     with connect(c) as conn:
-//         cursor = conn.execute(query, params)
-//         for row in cursor:
-//             release_id = row["release_id"]
-//             if release_id not in releases:
-//                 release = get_release(c, release_id)
-//                 assert release is not None
-//                 releases[release_id] = release
-//             tracks.append(cached_track_from_view(c, row, releases[release_id]))
-//     return tracks
-pub fn list_tracks(c: &Config) -> Result<Vec<Track>> {
-    list_tracks_with_filter(c, None)
-}
-
-pub fn get_tracks_of_release(c: &Config, release: &Release) -> Result<Vec<Track>> {
-    let conn = connect(c)?;
-    let mut stmt = conn.prepare("SELECT * FROM tracks_view WHERE release_id = ? ORDER BY tracknumber, id")?;
-    let release_arc = Arc::new(release.clone());
-    let tracks = stmt
-        .query_map([&release.id], |row| {
-            cached_track_from_view(c, row, release_arc.clone(), true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
-        })?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-    Ok(tracks)
-}
-
-pub fn list_tracks_with_filter(c: &Config, track_ids: Option<Vec<String>>) -> Result<Vec<Track>> {
+pub fn list_tracks(c: &Config, track_ids: Option<Vec<String>>) -> Result<Vec<Track>> {
     let conn = connect(c)?;
 
     // Build query
@@ -2905,10 +2580,18 @@ pub fn list_tracks_with_filter(c: &Config, track_ids: Option<Vec<String>>) -> Re
     Ok(tracks)
 }
 
-// def list_collages(c: Config) -> list[str]:
-//     with connect(c) as conn:
-//         cursor = conn.execute("SELECT name FROM collages ORDER BY name")
-//         return [row["name"] for row in cursor]
+pub fn get_tracks_of_release(c: &Config, release: &Release) -> Result<Vec<Track>> {
+    let conn = connect(c)?;
+    let mut stmt = conn.prepare("SELECT * FROM tracks_view WHERE release_id = ? ORDER BY tracknumber, id")?;
+    let release_arc = Arc::new(release.clone());
+    let tracks = stmt
+        .query_map([&release.id], |row| {
+            cached_track_from_view(c, row, release_arc.clone(), true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(tracks)
+}
+
 pub fn list_collages(c: &Config) -> Result<Vec<Collage>> {
     let conn = connect(c)?;
     let mut stmt = conn.prepare("SELECT name, source_mtime FROM collages ORDER BY name")?;
@@ -2924,10 +2607,6 @@ pub fn list_collages(c: &Config) -> Result<Vec<Collage>> {
     Ok(collages)
 }
 
-// def list_playlists(c: Config) -> list[str]:
-//     with connect(c) as conn:
-//         cursor = conn.execute("SELECT name FROM playlists ORDER BY name")
-//         return [row["name"] for row in cursor]
 pub fn list_playlists(c: &Config) -> Result<Vec<Playlist>> {
     let conn = connect(c)?;
     let mut stmt = conn.prepare("SELECT name, source_mtime, cover_path FROM playlists ORDER BY name")?;
@@ -3316,65 +2995,6 @@ pub fn get_playlist_tracks(c: &Config, playlist_name: &str) -> Result<Vec<Track>
     Ok(tracks)
 }
 
-// Additional types and functions from Python implementation:
-//
-// @dataclasses.dataclass(slots=True, frozen=True)
-// class GenreEntry:
-//     genre: str
-//     only_new_releases: bool
-//
-// @dataclasses.dataclass(slots=True, frozen=True)
-// class DescriptorEntry:
-//     descriptor: str
-//     only_new_releases: bool
-//
-// @dataclasses.dataclass(slots=True, frozen=True)
-// class LabelEntry:
-//     label: str
-//     only_new_releases: bool
-//
-// def list_genres(c: Config) -> list[GenreEntry]:
-//     # Implementation in cache_py.rs lines 2837-2854
-//
-// def genre_exists(c: Config, genre: str) -> bool:
-//     # Implementation in cache_py.rs lines 2857-2865
-//
-// def list_descriptors(c: Config) -> list[DescriptorEntry]:
-//     # Implementation in cache_py.rs lines 2874-2890
-//
-// def descriptor_exists(c: Config, descriptor: str) -> bool:
-//     # Implementation in cache_py.rs lines 2893-2899
-//
-// def list_labels(c: Config) -> list[LabelEntry]:
-//     # Implementation in cache_py.rs lines 2908-2920
-//
-// def label_exists(c: Config, label: str) -> bool:
-//     # Implementation in cache_py.rs lines 2921-2927
-//
-// def list_artists(c: Config) -> list[str]:
-//     # Implementation in cache_py.rs lines 2808-2812
-//
-// def artist_exists(c: Config, artist: str) -> bool:
-//     # Implementation in cache_py.rs lines 2814-2827
-//
-// def get_collage(c: Config, collage_name: str) -> Collage | None:
-//     # Implementation in cache_py.rs lines 2774-2787
-//
-// def get_collage_releases(c: Config, collage_name: str) -> list[Release]:
-//     # Implementation in cache_py.rs lines 2789-2806
-//
-// def get_playlist(c: Config, playlist_name: str) -> Playlist | None:
-//     # Implementation in cache_py.rs lines 2711-2732
-//
-// def get_playlist_tracks(c: Config, playlist_name: str) -> list[Track]:
-//     # Implementation in cache_py.rs lines 2734-2766
-//
-// def filter_releases(...) -> list[Release]:
-//     # Large function for filtering releases - Implementation in cache_py.rs lines 2252-2344
-//
-// def filter_tracks(...) -> list[Track]:
-//     # Large function for filtering tracks - Implementation in cache_py.rs lines 2346-2457
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3724,11 +3344,11 @@ mod tests {
     fn test_update_cache_releases_uncached_with_existing_id() {
         // Test that IDs in filenames are read and preserved.
         let (config, _temp_dir) = config_with_db();
-        
+
         let release_dir = config.music_source_dir.join("Test Release 2");
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &release_dir).unwrap();
         update_cache_for_releases(&config, Some(vec![release_dir.clone()]), false, false).unwrap();
-        
+
         // Check that the release directory was given a UUID.
         let mut release_id: Option<String> = None;
         for entry in fs::read_dir(&release_dir).unwrap() {
@@ -3746,36 +3366,30 @@ mod tests {
     fn test_update_cache_releases_preserves_track_ids_across_rebuilds() {
         // Test that track IDs are preserved across cache rebuilds.
         let (config, _temp_dir) = config_with_db();
-        
+
         let release_dir = config.music_source_dir.join("Test Release 3");
         testing::copy_dir_all(Path::new("testdata/Test Release 3"), &release_dir).unwrap();
         update_cache_for_releases(&config, Some(vec![release_dir.clone()]), false, false).unwrap();
-        
+
         let first_track_ids: HashSet<String> = {
             let conn = connect(&config).unwrap();
             let mut stmt = conn.prepare("SELECT id FROM tracks").unwrap();
-            stmt.query_map([], |row| row.get(0))
-                .unwrap()
-                .collect::<rusqlite::Result<_>>()
-                .unwrap()
+            stmt.query_map([], |row| row.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap()
         };
-        
+
         // Nuke the database.
-        fs::remove_file(&config.cache_database_path()).unwrap();
+        fs::remove_file(config.cache_database_path()).unwrap();
         maybe_invalidate_cache_database(&config).unwrap();
-        
+
         // Repeat cache population.
         update_cache_for_releases(&config, Some(vec![release_dir]), false, false).unwrap();
-        
+
         let second_track_ids: HashSet<String> = {
             let conn = connect(&config).unwrap();
             let mut stmt = conn.prepare("SELECT id FROM tracks").unwrap();
-            stmt.query_map([], |row| row.get(0))
-                .unwrap()
-                .collect::<rusqlite::Result<_>>()
-                .unwrap()
+            stmt.query_map([], |row| row.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap()
         };
-        
+
         // Assert IDs are equivalent.
         assert_eq!(first_track_ids, second_track_ids);
     }
@@ -3784,26 +3398,26 @@ mod tests {
     fn test_update_cache_releases_writes_ids_to_tags() {
         // Test that track IDs and release IDs are written to files.
         let (config, _temp_dir) = config_with_db();
-        
+
         let release_dir = config.music_source_dir.join("Test Release 3");
         testing::copy_dir_all(Path::new("testdata/Test Release 3"), &release_dir).unwrap();
-        
+
         // Check that IDs are not present initially
         let af = AudioTags::from_file(&release_dir.join("01.m4a")).unwrap();
         assert!(af.id.is_none());
         assert!(af.release_id.is_none());
-        
+
         let af = AudioTags::from_file(&release_dir.join("02.m4a")).unwrap();
         assert!(af.id.is_none());
         assert!(af.release_id.is_none());
-        
+
         update_cache_for_releases(&config, Some(vec![release_dir.clone()]), false, false).unwrap();
-        
+
         // Check that IDs were written
         let af = AudioTags::from_file(&release_dir.join("01.m4a")).unwrap();
         assert!(af.id.is_some());
         assert!(af.release_id.is_some());
-        
+
         let af = AudioTags::from_file(&release_dir.join("02.m4a")).unwrap();
         assert!(af.id.is_some());
         assert!(af.release_id.is_some());
@@ -3875,22 +3489,18 @@ mod tests {
     fn test_update_cache_releases_to_empty_multi_value_tag() {
         // Test that 1:many relations are properly emptied when they are updated from something to nothing.
         let (config, _temp_dir) = config_with_db();
-        
+
         let release_dir = config.music_source_dir.join("Test Release 1");
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &release_dir).unwrap();
-        
+
         update_cache(&config, false, false).unwrap();
-        
+
         // Check that labels exist initially
         let conn = connect(&config).unwrap();
-        let has_labels: bool = conn.query_row(
-            "SELECT EXISTS(SELECT * FROM releases_labels)",
-            [],
-            |row| row.get(0)
-        ).unwrap();
+        let has_labels: bool = conn.query_row("SELECT EXISTS(SELECT * FROM releases_labels)", [], |row| row.get(0)).unwrap();
         assert!(has_labels);
         drop(conn);
-        
+
         // Clear labels from all tracks
         for filename in ["01.m4a", "02.m4a"] {
             let mut af = AudioTags::from_file(&release_dir.join(filename)).unwrap();
@@ -3899,16 +3509,12 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_secs(1));
             af.flush(&config, false).unwrap();
         }
-        
+
         update_cache(&config, false, false).unwrap();
-        
+
         // Check that labels no longer exist
         let conn = connect(&config).unwrap();
-        let has_labels: bool = conn.query_row(
-            "SELECT EXISTS(SELECT * FROM releases_labels)",
-            [],
-            |row| row.get(0)
-        ).unwrap();
+        let has_labels: bool = conn.query_row("SELECT EXISTS(SELECT * FROM releases_labels)", [], |row| row.get(0)).unwrap();
         assert!(!has_labels);
     }
 
@@ -3916,16 +3522,16 @@ mod tests {
     fn test_update_cache_releases_disk_update_to_previously_cached() {
         // Test that a cached release is updated after a track updates.
         let (config, _temp_dir) = config_with_db();
-        
+
         let release_dir = config.music_source_dir.join("Test Release 1");
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &release_dir).unwrap();
         update_cache_for_releases(&config, Some(vec![release_dir.clone()]), false, false).unwrap();
-        
+
         // Update the database and touch a file to simulate modification
         let conn = connect(&config).unwrap();
         conn.execute("UPDATE releases SET title = 'An Uncool Album'", []).unwrap();
         drop(conn);
-        
+
         // Touch the file to update its modification time
         let track_path = release_dir.join("01.m4a");
         // Read and write back the file to update mtime
@@ -3933,23 +3539,21 @@ mod tests {
         // Add a delay to ensure mtime changes (some filesystems have 1-second resolution)
         std::thread::sleep(std::time::Duration::from_secs(1));
         fs::write(&track_path, content).unwrap();
-        
+
         update_cache_for_releases(&config, Some(vec![release_dir.clone()]), false, false).unwrap();
-        
+
         // Assert that the release metadata was re-read and updated correctly.
         let conn = connect(&config).unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, source_path, title, releasetype, releasedate, new FROM releases"
-        ).unwrap();
+        let mut stmt = conn.prepare("SELECT id, source_path, title, releasetype, releasedate, new FROM releases").unwrap();
         let mut rows = stmt.query([]).unwrap();
         let row = rows.next().unwrap().unwrap();
-        
+
         let source_path: String = row.get(1).unwrap();
         let title: String = row.get(2).unwrap();
         let releasetype: String = row.get(3).unwrap();
         let releasedate: Option<String> = row.get(4).unwrap();
         let new: bool = row.get(5).unwrap();
-        
+
         assert_eq!(source_path, release_dir.to_string_lossy());
         assert_eq!(title, "I Love Blackpink");
         assert_eq!(releasetype, "album");
@@ -3961,26 +3565,26 @@ mod tests {
     fn test_update_cache_releases_disk_update_to_datafile() {
         // Test that a cached release is updated after a datafile updates.
         let (config, _temp_dir) = config_with_db();
-        
+
         let release_dir = config.music_source_dir.join("Test Release 1");
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &release_dir).unwrap();
         update_cache_for_releases(&config, Some(vec![release_dir.clone()]), false, false).unwrap();
-        
+
         let conn = connect(&config).unwrap();
         conn.execute("UPDATE releases SET datafile_mtime = '0', new = false", []).unwrap();
         drop(conn);
-        
+
         update_cache_for_releases(&config, Some(vec![release_dir]), false, false).unwrap();
-        
+
         // Assert that the release metadata was re-read and updated correctly.
         let conn = connect(&config).unwrap();
         let mut stmt = conn.prepare("SELECT new, added_at FROM releases").unwrap();
         let mut rows = stmt.query([]).unwrap();
         let row = rows.next().unwrap().unwrap();
-        
+
         let new: bool = row.get(0).unwrap();
         let added_at: String = row.get(1).unwrap();
-        
+
         assert!(new);
         assert!(!added_at.is_empty());
     }
@@ -3989,33 +3593,29 @@ mod tests {
     fn test_update_cache_releases_disk_upgrade_old_datafile() {
         // Test that a legacy invalid datafile is upgraded on index.
         let (config, _temp_dir) = config_with_db();
-        
+
         let release_dir = config.music_source_dir.join("Test Release 1");
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &release_dir).unwrap();
-        
+
         let datafile = release_dir.join(".rose.lalala.toml");
         fs::write(&datafile, "").unwrap(); // Create empty file
-        
+
         update_cache_for_releases(&config, Some(vec![release_dir]), false, false).unwrap();
-        
+
         // Assert that the release metadata was re-read and updated correctly.
         let (id, new, added_at) = {
             let conn = connect(&config).unwrap();
             let mut stmt = conn.prepare("SELECT id, new, added_at FROM releases").unwrap();
             let mut rows = stmt.query([]).unwrap();
             let row = rows.next().unwrap().unwrap();
-            
-            (
-                row.get::<_, String>(0).unwrap(),
-                row.get::<_, bool>(1).unwrap(),
-                row.get::<_, String>(2).unwrap()
-            )
+
+            (row.get::<_, String>(0).unwrap(), row.get::<_, bool>(1).unwrap(), row.get::<_, String>(2).unwrap())
         };
-        
+
         assert_eq!(id, "lalala");
         assert!(new);
         assert!(!added_at.is_empty());
-        
+
         // Check datafile contents
         let data = fs::read_to_string(&datafile).unwrap();
         assert!(data.contains("new = true"));
@@ -4026,29 +3626,27 @@ mod tests {
     fn test_update_cache_releases_source_path_renamed() {
         // Test that a cached release is updated after a directory rename.
         let (config, _temp_dir) = config_with_db();
-        
+
         let release_dir = config.music_source_dir.join("Test Release 1");
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &release_dir).unwrap();
         update_cache_for_releases(&config, Some(vec![release_dir.clone()]), false, false).unwrap();
-        
+
         let moved_release_dir = config.music_source_dir.join("moved lol");
         fs::rename(&release_dir, &moved_release_dir).unwrap();
         update_cache_for_releases(&config, Some(vec![moved_release_dir.clone()]), false, false).unwrap();
-        
+
         // Assert that the release metadata was re-read and updated correctly.
         let conn = connect(&config).unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, source_path, title, releasetype, releasedate, new FROM releases"
-        ).unwrap();
+        let mut stmt = conn.prepare("SELECT id, source_path, title, releasetype, releasedate, new FROM releases").unwrap();
         let mut rows = stmt.query([]).unwrap();
         let row = rows.next().unwrap().unwrap();
-        
+
         let source_path: String = row.get(1).unwrap();
         let title: String = row.get(2).unwrap();
         let releasetype: String = row.get(3).unwrap();
         let releasedate: Option<String> = row.get(4).unwrap();
         let new: bool = row.get(5).unwrap();
-        
+
         assert_eq!(source_path, moved_release_dir.to_string_lossy());
         assert_eq!(title, "I Love Blackpink");
         assert_eq!(releasetype, "album");
@@ -4089,47 +3687,33 @@ mod tests {
         let (mut config, _temp_dir) = config_with_db();
         config.rename_source_files = true;
         config.max_filename_bytes = 15;
-        
+
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &config.music_source_dir.join("a")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &config.music_source_dir.join("b")).unwrap();
-        fs::copy(
-            Path::new("testdata/Test Release 1/01.m4a"),
-            config.music_source_dir.join("b").join("03.m4a")
-        ).unwrap();
-        
+        fs::copy(Path::new("testdata/Test Release 1/01.m4a"), config.music_source_dir.join("b").join("03.m4a")).unwrap();
+
         update_cache_for_releases(&config, None, false, false).unwrap();
-        
-        let entries: HashSet<_> = fs::read_dir(&config.music_source_dir)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .map(|e| e.file_name().to_string_lossy().to_string())
-            .collect();
-        
+
+        let entries: HashSet<_> =
+            fs::read_dir(&config.music_source_dir).unwrap().filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().to_string()).collect();
+
         assert!(entries.contains("BLACKPINK - 199"));
         assert!(entries.contains("BLACKPINK - [2]"));
-        
+
         // Nondeterministic: Pick the one with the extra file.
         let dir_1 = config.music_source_dir.join("BLACKPINK - 199");
         let dir_2 = config.music_source_dir.join("BLACKPINK - [2]");
-        
-        let children_1: HashSet<_> = fs::read_dir(&dir_1)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .map(|e| e.path())
-            .collect();
-            
-        let children_2: HashSet<_> = fs::read_dir(&dir_2)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .map(|e| e.path())
-            .collect();
-            
+
+        let children_1: HashSet<_> = fs::read_dir(&dir_1).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).collect();
+
+        let children_2: HashSet<_> = fs::read_dir(&dir_2).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).collect();
+
         let (files, release_dir) = if children_1.len() > children_2.len() {
             (children_1, dir_1)
         } else {
             (children_2, dir_2)
         };
-        
+
         assert!(files.contains(&release_dir.join("01. Track 1.m4a")));
         assert!(files.contains(&release_dir.join("01. Tra [2].m4a")));
     }
@@ -4198,68 +3782,56 @@ mod tests {
         // Test that related entities (artist, genre, label) that have been removed from the tags are
         // properly evicted from the cache on update.
         let (config, _temp_dir) = config_with_db();
-        
+
         let release_dir = config.music_source_dir.join("Test Release 2");
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &release_dir).unwrap();
-        
+
         // Initial cache population.
         update_cache_for_releases(&config, Some(vec![release_dir.clone()]), false, false).unwrap();
-        
+
         // Pretend that we have more artists in the cache.
         let conn = connect(&config).unwrap();
         conn.execute(
             "INSERT INTO releases_genres (release_id, genre, position)
              VALUES ('ilovecarly', 'lalala', 2)",
             [],
-        ).unwrap();
+        )
+        .unwrap();
         conn.execute(
             "INSERT INTO releases_labels (release_id, label, position)
              VALUES ('ilovecarly', 'lalala', 1)",
             [],
-        ).unwrap();
+        )
+        .unwrap();
         conn.execute(
             "INSERT INTO releases_artists (release_id, artist, role, position)
              VALUES ('ilovecarly', 'lalala', 'main', 1)",
             [],
-        ).unwrap();
+        )
+        .unwrap();
         conn.execute(
             "INSERT INTO tracks_artists (track_id, artist, role, position)
              SELECT id, 'lalala', 'main', 1 FROM tracks",
             [],
-        ).unwrap();
+        )
+        .unwrap();
         drop(conn);
-        
+
         // Second cache refresh.
         update_cache_for_releases(&config, Some(vec![release_dir]), true, false).unwrap();
-        
+
         // Assert that all of the above were evicted.
         let conn = connect(&config).unwrap();
-        let exists: bool = conn.query_row(
-            "SELECT EXISTS (SELECT * FROM releases_genres WHERE genre = 'lalala')",
-            [],
-            |row| row.get(0)
-        ).unwrap();
+        let exists: bool = conn.query_row("SELECT EXISTS (SELECT * FROM releases_genres WHERE genre = 'lalala')", [], |row| row.get(0)).unwrap();
         assert!(!exists, "Genre 'lalala' should be evicted");
-        
-        let exists: bool = conn.query_row(
-            "SELECT EXISTS (SELECT * FROM releases_labels WHERE label = 'lalala')",
-            [],
-            |row| row.get(0)
-        ).unwrap();
+
+        let exists: bool = conn.query_row("SELECT EXISTS (SELECT * FROM releases_labels WHERE label = 'lalala')", [], |row| row.get(0)).unwrap();
         assert!(!exists, "Label 'lalala' should be evicted");
-        
-        let exists: bool = conn.query_row(
-            "SELECT EXISTS (SELECT * FROM releases_artists WHERE artist = 'lalala')",
-            [],
-            |row| row.get(0)
-        ).unwrap();
+
+        let exists: bool = conn.query_row("SELECT EXISTS (SELECT * FROM releases_artists WHERE artist = 'lalala')", [], |row| row.get(0)).unwrap();
         assert!(!exists, "Release artist 'lalala' should be evicted");
-        
-        let exists: bool = conn.query_row(
-            "SELECT EXISTS (SELECT * FROM tracks_artists WHERE artist = 'lalala')",
-            [],
-            |row| row.get(0)
-        ).unwrap();
+
+        let exists: bool = conn.query_row("SELECT EXISTS (SELECT * FROM tracks_artists WHERE artist = 'lalala')", [], |row| row.get(0)).unwrap();
         assert!(!exists, "Track artist 'lalala' should be evicted");
     }
 
@@ -4268,17 +3840,17 @@ mod tests {
         // Test that the ignore_release_directories configuration value works.
         let (mut config, _temp_dir) = config_with_db();
         config.ignore_release_directories = vec!["lalala".to_string()];
-        
+
         let release_dir = config.music_source_dir.join("lalala");
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &release_dir).unwrap();
-        
+
         // Test that both arg+no-arg ignore the directory.
         update_cache_for_releases(&config, None, false, false).unwrap();
         let conn = connect(&config).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM releases", [], |row| row.get(0)).unwrap();
         assert_eq!(count, 0);
         drop(conn);
-        
+
         update_cache_for_releases(&config, None, false, false).unwrap();
         let conn = connect(&config).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM releases", [], |row| row.get(0)).unwrap();
@@ -4289,15 +3861,15 @@ mod tests {
     fn test_update_cache_releases_notices_deleted_track() {
         // Test that we notice when a track is deleted.
         let (config, _temp_dir) = config_with_db();
-        
+
         let release_dir = config.music_source_dir.join("Test Release 1");
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &release_dir).unwrap();
         update_cache(&config, false, false).unwrap();
-        
+
         // Delete one track
         fs::remove_file(release_dir.join("02.m4a")).unwrap();
         update_cache(&config, false, false).unwrap();
-        
+
         // Verify only one track remains
         let conn = connect(&config).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM tracks", [], |row| row.get(0)).unwrap();
@@ -4308,39 +3880,34 @@ mod tests {
     fn test_update_cache_releases_ignores_partially_written_directory() {
         // Test that a partially-written cached release is ignored.
         let (config, _temp_dir) = config_with_db();
-        
+
         // 1. Write the directory and index it. This should give it IDs and shit.
         let release_dir = config.music_source_dir.join("Test Release 1");
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &release_dir).unwrap();
         update_cache(&config, false, false).unwrap();
-        
+
         // 2. Move the directory and "remove" the ID file.
         let renamed_release_dir = config.music_source_dir.join("lalala");
         fs::rename(&release_dir, &renamed_release_dir).unwrap();
-        
+
         // Find the .rose datafile
         let datafile = fs::read_dir(&renamed_release_dir)
             .unwrap()
             .filter_map(|entry| entry.ok())
             .map(|entry| entry.path())
-            .find(|path| {
-                path.file_name()
-                    .and_then(|name| name.to_str())
-                    .map(|name| name.starts_with(".rose"))
-                    .unwrap_or(false)
-            })
+            .find(|path| path.file_name().and_then(|name| name.to_str()).map(|name| name.starts_with(".rose")).unwrap_or(false))
             .expect("Should find .rose datafile");
-        
+
         let tmpfile = datafile.with_file_name("tmp");
         fs::rename(&datafile, &tmpfile).unwrap();
-        
+
         // 3. Re-update cache. We should see an empty cache now.
         update_cache(&config, false, false).unwrap();
         let conn = connect(&config).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM releases", [], |row| row.get(0)).unwrap();
         assert_eq!(count, 0);
         drop(conn);
-        
+
         // 4. Put the datafile back. We should now see the release cache again properly.
         fs::rename(&tmpfile, &datafile).unwrap();
         update_cache(&config, false, false).unwrap();
@@ -4348,39 +3915,34 @@ mod tests {
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM releases", [], |row| row.get(0)).unwrap();
         assert_eq!(count, 1);
         drop(conn);
-        
+
         // 5. Rename and remove the ID file again. We should see an empty cache again.
         let release_dir = renamed_release_dir;
         let renamed_release_dir = config.music_source_dir.join("bahaha");
         fs::rename(&release_dir, &renamed_release_dir).unwrap();
-        
+
         // Find and remove the .rose datafile
         let datafile = fs::read_dir(&renamed_release_dir)
             .unwrap()
             .filter_map(|entry| entry.ok())
             .map(|entry| entry.path())
-            .find(|path| {
-                path.file_name()
-                    .and_then(|name| name.to_str())
-                    .map(|name| name.starts_with(".rose"))
-                    .unwrap_or(false)
-            })
+            .find(|path| path.file_name().and_then(|name| name.to_str()).map(|name| name.starts_with(".rose")).unwrap_or(false))
             .expect("Should find .rose datafile");
         fs::remove_file(&datafile).unwrap();
-        
+
         update_cache(&config, false, false).unwrap();
         let conn = connect(&config).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM releases", [], |row| row.get(0)).unwrap();
         assert_eq!(count, 0);
         drop(conn);
-        
+
         // 6. Run with force=True. This should index the directory and make a new .rose.toml file.
         update_cache(&config, true, false).unwrap();
-        
+
         // Check that the .rose.toml file exists
         let rose_toml_path = renamed_release_dir.join(datafile.file_name().unwrap());
         assert!(rose_toml_path.is_file());
-        
+
         let conn = connect(&config).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM releases", [], |row| row.get(0)).unwrap();
         assert_eq!(count, 1);
@@ -4391,54 +3953,40 @@ mod tests {
         // Test that we properly rename the source directory on cache update.
         let (mut config, _temp_dir) = config_with_db();
         config.rename_source_files = true;
-        
-        testing::copy_dir_all(
-            Path::new("testdata/Test Release 1"), 
-            &config.music_source_dir.join("Test Release 1")
-        ).unwrap();
+
+        testing::copy_dir_all(Path::new("testdata/Test Release 1"), &config.music_source_dir.join("Test Release 1")).unwrap();
         fs::File::create(config.music_source_dir.join("Test Release 1").join("cover.jpg")).unwrap();
-        
+
         update_cache(&config, false, false).unwrap();
-        
+
         let expected_dir = config.music_source_dir.join("BLACKPINK - 1990. I Love Blackpink [NEW]");
         assert!(expected_dir.exists());
-        
-        let files_in_dir: Vec<_> = fs::read_dir(&expected_dir)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .map(|e| e.path())
-            .collect();
-        
+
+        let files_in_dir: Vec<_> = fs::read_dir(&expected_dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).collect();
+
         assert!(files_in_dir.contains(&expected_dir.join("01. Track 1.m4a")));
         assert!(files_in_dir.contains(&expected_dir.join("02. Track 2.m4a")));
-        
+
         let conn = connect(&config).unwrap();
         let mut stmt = conn.prepare("SELECT source_path, cover_image_path FROM releases").unwrap();
         let mut rows = stmt.query([]).unwrap();
         let row = rows.next().unwrap().unwrap();
-        
+
         let source_path: String = row.get(0).unwrap();
         let cover_image_path: String = row.get(1).unwrap();
-        
+
         assert_eq!(PathBuf::from(source_path), expected_dir);
         assert_eq!(PathBuf::from(cover_image_path), expected_dir.join("cover.jpg"));
-        
+
         drop(rows);
         drop(stmt);
-        
+
         let mut stmt = conn.prepare("SELECT source_path FROM tracks").unwrap();
-        let track_paths: HashSet<PathBuf> = stmt.query_map([], |row| {
-            Ok(PathBuf::from(row.get::<_, String>(0)?))
-        })
-        .unwrap()
-        .collect::<std::result::Result<HashSet<_>, _>>()
-        .unwrap();
-        
-        let expected_tracks: HashSet<PathBuf> = vec![
-            expected_dir.join("01. Track 1.m4a"),
-            expected_dir.join("02. Track 2.m4a"),
-        ].into_iter().collect();
-        
+        let track_paths: HashSet<PathBuf> =
+            stmt.query_map([], |row| Ok(PathBuf::from(row.get::<_, String>(0)?))).unwrap().collect::<std::result::Result<HashSet<_>, _>>().unwrap();
+
+        let expected_tracks: HashSet<PathBuf> = vec![expected_dir.join("01. Track 1.m4a"), expected_dir.join("02. Track 2.m4a")].into_iter().collect();
+
         assert_eq!(track_paths, expected_tracks);
     }
 
@@ -4449,36 +3997,34 @@ mod tests {
         // the tracks.
         let (mut config, _temp_dir) = config_with_db();
         config.rename_source_files = true;
-        
+
         maybe_invalidate_cache_database(&config).unwrap();
-        
+
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &config.music_source_dir.join("Test Release 1")).unwrap();
         update_cache(&config, false, false).unwrap();
         let expected_dir = config.music_source_dir.join("BLACKPINK - 1990. I Love Blackpink [NEW]");
-        
+
         fs::write(expected_dir.join("cover.jpg"), b"").unwrap();
         update_cache(&config, false, false).unwrap();
-        
+
         let conn = connect(&config).unwrap();
         let mut stmt = conn.prepare("SELECT source_path, cover_image_path FROM releases").unwrap();
         let mut rows = stmt.query([]).unwrap();
         let row = rows.next().unwrap().unwrap();
-        
+
         assert_eq!(PathBuf::from(row.get::<_, String>(0).unwrap()), expected_dir);
         assert_eq!(PathBuf::from(row.get::<_, String>(1).unwrap()), expected_dir.join("cover.jpg"));
-        
-        let track_paths: HashSet<PathBuf> = conn.prepare("SELECT source_path FROM tracks")
+
+        let track_paths: HashSet<PathBuf> = conn
+            .prepare("SELECT source_path FROM tracks")
             .unwrap()
             .query_map([], |row| Ok(PathBuf::from(row.get::<_, String>(0)?)))
             .unwrap()
             .collect::<rusqlite::Result<_>>()
             .unwrap();
-            
-        let expected_tracks: HashSet<PathBuf> = vec![
-            expected_dir.join("01. Track 1.m4a"),
-            expected_dir.join("02. Track 2.m4a"),
-        ].into_iter().collect();
-        
+
+        let expected_tracks: HashSet<PathBuf> = vec![expected_dir.join("01. Track 1.m4a"), expected_dir.join("02. Track 2.m4a")].into_iter().collect();
+
         assert_eq!(track_paths, expected_tracks);
     }
 
@@ -4487,60 +4033,46 @@ mod tests {
         // Test that we properly rename arbitrarily nested files and clean up the empty dirs.
         let (mut config, _temp_dir) = config_with_db();
         config.rename_source_files = true;
-        
+
         let release_dir = config.music_source_dir.join("Test Release 1");
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &release_dir).unwrap();
-        
+
         // Create nested directory and move file
         let lala_dir = release_dir.join("lala");
         fs::create_dir(&lala_dir).unwrap();
         fs::rename(release_dir.join("01.m4a"), lala_dir.join("1.m4a")).unwrap();
-        
+
         update_cache(&config, false, false).unwrap();
-        
+
         let expected_dir = config.music_source_dir.join("BLACKPINK - 1990. I Love Blackpink [NEW]");
-        
+
         // Check directory exists
-        let entries: Vec<_> = fs::read_dir(&config.music_source_dir)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .map(|e| e.path())
-            .collect();
+        let entries: Vec<_> = fs::read_dir(&config.music_source_dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).collect();
         assert!(entries.contains(&expected_dir));
-        
+
         // Check files in directory
-        let files_in_dir: Vec<_> = fs::read_dir(&expected_dir)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .map(|e| e.path())
-            .collect();
-        
+        let files_in_dir: Vec<_> = fs::read_dir(&expected_dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).collect();
+
         assert!(files_in_dir.contains(&expected_dir.join("01. Track 1.m4a")));
         assert!(files_in_dir.contains(&expected_dir.join("02. Track 2.m4a")));
         assert!(!files_in_dir.contains(&expected_dir.join("lala")));
-        
+
         // Check database entries
         let conn = connect(&config).unwrap();
-        
-        let source_path: String = conn.query_row(
-            "SELECT source_path FROM releases",
-            [],
-            |row| row.get(0)
-        ).unwrap();
+
+        let source_path: String = conn.query_row("SELECT source_path FROM releases", [], |row| row.get(0)).unwrap();
         assert_eq!(PathBuf::from(source_path), expected_dir);
-        
-        let track_paths: HashSet<PathBuf> = conn.prepare("SELECT source_path FROM tracks")
+
+        let track_paths: HashSet<PathBuf> = conn
+            .prepare("SELECT source_path FROM tracks")
             .unwrap()
             .query_map([], |row| Ok(PathBuf::from(row.get::<_, String>(0)?)))
             .unwrap()
             .collect::<rusqlite::Result<_>>()
             .unwrap();
-            
-        let expected_tracks: HashSet<PathBuf> = vec![
-            expected_dir.join("01. Track 1.m4a"),
-            expected_dir.join("02. Track 2.m4a"),
-        ].into_iter().collect();
-        
+
+        let expected_tracks: HashSet<PathBuf> = vec![expected_dir.join("01. Track 1.m4a"), expected_dir.join("02. Track 2.m4a")].into_iter().collect();
+
         assert_eq!(track_paths, expected_tracks);
     }
 
@@ -4553,61 +4085,41 @@ mod tests {
         // directory also get collision suffixes.
         let (mut config, _temp_dir) = config_with_db();
         config.rename_source_files = true;
-        
+
         // Three copies of the same directory, and two instances of Track 1.
         let test_release_1 = Path::new("testdata/Test Release 1");
         testing::copy_dir_all(test_release_1, &config.music_source_dir.join("Test Release 1")).unwrap();
         testing::copy_dir_all(test_release_1, &config.music_source_dir.join("Number 2")).unwrap();
         testing::copy_dir_all(test_release_1, &config.music_source_dir.join("Number 3")).unwrap();
-        
+
         // Add duplicate Track 1 (haha.m4a) to all directories
-        fs::copy(
-            config.music_source_dir.join("Test Release 1").join("01.m4a"),
-            config.music_source_dir.join("Test Release 1").join("haha.m4a"),
-        ).unwrap();
-        fs::copy(
-            config.music_source_dir.join("Number 2").join("01.m4a"),
-            config.music_source_dir.join("Number 2").join("haha.m4a"),
-        ).unwrap();
-        fs::copy(
-            config.music_source_dir.join("Number 3").join("01.m4a"),
-            config.music_source_dir.join("Number 3").join("haha.m4a"),
-        ).unwrap();
-        
+        fs::copy(config.music_source_dir.join("Test Release 1").join("01.m4a"), config.music_source_dir.join("Test Release 1").join("haha.m4a")).unwrap();
+        fs::copy(config.music_source_dir.join("Number 2").join("01.m4a"), config.music_source_dir.join("Number 2").join("haha.m4a")).unwrap();
+        fs::copy(config.music_source_dir.join("Number 3").join("01.m4a"), config.music_source_dir.join("Number 3").join("haha.m4a")).unwrap();
+
         update_cache(&config, false, false).unwrap();
-        
-        let release_dirs: Vec<PathBuf> = fs::read_dir(&config.music_source_dir)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .map(|e| e.path())
-            .collect();
-            
+
+        let release_dirs: Vec<PathBuf> = fs::read_dir(&config.music_source_dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).collect();
+
         for expected_dir in [
             config.music_source_dir.join("BLACKPINK - 1990. I Love Blackpink [NEW]"),
             config.music_source_dir.join("BLACKPINK - 1990. I Love Blackpink [NEW] [2]"),
             config.music_source_dir.join("BLACKPINK - 1990. I Love Blackpink [NEW] [3]"),
         ] {
             assert!(release_dirs.contains(&expected_dir));
-            
-            let files_in_dir: Vec<PathBuf> = fs::read_dir(&expected_dir)
-                .unwrap()
-                .filter_map(|e| e.ok())
-                .map(|e| e.path())
-                .collect();
-            
+
+            let files_in_dir: Vec<PathBuf> = fs::read_dir(&expected_dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).collect();
+
             assert!(files_in_dir.contains(&expected_dir.join("01. Track 1.m4a")));
             assert!(files_in_dir.contains(&expected_dir.join("01. Track 1 [2].m4a")));
             assert!(files_in_dir.contains(&expected_dir.join("02. Track 2.m4a")));
-            
+
             let conn = connect(&config).unwrap();
-            let release_id: String = conn
-                .prepare("SELECT id FROM releases WHERE source_path = ?")
-                .unwrap()
-                .query_row([expected_dir.to_str().unwrap()], |row| row.get(0))
-                .unwrap();
-                
+            let release_id: String =
+                conn.prepare("SELECT id FROM releases WHERE source_path = ?").unwrap().query_row([expected_dir.to_str().unwrap()], |row| row.get(0)).unwrap();
+
             assert!(!release_id.is_empty());
-            
+
             let track_paths: HashSet<PathBuf> = conn
                 .prepare("SELECT source_path FROM tracks WHERE release_id = ?")
                 .unwrap()
@@ -4615,13 +4127,12 @@ mod tests {
                 .unwrap()
                 .collect::<rusqlite::Result<_>>()
                 .unwrap();
-                
-            let expected_tracks: HashSet<PathBuf> = vec![
-                expected_dir.join("01. Track 1.m4a"),
-                expected_dir.join("01. Track 1 [2].m4a"),
-                expected_dir.join("02. Track 2.m4a"),
-            ].into_iter().collect();
-            
+
+            let expected_tracks: HashSet<PathBuf> =
+                vec![expected_dir.join("01. Track 1.m4a"), expected_dir.join("01. Track 1 [2].m4a"), expected_dir.join("02. Track 2.m4a")]
+                    .into_iter()
+                    .collect();
+
             assert_eq!(track_paths, expected_tracks);
         }
     }
@@ -4629,33 +4140,35 @@ mod tests {
     #[test]
     fn test_update_cache_releases_updates_full_text_search() {
         let (config, _temp_dir) = config_with_db();
-        
+
         let release_dir = config.music_source_dir.join("Test Release 1");
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &release_dir).unwrap();
-        
+
         update_cache_for_releases(&config, Some(vec![release_dir.clone()]), false, false).unwrap();
-        
+
         {
             let conn = connect(&config).unwrap();
             // First just execute these queries to verify they work
             let mut stmt = conn.prepare("SELECT rowid, * FROM rules_engine_fts").unwrap();
             let _rows = stmt.query([]).unwrap();
-            
+
             let mut stmt = conn.prepare("SELECT rowid, * FROM tracks").unwrap();
             let _rows = stmt.query([]).unwrap();
         }
-        
+
         {
             let conn = connect(&config).unwrap();
-            let mut stmt = conn.prepare(
-                r#"
+            let mut stmt = conn
+                .prepare(
+                    r#"
                 SELECT t.source_path
                 FROM rules_engine_fts s
                 JOIN tracks t ON t.rowid = s.rowid
                 WHERE s.tracktitle MATCH 'r a c k'
-                "#
-            ).unwrap();
-            
+                "#,
+                )
+                .unwrap();
+
             let fnames: HashSet<PathBuf> = stmt
                 .query_map([], |row| {
                     let path: String = row.get(0)?;
@@ -4664,29 +4177,28 @@ mod tests {
                 .unwrap()
                 .collect::<rusqlite::Result<_>>()
                 .unwrap();
-            
-            let expected: HashSet<PathBuf> = [
-                release_dir.join("01.m4a"),
-                release_dir.join("02.m4a"),
-            ].into_iter().collect();
-            
+
+            let expected: HashSet<PathBuf> = [release_dir.join("01.m4a"), release_dir.join("02.m4a")].into_iter().collect();
+
             assert_eq!(fnames, expected);
         }
-        
+
         // And then test the DELETE+INSERT behavior. And that the query still works.
         update_cache_for_releases(&config, Some(vec![release_dir.clone()]), true, false).unwrap();
-        
+
         {
             let conn = connect(&config).unwrap();
-            let mut stmt = conn.prepare(
-                r#"
+            let mut stmt = conn
+                .prepare(
+                    r#"
                 SELECT t.source_path
                 FROM rules_engine_fts s
                 JOIN tracks t ON t.rowid = s.rowid
                 WHERE s.tracktitle MATCH 'r a c k'
-                "#
-            ).unwrap();
-            
+                "#,
+                )
+                .unwrap();
+
             let fnames: HashSet<PathBuf> = stmt
                 .query_map([], |row| {
                     let path: String = row.get(0)?;
@@ -4695,12 +4207,9 @@ mod tests {
                 .unwrap()
                 .collect::<rusqlite::Result<_>>()
                 .unwrap();
-            
-            let expected: HashSet<PathBuf> = [
-                release_dir.join("01.m4a"),
-                release_dir.join("02.m4a"),
-            ].into_iter().collect();
-            
+
+            let expected: HashSet<PathBuf> = [release_dir.join("01.m4a"), release_dir.join("02.m4a")].into_iter().collect();
+
             assert_eq!(fnames, expected);
         }
     }
@@ -4709,14 +4218,14 @@ mod tests {
     fn test_update_cache_releases_new_directory_same_path() {
         // If a previous release is replaced by a new release with the same path, avoid a source_path unique conflict.
         let (config, _temp_dir) = config_with_db();
-        
+
         let release_dir = config.music_source_dir.join("Test Release 1");
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &release_dir).unwrap();
         update_cache(&config, false, false).unwrap();
-        
+
         fs::remove_dir_all(&release_dir).unwrap();
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &release_dir).unwrap();
-        
+
         // Should not error.
         update_cache(&config, false, false).unwrap();
     }
@@ -4725,35 +4234,29 @@ mod tests {
     #[ignore = "Implementation issue: added_at field parsed as datetime instead of string"]
     fn test_update_cache_collages() {
         let (config, _temp_dir) = config_with_db();
-        
+
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &config.music_source_dir.join("Test Release 2")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Collage 1"), &config.music_source_dir.join("!collages")).unwrap();
         update_cache(&config, false, false).unwrap();
-        
+
         // Assert that the collage metadata was read correctly.
         let conn = connect(&config).unwrap();
         let mut stmt = conn.prepare("SELECT name, source_mtime FROM collages").unwrap();
-        let rows: Vec<_> = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?
-            ))
-        }).unwrap().collect::<rusqlite::Result<_>>().unwrap();
-        
+        let rows: Vec<_> =
+            stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))).unwrap().collect::<rusqlite::Result<_>>().unwrap();
+
         assert_eq!(rows.len(), 1);
         let (name, source_mtime) = &rows[0];
         assert_eq!(name, "Rose Gold");
         assert!(!source_mtime.is_empty());
-        
+
         let mut stmt = conn.prepare("SELECT collage_name, release_id, position FROM collages_releases WHERE NOT missing").unwrap();
-        let rows: Vec<_> = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, i64>(2)?
-            ))
-        }).unwrap().collect::<rusqlite::Result<_>>().unwrap();
-        
+        let rows: Vec<_> = stmt
+            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, i64>(2)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+
         assert_eq!(rows.len(), 1);
         let (collage_name, release_id, position) = &rows[0];
         assert_eq!(collage_name, "Rose Gold");
@@ -4765,15 +4268,15 @@ mod tests {
     #[ignore = "Implementation issue: added_at field parsed as datetime instead of string"]
     fn test_update_cache_collages_missing_release_id() {
         let (config, _temp_dir) = config_with_db();
-        
+
         testing::copy_dir_all(Path::new("testdata/Collage 1"), &config.music_source_dir.join("!collages")).unwrap();
         update_cache(&config, false, false).unwrap();
-        
+
         // Assert that the releases in the collage were read as missing.
         let conn = connect(&config).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM collages_releases WHERE missing", [], |row| row.get(0)).unwrap();
         assert_eq!(count, 2);
-        
+
         // Assert that source file was updated to set the releases missing.
         let toml_path = config.music_source_dir.join("!collages").join("Rose Gold.toml");
         let toml_content = fs::read_to_string(&toml_path).unwrap();
@@ -4782,15 +4285,15 @@ mod tests {
         assert_eq!(releases.len(), 2);
         let missing_count = releases.iter().filter(|r| r.get("missing").is_some()).count();
         assert_eq!(missing_count, 2);
-        
+
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &config.music_source_dir.join("Test Release 2")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Test Release 3"), &config.music_source_dir.join("Test Release 3")).unwrap();
         update_cache(&config, false, false).unwrap();
-        
+
         // Assert that the releases in the collage were unflagged as missing.
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM collages_releases WHERE NOT missing", [], |row| row.get(0)).unwrap();
         assert_eq!(count, 2);
-        
+
         // Assert that source file was updated to remove the missing flag.
         let toml_content = fs::read_to_string(&toml_path).unwrap();
         let data: toml::Value = toml::from_str(&toml_content).unwrap();
@@ -4802,21 +4305,17 @@ mod tests {
     #[test]
     fn test_update_cache_collages_missing_release_id_multiprocessing() {
         let (config, _temp_dir) = config_with_db();
-        
+
         testing::copy_dir_all(Path::new("testdata/Collage 1"), &config.music_source_dir.join("!collages")).unwrap();
         update_cache(&config, false, false).unwrap();
-        
+
         // Assert that the releases in the collage were read as missing.
         {
             let conn = connect(&config).unwrap();
-            let count: i64 = conn
-                .query_row("SELECT COUNT(*) FROM collages_releases WHERE missing", [], |row| {
-                    row.get(0)
-                })
-                .unwrap();
+            let count: i64 = conn.query_row("SELECT COUNT(*) FROM collages_releases WHERE missing", [], |row| row.get(0)).unwrap();
             assert_eq!(count, 2);
         }
-        
+
         // Assert that source file was updated to set the releases missing.
         let toml_path = config.music_source_dir.join("!collages").join("Rose Gold.toml");
         let toml_content = fs::read_to_string(&toml_path).unwrap();
@@ -4825,22 +4324,18 @@ mod tests {
         assert_eq!(releases.len(), 2);
         let missing_count = releases.iter().filter(|r| r.get("missing").and_then(|v| v.as_bool()).unwrap_or(false)).count();
         assert_eq!(missing_count, 2);
-        
+
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &config.music_source_dir.join("Test Release 2")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Test Release 3"), &config.music_source_dir.join("Test Release 3")).unwrap();
         update_cache(&config, false, true).unwrap();
-        
+
         // Assert that the releases in the collage were unflagged as missing.
         {
             let conn = connect(&config).unwrap();
-            let count: i64 = conn
-                .query_row("SELECT COUNT(*) FROM collages_releases WHERE NOT missing", [], |row| {
-                    row.get(0)
-                })
-                .unwrap();
+            let count: i64 = conn.query_row("SELECT COUNT(*) FROM collages_releases WHERE NOT missing", [], |row| row.get(0)).unwrap();
             assert_eq!(count, 2);
         }
-        
+
         // Assert that source file was updated to remove the missing flag.
         let toml_content = fs::read_to_string(&toml_path).unwrap();
         let data: toml::Value = toml::from_str(&toml_content).unwrap();
@@ -4856,51 +4351,43 @@ mod tests {
         // release creation.
         let _ = testing::init();
         let (config, _temp_dir) = config_with_db();
-        
+
         // Copy test data
         testing::copy_dir_all(Path::new("testdata/Collage 1"), &config.music_source_dir.join("!collages")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &config.music_source_dir.join("Test Release 2")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Test Release 3"), &config.music_source_dir.join("Test Release 3")).unwrap();
-        
+
         // Initialize database
         maybe_invalidate_cache_database(&config).unwrap();
-        
+
         update_cache(&config, true, false).unwrap();
-        
+
         // Rename Test Release 2
-        std::fs::rename(
-            config.music_source_dir.join("Test Release 2"),
-            config.music_source_dir.join("lalala")
-        ).unwrap();
-        
+        std::fs::rename(config.music_source_dir.join("Test Release 2"), config.music_source_dir.join("lalala")).unwrap();
+
         update_cache(&config, true, false).unwrap();
-        
+
         // Check database
         {
             let conn = connect(&config).unwrap();
             let mut stmt = conn.prepare("SELECT collage_name, release_id, position FROM collages_releases ORDER BY position").unwrap();
-            let rows: Vec<_> = stmt.query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, i32>(2)?
-                ))
-            }).unwrap().collect::<rusqlite::Result<_>>().unwrap();
-            
-            assert_eq!(rows, vec![
-                ("Rose Gold".to_string(), "ilovecarly".to_string(), 1),
-                ("Rose Gold".to_string(), "ilovenewjeans".to_string(), 2),
-            ]);
+            let rows: Vec<_> = stmt
+                .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, i32>(2)?)))
+                .unwrap()
+                .collect::<rusqlite::Result<_>>()
+                .unwrap();
+
+            assert_eq!(rows, vec![("Rose Gold".to_string(), "ilovecarly".to_string(), 1), ("Rose Gold".to_string(), "ilovenewjeans".to_string(), 2),]);
         }
-        
+
         // Assert that source file was not updated to remove the release.
         let toml_path = config.music_source_dir.join("!collages").join("Rose Gold.toml");
         let toml_content = std::fs::read_to_string(toml_path).unwrap();
         let data: toml::Value = toml::from_str(&toml_content).unwrap();
-        
+
         let releases = data["releases"].as_array().unwrap();
         assert_eq!(releases.len(), 2);
-        
+
         // Check that no release has a "missing" field
         for release in releases {
             assert!(release.get("missing").is_none());
@@ -4910,59 +4397,48 @@ mod tests {
     #[test]
     fn test_update_cache_playlists() {
         let (config, _temp_dir) = config_with_db();
-        
+
         // Copy test data
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &config.music_source_dir.join("Test Release 2")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Playlist 1"), &config.music_source_dir.join("!playlists")).unwrap();
-        
+
         update_cache(&config, false, false).unwrap();
-        
+
         // Assert that the playlist metadata was read correctly
         let conn = connect(&config).unwrap();
-        
+
         // Check playlist metadata
         let mut stmt = conn.prepare("SELECT name, source_mtime, cover_path FROM playlists").unwrap();
-        let playlists: Vec<(String, String, String)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
-            .unwrap()
-            .collect::<rusqlite::Result<_>>()
-            .unwrap();
-        
+        let playlists: Vec<(String, String, String)> =
+            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))).unwrap().collect::<rusqlite::Result<_>>().unwrap();
+
         assert_eq!(playlists.len(), 1);
         let (name, source_mtime, cover_path) = &playlists[0];
         assert_eq!(name, "Lala Lisa");
         assert!(!source_mtime.is_empty());
         assert_eq!(cover_path, config.music_source_dir.join("!playlists").join("Lala Lisa.jpg").to_str().unwrap());
-        
+
         // Check playlist tracks
         let mut stmt = conn.prepare("SELECT playlist_name, track_id, position FROM playlists_tracks ORDER BY position").unwrap();
-        let tracks: Vec<(String, String, i32)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
-            .unwrap()
-            .collect::<rusqlite::Result<_>>()
-            .unwrap();
-        
-        assert_eq!(tracks, vec![
-            ("Lala Lisa".to_string(), "iloveloona".to_string(), 1),
-            ("Lala Lisa".to_string(), "ilovetwice".to_string(), 2),
-        ]);
+        let tracks: Vec<(String, String, i32)> =
+            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))).unwrap().collect::<rusqlite::Result<_>>().unwrap();
+
+        assert_eq!(tracks, vec![("Lala Lisa".to_string(), "iloveloona".to_string(), 1), ("Lala Lisa".to_string(), "ilovetwice".to_string(), 2),]);
     }
 
     #[test]
     fn test_update_cache_playlists_missing_track_id() {
         let (config, _temp_dir) = config_with_db();
-        
+
         // Copy playlist test data
         testing::copy_dir_all(Path::new("testdata/Playlist 1"), &config.music_source_dir.join("!playlists")).unwrap();
         update_cache(&config, false, false).unwrap();
-        
+
         // Assert that the tracks in the playlist were read as missing.
         let conn = connect(&config).unwrap();
-        let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM playlists_tracks WHERE missing", [], |row| row.get(0))
-            .unwrap();
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM playlists_tracks WHERE missing", [], |row| row.get(0)).unwrap();
         assert_eq!(count, 2);
-        
+
         // Assert that source file was updated to set the tracks missing.
         let toml_path = config.music_source_dir.join("!playlists").join("Lala Lisa.toml");
         let toml_content = fs::read_to_string(&toml_path).unwrap();
@@ -4971,18 +4447,16 @@ mod tests {
         assert_eq!(tracks.len(), 2);
         let missing_count = tracks.iter().filter(|t| t.get("missing").is_some()).count();
         assert_eq!(missing_count, 2);
-        
+
         // Copy Test Release 2 which contains the tracks
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &config.music_source_dir.join("Test Release 2")).unwrap();
         update_cache(&config, false, false).unwrap();
-        
+
         // Assert that the tracks in the playlist were unflagged as missing.
         let conn = connect(&config).unwrap();
-        let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM playlists_tracks WHERE NOT missing", [], |row| row.get(0))
-            .unwrap();
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM playlists_tracks WHERE NOT missing", [], |row| row.get(0)).unwrap();
         assert_eq!(count, 2);
-        
+
         // Assert that source file was updated to remove the missing flag.
         let toml_content = fs::read_to_string(&toml_path).unwrap();
         let data: toml::Value = toml::from_str(&toml_content).unwrap();
@@ -4994,39 +4468,40 @@ mod tests {
     #[test]
     fn test_update_releases_updates_collages_description_meta() {
         let (config, _temp_dir) = config_with_db();
-        
+
         // Initialize the database
         maybe_invalidate_cache_database(&config).unwrap();
-        
+
         // Copy test releases and collage
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &config.music_source_dir.join("Test Release 1")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &config.music_source_dir.join("Test Release 2")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Test Release 3"), &config.music_source_dir.join("Test Release 3")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Collage 1"), &config.music_source_dir.join("!collages")).unwrap();
-        
+
         let cpath = config.music_source_dir.join("!collages").join("Rose Gold.toml");
-        
+
         // First cache update: releases are inserted, collage is new. This should update the collage
         // TOML.
         update_cache(&config, false, false).unwrap();
-        
+
         let cfg = std::fs::read_to_string(&cpath).unwrap();
         assert_eq!(
             cfg,
             "[[releases]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - I Love Carly\"\nuuid = \"ilovecarly\"\n\n[[releases]]\ndescription_meta = \"[1990-02-05] NewJeans - I Love NewJeans\"\nuuid = \"ilovenewjeans\"\n"
         );
-        
+
         // Now prep for the second update. Reset the TOML to have garbage again, and update the database
         // such that the virtual dirnames are also incorrect.
         std::fs::write(
             &cpath,
-            "[[releases]]\nuuid = \"ilovecarly\"\ndescription_meta = \"lalala\"\n[[releases]]\nuuid = \"ilovenewjeans\"\ndescription_meta = \"hahaha\"\n"
-        ).unwrap();
-        
+            "[[releases]]\nuuid = \"ilovecarly\"\ndescription_meta = \"lalala\"\n[[releases]]\nuuid = \"ilovenewjeans\"\ndescription_meta = \"hahaha\"\n",
+        )
+        .unwrap();
+
         // Second cache update: releases exist, collages exist, release is "updated." This should also
         // trigger a metadata update.
         update_cache_for_releases(&config, None, true, false).unwrap();
-        
+
         let cfg = std::fs::read_to_string(&cpath).unwrap();
         assert_eq!(
             cfg,
@@ -5037,39 +4512,40 @@ mod tests {
     #[test]
     fn test_update_releases_updates_collages_description_meta_multiprocessing() {
         let (config, _temp_dir) = config_with_db();
-        
+
         // Initialize the database
         maybe_invalidate_cache_database(&config).unwrap();
-        
+
         // Copy test releases and collage
         testing::copy_dir_all(Path::new("testdata/Test Release 1"), &config.music_source_dir.join("Test Release 1")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &config.music_source_dir.join("Test Release 2")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Test Release 3"), &config.music_source_dir.join("Test Release 3")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Collage 1"), &config.music_source_dir.join("!collages")).unwrap();
-        
+
         let cpath = config.music_source_dir.join("!collages").join("Rose Gold.toml");
-        
+
         // First cache update: releases are inserted, collage is new. This should update the collage
         // TOML.
         update_cache(&config, false, false).unwrap();
-        
+
         let cfg = std::fs::read_to_string(&cpath).unwrap();
         assert_eq!(
             cfg,
             "[[releases]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - I Love Carly\"\nuuid = \"ilovecarly\"\n\n[[releases]]\ndescription_meta = \"[1990-02-05] NewJeans - I Love NewJeans\"\nuuid = \"ilovenewjeans\"\n"
         );
-        
+
         // Now prep for the second update. Reset the TOML to have garbage again, and update the database
         // such that the virtual dirnames are also incorrect.
         std::fs::write(
             &cpath,
-            "[[releases]]\nuuid = \"ilovecarly\"\ndescription_meta = \"lalala\"\n[[releases]]\nuuid = \"ilovenewjeans\"\ndescription_meta = \"hahaha\"\n"
-        ).unwrap();
-        
+            "[[releases]]\nuuid = \"ilovecarly\"\ndescription_meta = \"lalala\"\n[[releases]]\nuuid = \"ilovenewjeans\"\ndescription_meta = \"hahaha\"\n",
+        )
+        .unwrap();
+
         // Second cache update: releases exist, collages exist, release is "updated." This should also
         // trigger a metadata update. Using multiprocessing=true for this variant.
         update_cache_for_releases(&config, None, true, true).unwrap();
-        
+
         let cfg = std::fs::read_to_string(&cpath).unwrap();
         assert_eq!(
             cfg,
@@ -5080,11 +4556,11 @@ mod tests {
     #[test]
     fn test_update_tracks_updates_playlists_description_meta() {
         let (config, _temp_dir) = config_with_db();
-        
+
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &config.music_source_dir.join("Test Release 2")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Playlist 1"), &config.music_source_dir.join("!playlists")).unwrap();
         let ppath = config.music_source_dir.join("!playlists").join("Lala Lisa.toml");
-        
+
         // First cache update: tracks are inserted, playlist is new. This should update the playlist
         // TOML.
         update_cache(&config, false, false).unwrap();
@@ -5093,14 +4569,15 @@ mod tests {
             cfg,
             "[[tracks]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - Track 1\"\nuuid = \"iloveloona\"\n\n[[tracks]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - Track 2\"\nuuid = \"ilovetwice\"\n"
         );
-        
+
         // Now prep for the second update. Reset the TOML to have garbage again, and update the database
         // such that the virtual filenames are also incorrect.
         std::fs::write(
             &ppath,
-            "[[tracks]]\nuuid = \"iloveloona\"\ndescription_meta = \"lalala\"\n[[tracks]]\nuuid = \"ilovetwice\"\ndescription_meta = \"hahaha\"\n"
-        ).unwrap();
-        
+            "[[tracks]]\nuuid = \"iloveloona\"\ndescription_meta = \"lalala\"\n[[tracks]]\nuuid = \"ilovetwice\"\ndescription_meta = \"hahaha\"\n",
+        )
+        .unwrap();
+
         // Second cache update: tracks exist, playlists exist, track is "updated." This should also
         // trigger a metadata update.
         update_cache_for_releases(&config, None, true, false).unwrap();
@@ -5114,11 +4591,11 @@ mod tests {
     #[test]
     fn test_update_tracks_updates_playlists_description_meta_multiprocessing() {
         let (config, _temp_dir) = config_with_db();
-        
+
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &config.music_source_dir.join("Test Release 2")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Playlist 1"), &config.music_source_dir.join("!playlists")).unwrap();
         let ppath = config.music_source_dir.join("!playlists").join("Lala Lisa.toml");
-        
+
         // First cache update: tracks are inserted, playlist is new. This should update the playlist
         // TOML.
         update_cache(&config, false, false).unwrap();
@@ -5127,14 +4604,15 @@ mod tests {
             cfg,
             "[[tracks]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - Track 1\"\nuuid = \"iloveloona\"\n\n[[tracks]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - Track 2\"\nuuid = \"ilovetwice\"\n"
         );
-        
+
         // Now prep for the second update. Reset the TOML to have garbage again, and update the database
         // such that the virtual filenames are also incorrect.
         std::fs::write(
             &ppath,
-            "[[tracks]]\nuuid = \"iloveloona\"\ndescription_meta = \"lalala\"\n[[tracks]]\nuuid = \"ilovetwice\"\ndescription_meta = \"hahaha\"\n"
-        ).unwrap();
-        
+            "[[tracks]]\nuuid = \"iloveloona\"\ndescription_meta = \"lalala\"\n[[tracks]]\nuuid = \"ilovetwice\"\ndescription_meta = \"hahaha\"\n",
+        )
+        .unwrap();
+
         // Second cache update: tracks exist, playlists exist, track is "updated." This should also
         // trigger a metadata update. Using multiprocessing=true for this variant.
         update_cache_for_releases(&config, None, true, true).unwrap();
@@ -5151,29 +4629,20 @@ mod tests {
         // This can occur because when a release is renamed, we remove all tracks from the database and
         // then reinsert them.
         let (config, _temp_dir) = config_with_db();
-        
+
         testing::copy_dir_all(Path::new("testdata/Playlist 1"), &config.music_source_dir.join("!playlists")).unwrap();
         testing::copy_dir_all(Path::new("testdata/Test Release 2"), &config.music_source_dir.join("Test Release 2")).unwrap();
         update_cache(&config, false, false).unwrap();
-        
-        std::fs::rename(
-            config.music_source_dir.join("Test Release 2"),
-            config.music_source_dir.join("lalala")
-        ).unwrap();
+
+        std::fs::rename(config.music_source_dir.join("Test Release 2"), config.music_source_dir.join("lalala")).unwrap();
         update_cache(&config, false, false).unwrap();
-        
+
         let conn = connect(&config).unwrap();
         let mut stmt = conn.prepare("SELECT playlist_name, track_id, position FROM playlists_tracks").unwrap();
-        let rows: Vec<(String, String, i32)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
-            .unwrap()
-            .collect::<rusqlite::Result<_>>()
-            .unwrap();
-        assert_eq!(rows, vec![
-            ("Lala Lisa".to_string(), "iloveloona".to_string(), 1),
-            ("Lala Lisa".to_string(), "ilovetwice".to_string(), 2),
-        ]);
-        
+        let rows: Vec<(String, String, i32)> =
+            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))).unwrap().collect::<rusqlite::Result<_>>().unwrap();
+        assert_eq!(rows, vec![("Lala Lisa".to_string(), "iloveloona".to_string(), 1), ("Lala Lisa".to_string(), "ilovetwice".to_string(), 2),]);
+
         // Assert that source file was not updated to remove the track.
         let toml_path = config.music_source_dir.join("!playlists").join("Lala Lisa.toml");
         let toml_content = fs::read_to_string(&toml_path).unwrap();
@@ -5322,7 +4791,7 @@ mod tests {
     fn test_list_tracks() {
         let (config, _temp_dir) = testing::seeded_cache();
 
-        let tracks = list_tracks(&config).unwrap();
+        let tracks = list_tracks(&config, None).unwrap();
         assert_eq!(tracks.len(), 5); // t1, t2, t3, t4, t5
 
         // Check t1
