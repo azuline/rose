@@ -260,9 +260,25 @@ impl AudioTags {
                     .or_else(|| _get_mp4_tag(&tag, "----:com.apple.iTunes:MusicBrainz Album Type"))
                     .as_deref(),
             ),
-            releaseartists: parse_artist_string(tag.album_artist().or_else(|| tag.artist()), None, None, None, None, None),
+            releaseartists: parse_artist_string(
+                {
+                    // Collect all album artists, fall back to artists if none
+                    let album_artists: Vec<String> = tag.album_artists().map(|s| s.to_string()).collect();
+                    if album_artists.is_empty() {
+                        let artists: Vec<String> = tag.artists().map(|s| s.to_string()).collect();
+                        if artists.is_empty() { None } else { Some(artists.join(";")) }
+                    } else {
+                        Some(album_artists.join(";"))
+                    }
+                }.as_deref(),
+                None, None, None, None, None
+            ),
             trackartists: parse_artist_string(
-                tag.artist(),
+                {
+                    // Collect all artists
+                    let artists: Vec<String> = tag.artists().map(|s| s.to_string()).collect();
+                    if artists.is_empty() { None } else { Some(artists.join(";")) }
+                }.as_deref(),
                 _get_mp4_tag(&tag, "----:com.apple.iTunes:REMIXER").as_deref(),
                 {
                     // Collect all composer values and join with semicolons
@@ -410,10 +426,54 @@ impl AudioTags {
             releasedate: RoseDate::parse(get_vorbis_item(&["DATE", "YEAR"]).as_deref()),
             originaldate: RoseDate::parse(get_vorbis_item(&["ORIGINALDATE", "ORIGINALYEAR"]).as_deref()),
             compositiondate: RoseDate::parse(get_vorbis_item(&["COMPOSITIONDATE"]).as_deref()),
-            tracknumber: get_vorbis_item(&["TRACKNUMBER"]),
-            tracktotal: _parse_int(get_vorbis_item(&["TRACKTOTAL"]).as_deref()),
-            discnumber: get_vorbis_item(&["DISCNUMBER"]),
-            disctotal: _parse_int(get_vorbis_item(&["DISCTOTAL"]).as_deref()),
+            tracknumber: {
+                let track = get_vorbis_item(&["TRACKNUMBER"]);
+                if let Some(ref t) = track {
+                    if let Some((num, _total)) = t.split_once('/') {
+                        Some(num.to_string())
+                    } else {
+                        track
+                    }
+                } else {
+                    track
+                }
+            },
+            tracktotal: {
+                let track = get_vorbis_item(&["TRACKNUMBER"]);
+                if let Some(ref t) = track {
+                    if let Some((_num, total)) = t.split_once('/') {
+                        _parse_int(Some(total))
+                    } else {
+                        _parse_int(get_vorbis_item(&["TRACKTOTAL"]).as_deref())
+                    }
+                } else {
+                    _parse_int(get_vorbis_item(&["TRACKTOTAL"]).as_deref())
+                }
+            },
+            discnumber: {
+                let disc = get_vorbis_item(&["DISCNUMBER"]);
+                if let Some(ref d) = disc {
+                    if let Some((num, _total)) = d.split_once('/') {
+                        Some(num.to_string())
+                    } else {
+                        disc
+                    }
+                } else {
+                    disc
+                }
+            },
+            disctotal: {
+                let disc = get_vorbis_item(&["DISCNUMBER"]);
+                if let Some(ref d) = disc {
+                    if let Some((_num, total)) = d.split_once('/') {
+                        _parse_int(Some(total))
+                    } else {
+                        _parse_int(get_vorbis_item(&["DISCTOTAL"]).as_deref())
+                    }
+                } else {
+                    _parse_int(get_vorbis_item(&["DISCTOTAL"]).as_deref())
+                }
+            },
             releasetitle: get_vorbis_item(&["ALBUM"]),
             genre: {
                 let values = get_vorbis_items(&["GENRE"]).join(";");
@@ -731,21 +791,9 @@ impl AudioTags {
         add_tag(&mut vorbis, "ORIGINALDATE", self.originaldate.map(|d| d.to_string()).as_deref());
         add_tag(&mut vorbis, "COMPOSITIONDATE", self.compositiondate.map(|d| d.to_string()).as_deref());
         
-        // Track/disc numbers with totals
-        if let Some(ref num) = self.tracknumber {
-            if let Some(total) = self.tracktotal {
-                add_tag(&mut vorbis, "TRACKNUMBER", Some(&format!("{}/{}", num, total)));
-            } else {
-                add_tag(&mut vorbis, "TRACKNUMBER", Some(num));
-            }
-        }
-        if let Some(ref num) = self.discnumber {
-            if let Some(total) = self.disctotal {
-                add_tag(&mut vorbis, "DISCNUMBER", Some(&format!("{}/{}", num, total)));
-            } else {
-                add_tag(&mut vorbis, "DISCNUMBER", Some(num));
-            }
-        }
+        // Track/disc numbers - write simple values only (Python behavior)
+        add_tag(&mut vorbis, "TRACKNUMBER", self.tracknumber.as_deref());
+        add_tag(&mut vorbis, "DISCNUMBER", self.discnumber.as_deref());
         
         add_tag(&mut vorbis, "ALBUM", self.releasetitle.as_deref());
         add_tag(&mut vorbis, "GENRE", Some(&_format_genre_tag(c, &self.genre)));
@@ -756,18 +804,10 @@ impl AudioTags {
         add_tag(&mut vorbis, "EDITION", self.edition.as_deref());
         add_tag(&mut vorbis, "RELEASETYPE", Some(&self.releasetype));
         
-        // Release artists
-        let release_artists_str = _format_artist_vec(&self.releaseartists.main, "main");
-        add_tag(&mut vorbis, "ALBUMARTIST", Some(&release_artists_str));
-        
-        // Track artists - handle each role separately
-        let track_artists_str = _format_artist_vec(&self.trackartists.main, "main");
-        add_tag(&mut vorbis, "ARTIST", Some(&track_artists_str));
-        add_tag(&mut vorbis, "REMIXER", Some(&_format_artist_vec(&self.trackartists.remixer, "remixer")));
-        add_tag(&mut vorbis, "COMPOSER", Some(&_format_artist_vec(&self.trackartists.composer, "composer")));
-        add_tag(&mut vorbis, "CONDUCTOR", Some(&_format_artist_vec(&self.trackartists.conductor, "conductor")));
-        add_tag(&mut vorbis, "PRODUCER", Some(&_format_artist_vec(&self.trackartists.producer, "producer")));
-        add_tag(&mut vorbis, "DJMIXER", Some(&_format_artist_vec(&self.trackartists.djmixer, "djmixer")));
+        // Artists - write formatted strings only (Python behavior)
+        // Note: Python deletes all role-specific artist tags and only writes the formatted strings
+        add_tag(&mut vorbis, "ALBUMARTIST", Some(&format_artist_string(&self.releaseartists)));
+        add_tag(&mut vorbis, "ARTIST", Some(&format_artist_string(&self.trackartists)));
         
         // Replace the existing tag with our VorbisComments
         tagged_file.insert_tag(vorbis.into());
@@ -1187,55 +1227,24 @@ mod tests {
             assert_eq!(af.releasedate, Some(RoseDate::new(Some(1990), Some(2), Some(5))));
             assert_eq!(af.originaldate, Some(RoseDate::new(Some(1990), None, None)));
             assert_eq!(af.compositiondate, Some(RoseDate::new(Some(1984), None, None)));
-
-            // Note: Different tag formats have different limitations
             assert_eq!(af.genre, vec!["Electronic", "House"]);
             assert_eq!(af.secondarygenre, vec!["Minimal", "Ambient"]);
             assert_eq!(af.descriptor, vec!["Lush", "Warm"]);
             assert_eq!(af.label, vec!["A Cool Label"]);
             assert_eq!(af.catalognumber, Some("DN-420".to_string()));
             assert_eq!(af.edition, Some("Japan".to_string()));
-
-            // Note: Different tag formats have different limitations
-            if case.filename == "track2.m4a" {
-                assert_eq!(af.releaseartists.main, vec![Artist::new("Artist A")]);
-            } else {
-                assert_eq!(af.releaseartists.main, vec![Artist::new("Artist A"), Artist::new("Artist B")]);
-            }
-
+            assert_eq!(af.releaseartists.main, vec![Artist::new("Artist A"), Artist::new("Artist B")]);
             assert_eq!(af.tracknumber, Some(case.track_num.to_string()));
             assert_eq!(af.tracktotal, Some(5));
             assert_eq!(af.discnumber, Some("1".to_string()));
             assert_eq!(af.disctotal, Some(1));
-
             assert_eq!(af.tracktitle, Some(format!("Track {}", case.track_num)));
-
-            // Verify track artists
             assert_eq!(af.trackartists.main, vec![Artist::new("Artist A"), Artist::new("Artist B")]);
             assert_eq!(af.trackartists.guest, vec![Artist::new("Artist C"), Artist::new("Artist D")]);
-
-            // Duration check - may vary based on implementation
-            // assert_eq!(af.duration_sec, case.duration);
+            assert_eq!(af.duration_sec, case.duration);
         }
     }
 
-    #[test]
-    fn test_debug_ogg_albumartist() {
-        let (config, temp_dir) = testing::config();
-        let src_path = test_tagger_path().join("track4.vorbis.ogg");
-        let dst_path = temp_dir.path().join("track4.vorbis.ogg");
-        std::fs::copy(&src_path, &dst_path).unwrap();
-        
-        let mut af = AudioTags::from_file(&dst_path).unwrap();
-        println!("DEBUG: Before flush, ALBUMARTIST = {:?}", af.releaseartists.main);
-        println!("DEBUG: _format_artist_vec gives: '{}'", _format_artist_vec(&af.releaseartists.main, "main"));
-        
-        af.flush(&config, true).unwrap();
-        
-        let af = AudioTags::from_file(&dst_path).unwrap();
-        println!("DEBUG: After flush, ALBUMARTIST = {:?}", af.releaseartists.main);
-        assert_eq!(af.releaseartists.main.len(), 2);
-    }
 
     #[test]
     fn test_flush() {
@@ -1302,20 +1311,10 @@ mod tests {
             assert_eq!(af.label, vec!["A Cool Label"]);
             assert_eq!(af.catalognumber, Some("DN-420".to_string()));
             assert_eq!(af.edition, Some("Japan".to_string()));
-
-            // Note: Different tag formats have different limitations
-            if case.filename == "track2.m4a" {
-                assert_eq!(af.releaseartists.main, vec![Artist::new("Artist A")]);
-            } else {
-                assert_eq!(af.releaseartists.main, vec![Artist::new("Artist A"), Artist::new("Artist B")]);
-            }
-
+            assert_eq!(af.releaseartists.main, vec![Artist::new("Artist A"), Artist::new("Artist B")]);
             assert_eq!(af.tracknumber, Some(case.track_num.to_string()));
             assert_eq!(af.discnumber, Some("1".to_string()));
-
             assert_eq!(af.tracktitle, Some(format!("Track {}", case.track_num)));
-
-            // Verify track artists - djmixer should be changed to "New"
             assert_eq!(af.trackartists.main, vec![Artist::new("Artist A"), Artist::new("Artist B")]);
             assert_eq!(af.trackartists.guest, vec![Artist::new("Artist C"), Artist::new("Artist D")]);
             assert_eq!(af.trackartists.remixer, vec![Artist::new("Artist AB"), Artist::new("Artist BC")]);
@@ -1323,7 +1322,6 @@ mod tests {
             assert_eq!(af.trackartists.composer, vec![Artist::new("Artist EF"), Artist::new("Artist FG")]);
             assert_eq!(af.trackartists.conductor, vec![Artist::new("Artist GH"), Artist::new("Artist HI")]);
             assert_eq!(af.trackartists.djmixer, vec![Artist::new("New")]);
-
             assert_eq!(af.duration_sec, case.duration);
         }
     }
