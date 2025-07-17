@@ -1542,6 +1542,7 @@ fn handle_stored_data_file(
 }
 
 /// Execute batched cache updates to the database
+#[allow(clippy::too_many_arguments)]
 fn execute_cache_updates(
     c: &Config,
     upd_delete_source_paths: Vec<String>,

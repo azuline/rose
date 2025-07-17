@@ -5,7 +5,7 @@ This document outlines the plan for completing the Rust port of the Rose music l
 
 Our approach is a test driven development approach. We want to port over all the tests from rose-py and then make sure that they are all implemented effectively.
 
-## Current Status (Updated: 2025-01-16)
+## Current Status (Updated: 2025-01-17)
 
 ### ✅ Completed Modules (100% Feature Parity)
 1. **common.rs** - Core utilities, error types, and basic data structures
@@ -14,15 +14,7 @@ Our approach is a test driven development approach. We want to port over all the
 4. **config.rs** - Configuration parsing with full test coverage
 5. **templates.rs** - Path templating system with tera integration
 6. **rule_parser.rs** - Rules DSL parser with comprehensive parsing logic
-7. **audiotags.rs** - Audio file metadata reading/writing
-   - ✅ Complete re-implementation without lofty library
-   - ✅ Format-specific libraries: id3 (MP3), mp4ameta (M4A), metaflac (FLAC), ogg (OGG/Opus)
-   - ✅ Multi-value tag support for all formats
-   - ✅ Artist role parsing and formatting
-   - ✅ Custom Rose ID tags (ROSEID, ROSERELEASEID)
-   - ✅ Parent genre tracking
-   - ✅ All tests passing (8/8)
-   - ⚠️ OGG/Opus writing partially implemented (lofty limitation: custom tags not saved)
+7. **audiotags.rs** - Audio file metadata reading/writing (fixed tag preservation)
 
 ### ⚠️ Partially Completed (Limited Feature Parity)
 
@@ -59,12 +51,12 @@ Layer 0 (No dependencies):
 └── genre_hierarchy.rs ✅
 
 Layer 1:
-├── audiotags.rs (→ common, genre_hierarchy)
-├── rule_parser.rs (→ common)
-└── templates.rs 🚧 (→ common, audiotags)
+├── audiotags.rs ✅ (→ common, genre_hierarchy)
+├── rule_parser.rs ✅ (→ common)
+└── templates.rs ✅ (→ common, audiotags)
 
 Layer 2:
-└── config.rs 🚧 (→ common, rule_parser, templates)
+└── config.rs ✅ (→ common, rule_parser, templates)
 
 Layer 3:
 └── cache.rs (→ audiotags, common, config, genre_hierarchy, templates)
@@ -205,6 +197,10 @@ Layer 7:
    - Better compatibility with format specifications
    - More control over tag handling
    - Ability to handle format-specific quirks (e.g., multi-valued tags in M4A)
+6. **Tag Preservation**: Fixed critical bug in audiotags.rs where flush methods were:
+   - Deleting ALL tags and replacing with only Rose-specific ones
+   - Now properly preserves unrelated metadata while only modifying Rose-managed tags
+   - Only clears role-specific artist tags (REMIXER, COMPOSER, etc.) as intended
 
 ## Next Steps
 
@@ -212,7 +208,6 @@ Layer 7:
 1. Complete remaining cache.rs functionality:
    - Remaining test implementations (29 tests to go)
    - Add cover art functionality
-2. Implement OGG/Opus tag writing in audiotags.rs
 
 ### Medium Priority
 2. Implement rules.rs for metadata operations
@@ -249,7 +244,7 @@ Layer 7:
 | templates.rs | ~300 | ✅ | 100% | Fully implemented |
 | rule_parser.rs | ~600 | ✅ | 100% | Fully implemented |
 | genre_hierarchy.rs | ~100 | ✅ | 100% | Data module |
-| audiotags.rs | ~1400 | 8/8 | 100% | Complete re-implementation |
+| audiotags.rs | ~1400 | 8/8 | 100% | Complete re-implementation, tag preservation fixed |
 | cache.rs | ~4000 | 43/72 | 75% | Core functionality complete |
 | rules.rs | 0 | 0 | 0% | Not started |
 | releases.rs | 0 | 0 | 0% | Not started |

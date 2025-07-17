@@ -264,16 +264,30 @@ impl AudioTags {
                 {
                     // Collect all album artists (no fallback, matching Python behavior)
                     let album_artists: Vec<String> = tag.album_artists().map(|s| s.to_string()).collect();
-                    if album_artists.is_empty() { None } else { Some(album_artists.join(";")) }
-                }.as_deref(),
-                None, None, None, None, None
+                    if album_artists.is_empty() {
+                        None
+                    } else {
+                        Some(album_artists.join(";"))
+                    }
+                }
+                .as_deref(),
+                None,
+                None,
+                None,
+                None,
+                None,
             ),
             trackartists: parse_artist_string(
                 {
                     // Collect all artists
                     let artists: Vec<String> = tag.artists().map(|s| s.to_string()).collect();
-                    if artists.is_empty() { None } else { Some(artists.join(";")) }
-                }.as_deref(),
+                    if artists.is_empty() {
+                        None
+                    } else {
+                        Some(artists.join(";"))
+                    }
+                }
+                .as_deref(),
                 _get_mp4_tag(&tag, "----:com.apple.iTunes:REMIXER").as_deref(),
                 {
                     // Collect all composer values and join with semicolons
@@ -348,10 +362,10 @@ impl AudioTags {
     }
 
     fn from_ogg(p: &Path) -> Result<AudioTags> {
-        use lofty::prelude::{AudioFile, TaggedFileExt, ItemKey};
+        use lofty::prelude::{AudioFile, ItemKey, TaggedFileExt};
         use lofty::probe::Probe;
         use lofty::tag::TagType;
-        
+
         // Use lofty for OGG/Opus files
         let tagged_file = Probe::open(p)
             .map_err(|e| RoseExpectedError::Generic(format!("Failed to open file: {}", e)))?
@@ -359,14 +373,13 @@ impl AudioTags {
             .map_err(|e| RoseExpectedError::Generic(format!("Failed to guess file type: {}", e)))?
             .read()
             .map_err(|e| RoseExpectedError::Generic(format!("Failed to read file: {}", e)))?;
-            
-        let tag = tagged_file.primary_tag()
-            .or_else(|| tagged_file.first_tag())
-            .ok_or_else(|| RoseExpectedError::Generic("No tags found in OGG file".to_string()))?;
-            
+
+        let tag =
+            tagged_file.primary_tag().or_else(|| tagged_file.first_tag()).ok_or_else(|| RoseExpectedError::Generic("No tags found in OGG file".to_string()))?;
+
         // Get duration
         let duration_sec = tagged_file.properties().duration().as_secs() as i32;
-        
+
         // Helper to get a single vorbis comment
         let get_vorbis_item = |keys: &[&str]| -> Option<String> {
             for key in keys {
@@ -389,7 +402,7 @@ impl AudioTags {
             }
             None
         };
-        
+
         // Helper to get all values for a vorbis comment (handles multi-value fields)
         let get_vorbis_items = |keys: &[&str]| -> Vec<String> {
             let mut values = Vec::new();
@@ -401,7 +414,7 @@ impl AudioTags {
                     } else {
                         item.key() == &ItemKey::from_key(TagType::VorbisComments, key)
                     };
-                    
+
                     if matches {
                         if let Some(text) = item.value().text() {
                             values.push(text.to_string());
@@ -411,8 +424,7 @@ impl AudioTags {
             }
             values
         };
-        
-        
+
         // Build AudioTags from vorbis comments
         Ok(AudioTags {
             id: get_vorbis_item(&["ROSEID"]),
@@ -544,20 +556,47 @@ impl AudioTags {
     fn flush_mp3(&self, c: &Config) -> Result<()> {
         let mut tag = Id3Tag::read_from_path(&self.path).unwrap_or_else(|_| Id3Tag::new());
 
-        // Helper to write standard tags
-        let write_standard_tag = |tag: &mut Id3Tag, frame_id: &str, value: Option<&str>| {
-            tag.remove(frame_id);
+        // Helper to update standard tags while preserving others
+        let update_standard_tag = |tag: &mut Id3Tag, frame_id: &str, value: Option<&str>| {
             if let Some(val) = value {
                 if !val.is_empty() {
                     tag.set_text(frame_id, val);
+                } else {
+                    tag.remove(frame_id);
                 }
+            } else {
+                tag.remove(frame_id);
             }
         };
 
-        // Helper to write TXXX tags
-        // Note: id3 crate doesn't provide a good way to selectively update TXXX frames
-        // So we just add them and hope for the best
-        let write_txxx_tag = |tag: &mut Id3Tag, desc: &str, value: Option<&str>| {
+        // Helper to update or remove TXXX tags
+        let update_txxx_tag = |tag: &mut Id3Tag, desc: &str, value: Option<&str>| {
+            // First, collect all TXXX frames that don't match our description
+            let mut frames_to_keep = Vec::new();
+            for frame in tag.frames() {
+                if frame.id() == "TXXX" {
+                    if let Some(ext) = frame.content().extended_text() {
+                        if ext.description != desc {
+                            frames_to_keep.push(ExtendedText {
+                                description: ext.description.clone(),
+                                value: ext.value.clone(),
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Remove all TXXX frames
+            while tag.get("TXXX").is_some() {
+                tag.remove("TXXX");
+            }
+
+            // Re-add the ones we want to keep
+            for ext in frames_to_keep {
+                tag.add_frame(ext);
+            }
+
+            // Add the new value if provided
             if let Some(val) = value {
                 if !val.is_empty() {
                     tag.add_frame(ExtendedText {
@@ -568,27 +607,27 @@ impl AudioTags {
             }
         };
 
-        // Write all tags
-        write_txxx_tag(&mut tag, "ROSEID", self.id.as_deref());
-        write_txxx_tag(&mut tag, "ROSERELEASEID", self.release_id.as_deref());
-        write_standard_tag(&mut tag, "TIT2", self.tracktitle.as_deref());
-        write_standard_tag(&mut tag, "TDRC", self.releasedate.map(|d| d.to_string()).as_deref());
-        write_standard_tag(&mut tag, "TDOR", self.originaldate.map(|d| d.to_string()).as_deref());
-        write_txxx_tag(&mut tag, "COMPOSITIONDATE", self.compositiondate.map(|d| d.to_string()).as_deref());
-        write_standard_tag(&mut tag, "TRCK", self.tracknumber.as_deref());
-        write_standard_tag(&mut tag, "TPOS", self.discnumber.as_deref());
-        write_standard_tag(&mut tag, "TALB", self.releasetitle.as_deref());
-        write_standard_tag(&mut tag, "TCON", Some(&_format_genre_tag(c, &self.genre)));
-        write_txxx_tag(&mut tag, "SECONDARYGENRE", Some(&_format_genre_tag(c, &self.secondarygenre)));
-        write_txxx_tag(&mut tag, "DESCRIPTOR", Some(&self.descriptor.join(";")));
-        write_standard_tag(&mut tag, "TPUB", Some(&self.label.join(";")));
-        write_txxx_tag(&mut tag, "CATALOGNUMBER", self.catalognumber.as_deref());
-        write_txxx_tag(&mut tag, "EDITION", self.edition.as_deref());
-        write_txxx_tag(&mut tag, "RELEASETYPE", Some(&self.releasetype));
-        write_standard_tag(&mut tag, "TPE2", Some(&format_artist_string(&self.releaseartists)));
-        write_standard_tag(&mut tag, "TPE1", Some(&format_artist_string(&self.trackartists)));
+        // Update only the tags we manage
+        update_txxx_tag(&mut tag, "ROSEID", self.id.as_deref());
+        update_txxx_tag(&mut tag, "ROSERELEASEID", self.release_id.as_deref());
+        update_standard_tag(&mut tag, "TIT2", self.tracktitle.as_deref());
+        update_standard_tag(&mut tag, "TDRC", self.releasedate.map(|d| d.to_string()).as_deref());
+        update_standard_tag(&mut tag, "TDOR", self.originaldate.map(|d| d.to_string()).as_deref());
+        update_txxx_tag(&mut tag, "COMPOSITIONDATE", self.compositiondate.map(|d| d.to_string()).as_deref());
+        update_standard_tag(&mut tag, "TRCK", self.tracknumber.as_deref());
+        update_standard_tag(&mut tag, "TPOS", self.discnumber.as_deref());
+        update_standard_tag(&mut tag, "TALB", self.releasetitle.as_deref());
+        update_standard_tag(&mut tag, "TCON", Some(&_format_genre_tag(c, &self.genre)));
+        update_txxx_tag(&mut tag, "SECONDARYGENRE", Some(&_format_genre_tag(c, &self.secondarygenre)));
+        update_txxx_tag(&mut tag, "DESCRIPTOR", Some(&self.descriptor.join(";")));
+        update_standard_tag(&mut tag, "TPUB", Some(&self.label.join(";")));
+        update_txxx_tag(&mut tag, "CATALOGNUMBER", self.catalognumber.as_deref());
+        update_txxx_tag(&mut tag, "EDITION", self.edition.as_deref());
+        update_txxx_tag(&mut tag, "RELEASETYPE", Some(&self.releasetype));
+        update_standard_tag(&mut tag, "TPE2", Some(&format_artist_string(&self.releaseartists)));
+        update_standard_tag(&mut tag, "TPE1", Some(&format_artist_string(&self.trackartists)));
 
-        // Wipe the alt. role artist tags
+        // Wipe ONLY the alt. role artist tags (preserve all other tags)
         tag.remove("TPE4");
         tag.remove("TCOM");
         tag.remove("TPE3");
@@ -603,17 +642,24 @@ impl AudioTags {
     fn flush_m4a(&self, c: &Config) -> Result<()> {
         let mut tag = Mp4Tag::read_from_path(&self.path).unwrap_or_else(|_| Mp4Tag::default());
 
-        // Write custom rose ID tags
-        if let Some(id) = &self.id {
-            let ident = FreeformIdent::new("net.sunsetglow.rose", "ID");
-            tag.set_data(ident, Data::Utf8(id.clone()));
-        }
+        // Helper to update or remove custom tags
+        let update_custom_tag = |tag: &mut Mp4Tag, ident: FreeformIdent, value: Option<&str>| {
+            if let Some(val) = value {
+                if !val.is_empty() {
+                    tag.set_data(ident, Data::Utf8(val.to_string()));
+                } else {
+                    tag.remove_data_of(&ident);
+                }
+            } else {
+                tag.remove_data_of(&ident);
+            }
+        };
 
-        if let Some(release_id) = &self.release_id {
-            let ident = FreeformIdent::new("net.sunsetglow.rose", "RELEASEID");
-            tag.set_data(ident, Data::Utf8(release_id.clone()));
-        }
+        // Update Rose ID tags
+        update_custom_tag(&mut tag, FreeformIdent::new("net.sunsetglow.rose", "ID"), self.id.as_deref());
+        update_custom_tag(&mut tag, FreeformIdent::new("net.sunsetglow.rose", "RELEASEID"), self.release_id.as_deref());
 
+        // Update standard tags
         if let Some(title) = &self.tracktitle {
             tag.set_title(title);
         } else {
@@ -626,16 +672,9 @@ impl AudioTags {
             tag.remove_year();
         }
 
-        // Custom date tags
-        if let Some(date) = self.originaldate {
-            let ident = FreeformIdent::new("net.sunsetglow.rose", "ORIGINALDATE");
-            tag.set_data(ident, Data::Utf8(date.to_string()));
-        }
-
-        if let Some(date) = self.compositiondate {
-            let ident = FreeformIdent::new("net.sunsetglow.rose", "COMPOSITIONDATE");
-            tag.set_data(ident, Data::Utf8(date.to_string()));
-        }
+        // Update custom date tags
+        update_custom_tag(&mut tag, FreeformIdent::new("net.sunsetglow.rose", "ORIGINALDATE"), self.originaldate.map(|d| d.to_string()).as_deref());
+        update_custom_tag(&mut tag, FreeformIdent::new("net.sunsetglow.rose", "COMPOSITIONDATE"), self.compositiondate.map(|d| d.to_string()).as_deref());
 
         if let Some(album) = &self.releasetitle {
             tag.set_album(album);
@@ -649,65 +688,69 @@ impl AudioTags {
             tag.remove_genres();
         }
 
-        // More custom tags
-        let secondary_genre_ident = FreeformIdent::new("net.sunsetglow.rose", "SECONDARYGENRE");
-        tag.set_data(secondary_genre_ident, Data::Utf8(_format_genre_tag(c, &self.secondarygenre)));
-
-        let descriptor_ident = FreeformIdent::new("net.sunsetglow.rose", "DESCRIPTOR");
-        tag.set_data(descriptor_ident, Data::Utf8(self.descriptor.join(";")));
-
-        let label_ident = FreeformIdent::new("com.apple.iTunes", "LABEL");
-        tag.set_data(label_ident, Data::Utf8(self.label.join(";")));
-
-        if let Some(cat) = &self.catalognumber {
-            let ident = FreeformIdent::new("com.apple.iTunes", "CATALOGNUMBER");
-            tag.set_data(ident, Data::Utf8(cat.clone()));
+        // Update more custom tags
+        let formatted_secondary_genre = _format_genre_tag(c, &self.secondarygenre);
+        if !formatted_secondary_genre.is_empty() {
+            tag.set_data(FreeformIdent::new("net.sunsetglow.rose", "SECONDARYGENRE"), Data::Utf8(formatted_secondary_genre));
+        } else {
+            tag.remove_data_of(&FreeformIdent::new("net.sunsetglow.rose", "SECONDARYGENRE"));
         }
 
-        if let Some(edition) = &self.edition {
-            let ident = FreeformIdent::new("net.sunsetglow.rose", "EDITION");
-            tag.set_data(ident, Data::Utf8(edition.clone()));
+        let descriptor_str = self.descriptor.join(";");
+        if !descriptor_str.is_empty() {
+            tag.set_data(FreeformIdent::new("net.sunsetglow.rose", "DESCRIPTOR"), Data::Utf8(descriptor_str));
+        } else {
+            tag.remove_data_of(&FreeformIdent::new("net.sunsetglow.rose", "DESCRIPTOR"));
         }
 
-        let releasetype_ident = FreeformIdent::new("com.apple.iTunes", "RELEASETYPE");
-        tag.set_data(releasetype_ident, Data::Utf8(self.releasetype.clone()));
+        let label_str = self.label.join(";");
+        if !label_str.is_empty() {
+            tag.set_data(FreeformIdent::new("com.apple.iTunes", "LABEL"), Data::Utf8(label_str));
+        } else {
+            tag.remove_data_of(&FreeformIdent::new("com.apple.iTunes", "LABEL"));
+        }
+
+        update_custom_tag(&mut tag, FreeformIdent::new("com.apple.iTunes", "CATALOGNUMBER"), self.catalognumber.as_deref());
+        update_custom_tag(&mut tag, FreeformIdent::new("net.sunsetglow.rose", "EDITION"), self.edition.as_deref());
+
+        tag.set_data(FreeformIdent::new("com.apple.iTunes", "RELEASETYPE"), Data::Utf8(self.releasetype.clone()));
 
         // Artists
         tag.set_album_artist(format_artist_string(&self.releaseartists));
         tag.set_artist(format_artist_string(&self.trackartists));
 
-        // Remove alt. role artist tags - we encode everything in the main artist string
+        // Remove ONLY alt. role artist tags - we encode everything in the main artist string
         // so we need to clear these to avoid duplication
         tag.remove_composers(); // Removes ©wrt
-                                // For custom tags, we need to remove them by setting empty data
-        let remixer_ident = FreeformIdent::new("com.apple.iTunes", "REMIXER");
-        tag.remove_data_of(&remixer_ident);
-        let producer_ident = FreeformIdent::new("com.apple.iTunes", "PRODUCER");
-        tag.remove_data_of(&producer_ident);
-        let conductor_ident = FreeformIdent::new("com.apple.iTunes", "CONDUCTOR");
-        tag.remove_data_of(&conductor_ident);
-        let djmixer_ident = FreeformIdent::new("com.apple.iTunes", "DJMIXER");
-        tag.remove_data_of(&djmixer_ident);
+                                // For custom tags, we need to remove them
+        tag.remove_data_of(&FreeformIdent::new("com.apple.iTunes", "REMIXER"));
+        tag.remove_data_of(&FreeformIdent::new("com.apple.iTunes", "PRODUCER"));
+        tag.remove_data_of(&FreeformIdent::new("com.apple.iTunes", "CONDUCTOR"));
+        tag.remove_data_of(&FreeformIdent::new("com.apple.iTunes", "DJMIXER"));
 
-        // Track and disc numbers
+        // Track and disc numbers - preserve existing totals when possible
         if let Some(num) = &self.tracknumber {
             if let Ok(n) = num.parse::<u16>() {
                 let total = match tag.track() {
                     (_, Some(t)) => t,
-                    _ => 1,
+                    _ => self.tracktotal.map(|t| t as u16).unwrap_or(0),
                 };
                 tag.set_track(n, total);
             }
+        } else {
+            tag.remove_track();
         }
 
         if let Some(num) = &self.discnumber {
             if let Ok(n) = num.parse::<u16>() {
                 let total = match tag.disc() {
                     (_, Some(t)) => t,
-                    _ => 1,
+                    _ => self.disctotal.map(|t| t as u16).unwrap_or(0),
                 };
                 tag.set_disc(n, total);
             }
+        } else {
+            tag.remove_disc();
         }
 
         tag.write_to_path(&self.path).map_err(|e| RoseError::Generic(format!("Failed to write MP4 tags: {}", e)))?;
@@ -720,27 +763,65 @@ impl AudioTags {
 
         let comments = tag.vorbis_comments_mut();
 
-        // Clear and set all tags
-        comments.set("ROSEID", vec![self.id.clone().unwrap_or_default()]);
-        comments.set("ROSERELEASEID", vec![self.release_id.clone().unwrap_or_default()]);
-        comments.set("TITLE", vec![self.tracktitle.clone().unwrap_or_default()]);
-        comments.set("DATE", vec![self.releasedate.map(|d| d.to_string()).unwrap_or_default()]);
-        comments.set("ORIGINALDATE", vec![self.originaldate.map(|d| d.to_string()).unwrap_or_default()]);
-        comments.set("COMPOSITIONDATE", vec![self.compositiondate.map(|d| d.to_string()).unwrap_or_default()]);
-        comments.set("TRACKNUMBER", vec![self.tracknumber.clone().unwrap_or_default()]);
-        comments.set("DISCNUMBER", vec![self.discnumber.clone().unwrap_or_default()]);
-        comments.set("ALBUM", vec![self.releasetitle.clone().unwrap_or_default()]);
-        comments.set("GENRE", vec![_format_genre_tag(c, &self.genre)]);
-        comments.set("SECONDARYGENRE", vec![_format_genre_tag(c, &self.secondarygenre)]);
-        comments.set("DESCRIPTOR", vec![self.descriptor.join(";")]);
-        comments.set("LABEL", vec![self.label.join(";")]);
-        comments.set("CATALOGNUMBER", vec![self.catalognumber.clone().unwrap_or_default()]);
-        comments.set("EDITION", vec![self.edition.clone().unwrap_or_default()]);
+        // Helper to update tags without removing unrelated ones
+        let update_tag = |comments: &mut metaflac::block::VorbisComment, key: &str, value: Option<String>| {
+            if let Some(val) = value {
+                if !val.is_empty() {
+                    comments.set(key, vec![val]);
+                } else {
+                    comments.remove(key);
+                }
+            } else {
+                comments.remove(key);
+            }
+        };
+
+        // Update only the tags we manage
+        update_tag(comments, "ROSEID", self.id.clone());
+        update_tag(comments, "ROSERELEASEID", self.release_id.clone());
+        update_tag(comments, "TITLE", self.tracktitle.clone());
+        update_tag(comments, "DATE", self.releasedate.map(|d| d.to_string()));
+        update_tag(comments, "ORIGINALDATE", self.originaldate.map(|d| d.to_string()));
+        update_tag(comments, "COMPOSITIONDATE", self.compositiondate.map(|d| d.to_string()));
+        update_tag(comments, "TRACKNUMBER", self.tracknumber.clone());
+        update_tag(comments, "DISCNUMBER", self.discnumber.clone());
+        update_tag(comments, "ALBUM", self.releasetitle.clone());
+
+        let genre_str = _format_genre_tag(c, &self.genre);
+        if !genre_str.is_empty() {
+            comments.set("GENRE", vec![genre_str]);
+        } else {
+            comments.remove("GENRE");
+        }
+
+        let secondary_genre_str = _format_genre_tag(c, &self.secondarygenre);
+        if !secondary_genre_str.is_empty() {
+            comments.set("SECONDARYGENRE", vec![secondary_genre_str]);
+        } else {
+            comments.remove("SECONDARYGENRE");
+        }
+
+        let descriptor_str = self.descriptor.join(";");
+        if !descriptor_str.is_empty() {
+            comments.set("DESCRIPTOR", vec![descriptor_str]);
+        } else {
+            comments.remove("DESCRIPTOR");
+        }
+
+        let label_str = self.label.join(";");
+        if !label_str.is_empty() {
+            comments.set("LABEL", vec![label_str]);
+        } else {
+            comments.remove("LABEL");
+        }
+
+        update_tag(comments, "CATALOGNUMBER", self.catalognumber.clone());
+        update_tag(comments, "EDITION", self.edition.clone());
         comments.set("RELEASETYPE", vec![self.releasetype.clone()]);
         comments.set("ALBUMARTIST", vec![format_artist_string(&self.releaseartists)]);
         comments.set("ARTIST", vec![format_artist_string(&self.trackartists)]);
 
-        // Remove alt. role artist tags
+        // Remove ONLY alt. role artist tags (preserve all other tags)
         comments.remove("REMIXER");
         comments.remove("PRODUCER");
         comments.remove("COMPOSER");
@@ -753,11 +834,11 @@ impl AudioTags {
     }
 
     fn flush_ogg(&self, c: &Config) -> Result<()> {
+        use lofty::config::WriteOptions;
         use lofty::ogg::VorbisComments;
         use lofty::prelude::{AudioFile, TaggedFileExt};
-        use lofty::config::WriteOptions;
         use lofty::probe::Probe;
-        
+
         // Read the file
         let mut tagged_file = Probe::open(&self.path)
             .map_err(|e| RoseError::Generic(format!("Failed to open file: {}", e)))?
@@ -765,56 +846,73 @@ impl AudioTags {
             .map_err(|e| RoseError::Generic(format!("Failed to guess file type: {}", e)))?
             .read()
             .map_err(|e| RoseError::Generic(format!("Failed to read file: {}", e)))?;
-        
-        // Create a new VorbisComments object directly
-        let mut vorbis = VorbisComments::new();
-        
-        // Helper to add tags to VorbisComments
-        let add_tag = |vorbis: &mut VorbisComments, key: &str, value: Option<&str>| {
+
+        // Get the existing VorbisComments or create new one
+        let existing_tag = tagged_file.primary_tag().or_else(|| tagged_file.first_tag()).cloned();
+
+        let mut vorbis = if let Some(tag) = existing_tag {
+            // Convert existing tag to VorbisComments, preserving all existing tags
+            VorbisComments::from(tag)
+        } else {
+            VorbisComments::new()
+        };
+
+        // Helper to update tags in VorbisComments
+        let update_tag = |vorbis: &mut VorbisComments, key: &str, value: Option<&str>| {
+            // Remove existing values for this key - collect into a vec first
+            let _removed: Vec<_> = vorbis.remove(key).collect();
+
+            // Add new value if provided
             if let Some(val) = value {
                 if !val.is_empty() {
                     vorbis.insert(key.to_string(), val.to_string());
                 }
             }
         };
-        
-        // Write all tags using string keys directly
-        add_tag(&mut vorbis, "ROSEID", self.id.as_deref());
-        add_tag(&mut vorbis, "ROSERELEASEID", self.release_id.as_deref());
-        add_tag(&mut vorbis, "TITLE", self.tracktitle.as_deref());
-        add_tag(&mut vorbis, "DATE", self.releasedate.map(|d| d.to_string()).as_deref());
-        add_tag(&mut vorbis, "ORIGINALDATE", self.originaldate.map(|d| d.to_string()).as_deref());
-        add_tag(&mut vorbis, "COMPOSITIONDATE", self.compositiondate.map(|d| d.to_string()).as_deref());
-        
-        // Track/disc numbers - write simple values only (Python behavior)
-        add_tag(&mut vorbis, "TRACKNUMBER", self.tracknumber.as_deref());
-        add_tag(&mut vorbis, "DISCNUMBER", self.discnumber.as_deref());
-        
-        add_tag(&mut vorbis, "ALBUM", self.releasetitle.as_deref());
-        add_tag(&mut vorbis, "GENRE", Some(&_format_genre_tag(c, &self.genre)));
-        add_tag(&mut vorbis, "SECONDARYGENRE", Some(&_format_genre_tag(c, &self.secondarygenre)));
-        add_tag(&mut vorbis, "DESCRIPTOR", Some(&self.descriptor.join(";")));
-        add_tag(&mut vorbis, "LABEL", Some(&self.label.join(";")));
-        add_tag(&mut vorbis, "CATALOGNUMBER", self.catalognumber.as_deref());
-        add_tag(&mut vorbis, "EDITION", self.edition.as_deref());
-        add_tag(&mut vorbis, "RELEASETYPE", Some(&self.releasetype));
-        
-        // Artists - write formatted strings only (Python behavior)
-        // Note: Python deletes all role-specific artist tags and only writes the formatted strings
-        add_tag(&mut vorbis, "ALBUMARTIST", Some(&format_artist_string(&self.releaseartists)));
-        add_tag(&mut vorbis, "ARTIST", Some(&format_artist_string(&self.trackartists)));
-        
-        // Wipe the alt. role artist tags, since we encode the full artist into the main tag
-        // Python explicitly deletes these tags
-        // We don't add them to the new VorbisComments, effectively deleting them
-        
-        // Replace the existing tag with our VorbisComments
+
+        // Update only the tags we manage
+        update_tag(&mut vorbis, "ROSEID", self.id.as_deref());
+        update_tag(&mut vorbis, "ROSERELEASEID", self.release_id.as_deref());
+        update_tag(&mut vorbis, "TITLE", self.tracktitle.as_deref());
+        update_tag(&mut vorbis, "DATE", self.releasedate.map(|d| d.to_string()).as_deref());
+        update_tag(&mut vorbis, "ORIGINALDATE", self.originaldate.map(|d| d.to_string()).as_deref());
+        update_tag(&mut vorbis, "COMPOSITIONDATE", self.compositiondate.map(|d| d.to_string()).as_deref());
+        update_tag(&mut vorbis, "TRACKNUMBER", self.tracknumber.as_deref());
+        update_tag(&mut vorbis, "DISCNUMBER", self.discnumber.as_deref());
+        update_tag(&mut vorbis, "ALBUM", self.releasetitle.as_deref());
+
+        let genre_str = _format_genre_tag(c, &self.genre);
+        update_tag(&mut vorbis, "GENRE", if genre_str.is_empty() { None } else { Some(&genre_str) });
+
+        let secondary_genre_str = _format_genre_tag(c, &self.secondarygenre);
+        update_tag(&mut vorbis, "SECONDARYGENRE", if secondary_genre_str.is_empty() { None } else { Some(&secondary_genre_str) });
+
+        let descriptor_str = self.descriptor.join(";");
+        update_tag(&mut vorbis, "DESCRIPTOR", if descriptor_str.is_empty() { None } else { Some(&descriptor_str) });
+
+        let label_str = self.label.join(";");
+        update_tag(&mut vorbis, "LABEL", if label_str.is_empty() { None } else { Some(&label_str) });
+
+        update_tag(&mut vorbis, "CATALOGNUMBER", self.catalognumber.as_deref());
+        update_tag(&mut vorbis, "EDITION", self.edition.as_deref());
+        update_tag(&mut vorbis, "RELEASETYPE", Some(&self.releasetype));
+        update_tag(&mut vorbis, "ALBUMARTIST", Some(&format_artist_string(&self.releaseartists)));
+        update_tag(&mut vorbis, "ARTIST", Some(&format_artist_string(&self.trackartists)));
+
+        // Remove ONLY the alt. role artist tags (preserve all other tags)
+        let _: Vec<_> = vorbis.remove("REMIXER").collect();
+        let _: Vec<_> = vorbis.remove("PRODUCER").collect();
+        let _: Vec<_> = vorbis.remove("COMPOSER").collect();
+        let _: Vec<_> = vorbis.remove("CONDUCTOR").collect();
+        let _: Vec<_> = vorbis.remove("DJMIXER").collect();
+
+        // Clear all existing tags and insert our updated VorbisComments
+        tagged_file.clear();
         tagged_file.insert_tag(vorbis.into());
-        
+
         // Save the file
-        tagged_file.save_to_path(&self.path, WriteOptions::default())
-            .map_err(|e| RoseError::Generic(format!("Failed to write OGG tags: {}", e)))?;
-        
+        tagged_file.save_to_path(&self.path, WriteOptions::default()).map_err(|e| RoseError::Generic(format!("Failed to write OGG tags: {}", e)))?;
+
         Ok(())
     }
 }
@@ -901,8 +999,8 @@ fn _get_id3_tag(tag: &Id3Tag, keys: &[&str], split: bool, first: bool) -> Option
 
 fn _get_mp4_tag(tag: &Mp4Tag, key: &str) -> Option<String> {
     // Handle custom tags
-    if key.starts_with("----:") {
-        let parts: Vec<&str> = key[5..].splitn(2, ':').collect();
+    if let Some(stripped) = key.strip_prefix("----:") {
+        let parts: Vec<&str> = stripped.splitn(2, ':').collect();
         if parts.len() == 2 {
             let ident = FreeformIdent::new(parts[0], parts[1]);
 
@@ -1243,7 +1341,6 @@ mod tests {
             assert_eq!(af.duration_sec, case.duration);
         }
     }
-
 
     #[test]
     fn test_flush() {
