@@ -13,8 +13,6 @@ use mp4ameta::{Data, FreeformIdent, Tag as Mp4Tag};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 
 static TAG_SPLITTER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r" \\\\ | / |; ?| vs\. ").unwrap());
@@ -339,93 +337,123 @@ impl AudioTags {
     }
 
     fn from_ogg(p: &Path) -> Result<AudioTags> {
-        use ogg::PacketReader;
-        use std::io::{BufReader, Cursor};
-
-        let file = File::open(p).map_err(|e| RoseExpectedError::Generic(format!("Failed to open file: {}", e)))?;
-
-        let mut packet_reader = PacketReader::new(BufReader::new(file));
-
-        // Read the first packet to determine format and get comments
-        let first_packet = packet_reader
-            .read_packet()
-            .map_err(|e| RoseExpectedError::Generic(format!("Failed to read OGG packet: {}", e)))?
-            .ok_or_else(|| RoseExpectedError::Generic("No packets in OGG file".to_string()))?;
-
-        let is_opus = first_packet.data.starts_with(b"OpusHead");
-
-        // Skip to comment packet
-        let comment_packet = packet_reader
-            .read_packet()
-            .map_err(|e| RoseExpectedError::Generic(format!("Failed to read comment packet: {}", e)))?
-            .ok_or_else(|| RoseExpectedError::Generic("No comment packet in OGG file".to_string()))?;
-
-        // Parse Vorbis comments manually
-        let mut cursor = Cursor::new(&comment_packet.data);
-
-        // Skip the packet type and signature
-        let skip_bytes = if is_opus { 8 } else { 7 }; // OpusTags vs vorbis comment header
-        cursor.set_position(skip_bytes);
-
-        // Read vendor string length and skip it
-        let mut vendor_len_bytes = [0u8; 4];
-        cursor.read_exact(&mut vendor_len_bytes).map_err(|e| RoseExpectedError::Generic(format!("Failed to read vendor length: {}", e)))?;
-        let vendor_len = u32::from_le_bytes(vendor_len_bytes) as u64;
-        cursor.set_position(cursor.position() + vendor_len);
-
-        // Read number of comments
-        let mut num_comments_bytes = [0u8; 4];
-        cursor.read_exact(&mut num_comments_bytes).map_err(|e| RoseExpectedError::Generic(format!("Failed to read comment count: {}", e)))?;
-        let num_comments = u32::from_le_bytes(num_comments_bytes);
-
-        // Read all comments
-        let mut comment_map: HashMap<String, Vec<String>> = HashMap::new();
-        for _ in 0..num_comments {
-            let mut len_bytes = [0u8; 4];
-            cursor.read_exact(&mut len_bytes).map_err(|e| RoseExpectedError::Generic(format!("Failed to read comment length: {}", e)))?;
-            let len = u32::from_le_bytes(len_bytes) as usize;
-
-            let mut comment_bytes = vec![0u8; len];
-            cursor.read_exact(&mut comment_bytes).map_err(|e| RoseExpectedError::Generic(format!("Failed to read comment: {}", e)))?;
-
-            let comment = String::from_utf8_lossy(&comment_bytes);
-            if let Some((key, value)) = comment.split_once('=') {
-                comment_map.entry(key.to_uppercase()).or_default().push(value.to_string());
+        use lofty::prelude::{AudioFile, TaggedFileExt, ItemKey};
+        use lofty::probe::Probe;
+        use lofty::tag::TagType;
+        
+        // Use lofty for OGG/Opus files
+        let tagged_file = Probe::open(p)
+            .map_err(|e| RoseExpectedError::Generic(format!("Failed to open file: {}", e)))?
+            .guess_file_type()
+            .map_err(|e| RoseExpectedError::Generic(format!("Failed to guess file type: {}", e)))?
+            .read()
+            .map_err(|e| RoseExpectedError::Generic(format!("Failed to read file: {}", e)))?;
+            
+        let tag = tagged_file.primary_tag()
+            .or_else(|| tagged_file.first_tag())
+            .ok_or_else(|| RoseExpectedError::Generic("No tags found in OGG file".to_string()))?;
+            
+        // Get duration
+        let duration_sec = tagged_file.properties().duration().as_secs() as i32;
+        
+        // Helper to get a single vorbis comment
+        let get_vorbis_item = |keys: &[&str]| -> Option<String> {
+            for key in keys {
+                // Try standard key first
+                if let Some(item) = tag.get(&ItemKey::from_key(TagType::VorbisComments, key)) {
+                    if let Some(text) = item.value().text() {
+                        return Some(text.to_string());
+                    }
+                }
+                // Then try unknown key
+                for item in tag.items() {
+                    if let ItemKey::Unknown(k) = item.key() {
+                        if k.eq_ignore_ascii_case(key) {
+                            if let Some(text) = item.value().text() {
+                                return Some(text.to_string());
+                            }
+                        }
+                    }
+                }
             }
-        }
-
-        // Calculate duration - this is approximate for OGG files
-        // For a more accurate duration, we'd need to parse all packets
-        let duration_sec = 0; // TODO: Implement proper duration calculation
-
+            None
+        };
+        
+        // Helper to get all values for a vorbis comment (handles multi-value fields)
+        let get_vorbis_items = |keys: &[&str]| -> Vec<String> {
+            let mut values = Vec::new();
+            for key in keys {
+                // Collect all matching items
+                for item in tag.items() {
+                    let matches = if let ItemKey::Unknown(k) = item.key() {
+                        k.eq_ignore_ascii_case(key)
+                    } else {
+                        item.key() == &ItemKey::from_key(TagType::VorbisComments, key)
+                    };
+                    
+                    if matches {
+                        if let Some(text) = item.value().text() {
+                            values.push(text.to_string());
+                        }
+                    }
+                }
+            }
+            values
+        };
+        
+        
+        // Build AudioTags from vorbis comments
         Ok(AudioTags {
-            id: _get_vorbis_map(&comment_map, &["ROSEID"], false, false),
-            release_id: _get_vorbis_map(&comment_map, &["ROSERELEASEID"], false, false),
-            tracktitle: _get_vorbis_map(&comment_map, &["TITLE"], false, false),
-            releasedate: RoseDate::parse(_get_vorbis_map(&comment_map, &["DATE", "YEAR"], false, false).as_deref()),
-            originaldate: RoseDate::parse(_get_vorbis_map(&comment_map, &["ORIGINALDATE", "ORIGINALYEAR"], false, false).as_deref()),
-            compositiondate: RoseDate::parse(_get_vorbis_map(&comment_map, &["COMPOSITIONDATE"], false, false).as_deref()),
-            tracknumber: _get_vorbis_map(&comment_map, &["TRACKNUMBER"], false, true),
-            tracktotal: _parse_int(_get_vorbis_map(&comment_map, &["TRACKTOTAL"], false, true).as_deref()),
-            discnumber: _get_vorbis_map(&comment_map, &["DISCNUMBER"], false, true),
-            disctotal: _parse_int(_get_vorbis_map(&comment_map, &["DISCTOTAL"], false, true).as_deref()),
-            releasetitle: _get_vorbis_map(&comment_map, &["ALBUM"], false, false),
-            genre: _split_genre_tag(_get_vorbis_map(&comment_map, &["GENRE"], true, false).as_deref()),
-            secondarygenre: _split_genre_tag(_get_vorbis_map(&comment_map, &["SECONDARYGENRE"], true, false).as_deref()),
-            descriptor: _split_tag(_get_vorbis_map(&comment_map, &["DESCRIPTOR"], true, false).as_deref()),
-            label: _split_tag(_get_vorbis_map(&comment_map, &["LABEL", "ORGANIZATION", "RECORDLABEL"], true, false).as_deref()),
-            catalognumber: _get_vorbis_map(&comment_map, &["CATALOGNUMBER"], false, false),
-            edition: _get_vorbis_map(&comment_map, &["EDITION"], false, false),
-            releasetype: _normalize_rtype(_get_vorbis_map(&comment_map, &["RELEASETYPE"], false, true).as_deref()),
-            releaseartists: parse_artist_string(_get_vorbis_map(&comment_map, &["ALBUMARTIST"], true, false).as_deref(), None, None, None, None, None),
-            trackartists: parse_artist_string(
-                _get_vorbis_map(&comment_map, &["ARTIST"], true, false).as_deref(),
-                _get_vorbis_map(&comment_map, &["REMIXER"], true, false).as_deref(),
-                _get_vorbis_map(&comment_map, &["COMPOSER"], true, false).as_deref(),
-                _get_vorbis_map(&comment_map, &["CONDUCTOR"], true, false).as_deref(),
-                _get_vorbis_map(&comment_map, &["PRODUCER"], true, false).as_deref(),
-                _get_vorbis_map(&comment_map, &["DJMIXER"], true, false).as_deref(),
-            ),
+            id: get_vorbis_item(&["ROSEID"]),
+            release_id: get_vorbis_item(&["ROSERELEASEID"]),
+            tracktitle: get_vorbis_item(&["TITLE"]),
+            releasedate: RoseDate::parse(get_vorbis_item(&["DATE", "YEAR"]).as_deref()),
+            originaldate: RoseDate::parse(get_vorbis_item(&["ORIGINALDATE", "ORIGINALYEAR"]).as_deref()),
+            compositiondate: RoseDate::parse(get_vorbis_item(&["COMPOSITIONDATE"]).as_deref()),
+            tracknumber: get_vorbis_item(&["TRACKNUMBER"]),
+            tracktotal: _parse_int(get_vorbis_item(&["TRACKTOTAL"]).as_deref()),
+            discnumber: get_vorbis_item(&["DISCNUMBER"]),
+            disctotal: _parse_int(get_vorbis_item(&["DISCTOTAL"]).as_deref()),
+            releasetitle: get_vorbis_item(&["ALBUM"]),
+            genre: {
+                let values = get_vorbis_items(&["GENRE"]).join(";");
+                _split_genre_tag(if values.is_empty() { None } else { Some(&values) })
+            },
+            secondarygenre: {
+                let values = get_vorbis_items(&["SECONDARYGENRE"]).join(";");
+                _split_genre_tag(if values.is_empty() { None } else { Some(&values) })
+            },
+            descriptor: {
+                let values = get_vorbis_items(&["DESCRIPTOR"]).join(";");
+                _split_tag(if values.is_empty() { None } else { Some(&values) })
+            },
+            label: {
+                let values = get_vorbis_items(&["LABEL", "ORGANIZATION", "RECORDLABEL"]).join(";");
+                uniq(_split_tag(if values.is_empty() { None } else { Some(&values) }))
+            },
+            catalognumber: get_vorbis_item(&["CATALOGNUMBER"]),
+            edition: get_vorbis_item(&["EDITION"]),
+            releasetype: _normalize_rtype(get_vorbis_item(&["RELEASETYPE"]).as_deref()),
+            releaseartists: {
+                let values = get_vorbis_items(&["ALBUMARTIST"]).join(";");
+                parse_artist_string(if values.is_empty() { None } else { Some(&values) }, None, None, None, None, None)
+            },
+            trackartists: {
+                let artist = get_vorbis_items(&["ARTIST"]).join(";");
+                let remixer = get_vorbis_items(&["REMIXER"]).join(";");
+                let composer = get_vorbis_items(&["COMPOSER"]).join(";");
+                let conductor = get_vorbis_items(&["CONDUCTOR"]).join(";");
+                let producer = get_vorbis_items(&["PRODUCER"]).join(";");
+                let djmixer = get_vorbis_items(&["DJMIXER"]).join(";");
+                parse_artist_string(
+                    if artist.is_empty() { None } else { Some(&artist) },
+                    if remixer.is_empty() { None } else { Some(&remixer) },
+                    if composer.is_empty() { None } else { Some(&composer) },
+                    if conductor.is_empty() { None } else { Some(&conductor) },
+                    if producer.is_empty() { None } else { Some(&producer) },
+                    if djmixer.is_empty() { None } else { Some(&djmixer) },
+                )
+            },
             duration_sec,
             path: p.to_path_buf(),
         })
@@ -669,10 +697,122 @@ impl AudioTags {
         Ok(())
     }
 
-    fn flush_ogg(&self, _c: &Config) -> Result<()> {
-        // This is complex because we need to preserve the audio data while replacing comments
-        // For now, return an error indicating OGG writing is not implemented
-        Err(RoseError::Generic("OGG/Opus tag writing not yet implemented".to_string()))
+    fn flush_ogg(&self, c: &Config) -> Result<()> {
+        use lofty::prelude::{AudioFile, TaggedFileExt, ItemKey, TagExt};
+        use lofty::tag::{TagItem, ItemValue};
+        use lofty::config::WriteOptions;
+        use lofty::probe::Probe;
+        use lofty::tag::TagType;
+        
+        // Read the file
+        let mut tagged_file = Probe::open(&self.path)
+            .map_err(|e| RoseError::Generic(format!("Failed to open file: {}", e)))?
+            .guess_file_type()
+            .map_err(|e| RoseError::Generic(format!("Failed to guess file type: {}", e)))?
+            .read()
+            .map_err(|e| RoseError::Generic(format!("Failed to read file: {}", e)))?;
+            
+        
+        // Get or create vorbis comments tag - force VorbisComments for OGG files
+        let tag = match tagged_file.tag_mut(TagType::VorbisComments) {
+            Some(tag) => tag,
+            None => {
+                // If no Vorbis tag exists, we might need to create one differently
+                return Err(RoseError::Generic("Failed to get or create vorbis comments tag".to_string()));
+            }
+        };
+            
+        // Clear all existing items to ensure clean state
+        tag.clear();
+        
+        // Use the Accessor trait for standard fields
+        use lofty::prelude::Accessor;
+        
+        // Helper to add custom tags using standard ItemKeys
+        let add_custom_tag = |tag: &mut lofty::tag::Tag, key: &str, value: Option<&str>| {
+            if let Some(val) = value {
+                if !val.is_empty() {
+                    // Map to standard keys where possible
+                    let item_key = match key {
+                        "ARTIST" => ItemKey::TrackArtist,
+                        "ALBUMARTIST" => ItemKey::AlbumArtist,
+                        "ALBUM" => ItemKey::AlbumTitle,
+                        "TITLE" => ItemKey::TrackTitle,
+                        "DATE" => ItemKey::RecordingDate,
+                        "ORIGINALDATE" => ItemKey::OriginalReleaseDate,
+                        "TRACKNUMBER" => ItemKey::TrackNumber,
+                        "TRACKTOTAL" => ItemKey::TrackTotal,
+                        "DISCNUMBER" => ItemKey::DiscNumber,
+                        "DISCTOTAL" => ItemKey::DiscTotal,
+                        "GENRE" => ItemKey::Genre,
+                        "COMMENT" => ItemKey::Comment,
+                        "COMPOSER" => ItemKey::Composer,
+                        "CONDUCTOR" => ItemKey::Conductor,
+                        "REMIXER" => ItemKey::Remixer,
+                        "PRODUCER" => ItemKey::Producer,
+                        "DJMIXER" => ItemKey::MixDj,
+                        "LABEL" => ItemKey::Label,
+                        "CATALOGNUMBER" => ItemKey::CatalogNumber,
+                        "ENCODERSOFTWARE" => ItemKey::EncoderSoftware,
+                        _ => ItemKey::Unknown(key.to_string()),
+                    };
+                    tag.insert(TagItem::new(item_key, ItemValue::Text(val.to_string())));
+                }
+            }
+        };
+        
+        // Write all tags
+        add_custom_tag(tag, "ROSEID", self.id.as_deref());
+        add_custom_tag(tag, "ROSERELEASEID", self.release_id.as_deref());
+        add_custom_tag(tag, "TITLE", self.tracktitle.as_deref());
+        add_custom_tag(tag, "DATE", self.releasedate.map(|d| d.to_string()).as_deref());
+        add_custom_tag(tag, "ORIGINALDATE", self.originaldate.map(|d| d.to_string()).as_deref());
+        add_custom_tag(tag, "COMPOSITIONDATE", self.compositiondate.map(|d| d.to_string()).as_deref());
+        
+        // Track/disc numbers with totals
+        if let Some(ref num) = self.tracknumber {
+            if let Some(total) = self.tracktotal {
+                add_custom_tag(tag, "TRACKNUMBER", Some(&format!("{}/{}", num, total)));
+            } else {
+                add_custom_tag(tag, "TRACKNUMBER", Some(num));
+            }
+        }
+        if let Some(ref num) = self.discnumber {
+            if let Some(total) = self.disctotal {
+                add_custom_tag(tag, "DISCNUMBER", Some(&format!("{}/{}", num, total)));
+            } else {
+                add_custom_tag(tag, "DISCNUMBER", Some(num));
+            }
+        }
+        
+        add_custom_tag(tag, "ALBUM", self.releasetitle.as_deref());
+        add_custom_tag(tag, "GENRE", Some(&_format_genre_tag(c, &self.genre)));
+        add_custom_tag(tag, "SECONDARYGENRE", Some(&_format_genre_tag(c, &self.secondarygenre)));
+        add_custom_tag(tag, "DESCRIPTOR", Some(&self.descriptor.join(";")));
+        add_custom_tag(tag, "LABEL", Some(&self.label.join(";")));
+        add_custom_tag(tag, "CATALOGNUMBER", self.catalognumber.as_deref());
+        add_custom_tag(tag, "EDITION", self.edition.as_deref());
+        add_custom_tag(tag, "RELEASETYPE", Some(&self.releasetype));
+        
+        // Release artists
+        let release_artists_str = _format_artist_vec(&self.releaseartists.main, "main");
+        add_custom_tag(tag, "ALBUMARTIST", Some(&release_artists_str));
+        
+        // Track artists - handle each role separately
+        let track_artists_str = _format_artist_vec(&self.trackartists.main, "main");
+        add_custom_tag(tag, "ARTIST", Some(&track_artists_str));
+        add_custom_tag(tag, "REMIXER", Some(&_format_artist_vec(&self.trackartists.remixer, "remixer")));
+        add_custom_tag(tag, "COMPOSER", Some(&_format_artist_vec(&self.trackartists.composer, "composer")));
+        add_custom_tag(tag, "CONDUCTOR", Some(&_format_artist_vec(&self.trackartists.conductor, "conductor")));
+        add_custom_tag(tag, "PRODUCER", Some(&_format_artist_vec(&self.trackartists.producer, "producer")));
+        add_custom_tag(tag, "DJMIXER", Some(&_format_artist_vec(&self.trackartists.djmixer, "djmixer")));
+        
+        
+        // Save the file
+        tagged_file.save_to_path(&self.path, WriteOptions::default())
+            .map_err(|e| RoseError::Generic(format!("Failed to write OGG tags: {}", e)))?;
+        
+        Ok(())
     }
 }
 
@@ -930,6 +1070,10 @@ pub fn parse_artist_string(
     }
 }
 
+fn _format_artist_vec(artists: &[Artist], _role: &str) -> String {
+    artists.iter().map(|a| a.name.clone()).collect::<Vec<_>>().join(";")
+}
+
 pub fn format_artist_string(mapping: &ArtistMapping) -> String {
     let format_role = |xs: &[Artist]| -> String { xs.iter().filter(|x| !x.alias).map(|x| x.name.clone()).collect::<Vec<_>>().join(";") };
 
@@ -1178,11 +1322,7 @@ mod tests {
             assert_eq!(af.edition, Some("Japan".to_string()));
 
             // Note: Different tag formats have different limitations
-            if case.filename == "track2.m4a" {
-                assert_eq!(af.releaseartists.main, vec![Artist::new("Artist A")]);
-            } else {
-                assert_eq!(af.releaseartists.main, vec![Artist::new("Artist A"), Artist::new("Artist B")]);
-            }
+            assert_eq!(af.releaseartists.main, vec![Artist::new("Artist A"), Artist::new("Artist B")]);
 
             assert_eq!(af.tracknumber, Some(case.track_num.to_string()));
             assert_eq!(af.discnumber, Some("1".to_string()));
@@ -1225,7 +1365,6 @@ mod tests {
         if let Some(genre_values) = vorbis.get("GENRE") {
             assert_eq!(genre_values[0], "Electronic;House\\\\PARENTS:\\\\Dance;Electronic Dance Music");
         }
-
         if let Some(secondary_values) = vorbis.get("SECONDARYGENRE") {
             assert_eq!(secondary_values[0], "Minimal;Ambient");
         }

@@ -28,6 +28,7 @@ metaflac = "0.2"
 ogg = "0.9"
 opus_headers = "0.1"
 mp3-duration = "0.1"
+lofty = "0.22"
 rusqlite = { version = "0.32", features = ["bundled", "chrono", "functions"] }
 rayon = "1.10"
 num_cpus = "1.16"

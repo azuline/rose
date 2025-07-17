@@ -22,7 +22,7 @@ Our approach is a test driven development approach. We want to port over all the
    - ✅ Custom Rose ID tags (ROSEID, ROSERELEASEID)
    - ✅ Parent genre tracking
    - ✅ All tests passing (8/8)
-   - ⚠️ OGG/Opus writing not yet implemented
+   - ⚠️ OGG/Opus writing partially implemented (lofty limitation: custom tags not saved)
 
 ### ⚠️ Partially Completed (Limited Feature Parity)
 
