@@ -909,6 +909,7 @@ fn _update_cache_for_releases_executor(
     let mut upd_release_descriptor_args = Vec::new();
     let mut upd_release_label_args = Vec::new();
     let mut upd_unknown_cached_tracks_args = Vec::new();
+    let mut upd_track_path_changes = Vec::new();
     let mut upd_track_args = Vec::new();
     let mut upd_track_ids = Vec::new();
     let mut upd_track_artist_args = Vec::new();
@@ -1167,15 +1168,15 @@ fn _update_cache_for_releases_executor(
                     // Build track data
                     let track_id = if tags.id.is_none() || tags.release_id.as_ref() != Some(&release.id) {
                         // This is our first time reading this track or the release ID doesn't match.
-                        // Generate a new ID and write it to the tags.
-                        let new_track_id = Uuid::now_v7().to_string();
+                        // Use existing track ID if present, otherwise generate a new one
+                        let new_track_id = tags.id.clone().unwrap_or_else(|| Uuid::now_v7().to_string());
                         tags.id = Some(new_track_id.clone());
                         tags.release_id = Some(release.id.clone());
 
                         // Write the IDs to the file
                         match tags.flush(c, false) {
                             Ok(_) => {
-                                debug!("wrote track and release IDs to {}", f.display());
+                                debug!("wrote track and release IDs to {}: track_id={}, release_id={}", f.display(), new_track_id, release.id);
                                 // Refresh the mtime since we just wrote to the file
                                 track_mtime = fs::metadata(f)?.modified()?.duration_since(UNIX_EPOCH)?.as_secs().to_string();
                             }
@@ -1223,7 +1224,7 @@ fn _update_cache_for_releases_executor(
                             // In the real implementation, this should be a hash of the track metadata
                             format!("track_metahash_{}", track_id)
                         ]);
-                        upd_track_ids.push(track_id.clone());
+                    upd_track_ids.push(track_id.clone());
 
                         // Add track artists
                         let mut artist_pos = 0;
@@ -1267,7 +1268,12 @@ fn _update_cache_for_releases_executor(
         // Check for tracks that no longer exist on disk
         if !unknown_cached_tracks.is_empty() {
             debug!("deleting {} unknown tracks from cache", unknown_cached_tracks.len());
-            upd_unknown_cached_tracks_args.push((release.id.clone(), unknown_cached_tracks.into_iter().collect()));
+            // Get track IDs for the unknown tracks
+            let track_ids_to_delete: Vec<String> = unknown_cached_tracks
+                .iter()
+                .filter_map(|path| cached_tracks.get(path).map(|track| track.id.clone()))
+                .collect();
+            upd_unknown_cached_tracks_args.push((release.id.clone(), track_ids_to_delete));
         }
 
         // Update disc total
@@ -1345,10 +1351,10 @@ fn _update_cache_for_releases_executor(
                 }
 
                 // We'll need to update track paths in the database
-                for track_path in cached_tracks.keys() {
+                for (track_path, track) in &cached_tracks {
                     if let Ok(relative) = Path::new(track_path).strip_prefix(&old_source_path) {
                         let new_track_path = source_path.join(relative);
-                        upd_unknown_cached_tracks_args.push((track_path.clone(), vec![new_track_path.to_string_lossy().to_string()]));
+                        upd_track_path_changes.push((track.id.clone(), new_track_path.to_string_lossy().to_string()));
                     }
                 }
 
@@ -1397,12 +1403,17 @@ fn _update_cache_for_releases_executor(
                 };
 
                 let current_filename = track_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
-
-                if wanted_filename != current_filename {
-                    let new_track_path = track_path.with_file_name(&wanted_filename);
-
+                
+                // Calculate the wanted path at the release root directory
+                let wanted_path = release.source_path.join(&wanted_filename);
+                
+                // Check if we need to rename or move the file
+                let needs_move = track_path.parent() != Some(&release.source_path);
+                let needs_rename = current_filename != wanted_filename;
+                
+                if needs_move || needs_rename {
                     // Handle collisions
-                    let mut final_track_path = new_track_path.clone();
+                    let mut final_track_path = wanted_path.clone();
                     let mut collision_no = 2;
                     while final_track_path.exists() && final_track_path != track_path {
                         // Calculate space needed for collision suffix " [N]" plus extension
@@ -1426,13 +1437,31 @@ fn _update_cache_for_releases_executor(
                             format!("{}{}.{}", truncated_stem, collision_suffix, extension)
                         };
                         
-                        final_track_path = track_path.with_file_name(collision_filename);
+                        final_track_path = release.source_path.join(collision_filename);
                         collision_no += 1;
                     }
 
                     if final_track_path != track_path {
-                        fs::rename(track_path, &final_track_path)?;
-                        info!("renamed track file {} to {}", current_filename, final_track_path.file_name().unwrap_or_default().to_string_lossy());
+                        fs::rename(&track_path, &final_track_path)?;
+                        info!("renamed/moved track file {} to {}", track_path.display(), final_track_path.display());
+
+                        // Clean up empty parent directories if the file was moved out of a subdirectory
+                        if needs_move {
+                            let mut parent = track_path.parent();
+                            while let Some(dir) = parent {
+                                if dir == release.source_path {
+                                    break;
+                                }
+                                // Check if directory is empty
+                                if fs::read_dir(dir)?.next().is_none() {
+                                    fs::remove_dir(dir)?;
+                                    debug!("removed empty directory {}", dir.display());
+                                } else {
+                                    break; // Directory not empty, stop cleanup
+                                }
+                                parent = dir.parent();
+                            }
+                        }
 
                         // Update the track path in the arguments
                         track_args[1] = final_track_path.to_string_lossy().to_string();
@@ -1528,6 +1557,7 @@ fn _update_cache_for_releases_executor(
             upd_release_descriptor_args,
             upd_release_label_args,
             upd_unknown_cached_tracks_args,
+            upd_track_path_changes,
             upd_track_args,
             upd_track_ids,
             upd_track_artist_args,
@@ -1619,6 +1649,7 @@ fn execute_cache_updates(
     upd_release_descriptor_args: Vec<Vec<String>>,
     upd_release_label_args: Vec<Vec<String>>,
     upd_unknown_cached_tracks_args: Vec<(String, Vec<String>)>,
+    upd_track_path_changes: Vec<(String, String)>,
     upd_track_args: Vec<Vec<String>>,
     upd_track_ids: Vec<String>,
     upd_track_artist_args: Vec<Vec<String>>,
@@ -1744,6 +1775,14 @@ fn execute_cache_updates(
             let placeholders = vec!["?"; track_ids_to_delete.len()].join(",");
             tx.execute(&format!("DELETE FROM tracks WHERE id IN ({})", placeholders), rusqlite::params_from_iter(&track_ids_to_delete))?;
         }
+    }
+
+    // Update track paths for renamed directories
+    for (track_id, new_path) in upd_track_path_changes {
+        tx.execute(
+            "UPDATE tracks SET source_path = ?1 WHERE id = ?2",
+            params![&new_path, &track_id],
+        )?;
     }
 
     // Insert/update tracks
@@ -1902,6 +1941,55 @@ fn execute_cache_updates(
     }
 
     tx.commit()?;
+    
+    // After committing, find collages and playlists that need to be updated
+    let mut update_collages = Vec::new();
+    let mut update_playlists = Vec::new();
+    
+    if !upd_release_ids.is_empty() {
+        // Find collages that contain the updated releases
+        let conn = connect(c)?;
+        let placeholders = vec!["?"; upd_release_ids.len()].join(",");
+        let query = format!(
+            "SELECT DISTINCT cr.collage_name
+             FROM collages_releases cr
+             WHERE cr.release_id IN ({})
+             ORDER BY cr.collage_name",
+            placeholders
+        );
+        let mut stmt = conn.prepare(&query)?;
+        let collages = stmt.query_map(rusqlite::params_from_iter(&upd_release_ids), |row| row.get::<_, String>(0))?;
+        for collage in collages {
+            update_collages.push(collage?);
+        }
+    }
+    
+    if !upd_track_ids.is_empty() {
+        // Find playlists that contain the updated tracks
+        let conn = connect(c)?;
+        let placeholders = vec!["?"; upd_track_ids.len()].join(",");
+        let query = format!(
+            "SELECT DISTINCT pt.playlist_name
+             FROM playlists_tracks pt
+             WHERE pt.track_id IN ({})
+             ORDER BY pt.playlist_name",
+            placeholders
+        );
+        let mut stmt = conn.prepare(&query)?;
+        let playlists = stmt.query_map(rusqlite::params_from_iter(&upd_track_ids), |row| row.get::<_, String>(0))?;
+        for playlist in playlists {
+            update_playlists.push(playlist?);
+        }
+    }
+    
+    // Update the affected collages and playlists with force=true
+    if !update_collages.is_empty() {
+        update_cache_for_collages(c, Some(update_collages), true)?;
+    }
+    if !update_playlists.is_empty() {
+        update_cache_for_playlists(c, Some(update_playlists), true)?;
+    }
+    
     Ok(())
 }
 
@@ -2138,8 +2226,9 @@ pub fn update_cache_for_collages(c: &Config, collage_names: Option<Vec<String>>,
                 let title: String = row.get("releasetitle")?;
                 let original_date: Option<String> = row.get("originaldate")?;
                 let release_date: Option<String> = row.get("releasedate")?;
-                let date = RoseDate::parse(original_date.as_deref().or(release_date.as_deref()));
-                let date_str = date.map(|d| d.to_string()).unwrap_or_else(|| "[0000-00-00]".to_string());
+                let date_str_to_parse = original_date.as_deref().filter(|s| !s.is_empty()).or(release_date.as_deref().filter(|s| !s.is_empty()));
+                let date = RoseDate::parse(date_str_to_parse);
+                let date_str = date.map(|d| format!("[{}]", d)).unwrap_or_else(|| "[0000-00-00]".to_string());
                 
                 let artist_names: String = row.get("releaseartist_names")?;
                 let artist_roles: String = row.get("releaseartist_roles")?;
@@ -2462,8 +2551,9 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
                 let original_date: Option<String> = row.get(4)?;
                 let release_date: Option<String> = row.get(5)?;
                 
-                let date = RoseDate::parse(original_date.as_deref().or(release_date.as_deref()));
-                let date_str = date.map(|d| d.to_string()).unwrap_or_else(|| "[0000-00-00]".to_string());
+                let date_str_to_parse = original_date.as_deref().filter(|s| !s.is_empty()).or(release_date.as_deref().filter(|s| !s.is_empty()));
+                let date = RoseDate::parse(date_str_to_parse);
+                let date_str = date.map(|d| format!("[{}]", d)).unwrap_or_else(|| "[0000-00-00]".to_string());
                 
                 let artists = _unpack_artists(&c, &artist_names, &artist_roles, false);
                 let artist_str = crate::audiotags::format_artist_string(&artists);
@@ -4548,14 +4638,11 @@ mod tests {
         {
             let conn = connect(&config).unwrap();
             // First just execute these queries to verify they work
-            conn.execute(
-                "SELECT rowid, * FROM rules_engine_fts",
-                [],
-            ).unwrap();
-            conn.execute(
-                "SELECT rowid, * FROM tracks",
-                [],
-            ).unwrap();
+            let mut stmt = conn.prepare("SELECT rowid, * FROM rules_engine_fts").unwrap();
+            let _rows = stmt.query([]).unwrap();
+            
+            let mut stmt = conn.prepare("SELECT rowid, * FROM tracks").unwrap();
+            let _rows = stmt.query([]).unwrap();
         }
         
         {
@@ -4926,7 +5013,7 @@ mod tests {
         let cfg = std::fs::read_to_string(&cpath).unwrap();
         assert_eq!(
             cfg,
-            "releases = [\n    { uuid = \"ilovecarly\", description_meta = \"[1990-02-05] Carly Rae Jepsen - I Love Carly\" },\n    { uuid = \"ilovenewjeans\", description_meta = \"[1990-02-05] NewJeans - I Love NewJeans\" },\n]\n"
+            "[[releases]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - I Love Carly\"\nuuid = \"ilovecarly\"\n\n[[releases]]\ndescription_meta = \"[1990-02-05] NewJeans - I Love NewJeans\"\nuuid = \"ilovenewjeans\"\n"
         );
         
         // Now prep for the second update. Reset the TOML to have garbage again, and update the database
@@ -4943,7 +5030,7 @@ mod tests {
         let cfg = std::fs::read_to_string(&cpath).unwrap();
         assert_eq!(
             cfg,
-            "releases = [\n    { uuid = \"ilovecarly\", description_meta = \"[1990-02-05] Carly Rae Jepsen - I Love Carly\" },\n    { uuid = \"ilovenewjeans\", description_meta = \"[1990-02-05] NewJeans - I Love NewJeans\" },\n]\n"
+            "[[releases]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - I Love Carly\"\nuuid = \"ilovecarly\"\n\n[[releases]]\ndescription_meta = \"[1990-02-05] NewJeans - I Love NewJeans\"\nuuid = \"ilovenewjeans\"\n"
         );
     }
 
@@ -4969,7 +5056,7 @@ mod tests {
         let cfg = std::fs::read_to_string(&cpath).unwrap();
         assert_eq!(
             cfg,
-            "releases = [\n    { uuid = \"ilovecarly\", description_meta = \"[1990-02-05] Carly Rae Jepsen - I Love Carly\" },\n    { uuid = \"ilovenewjeans\", description_meta = \"[1990-02-05] NewJeans - I Love NewJeans\" },\n]\n"
+            "[[releases]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - I Love Carly\"\nuuid = \"ilovecarly\"\n\n[[releases]]\ndescription_meta = \"[1990-02-05] NewJeans - I Love NewJeans\"\nuuid = \"ilovenewjeans\"\n"
         );
         
         // Now prep for the second update. Reset the TOML to have garbage again, and update the database
@@ -4986,7 +5073,7 @@ mod tests {
         let cfg = std::fs::read_to_string(&cpath).unwrap();
         assert_eq!(
             cfg,
-            "releases = [\n    { uuid = \"ilovecarly\", description_meta = \"[1990-02-05] Carly Rae Jepsen - I Love Carly\" },\n    { uuid = \"ilovenewjeans\", description_meta = \"[1990-02-05] NewJeans - I Love NewJeans\" },\n]\n"
+            "[[releases]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - I Love Carly\"\nuuid = \"ilovecarly\"\n\n[[releases]]\ndescription_meta = \"[1990-02-05] NewJeans - I Love NewJeans\"\nuuid = \"ilovenewjeans\"\n"
         );
     }
 
@@ -5004,7 +5091,7 @@ mod tests {
         let cfg = std::fs::read_to_string(&ppath).unwrap();
         assert_eq!(
             cfg,
-            "tracks = [\n    { uuid = \"iloveloona\", description_meta = \"[1990-02-05] Carly Rae Jepsen - Track 1\" },\n    { uuid = \"ilovetwice\", description_meta = \"[1990-02-05] Carly Rae Jepsen - Track 2\" },\n]\n"
+            "[[tracks]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - Track 1\"\nuuid = \"iloveloona\"\n\n[[tracks]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - Track 2\"\nuuid = \"ilovetwice\"\n"
         );
         
         // Now prep for the second update. Reset the TOML to have garbage again, and update the database
@@ -5020,7 +5107,7 @@ mod tests {
         let cfg = std::fs::read_to_string(&ppath).unwrap();
         assert_eq!(
             cfg,
-            "tracks = [\n    { uuid = \"iloveloona\", description_meta = \"[1990-02-05] Carly Rae Jepsen - Track 1\" },\n    { uuid = \"ilovetwice\", description_meta = \"[1990-02-05] Carly Rae Jepsen - Track 2\" },\n]\n"
+            "[[tracks]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - Track 1\"\nuuid = \"iloveloona\"\n\n[[tracks]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - Track 2\"\nuuid = \"ilovetwice\"\n"
         );
     }
 
@@ -5038,7 +5125,7 @@ mod tests {
         let cfg = std::fs::read_to_string(&ppath).unwrap();
         assert_eq!(
             cfg,
-            "tracks = [\n    { uuid = \"iloveloona\", description_meta = \"[1990-02-05] Carly Rae Jepsen - Track 1\" },\n    { uuid = \"ilovetwice\", description_meta = \"[1990-02-05] Carly Rae Jepsen - Track 2\" },\n]\n"
+            "[[tracks]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - Track 1\"\nuuid = \"iloveloona\"\n\n[[tracks]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - Track 2\"\nuuid = \"ilovetwice\"\n"
         );
         
         // Now prep for the second update. Reset the TOML to have garbage again, and update the database
@@ -5054,7 +5141,7 @@ mod tests {
         let cfg = std::fs::read_to_string(&ppath).unwrap();
         assert_eq!(
             cfg,
-            "tracks = [\n    { uuid = \"iloveloona\", description_meta = \"[1990-02-05] Carly Rae Jepsen - Track 1\" },\n    { uuid = \"ilovetwice\", description_meta = \"[1990-02-05] Carly Rae Jepsen - Track 2\" },\n]\n"
+            "[[tracks]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - Track 1\"\nuuid = \"iloveloona\"\n\n[[tracks]]\ndescription_meta = \"[1990-02-05] Carly Rae Jepsen - Track 2\"\nuuid = \"ilovetwice\"\n"
         );
     }
 
