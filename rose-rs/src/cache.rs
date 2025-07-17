@@ -1009,6 +1009,11 @@ fn _update_cache_for_releases_executor(
                 if dirty {
                     release_dirty = true;
                 }
+                // If handle_stored_data_file returned false and we don't have a release ID,
+                // it means this is a partially written directory that we should skip
+                if !dirty && release.id.is_empty() {
+                    continue;
+                }
             }
             Err(e) => {
                 if e.to_string().contains("No such file or directory") {
@@ -1385,16 +1390,11 @@ fn _update_cache_for_releases_executor(
                 let wanted_stem = evaluate_track_template(&c.path_templates.source.track, &template_track, None, None);
                 let wanted_stem = sanitize_filename(c, &wanted_stem, false); // Don't enforce max length yet
                 let extension = track_path.extension().and_then(|e| e.to_str()).unwrap_or("");
-                
-                debug!("Template evaluation result: '{}', extension: '{}'", wanted_stem, extension);
-                
                 let wanted_filename = if extension.is_empty() {
                     sanitize_filename(c, &wanted_stem, true)
                 } else {
                     sanitize_filename(c, &format!("{}.{}", wanted_stem, extension), true)
                 };
-                
-                debug!("Final wanted_filename: '{}'", wanted_filename);
 
                 let current_filename = track_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
 
@@ -1558,7 +1558,7 @@ fn handle_stored_data_file(
                 source_path.display(),
                 release_id_from_first_file
             );
-            return Err(RoseError::InvalidConfiguration("release has IDs but no stored data file".to_string()));
+            return Ok(false); // No changes, skip this release
         }
 
         debug!("creating new stored data file for release {}", source_path.display());
@@ -2054,17 +2054,49 @@ pub fn update_cache_for_collages(c: &Config, collage_names: Option<Vec<String>>,
 
         // Read and parse the collage TOML file
         let content = fs::read_to_string(&path)?;
-        let data: toml::Value = toml::from_str(&content)?;
+        let mut data: toml::Value = toml::from_str(&content)?;
 
-        let releases = data.get("releases").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        let _releases = data.get("releases").and_then(|v| v.as_array()).cloned().unwrap_or_default();
 
         let mut release_positions: Vec<(String, i32, bool)> = Vec::new();
+        let mut data_changed = false;
 
-        for (position, release) in releases.iter().enumerate() {
-            if let Some(uuid) = release.get("uuid").and_then(|v| v.as_str()) {
-                let missing = release.get("missing").and_then(|v| v.as_bool()).unwrap_or(false);
-                release_positions.push((uuid.to_string(), position as i32 + 1, missing));
+        // Check which releases exist and update missing status
+        if let Some(releases_array) = data.get_mut("releases").and_then(|v| v.as_array_mut()) {
+            for (position, release) in releases_array.iter_mut().enumerate() {
+                if let Some(uuid_val) = release.get("uuid").and_then(|v| v.as_str()) {
+                    let uuid = uuid_val.to_string();
+                    // Check if release exists in database
+                    let exists: bool = conn.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM releases WHERE id = ?1)",
+                        params![&uuid],
+                        |row| row.get(0)
+                    )?;
+                    
+                    let currently_missing = release.get("missing").and_then(|v| v.as_bool()).unwrap_or(false);
+                    let should_be_missing = !exists;
+                    
+                    // Update missing status if needed
+                    if should_be_missing != currently_missing {
+                        data_changed = true;
+                        if let Some(rel_table) = release.as_table_mut() {
+                            if should_be_missing {
+                                rel_table.insert("missing".to_string(), toml::Value::Boolean(true));
+                            } else {
+                                rel_table.remove("missing");
+                            }
+                        }
+                    }
+                    
+                    release_positions.push((uuid, position as i32 + 1, should_be_missing));
+                }
             }
+        }
+
+        // Write back the file if data changed
+        if data_changed {
+            let content = toml::to_string(&data)?;
+            fs::write(&path, content)?;
         }
 
         debug!("found {} release(s) (including missing) in collage {}", release_positions.len(), name);
@@ -2080,12 +2112,82 @@ pub fn update_cache_for_collages(c: &Config, collage_names: Option<Vec<String>>,
         // Delete and re-insert collage releases
         conn.execute("DELETE FROM collages_releases WHERE collage_name = ?1", params![&name])?;
 
-        for (release_id, position, missing) in release_positions {
+        for (release_id, position, missing) in &release_positions {
             conn.execute(
                 "INSERT INTO collages_releases (collage_name, release_id, position, missing)
                  VALUES (?1, ?2, ?3, ?4)",
                 params![&name, &release_id, &position, &missing],
             )?;
+        }
+
+        // Update description_metas for all releases
+        let mut desc_map = HashMap::new();
+        if !release_positions.is_empty() {
+            let release_ids: Vec<String> = release_positions.iter()
+                .map(|(id, _, _)| id.clone())
+                .collect();
+            let placeholders = vec!["?"; release_ids.len()].join(",");
+            let query = format!(
+                "SELECT id, releasetitle, originaldate, releasedate, releaseartist_names, releaseartist_roles 
+                 FROM releases_view WHERE id IN ({})", 
+                placeholders
+            );
+            let mut stmt = conn.prepare(&query)?;
+            let rows = stmt.query_map(rusqlite::params_from_iter(&release_ids), |row| {
+                let id: String = row.get("id")?;
+                let title: String = row.get("releasetitle")?;
+                let original_date: Option<String> = row.get("originaldate")?;
+                let release_date: Option<String> = row.get("releasedate")?;
+                let date = RoseDate::parse(original_date.as_deref().or(release_date.as_deref()));
+                let date_str = date.map(|d| d.to_string()).unwrap_or_else(|| "[0000-00-00]".to_string());
+                
+                let artist_names: String = row.get("releaseartist_names")?;
+                let artist_roles: String = row.get("releaseartist_roles")?;
+                let artists = _unpack_artists(&c, &artist_names, &artist_roles, false);
+                let artist_str = crate::audiotags::format_artist_string(&artists);
+                
+                let meta = format!("{} {} - {}", date_str, artist_str, title);
+                Ok((id, meta))
+            })?;
+            
+            for row in rows {
+                let (id, meta) = row?;
+                desc_map.insert(id, meta);
+            }
+        }
+
+        // Now update the TOML data with description_meta
+        if !desc_map.is_empty() {
+            let mut data_changed = false;
+            let content = fs::read_to_string(&path)?;
+            let mut data: toml::Value = toml::from_str(&content)?;
+            
+            if let Some(releases_array) = data.get_mut("releases").and_then(|v| v.as_array_mut()) {
+                for release in releases_array.iter_mut() {
+                    if let Some(uuid) = release.get("uuid").and_then(|v| v.as_str()) {
+                        if let Some(new_desc) = desc_map.get(uuid) {
+                            let mut final_desc = new_desc.clone();
+                            if release.get("missing").and_then(|v| v.as_bool()).unwrap_or(false) {
+                                final_desc.push_str(" {MISSING}");
+                            }
+                            
+                            if let Some(table) = release.as_table_mut() {
+                                let current = table.get("description_meta").and_then(|v| v.as_str()).unwrap_or("");
+                                if current != final_desc {
+                                    table.insert("description_meta".to_string(), toml::Value::String(final_desc));
+                                    data_changed = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Write back the file if data changed
+            if data_changed {
+                let content = toml::to_string(&data)?;
+                fs::write(&path, content)?;
+            }
         }
     }
 
@@ -2263,17 +2365,49 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
 
         // Read and parse the playlist TOML file
         let content = fs::read_to_string(&path)?;
-        let data: toml::Value = toml::from_str(&content)?;
+        let mut data: toml::Value = toml::from_str(&content)?;
 
-        let tracks = data.get("tracks").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        let _tracks = data.get("tracks").and_then(|v| v.as_array()).cloned().unwrap_or_default();
 
         let mut track_positions: Vec<(String, i32, bool)> = Vec::new();
+        let mut data_changed = false;
 
-        for (position, track) in tracks.iter().enumerate() {
-            if let Some(uuid) = track.get("uuid").and_then(|v| v.as_str()) {
-                let missing = track.get("missing").and_then(|v| v.as_bool()).unwrap_or(false);
-                track_positions.push((uuid.to_string(), position as i32 + 1, missing));
+        // Check which tracks exist and update missing status
+        if let Some(tracks_array) = data.get_mut("tracks").and_then(|v| v.as_array_mut()) {
+            for (position, track) in tracks_array.iter_mut().enumerate() {
+                if let Some(uuid_val) = track.get("uuid").and_then(|v| v.as_str()) {
+                    let uuid = uuid_val.to_string();
+                    // Check if track exists in database
+                    let exists: bool = conn.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM tracks WHERE id = ?1)",
+                        params![&uuid],
+                        |row| row.get(0)
+                    )?;
+                    
+                    let currently_missing = track.get("missing").and_then(|v| v.as_bool()).unwrap_or(false);
+                    let should_be_missing = !exists;
+                    
+                    // Update missing status if needed
+                    if should_be_missing != currently_missing {
+                        data_changed = true;
+                        if let Some(track_table) = track.as_table_mut() {
+                            if should_be_missing {
+                                track_table.insert("missing".to_string(), toml::Value::Boolean(true));
+                            } else {
+                                track_table.remove("missing");
+                            }
+                        }
+                    }
+                    
+                    track_positions.push((uuid, position as i32 + 1, should_be_missing));
+                }
             }
+        }
+
+        // Write back the file if data changed
+        if data_changed {
+            let content = toml::to_string(&data)?;
+            fs::write(&path, content)?;
         }
 
         debug!("found {} track(s) (including missing) in playlist {}", track_positions.len(), name);
@@ -2291,12 +2425,91 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
         // Delete and re-insert playlist tracks
         conn.execute("DELETE FROM playlists_tracks WHERE playlist_name = ?1", params![&name])?;
 
-        for (track_id, position, missing) in track_positions {
+        for (track_id, position, missing) in &track_positions {
             conn.execute(
                 "INSERT INTO playlists_tracks (playlist_name, track_id, position, missing)
                  VALUES (?1, ?2, ?3, ?4)",
                 params![&name, &track_id, &position, &missing],
             )?;
+        }
+
+        // Update description_metas for all tracks
+        let mut desc_map = HashMap::new();
+        if !track_positions.is_empty() {
+            let track_ids: Vec<String> = track_positions.iter()
+                .map(|(id, _, _)| id.clone())
+                .collect();
+            let placeholders = vec!["?"; track_ids.len()].join(",");
+            let query = format!(
+                "SELECT
+                    t.id,
+                    t.tracktitle,
+                    t.trackartist_names,
+                    t.trackartist_roles,
+                    r.originaldate,
+                    r.releasedate
+                FROM tracks_view t
+                JOIN releases_view r ON r.id = t.release_id
+                WHERE t.id IN ({})", 
+                placeholders
+            );
+            let mut stmt = conn.prepare(&query)?;
+            let rows = stmt.query_map(rusqlite::params_from_iter(&track_ids), |row| {
+                let id: String = row.get(0)?;
+                let title: String = row.get(1)?;
+                let artist_names: String = row.get(2)?;
+                let artist_roles: String = row.get(3)?;
+                let original_date: Option<String> = row.get(4)?;
+                let release_date: Option<String> = row.get(5)?;
+                
+                let date = RoseDate::parse(original_date.as_deref().or(release_date.as_deref()));
+                let date_str = date.map(|d| d.to_string()).unwrap_or_else(|| "[0000-00-00]".to_string());
+                
+                let artists = _unpack_artists(&c, &artist_names, &artist_roles, false);
+                let artist_str = crate::audiotags::format_artist_string(&artists);
+                
+                let meta = format!("{} {} - {}", date_str, artist_str, title);
+                Ok((id, meta))
+            })?;
+            
+            for row in rows {
+                let (id, meta) = row?;
+                desc_map.insert(id, meta);
+            }
+        }
+
+        // Now update the TOML data with description_meta
+        if !desc_map.is_empty() {
+            let mut data_changed = false;
+            let content = fs::read_to_string(&path)?;
+            let mut data: toml::Value = toml::from_str(&content)?;
+            
+            if let Some(tracks_array) = data.get_mut("tracks").and_then(|v| v.as_array_mut()) {
+                for track in tracks_array.iter_mut() {
+                    if let Some(uuid) = track.get("uuid").and_then(|v| v.as_str()) {
+                        if let Some(new_desc) = desc_map.get(uuid) {
+                            let mut final_desc = new_desc.clone();
+                            if track.get("missing").and_then(|v| v.as_bool()).unwrap_or(false) {
+                                final_desc.push_str(" {MISSING}");
+                            }
+                            
+                            if let Some(table) = track.as_table_mut() {
+                                let current = table.get("description_meta").and_then(|v| v.as_str()).unwrap_or("");
+                                if current != final_desc {
+                                    table.insert("description_meta".to_string(), toml::Value::String(final_desc));
+                                    data_changed = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Write back the file if data changed
+            if data_changed {
+                let content = toml::to_string(&data)?;
+                fs::write(&path, content)?;
+            }
         }
     }
 
@@ -3592,8 +3805,8 @@ mod tests {
         for filename in ["01.m4a", "02.m4a"] {
             let mut af = AudioTags::from_file(&release_dir.join(filename)).unwrap();
             af.label = vec![];
-            // Add delay to ensure mtime changes
-            std::thread::sleep(std::time::Duration::from_millis(10));
+            // Add delay to ensure mtime changes (some filesystems have 1-second resolution)
+            std::thread::sleep(std::time::Duration::from_secs(1));
             af.flush(&config, false).unwrap();
         }
         
@@ -3627,8 +3840,8 @@ mod tests {
         let track_path = release_dir.join("01.m4a");
         // Read and write back the file to update mtime
         let content = fs::read(&track_path).unwrap();
-        // Add a small delay to ensure mtime changes
-        std::thread::sleep(std::time::Duration::from_millis(10));
+        // Add a delay to ensure mtime changes (some filesystems have 1-second resolution)
+        std::thread::sleep(std::time::Duration::from_secs(1));
         fs::write(&track_path, content).unwrap();
         
         update_cache_for_releases(&config, Some(vec![release_dir.clone()]), false, false).unwrap();
