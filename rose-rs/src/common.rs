@@ -177,9 +177,13 @@ pub fn sanitize_filename(c: &Config, name: &str, enforce_maxlen: bool) -> String
 
         debug!("After extension check: stem='{}', ext='{}'", stem, ext);
 
+        // Calculate how many bytes we have available for the stem
+        let ext_bytes = ext.as_bytes().len();
+        let available_for_stem = c.max_filename_bytes.saturating_sub(ext_bytes);
+        
         let stem_bytes = stem.as_bytes();
-        let stem = if stem_bytes.len() > c.max_filename_bytes {
-            String::from_utf8_lossy(&stem_bytes[..c.max_filename_bytes]).trim().to_string()
+        let stem = if stem_bytes.len() > available_for_stem {
+            String::from_utf8_lossy(&stem_bytes[..available_for_stem]).trim().to_string()
         } else {
             stem.to_string()
         };
