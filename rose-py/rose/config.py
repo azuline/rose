@@ -347,10 +347,10 @@ class Config:
         try:
             for entry in data.get("artist_aliases", []):
                 if not isinstance(entry["artist"], str):
-                    raise ValueError(f"Artists must be of type str: got {type(entry["artist"])}")
+                    raise ValueError(f"Artists must be of type str: got {type(entry['artist'])}")
                 artist_aliases_map[entry["artist"]] = entry["aliases"]
                 if not isinstance(entry["aliases"], list):
-                    raise ValueError(f"Aliases must be of type list[str]: got {type(entry["aliases"])}")
+                    raise ValueError(f"Aliases must be of type list[str]: got {type(entry['aliases'])}")
                 for s in entry["aliases"]:
                     if not isinstance(s, str):
                         raise ValueError(f"Each alias must be of type str: got {type(s)}")
@@ -566,7 +566,7 @@ class Config:
                     continue
                 unrecognized_accessors.append(accessor)
             if unrecognized_accessors:
-                logger.warning(f"Unrecognized options found in configuration file: {", ".join(unrecognized_accessors)}")
+                logger.warning(f"Unrecognized options found in configuration file: {', '.join(unrecognized_accessors)}")
 
         return Config(
             music_source_dir=music_source_dir,

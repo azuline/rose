@@ -8,6 +8,8 @@ python-pin.pkgs.buildPythonPackage {
   pname = "rose-watch";
   version = version;
   src = ./.;
+  pyproject = true;
+  build-system = [ py-deps.setuptools ];
   propagatedBuildInputs = [
     rose-py
     py-deps.watchdog

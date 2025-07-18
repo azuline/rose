@@ -27,7 +27,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from queue import Empty, Queue
-from typing import Literal
+from typing import Literal, cast
 
 from rose import (
     Config,
@@ -73,9 +73,11 @@ class EventHandler(FileSystemEventHandler):  # pragma: no cover
     def on_any_event(self, event: FileSystemEvent) -> None:
         super().on_any_event(event)
         path = event.dest_path if isinstance(event, FileSystemMovedEvent) else event.src_path
+        if isinstance(path, bytes):
+            path = path.decode()
         logger.debug(f"Notified of {event.event_type} event for {path}")
 
-        etype: EventType = event.event_type  # type: ignore
+        etype = cast(EventType, event.event_type)
         if etype not in EVENT_TYPES:
             return
 
@@ -182,8 +184,8 @@ def start_watchdog(c: Config) -> None:  # pragma: no cover
     queue: Queue[WatchdogEvent] = Queue()
     observer = Observer()
     event_handler = EventHandler(c, queue)
-    observer.schedule(event_handler, c.music_source_dir, recursive=True)  # type: ignore
+    observer.schedule(event_handler, str(c.music_source_dir), recursive=True)
     logger.info("Starting watchdog filesystem event listener")
-    observer.start()  # type: ignore
+    observer.start()
     logger.info("Starting watchdog asynchronous event processor")
     asyncio.run(event_processor(c, queue))

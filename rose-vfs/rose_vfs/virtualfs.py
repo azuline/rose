@@ -52,7 +52,7 @@ import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, Literal, TypeVar
 
 import llfuse
 from rose import (
@@ -123,7 +123,7 @@ V = TypeVar("V")
 T = TypeVar("T")
 
 
-class TTLCache(Generic[K, V]):
+class TTLCache[K, V]:
     """
     TTLCache is a dictionary with a time-to-live (TTL) for each key/value pair. After the TTL
     passes, the key/value pair is no longer accessible.
@@ -1404,7 +1404,7 @@ class RoseLogicalCore:
                     releasedate=release.releasedate,
                     artists=release.releaseartists,
                 )
-                logger.debug(f"LOGICAL: Begin new cover art sequence for release " f"{logtext=}, {p.file=}, and {fh=}")
+                logger.debug(f"LOGICAL: Begin new cover art sequence for release {logtext=}, {p.file=}, and {fh=}")
                 self.file_creation_special_ops[fh] = (
                     "new-cover-art",
                     ("release", release.id),
@@ -1423,8 +1423,7 @@ class RoseLogicalCore:
             if pf.suffix.lower() in SUPPORTED_AUDIO_EXTENSIONS and flags & os.O_CREAT == os.O_CREAT:
                 fh = self.fhandler.next()
                 logger.debug(
-                    f"LOGICAL: Begin playlist addition operation sequence for "
-                    f"{playlist.name=}, {p.file=}, and {fh=}"
+                    f"LOGICAL: Begin playlist addition operation sequence for {playlist.name=}, {p.file=}, and {fh=}"
                 )
                 self.file_creation_special_ops[fh] = (
                     "add-track-to-playlist",
@@ -1438,7 +1437,7 @@ class RoseLogicalCore:
             if p.file.lower() in self.config.valid_cover_arts and flags & os.O_CREAT == os.O_CREAT:
                 fh = self.fhandler.next()
                 logger.debug(
-                    f"LOGICAL: Begin new cover art sequence for playlist" f"{playlist.name=}, {p.file=}, and {fh=}"
+                    f"LOGICAL: Begin new cover art sequence for playlist{playlist.name=}, {p.file=}, and {fh=}"
                 )
                 self.file_creation_special_ops[fh] = (
                     "new-cover-art",
@@ -1957,9 +1956,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
         new_name: bytes,
         _: Any,
     ) -> None:
-        logger.debug(
-            f"FUSE: Received rename for {old_parent_inode=}/{old_name=} " f"to {new_parent_inode=}/{new_name=}"
-        )
+        logger.debug(f"FUSE: Received rename for {old_parent_inode=}/{old_name=} to {new_parent_inode=}/{new_name=}")
         old_spath = self.inodes.get_path(old_parent_inode, old_name)
         new_spath = self.inodes.get_path(new_parent_inode, new_name)
         logger.debug(

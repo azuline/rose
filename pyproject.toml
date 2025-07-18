@@ -53,8 +53,6 @@ ignore = [
   # Do not enforce max line length via linter. We have an autoformatter, and sometimes we
   # intentionally turn formatting off.
   "E501",
-  # Fixtures that do not return anything do not need leading underscore.
-  "PT004",
 ]
 unfixable = [
   # Remove unused variables.
