@@ -13,13 +13,12 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use toml;
 use tracing::{debug, info};
 
 // Python: import click
@@ -54,21 +53,18 @@ use tracing::{debug, info};
 // Python: from rose.templates import artistsfmt
 
 use crate::audiotags::AudioTags;
-use crate::common::RoseDate;
 use crate::cache::{
-    filter_releases, get_release, get_tracks_of_release, list_releases_by_ids, lock, make_release_logtext,
-    release_lock_name, update_cache_evict_nonexistent_releases, update_cache_for_collages,
-    update_cache_for_playlists, update_cache_for_releases, Release, Track, STORED_DATA_FILE_REGEX,
+    filter_releases, get_release, get_tracks_of_release, list_releases_by_ids, lock, make_release_logtext, release_lock_name,
+    update_cache_evict_nonexistent_releases, update_cache_for_collages, update_cache_for_playlists, update_cache_for_releases, Release, Track,
+    STORED_DATA_FILE_REGEX,
 };
+use crate::common::RoseDate;
 use crate::common::{Artist, ArtistMapping};
-use crate::{Result, RoseError, RoseExpectedError};
 use crate::config::Config;
 use crate::rule_parser::{Action, ExpandableTag, Matcher, Tag, ALL_TAGS};
-use crate::rules::{
-    execute_metadata_actions, fast_search_for_matching_releases,
-    filter_release_false_positives_using_read_cache,
-};
+use crate::rules::{execute_metadata_actions, fast_search_for_matching_releases, filter_release_false_positives_using_read_cache};
 use crate::templates::format_artist_mapping as artistsfmt;
+use crate::{Result, RoseError, RoseExpectedError};
 
 // Python: logger = logging.getLogger(__name__)
 
@@ -181,25 +177,20 @@ impl From<UnknownArtistRoleError> for RoseError {
 // Python:     update_cache_for_collages(c, None, force=True)
 // Python:     update_cache_for_playlists(c, None, force=True)
 pub fn delete_release(c: &Config, release_id: &str) -> Result<()> {
-    let release = get_release(c, release_id)?
-        .ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
-    
+    let release = get_release(c, release_id)?.ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
+
     let _lock = lock(c, &release_lock_name(release_id), 900.0)?;
-    trash::delete(&release.source_path).map_err(|e| RoseError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
-    
-    let release_logtext = make_release_logtext(
-        &release.releasetitle,
-        release.releasedate.as_ref(),
-        &release.releaseartists,
-    );
+    trash::delete(&release.source_path).map_err(|e| RoseError::Io(std::io::Error::other(e)))?;
+
+    let release_logtext = make_release_logtext(&release.releasetitle, release.releasedate.as_ref(), &release.releaseartists);
     info!("trashed release {}", release_logtext);
-    
+
     update_cache_evict_nonexistent_releases(c)?;
     // Update all collages and playlists so that the release is removed from whichever it was in.
     // TODO: Move this into the cache evict nonexistent releases and make it more efficient.
     update_cache_for_collages(c, None, true)?;
     update_cache_for_playlists(c, None, true)?;
-    
+
     Ok(())
 }
 
@@ -229,43 +220,36 @@ pub fn delete_release(c: &Config, release_id: &str) -> Result<()> {
 // Python:
 // Python:     logger.critical(f"Failed to find .rose.toml in {release.source_path}")
 pub fn toggle_release_new(c: &Config, release_id: &str) -> Result<()> {
-    let release = get_release(c, release_id)?
-        .ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
-    
-    let release_logtext = make_release_logtext(
-        &release.releasetitle,
-        release.releasedate.as_ref(),
-        &release.releaseartists,
-    );
-    
+    let release = get_release(c, release_id)?.ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
+
+    let release_logtext = make_release_logtext(&release.releasetitle, release.releasedate.as_ref(), &release.releaseartists);
+
     for entry in fs::read_dir(&release.source_path)? {
         let entry = entry?;
         let file_name = entry.file_name().to_string_lossy().to_string();
-        
+
         if !STORED_DATA_FILE_REGEX.is_match(&file_name) {
             continue;
         }
-        
+
         let _lock = lock(c, &release_lock_name(release_id), 900.0)?;
-        
+
         let content = fs::read_to_string(entry.path())?;
         let mut data: toml::Value = toml::from_str(&content)?;
-        
+
         if let Some(table) = data.as_table_mut() {
-            let new_value = !table.get("new")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(true);
+            let new_value = !table.get("new").and_then(|v| v.as_bool()).unwrap_or(false);
             table.insert("new".to_string(), toml::Value::Boolean(new_value));
-            
+
             let toml_string = toml::to_string_pretty(&data)?;
             fs::write(entry.path(), toml_string)?;
-            
+
             info!("toggled \"new\"-ness of release {} to {}", release_logtext, new_value);
             update_cache_for_releases(c, Some(vec![release.source_path.clone()]), true, false)?;
             return Ok(());
         }
     }
-    
+
     tracing::error!("failed to find .rose.toml in {}", release.source_path.display());
     Ok(())
 }
@@ -305,53 +289,37 @@ pub fn toggle_release_new(c: &Config, release_id: &str) -> Result<()> {
 // Python:     update_cache_for_releases(c, [release.source_path])
 /// This function removes all potential cover arts in the release source directory and copies the
 /// file located at the passed in path to `cover.{ext}` in the release source directory.
-pub fn set_release_cover_art(
-    c: &Config,
-    release_id: &str,
-    new_cover_art_path: &Path,
-) -> Result<()> {
-    let suffix = new_cover_art_path
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-    
+pub fn set_release_cover_art(c: &Config, release_id: &str, new_cover_art_path: &Path) -> Result<()> {
+    let suffix = new_cover_art_path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+
     if !c.valid_art_exts.contains(&suffix) {
         return Err(InvalidCoverArtFileError(format!(
             "File {}'s extension is not supported for cover images: \
              To change this, please read the configuration documentation",
             new_cover_art_path.file_name().unwrap_or_default().to_string_lossy()
-        )).into());
+        ))
+        .into());
     }
-    
-    let release = get_release(c, release_id)?
-        .ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
-    
-    let release_logtext = make_release_logtext(
-        &release.releasetitle,
-        release.releasedate.as_ref(),
-        &release.releaseartists,
-    );
-    
+
+    let release = get_release(c, release_id)?.ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
+
+    let release_logtext = make_release_logtext(&release.releasetitle, release.releasedate.as_ref(), &release.releaseartists);
+
     for entry in fs::read_dir(&release.source_path)? {
         let entry = entry?;
         let file_name = entry.file_name().to_string_lossy().to_lowercase();
-        
+
         if c.valid_cover_arts().contains(&file_name) {
             debug!("deleting existing cover art {} in {}", entry.file_name().to_string_lossy(), release_logtext);
-            trash::delete(entry.path()).map_err(|e| RoseError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+            trash::delete(entry.path()).map_err(|e| RoseError::Io(std::io::Error::other(e)))?;
         }
     }
-    
+
     let dest_path = release.source_path.join(format!("cover.{}", suffix));
     fs::copy(new_cover_art_path, dest_path)?;
-    
-    info!(
-        "set the cover of release {} to {}",
-        release_logtext,
-        new_cover_art_path.file_name().unwrap_or_default().to_string_lossy()
-    );
-    
+
+    info!("set the cover of release {} to {}", release_logtext, new_cover_art_path.file_name().unwrap_or_default().to_string_lossy());
+
     update_cache_for_releases(c, Some(vec![release.source_path]), false, false)?;
     Ok(())
 }
@@ -381,33 +349,28 @@ pub fn set_release_cover_art(
 // Python:     update_cache_for_releases(c, [release.source_path])
 /// This function deletes all potential cover arts in the release source directory.
 pub fn delete_release_cover_art(c: &Config, release_id: &str) -> Result<()> {
-    let release = get_release(c, release_id)?
-        .ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
-    
-    let release_logtext = make_release_logtext(
-        &release.releasetitle,
-        release.releasedate.as_ref(),
-        &release.releaseartists,
-    );
-    
+    let release = get_release(c, release_id)?.ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
+
+    let release_logtext = make_release_logtext(&release.releasetitle, release.releasedate.as_ref(), &release.releaseartists);
+
     let mut found = false;
     for entry in fs::read_dir(&release.source_path)? {
         let entry = entry?;
         let file_name = entry.file_name().to_string_lossy().to_lowercase();
-        
+
         if c.valid_cover_arts().contains(&file_name) {
             debug!("deleting existing cover art {} in {}", entry.file_name().to_string_lossy(), release_logtext);
-            trash::delete(entry.path()).map_err(|e| RoseError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+            trash::delete(entry.path()).map_err(|e| RoseError::Io(std::io::Error::other(e)))?;
             found = true;
         }
     }
-    
+
     if found {
         info!("deleted cover arts of release {}", release_logtext);
     } else {
         info!("no-op: no cover arts found for release {}", release_logtext);
     }
-    
+
     update_cache_for_releases(c, Some(vec![release.source_path]), false, false)?;
     Ok(())
 }
@@ -444,7 +407,7 @@ pub struct MetadataArtist {
 impl MetadataArtist {
     pub fn from_mapping(mapping: &ArtistMapping) -> Vec<MetadataArtist> {
         let mut artists = Vec::new();
-        
+
         // Iterate over each role field
         for artist in &mapping.main {
             if !artist.alias {
@@ -502,13 +465,13 @@ impl MetadataArtist {
                 });
             }
         }
-        
+
         artists
     }
-    
+
     pub fn to_mapping(artists: &[MetadataArtist]) -> Result<ArtistMapping> {
         let mut mapping = ArtistMapping::default();
-        
+
         for a in artists {
             match a.role.to_lowercase().as_str() {
                 "main" => mapping.main.push(Artist::new(&a.name)),
@@ -519,14 +482,11 @@ impl MetadataArtist {
                 "conductor" => mapping.conductor.push(Artist::new(&a.name)),
                 "djmixer" => mapping.djmixer.push(Artist::new(&a.name)),
                 _ => {
-                    return Err(UnknownArtistRoleError(format!(
-                        "Failed to write tags: Unknown role for artist {}: {}",
-                        a.name, a.role
-                    )).into());
+                    return Err(UnknownArtistRoleError(format!("Failed to write tags: Unknown role for artist {}: {}", a.name, a.role)).into());
                 }
             }
         }
-        
+
         Ok(mapping)
     }
 }
@@ -658,7 +618,7 @@ impl MetadataRelease {
     // Python:         )
     pub fn from_cache(release: &Release, tracks: &[Track]) -> Self {
         let mut track_map = HashMap::new();
-        
+
         for t in tracks {
             track_map.insert(
                 t.id.clone(),
@@ -670,14 +630,14 @@ impl MetadataRelease {
                 },
             );
         }
-        
+
         MetadataRelease {
             title: release.releasetitle.clone(),
             new: release.new,
             releasetype: release.releasetype.clone(),
-            releasedate: release.releasedate.clone(),
-            originaldate: release.originaldate.clone(),
-            compositiondate: release.compositiondate.clone(),
+            releasedate: release.releasedate,
+            originaldate: release.originaldate,
+            compositiondate: release.compositiondate,
             edition: release.edition.clone(),
             catalognumber: release.catalognumber.clone(),
             labels: release.labels.clone(),
@@ -688,7 +648,7 @@ impl MetadataRelease {
             tracks: track_map,
         }
     }
-    
+
     // Python:     def serialize(self) -> str:
     // Python:         # TOML does not have a Null Type.
     // Python:         data = asdict(self)
@@ -701,7 +661,7 @@ impl MetadataRelease {
     pub fn serialize(&self) -> Result<String> {
         Ok(toml::to_string_pretty(self)?)
     }
-    
+
     // Python:     @classmethod
     // Python:     def from_toml(cls, toml: str) -> MetadataRelease:
     // Python:         d = tomllib.loads(toml)
@@ -735,9 +695,7 @@ impl MetadataRelease {
 }
 
 // Python: FAILED_RELEASE_EDIT_FILENAME_REGEX = re.compile(r"failed-release-edit\.([^.]+)\.toml")
-static FAILED_RELEASE_EDIT_FILENAME_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"failed-release-edit\.([^.]+)\.toml").unwrap()
-});
+static FAILED_RELEASE_EDIT_FILENAME_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"failed-release-edit\.([^.]+)\.toml").unwrap());
 
 // Python: def edit_release(
 // Python:     c: Config,
@@ -753,65 +711,62 @@ pub fn edit_release(
     // Will use this file as the starting TOML instead of reading the cache.
     resume_file: Option<&Path>,
 ) -> Result<()> {
-    let mut release = get_release(c, release_id)?
-        .ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
-    
+    let mut release = get_release(c, release_id)?.ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
+
     // Trigger a quick cache update to ensure we are reading the liveliest data.
     update_cache_for_releases(c, Some(vec![release.source_path.clone()]), false, false)?;
-    
+
     // Reload release in case any source paths changed.
-    release = get_release(c, release_id)?
-        .ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
-    
+    release = get_release(c, release_id)?.ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
+
     let _lock = lock(c, &release_lock_name(release_id), 900.0)?;
-    
+
     let tracks = get_tracks_of_release(c, &release)?;
-    
+
     let original_toml = if let Some(resume_file) = resume_file {
-        let file_name = resume_file.file_name()
-            .and_then(|s| s.to_str())
-            .ok_or_else(|| InvalidReleaseEditResumeFileError("Invalid file name".to_string()))?;
-        
-        let caps = FAILED_RELEASE_EDIT_FILENAME_REGEX.captures(file_name)
+        let file_name = resume_file.file_name().and_then(|s| s.to_str()).ok_or_else(|| InvalidReleaseEditResumeFileError("Invalid file name".to_string()))?;
+
+        let caps = FAILED_RELEASE_EDIT_FILENAME_REGEX
+            .captures(file_name)
             .ok_or_else(|| InvalidReleaseEditResumeFileError(format!("{} is not a valid release edit resume file", file_name)))?;
-        
+
         let resume_uuid = &caps[1];
         if resume_uuid != release_id {
             return Err(InvalidReleaseEditResumeFileError(format!("{} is not associated with this release", file_name)).into());
         }
-        
+
         fs::read_to_string(resume_file)?
     } else {
         let original_metadata = MetadataRelease::from_cache(&release, &tracks);
         original_metadata.serialize()?
     };
-    
+
     // For now, we'll skip the actual editing part since it requires click.edit
     // In a real implementation, this would open an editor for the user
     let toml = original_toml.clone(); // Placeholder
-    
+
     if original_toml == toml && resume_file.is_none() {
         info!("aborting manual release edit: no metadata change detected.");
         return Ok(());
     }
-    
+
     match apply_release_edit(c, &release, &tracks, &toml, release_id) {
         Ok(new_value) => {
             if new_value != release.new {
                 toggle_release_new(c, &release.id)?;
             }
-            
+
             if let Some(resume_file) = resume_file {
                 fs::remove_file(resume_file)?;
             }
-            
+
             update_cache_for_releases(c, Some(vec![release.source_path]), true, false)?;
             Ok(())
         }
         Err(e) => {
             let new_resume_path = c.cache_dir.join(format!("failed-release-edit.{}.toml", release_id));
             fs::write(&new_resume_path, &toml)?;
-            
+
             Err(ReleaseEditFailedError(format!(
                 "Failed to apply release edit: {}\n\n--------\n\n\
                 The submitted metadata TOML file has been written to {}.\n\n\
@@ -821,28 +776,21 @@ pub fn edit_release(
                 new_resume_path.display(),
                 shell_escape::escape(new_resume_path.to_string_lossy()),
                 shell_escape::escape(release_id.into())
-            )).into())
+            ))
+            .into())
         }
     }
 }
 
-fn apply_release_edit(
-    c: &Config,
-    _release: &Release,
-    tracks: &[Track],
-    toml: &str,
-    _release_id: &str,
-) -> Result<bool> {
-    let release_meta = MetadataRelease::from_toml(toml)
-        .map_err(|e| ReleaseEditFailedError(format!("Failed to decode TOML file: {}", e)))?;
-    
+fn apply_release_edit(c: &Config, _release: &Release, tracks: &[Track], toml: &str, _release_id: &str) -> Result<bool> {
+    let release_meta = MetadataRelease::from_toml(toml).map_err(|e| ReleaseEditFailedError(format!("Failed to decode TOML file: {}", e)))?;
+
     for t in tracks {
-        let track_meta = release_meta.tracks.get(&t.id)
-            .ok_or_else(|| RoseError::Generic(format!("Track {} not found in metadata", t.id)))?;
-        
+        let track_meta = release_meta.tracks.get(&t.id).ok_or_else(|| RoseError::Generic(format!("Track {} not found in metadata", t.id)))?;
+
         let mut tags = AudioTags::from_file(&t.source_path)?;
         let mut dirty = false;
-        
+
         // Track tags.
         if tags.tracknumber != Some(track_meta.tracknumber.clone()) {
             tags.tracknumber = Some(track_meta.tracknumber.clone());
@@ -865,7 +813,7 @@ fn apply_release_edit(
             dirty = true;
             debug!("modified tag detected for {}: artists", t.source_path.display());
         }
-        
+
         // Album tags.
         if tags.releasetitle != Some(release_meta.title.clone()) {
             tags.releasetitle = Some(release_meta.title.clone());
@@ -878,17 +826,17 @@ fn apply_release_edit(
             debug!("modified tag detected for {}: releasetype", t.source_path.display());
         }
         if tags.releasedate != release_meta.releasedate {
-            tags.releasedate = release_meta.releasedate.clone();
+            tags.releasedate = release_meta.releasedate;
             dirty = true;
             debug!("modified tag detected for {}: releasedate", t.source_path.display());
         }
         if tags.originaldate != release_meta.originaldate {
-            tags.originaldate = release_meta.originaldate.clone();
+            tags.originaldate = release_meta.originaldate;
             dirty = true;
             debug!("modified tag detected for {}: originaldate", t.source_path.display());
         }
         if tags.compositiondate != release_meta.compositiondate {
-            tags.compositiondate = release_meta.compositiondate.clone();
+            tags.compositiondate = release_meta.compositiondate;
             dirty = true;
             debug!("modified tag detected for {}: compositiondate", t.source_path.display());
         }
@@ -928,16 +876,14 @@ fn apply_release_edit(
             dirty = true;
             debug!("modified tag detected for {}: release_artists", t.source_path.display());
         }
-        
+
         if dirty {
-            let relative_path = t.source_path
-                .strip_prefix(&c.music_source_dir)
-                .unwrap_or(&t.source_path);
+            let relative_path = t.source_path.strip_prefix(&c.music_source_dir).unwrap_or(&t.source_path);
             info!("flushing changed tags to {}", relative_path.display());
             tags.flush(c, true)?;
         }
     }
-    
+
     Ok(release_meta.new)
 }
 
@@ -987,99 +933,92 @@ fn apply_release_edit(
 // Python:     ]
 // Python:     releases = list_releases(c, release_ids, include_loose_tracks=include_loose_tracks)
 // Python:     return filter_release_false_positives_using_read_cache(matcher, releases, include_loose_tracks=include_loose_tracks)
-pub fn find_releases_matching_rule(
-    c: &Config,
-    matcher: &Matcher,
-    include_loose_tracks: bool,
-) -> Result<Vec<Release>> {
+pub fn find_releases_matching_rule(c: &Config, matcher: &Matcher, include_loose_tracks: bool) -> Result<Vec<Release>> {
     // Implement optimizations for common lookups. Only applies to strict lookups.
     // TODO: Morning
     if matcher.pattern.strict_start && matcher.pattern.strict_end {
         if matcher.tags == ALL_TAGS.get(&ExpandableTag::Artist).cloned().unwrap_or_default() {
             return filter_releases(
                 c,
-                None,               // release_ids
+                None,                          // release_ids
                 Some(&matcher.pattern.needle), // all_artist_filter
-                None,               // release_artist_filter
-                None,               // genre_filter
-                None,               // descriptor_filter
-                None,               // label_filter
-                None,               // release_type_filter
+                None,                          // release_artist_filter
+                None,                          // genre_filter
+                None,                          // descriptor_filter
+                None,                          // label_filter
+                None,                          // release_type_filter
                 include_loose_tracks,
             );
         }
         if matcher.tags == ALL_TAGS.get(&ExpandableTag::ReleaseArtist).cloned().unwrap_or_default() {
             return filter_releases(
                 c,
-                None,               // release_ids
-                None,               // all_artist_filter
+                None,                          // release_ids
+                None,                          // all_artist_filter
                 Some(&matcher.pattern.needle), // release_artist_filter
-                None,               // genre_filter
-                None,               // descriptor_filter
-                None,               // label_filter
-                None,               // release_type_filter
+                None,                          // genre_filter
+                None,                          // descriptor_filter
+                None,                          // label_filter
+                None,                          // release_type_filter
                 include_loose_tracks,
             );
         }
         if matcher.tags == vec![Tag::Genre] {
             return filter_releases(
                 c,
-                None,               // release_ids
-                None,               // all_artist_filter
-                None,               // release_artist_filter
+                None,                          // release_ids
+                None,                          // all_artist_filter
+                None,                          // release_artist_filter
                 Some(&matcher.pattern.needle), // genre_filter
-                None,               // descriptor_filter
-                None,               // label_filter
-                None,               // release_type_filter
+                None,                          // descriptor_filter
+                None,                          // label_filter
+                None,                          // release_type_filter
                 include_loose_tracks,
             );
         }
         if matcher.tags == vec![Tag::Label] {
             return filter_releases(
                 c,
-                None,               // release_ids
-                None,               // all_artist_filter
-                None,               // release_artist_filter
-                None,               // genre_filter
-                None,               // descriptor_filter
+                None,                          // release_ids
+                None,                          // all_artist_filter
+                None,                          // release_artist_filter
+                None,                          // genre_filter
+                None,                          // descriptor_filter
                 Some(&matcher.pattern.needle), // label_filter
-                None,               // release_type_filter
+                None,                          // release_type_filter
                 include_loose_tracks,
             );
         }
         if matcher.tags == vec![Tag::Descriptor] {
             return filter_releases(
                 c,
-                None,               // release_ids
-                None,               // all_artist_filter
-                None,               // release_artist_filter
-                None,               // genre_filter
+                None,                          // release_ids
+                None,                          // all_artist_filter
+                None,                          // release_artist_filter
+                None,                          // genre_filter
                 Some(&matcher.pattern.needle), // descriptor_filter
-                None,               // label_filter
-                None,               // release_type_filter
+                None,                          // label_filter
+                None,                          // release_type_filter
                 include_loose_tracks,
             );
         }
         if matcher.tags == vec![Tag::ReleaseType] {
             return filter_releases(
                 c,
-                None,               // release_ids
-                None,               // all_artist_filter
-                None,               // release_artist_filter
-                None,               // genre_filter
-                None,               // descriptor_filter
-                None,               // label_filter
+                None,                          // release_ids
+                None,                          // all_artist_filter
+                None,                          // release_artist_filter
+                None,                          // genre_filter
+                None,                          // descriptor_filter
+                None,                          // label_filter
                 Some(&matcher.pattern.needle), // release_type_filter
                 include_loose_tracks,
             );
         }
     }
-    
-    let release_ids: Vec<String> = fast_search_for_matching_releases(c, matcher, include_loose_tracks)?
-        .into_iter()
-        .map(|x| x.id)
-        .collect();
-    
+
+    let release_ids: Vec<String> = fast_search_for_matching_releases(c, matcher, include_loose_tracks)?.into_iter().map(|x| x.id).collect();
+
     let releases = list_releases_by_ids(c, &release_ids, include_loose_tracks)?;
     Ok(filter_release_false_positives_using_read_cache(matcher, releases, include_loose_tracks))
 }
@@ -1100,23 +1039,16 @@ pub fn find_releases_matching_rule(
 // Python:     audiotags = [AudioTags.from_file(t.source_path) for t in tracks]
 // Python:     execute_metadata_actions(c, actions, audiotags, dry_run=dry_run, confirm_yes=confirm_yes)
 /// Run rule engine actions on a release.
-pub fn run_actions_on_release(
-    c: &Config,
-    release_id: &str,
-    actions: &[Action],
-    dry_run: bool,
-    confirm_yes: bool,
-) -> Result<()> {
-    let release = get_release(c, release_id)?
-        .ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
-    
+pub fn run_actions_on_release(c: &Config, release_id: &str, actions: &[Action], dry_run: bool, confirm_yes: bool) -> Result<()> {
+    let release = get_release(c, release_id)?.ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
+
     let tracks = get_tracks_of_release(c, &release)?;
     let mut audiotags = Vec::new();
-    
+
     for t in &tracks {
         audiotags.push(AudioTags::from_file(&t.source_path)?);
     }
-    
+
     execute_metadata_actions(c, actions, audiotags, dry_run, confirm_yes, 15)?;
     Ok(())
 }
@@ -1141,14 +1073,11 @@ pub fn create_single_release(
             format!("Failed to extract single: file {} not found", track_path.display()),
         )));
     }
-    
+
     // Step 1. Compute the new directory name for the single.
     let af = AudioTags::from_file(track_path)?;
-    let title = af.tracktitle.as_deref()
-        .unwrap_or("Unknown Title")
-        .trim()
-        .to_string();
-    
+    let title = af.tracktitle.as_deref().unwrap_or("Unknown Title").trim().to_string();
+
     let mut dirname = format!("{} - ", artistsfmt(&af.trackartists));
     if let Some(date) = &af.releasedate {
         if let Some(year) = date.year {
@@ -1156,7 +1085,7 @@ pub fn create_single_release(
         }
     }
     dirname.push_str(&title);
-    
+
     // Handle directory name collisions.
     let mut collision_no = 2;
     let original_dirname = dirname.clone();
@@ -1167,23 +1096,21 @@ pub fn create_single_release(
         dirname = format!("{} [{}]", original_dirname, collision_no);
         collision_no += 1;
     }
-    
+
     // Step 2. Make the new directory and copy the track. If cover art is in track's current
     // directory, copy that over too.
     let source_path = c.music_source_dir.join(&dirname);
     fs::create_dir(&source_path)?;
-    
-    let track_extension = track_path.extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("");
+
+    let track_extension = track_path.extension().and_then(|s| s.to_str()).unwrap_or("");
     let new_track_path = source_path.join(format!("01. {}.{}", title, track_extension));
     fs::copy(track_path, &new_track_path)?;
-    
+
     if let Some(parent) = track_path.parent() {
         for entry in fs::read_dir(parent)? {
             let entry = entry?;
             let file_name = entry.file_name().to_string_lossy().to_lowercase();
-            
+
             if c.valid_cover_arts().contains(&file_name) {
                 let dest = source_path.join(entry.file_name());
                 fs::copy(entry.path(), dest)?;
@@ -1191,7 +1118,7 @@ pub fn create_single_release(
             }
         }
     }
-    
+
     // Step 3. Update the tags of the new track. Clear the Rose IDs too: this is a brand new track.
     let mut af = AudioTags::from_file(&new_track_path)?;
     af.releasetitle = Some(title);
@@ -1202,33 +1129,29 @@ pub fn create_single_release(
     af.release_id = None;
     af.id = None;
     af.flush(c, true)?;
-    
+
     info!("created phony single release {}", dirname);
-    
+
     // Step 4: Update the cache!
     let mut c_tmp = c.clone();
     c_tmp.rename_source_files = false;
     update_cache_for_releases(&c_tmp, Some(vec![source_path.clone()]), false, false)?;
-    
+
     // Step 5: Default extracted singles to not new: if it is new, why are you meddling with it?
     let mut release_id = None;
     for entry in fs::read_dir(&source_path)? {
         let entry = entry?;
         let file_name = entry.file_name().to_string_lossy().to_string();
-        
+
         if let Some(captures) = STORED_DATA_FILE_REGEX.captures(&file_name) {
             release_id = Some(captures[1].to_string());
             break;
         }
     }
-    
-    let release_id = release_id.ok_or_else(|| {
-        RoseError::Generic(format!(
-            "Impossible: Failed to parse release ID from newly created single directory {}",
-            source_path.display()
-        ))
-    })?;
-    
+
+    let release_id = release_id
+        .ok_or_else(|| RoseError::Generic(format!("Impossible: Failed to parse release ID from newly created single directory {}", source_path.display())))?;
+
     toggle_release_new(c, &release_id)?;
     Ok(())
 }
@@ -1238,7 +1161,7 @@ mod tests {
     use super::*;
     use crate::testing;
     use std::fs;
-    
+
     // Python: def test_delete_release(config: Config) -> None:
     // Python:     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
     // Python:     update_cache(config)
@@ -1253,126 +1176,112 @@ mod tests {
     #[test]
     fn test_delete_release() {
         let (config, _temp_dir) = testing::seeded_cache();
-        
+
         // Get a release ID from the seeded cache
         let conn = crate::cache::connect(&config).unwrap();
         let mut stmt = conn.prepare("SELECT id FROM releases LIMIT 1").unwrap();
         let release_id: String = stmt.query_row([], |row| row.get(0)).unwrap();
         drop(stmt);
         drop(conn);
-        
+
         // Delete the release
         delete_release(&config, &release_id).unwrap();
-        
+
         // Verify release was deleted from database
         let conn = crate::cache::connect(&config).unwrap();
-        let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM releases WHERE id = ?", [&release_id], |row| row.get(0))
-            .unwrap();
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM releases WHERE id = ?", [&release_id], |row| row.get(0)).unwrap();
         assert_eq!(count, 0);
     }
-    
+
     // Python: def test_toggle_release_new(config: Config) -> None:
     // Python:     ... (test implementation)
     #[test]
     fn test_toggle_release_new() {
         let (config, _temp_dir) = testing::seeded_cache();
-        
+
+        // Run update_cache to ensure .rose.toml files are created
+        update_cache_for_releases(&config, None, false, false).unwrap();
+
         // Get a release ID from the seeded cache
         let conn = crate::cache::connect(&config).unwrap();
         let mut stmt = conn.prepare("SELECT id, new FROM releases LIMIT 1").unwrap();
-        let (release_id, initial_new): (String, bool) = stmt.query_row([], |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        }).unwrap();
+        let (release_id, initial_new): (String, bool) = stmt.query_row([], |row| Ok((row.get(0)?, row.get(1)?))).unwrap();
         drop(stmt);
         drop(conn);
-        
+
         // Toggle new status
         toggle_release_new(&config, &release_id).unwrap();
-        
+
         // Verify it was toggled in database
         let conn = crate::cache::connect(&config).unwrap();
-        let new_status: bool = conn
-            .query_row("SELECT new FROM releases WHERE id = ?", [&release_id], |row| row.get(0))
-            .unwrap();
+        let new_status: bool = conn.query_row("SELECT new FROM releases WHERE id = ?", [&release_id], |row| row.get(0)).unwrap();
         assert_ne!(initial_new, new_status);
-        
+
         // Toggle again
         toggle_release_new(&config, &release_id).unwrap();
-        
+
         // Verify it was toggled back
         let conn = crate::cache::connect(&config).unwrap();
-        let new_status: bool = conn
-            .query_row("SELECT new FROM releases WHERE id = ?", [&release_id], |row| row.get(0))
-            .unwrap();
+        let new_status: bool = conn.query_row("SELECT new FROM releases WHERE id = ?", [&release_id], |row| row.get(0)).unwrap();
         assert_eq!(initial_new, new_status);
     }
-    
+
     // Python: def test_set_release_cover_art(isolated_dir: Path, config: Config) -> None:
     // Python:     ... (test implementation)
     #[test]
     fn test_set_release_cover_art() {
         let (config, temp_dir) = testing::seeded_cache();
-        
+
         // Create a test image file
         let image_path = temp_dir.path().join("test.jpg");
         fs::write(&image_path, "test image content").unwrap();
-        
+
         // Get a release from the seeded cache
         let conn = crate::cache::connect(&config).unwrap();
-        let release_id: String = conn
-            .query_row("SELECT id FROM releases LIMIT 1", [], |row| row.get(0))
-            .unwrap();
+        let release_id: String = conn.query_row("SELECT id FROM releases LIMIT 1", [], |row| row.get(0)).unwrap();
         drop(conn);
-        
+
         // Set cover art
         set_release_cover_art(&config, &release_id, &image_path).unwrap();
-        
+
         // Verify cover was set in database
         let conn = crate::cache::connect(&config).unwrap();
-        let cover_path: Option<String> = conn
-            .query_row("SELECT cover_image_path FROM releases WHERE id = ?", [&release_id], |row| row.get(0))
-            .unwrap();
+        let cover_path: Option<String> = conn.query_row("SELECT cover_image_path FROM releases WHERE id = ?", [&release_id], |row| row.get(0)).unwrap();
         assert!(cover_path.is_some());
         assert!(cover_path.unwrap().ends_with("cover.jpg"));
     }
-    
+
     // Python: def test_remove_release_cover_art(config: Config) -> None:
     // Python:     ... (test implementation)
     #[test]
     fn test_delete_release_cover_art() {
         let (config, _temp_dir) = testing::seeded_cache();
-        
+
         // Get a release and add a cover
         let conn = crate::cache::connect(&config).unwrap();
-        let (release_id, source_path): (String, String) = conn
-            .query_row("SELECT id, source_path FROM releases LIMIT 1", [], |row| {
-                Ok((row.get(0)?, row.get(1)?))
-            })
-            .unwrap();
+        let (release_id, source_path): (String, String) =
+            conn.query_row("SELECT id, source_path FROM releases LIMIT 1", [], |row| Ok((row.get(0)?, row.get(1)?))).unwrap();
         drop(conn);
-        
+
         // Create a fake cover file
         let cover_path = PathBuf::from(&source_path).join("cover.jpg");
         fs::create_dir_all(cover_path.parent().unwrap()).ok();
         fs::write(&cover_path, "fake cover").unwrap();
-        
+
         // Update cache to pick up the cover
         update_cache_for_releases(&config, Some(vec![PathBuf::from(&source_path)]), true, false).unwrap();
-        
+
         // Delete cover art
         delete_release_cover_art(&config, &release_id).unwrap();
-        
+
         // Verify cover was removed
         assert!(!cover_path.exists());
-        
+
         let conn = crate::cache::connect(&config).unwrap();
-        let cover_path: Option<String> = conn
-            .query_row("SELECT cover_image_path FROM releases WHERE id = ?", [&release_id], |row| row.get(0))
-            .unwrap();
+        let cover_path: Option<String> = conn.query_row("SELECT cover_image_path FROM releases WHERE id = ?", [&release_id], |row| row.get(0)).unwrap();
         assert!(cover_path.is_none() || cover_path.unwrap().is_empty());
     }
-    
+
     // Python: def test_find_matching_releases(config: Config) -> None:
     // Python:     results = find_releases_matching_rule(config, Matcher.parse("releasetitle:Release 2"))
     // Python:     assert {r.id for r in results} == {"r2"}
@@ -1380,38 +1289,38 @@ mod tests {
     #[test]
     fn test_find_matching_releases() {
         let (config, _temp_dir) = testing::seeded_cache();
-        
+
         // Test release title matching
         let matcher = Matcher::parse("releasetitle:Release 2").unwrap();
         let results = find_releases_matching_rule(&config, &matcher, true).unwrap();
         let ids: Vec<&str> = results.iter().map(|r| r.id.as_str()).collect();
         assert!(ids.contains(&"r2"));
-        
+
         // Test artist matching
         let matcher = Matcher::parse("artist:^Techno Man$").unwrap();
         let results = find_releases_matching_rule(&config, &matcher, true).unwrap();
         let ids: Vec<&str> = results.iter().map(|r| r.id.as_str()).collect();
         assert!(ids.contains(&"r1"));
-        
+
         // Test genre matching
         let matcher = Matcher::parse("genre:^Deep House$").unwrap();
         let results = find_releases_matching_rule(&config, &matcher, true).unwrap();
         let ids: Vec<&str> = results.iter().map(|r| r.id.as_str()).collect();
         assert!(ids.contains(&"r1"));
-        
+
         // Test descriptor matching
         let matcher = Matcher::parse("descriptor:^Wet$").unwrap();
         let results = find_releases_matching_rule(&config, &matcher, true).unwrap();
         let ids: Vec<&str> = results.iter().map(|r| r.id.as_str()).collect();
         assert!(ids.contains(&"r2"));
-        
+
         // Test label matching
         let matcher = Matcher::parse("label:^Native State$").unwrap();
         let results = find_releases_matching_rule(&config, &matcher, true).unwrap();
         let ids: Vec<&str> = results.iter().map(|r| r.id.as_str()).collect();
         assert!(ids.contains(&"r2"));
     }
-    
+
     // Python: def test_run_action_on_release(config: Config, source_dir: Path) -> None:
     // Python:     action = Action.parse("tracktitle/replace:Bop")
     // Python:     run_actions_on_release(config, "ilovecarly", [action])
@@ -1420,22 +1329,16 @@ mod tests {
     #[test]
     fn test_run_action_on_release() {
         let (config, _temp_dir) = testing::seeded_cache();
-        
+
         // Use a release from seeded cache
         let action = Action::parse("tracktitle/replace:Bop", None, None).unwrap();
         run_actions_on_release(&config, "r2", &[action], false, true).unwrap();
-        
+
         // Verify the action was applied
         let conn = crate::cache::connect(&config).unwrap();
-        let track_path: String = conn
-            .query_row(
-                "SELECT source_path FROM tracks WHERE release_id = 'r2' LIMIT 1",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
+        let track_path: String = conn.query_row("SELECT source_path FROM tracks WHERE release_id = 'r2' LIMIT 1", [], |row| row.get(0)).unwrap();
         drop(conn);
-        
+
         let af = AudioTags::from_file(Path::new(&track_path)).unwrap();
         assert_eq!(af.tracktitle, Some("Bop".to_string()));
     }

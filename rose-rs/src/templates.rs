@@ -832,10 +832,7 @@ mod tests {
 /// Format an ArtistMapping for display
 pub fn format_artist_mapping(artists: &ArtistMapping) -> String {
     let format_artists = |artist_list: &[Artist]| -> String {
-        let names: Vec<String> = artist_list.iter()
-            .filter(|a| !a.alias)
-            .map(|a| a.name.clone())
-            .collect();
+        let names: Vec<String> = artist_list.iter().filter(|a| !a.alias).map(|a| a.name.clone()).collect();
         if names.is_empty() {
             String::new()
         } else if names.len() == 1 {
@@ -848,31 +845,31 @@ pub fn format_artist_mapping(artists: &ArtistMapping) -> String {
     };
 
     let mut parts = Vec::new();
-    
+
     // Main artists
     let main_str = format_artists(&artists.main);
     if !main_str.is_empty() {
         parts.push(main_str);
     }
-    
+
     // Guest artists
     let guest_str = format_artists(&artists.guest);
     if !guest_str.is_empty() {
         parts.push(format!("(feat. {})", guest_str));
     }
-    
+
     // Remixer
     let remixer_str = format_artists(&artists.remixer);
     if !remixer_str.is_empty() {
         parts.push(format!("(remixed by {})", remixer_str));
     }
-    
+
     // Producer
     let producer_str = format_artists(&artists.producer);
     if !producer_str.is_empty() {
         parts.push(format!("(prod. {})", producer_str));
     }
-    
+
     if parts.is_empty() {
         // Conductor
         let conductor_str = format_artists(&artists.conductor);
@@ -880,7 +877,7 @@ pub fn format_artist_mapping(artists: &ArtistMapping) -> String {
             parts.push(format!("(under {})", conductor_str));
         }
     }
-    
+
     if parts.is_empty() {
         // Composer
         let composer_str = format_artists(&artists.composer);
@@ -888,7 +885,7 @@ pub fn format_artist_mapping(artists: &ArtistMapping) -> String {
             parts.push(composer_str);
         }
     }
-    
+
     if parts.is_empty() {
         // DJ Mixer
         let djmixer_str = format_artists(&artists.djmixer);
@@ -896,7 +893,7 @@ pub fn format_artist_mapping(artists: &ArtistMapping) -> String {
             parts.push(format!("(DJ mix by {})", djmixer_str));
         }
     }
-    
+
     if parts.is_empty() {
         "Unknown Artists".to_string()
     } else {

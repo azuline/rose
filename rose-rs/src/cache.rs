@@ -5192,13 +5192,9 @@ mod tests {
 }
 
 // Helper function to create release logtext for display
-pub fn make_release_logtext(
-    title: &str,
-    releasedate: Option<&RoseDate>,
-    artists: &ArtistMapping,
-) -> String {
+pub fn make_release_logtext(title: &str, releasedate: Option<&RoseDate>, artists: &ArtistMapping) -> String {
     use crate::templates::format_artist_mapping as artistsfmt;
-    
+
     let mut logtext = format!("{} - ", artistsfmt(artists));
     if let Some(date) = releasedate {
         if let Some(year) = date.year {
@@ -5224,11 +5220,11 @@ pub fn filter_releases(
     let conn = connect(c)?;
     let mut query = "SELECT * FROM releases_view rv WHERE 1=1".to_string();
     let mut args: Vec<String> = Vec::new();
-    
+
     if !include_loose_tracks {
         query.push_str(" AND rv.releasetype <> 'loosetrack'");
     }
-    
+
     if let Some(ids) = release_ids {
         if !ids.is_empty() {
             let placeholders = vec!["?"; ids.len()].join(",");
@@ -5236,17 +5232,20 @@ pub fn filter_releases(
             args.extend(ids.iter().cloned());
         }
     }
-    
+
     if let Some(artist) = release_artist_filter {
-        query.push_str(" AND EXISTS (
+        query.push_str(
+            " AND EXISTS (
             SELECT * FROM releases_artists ra
             WHERE ra.release_id = rv.id AND ra.artist = ?
-        )");
+        )",
+        );
         args.push(artist.to_string());
     }
-    
+
     if let Some(artist) = all_artist_filter {
-        query.push_str(" AND (
+        query.push_str(
+            " AND (
             EXISTS (
                 SELECT * FROM releases_artists
                 WHERE release_id = rv.id AND artist = ?
@@ -5256,13 +5255,15 @@ pub fn filter_releases(
                 JOIN tracks t ON ta.track_id = t.id
                 WHERE t.release_id = rv.id AND ta.artist = ?
             )
-        )");
+        )",
+        );
         args.push(artist.to_string());
         args.push(artist.to_string());
     }
-    
+
     if let Some(genre) = genre_filter {
-        query.push_str(" AND (
+        query.push_str(
+            " AND (
             EXISTS (
                 SELECT * FROM releases_genres
                 WHERE release_id = rv.id AND genre = ?
@@ -5271,55 +5272,50 @@ pub fn filter_releases(
                 SELECT * FROM releases_secondary_genres
                 WHERE release_id = rv.id AND genre = ?
             )
-        )");
+        )",
+        );
         args.push(genre.to_string());
         args.push(genre.to_string());
     }
-    
+
     if let Some(descriptor) = descriptor_filter {
-        query.push_str(" AND EXISTS (
+        query.push_str(
+            " AND EXISTS (
             SELECT * FROM releases_descriptors
             WHERE release_id = rv.id AND descriptor = ?
-        )");
+        )",
+        );
         args.push(descriptor.to_string());
     }
-    
+
     if let Some(label) = label_filter {
-        query.push_str(" AND EXISTS (
+        query.push_str(
+            " AND EXISTS (
             SELECT * FROM releases_labels
             WHERE release_id = rv.id AND label = ?
-        )");
+        )",
+        );
         args.push(label.to_string());
     }
-    
+
     if let Some(release_type) = release_type_filter {
         query.push_str(" AND rv.releasetype = ?");
         args.push(release_type.to_string());
     }
-    
+
     query.push_str(" ORDER BY rv.id");
-    
+
     let mut stmt = conn.prepare(&query)?;
     let releases = stmt
         .query_map(rusqlite::params_from_iter(&args), |row| {
             cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
-    
+
     Ok(releases)
 }
 
 /// List releases by IDs, with optional filtering
 pub fn list_releases_by_ids(c: &Config, release_ids: &[String], include_loose_tracks: bool) -> Result<Vec<Release>> {
-    filter_releases(
-        c,
-        Some(release_ids),
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        include_loose_tracks,
-    )
+    filter_releases(c, Some(release_ids), None, None, None, None, None, None, include_loose_tracks)
 }

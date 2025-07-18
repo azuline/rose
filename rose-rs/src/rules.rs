@@ -294,12 +294,7 @@ pub fn fast_search_for_matching_tracks(config: &Config, matcher: &Matcher) -> Re
 
 fn convert_matcher_to_fts_query(pattern: &Pattern) -> String {
     // Join characters with "¬" separator to match the format used by process_string_for_fts
-    let matchsql = pattern.needle.chars()
-        .map(|c| c.to_string())
-        .collect::<Vec<_>>()
-        .join("¬")
-        .replace("'", "''")
-        .replace("\"", "\"\"");
+    let matchsql = pattern.needle.chars().map(|c| c.to_string()).collect::<Vec<_>>().join("¬").replace("'", "''").replace("\"", "\"\"");
     format!("NEAR(\"{}\", {})", matchsql, pattern.needle.len().saturating_sub(2).max(0))
 }
 
@@ -1303,7 +1298,7 @@ mod tests {
         let mut af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         af.tracktitle = Some("hi^Test$bye".to_string());
         af.flush(&config, false).unwrap();
-        
+
         // Force cache update with force=true
         update_cache(&config, true, false).unwrap();
 
@@ -1350,7 +1345,6 @@ mod tests {
         assert_eq!(af.releasedate, Some(RoseDate::new(Some(8), None, None)));
     }
 
-
     #[test]
     fn test_rules_fields_match_releasetitle() {
         let (config, _tmpdir) = testing::source_dir();
@@ -1360,7 +1354,6 @@ mod tests {
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         assert_eq!(af.releasetitle, Some("8".to_string()));
     }
-
 
     #[test]
     fn test_rules_fields_match_tracknumber() {
@@ -1459,13 +1452,13 @@ mod tests {
 
         // The test data has Test Release 2 (ilovecarly) and Test Release 3 (ilovenewjeans) with new=false
         // Test Release 1 has new=true by default (no data file)
-        
+
         let rule = parse_rule("new:false", &["replace:true"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        
+
         // Small delay to ensure mtime changes
         thread::sleep(Duration::from_millis(10));
-        
+
         // After the rule, Test Release 2 and 3 should have new=true
         let release = get_release(&config, "ilovecarly").unwrap();
         assert!(release.unwrap().new);
@@ -1474,10 +1467,10 @@ mod tests {
 
         let rule = parse_rule("new:true", &["replace:false"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        
+
         // Small delay to ensure mtime changes
         thread::sleep(Duration::from_millis(10));
-        
+
         // Now all releases should have new=false
         let release = get_release(&config, "ilovecarly").unwrap();
         assert!(!release.unwrap().new);
@@ -1486,10 +1479,10 @@ mod tests {
 
         let rule = parse_rule("releasetitle:Carly", &["new/replace:true"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        
+
         // Small delay to ensure mtime changes
         thread::sleep(Duration::from_millis(10));
-        
+
         // Only ilovecarly (which has "I Love Carly" as title) should have new=true
         let release = get_release(&config, "ilovecarly").unwrap();
         assert!(release.unwrap().new);
@@ -1500,11 +1493,11 @@ mod tests {
     #[test]
     fn test_match_backslash() {
         let (config, _tmpdir) = testing::source_dir();
-        
+
         let mut af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         af.tracktitle = Some(r"X \\ Y".to_string());
         af.flush(&config, false).unwrap();
-        
+
         // Force cache update with force=true
         update_cache(&config, true, false).unwrap();
 
@@ -1638,21 +1631,12 @@ mod tests {
     fn test_chained_action() {
         let (config, _tmpdir) = testing::source_dir();
 
-        let rule = parse_rule(
-            "label:A Cool Label",
-            &[
-                "replace:Jennie",
-                "label:^Jennie$/replace:Jisoo",
-                "label:nomatch/replace:Rose",
-                "genre/replace:haha",
-            ],
-        );
+        let rule = parse_rule("label:A Cool Label", &["replace:Jennie", "label:^Jennie$/replace:Jisoo", "label:nomatch/replace:Rose", "genre/replace:haha"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         assert_eq!(af.label, vec!["Jisoo".to_string()]);
         assert_eq!(af.genre, vec!["haha".to_string()]);
     }
-
 
     #[test]
     fn test_dry_run() {
@@ -1707,7 +1691,7 @@ mod tests {
         let matcher = Matcher::parse("releaseartist:^Man").unwrap();
         let fsresults = fast_search_for_matching_releases(&config, &matcher, true).unwrap();
         assert_eq!(fsresults.len(), 2);
-        
+
         // Fetch the releases from cache by ID
         let mut cacheresults = Vec::new();
         for fsr in &fsresults {
@@ -1716,7 +1700,7 @@ mod tests {
             }
         }
         assert_eq!(cacheresults.len(), 2);
-        
+
         let filteredresults = filter_release_false_positives_using_read_cache(&matcher, cacheresults, true);
         assert!(filteredresults.is_empty());
     }
@@ -1728,7 +1712,7 @@ mod tests {
         let matcher = Matcher::parse("trackartist:^Man").unwrap();
         let fsresults = fast_search_for_matching_tracks(&config, &matcher).unwrap();
         assert_eq!(fsresults.len(), 3);
-        
+
         // Fetch the tracks from cache by ID
         let mut tracks = Vec::new();
         for fsr in &fsresults {
@@ -1737,7 +1721,7 @@ mod tests {
             }
         }
         assert_eq!(tracks.len(), 3);
-        
+
         let filteredresults = filter_track_false_positives_using_read_cache(&matcher, tracks);
         assert!(filteredresults.is_empty());
     }
@@ -1755,15 +1739,15 @@ mod tests {
     #[test]
     fn test_artist_matcher_on_trackartist_only() {
         let (config, _tmpdir) = testing::source_dir();
-        
+
         let mut af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         af.trackartists.main = vec![Artist::new("BIGBANG & 2NE1")];
         af.releaseartists.main = vec![Artist::new("BIGBANG"), Artist::new("2NE1")];
         af.flush(&config, false).unwrap();
-        
+
         // Force cache update with force=true
         update_cache(&config, true, false).unwrap();
-        
+
         let rule = parse_rule("artist: & ", &["split: & "]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();

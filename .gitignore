@@ -20,3 +20,5 @@ zig-cache
 zig-out
 
 rose-rs/target/
+# Temporary
+py-impl-reference
