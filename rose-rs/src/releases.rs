@@ -63,7 +63,7 @@ use crate::cache::{
 use crate::common::{Artist, ArtistMapping};
 use crate::{Result, RoseError, RoseExpectedError};
 use crate::config::Config;
-use crate::rule_parser::{Action, ExpandableTag, Matcher, ALL_TAGS};
+use crate::rule_parser::{Action, ExpandableTag, Matcher, Tag, ALL_TAGS};
 use crate::rules::{
     execute_metadata_actions, fast_search_for_matching_releases,
     filter_release_false_positives_using_read_cache,
@@ -445,14 +445,61 @@ impl MetadataArtist {
     pub fn from_mapping(mapping: &ArtistMapping) -> Vec<MetadataArtist> {
         let mut artists = Vec::new();
         
-        for (role, role_artists) in mapping.iter() {
-            for artist in role_artists {
-                if !artist.alias {
-                    artists.push(MetadataArtist {
-                        name: artist.name.clone(),
-                        role: role.to_string(),
-                    });
-                }
+        // Iterate over each role field
+        for artist in &mapping.main {
+            if !artist.alias {
+                artists.push(MetadataArtist {
+                    name: artist.name.clone(),
+                    role: "main".to_string(),
+                });
+            }
+        }
+        for artist in &mapping.guest {
+            if !artist.alias {
+                artists.push(MetadataArtist {
+                    name: artist.name.clone(),
+                    role: "guest".to_string(),
+                });
+            }
+        }
+        for artist in &mapping.remixer {
+            if !artist.alias {
+                artists.push(MetadataArtist {
+                    name: artist.name.clone(),
+                    role: "remixer".to_string(),
+                });
+            }
+        }
+        for artist in &mapping.producer {
+            if !artist.alias {
+                artists.push(MetadataArtist {
+                    name: artist.name.clone(),
+                    role: "producer".to_string(),
+                });
+            }
+        }
+        for artist in &mapping.composer {
+            if !artist.alias {
+                artists.push(MetadataArtist {
+                    name: artist.name.clone(),
+                    role: "composer".to_string(),
+                });
+            }
+        }
+        for artist in &mapping.conductor {
+            if !artist.alias {
+                artists.push(MetadataArtist {
+                    name: artist.name.clone(),
+                    role: "conductor".to_string(),
+                });
+            }
+        }
+        for artist in &mapping.djmixer {
+            if !artist.alias {
+                artists.push(MetadataArtist {
+                    name: artist.name.clone(),
+                    role: "djmixer".to_string(),
+                });
             }
         }
         
@@ -463,11 +510,15 @@ impl MetadataArtist {
         let mut mapping = ArtistMapping::default();
         
         for a in artists {
-            match mapping.get_mut(&a.role.to_lowercase()) {
-                Some(role_artists) => {
-                    role_artists.push(Artist::new(&a.name));
-                }
-                None => {
+            match a.role.to_lowercase().as_str() {
+                "main" => mapping.main.push(Artist::new(&a.name)),
+                "guest" => mapping.guest.push(Artist::new(&a.name)),
+                "remixer" => mapping.remixer.push(Artist::new(&a.name)),
+                "producer" => mapping.producer.push(Artist::new(&a.name)),
+                "composer" => mapping.composer.push(Artist::new(&a.name)),
+                "conductor" => mapping.conductor.push(Artist::new(&a.name)),
+                "djmixer" => mapping.djmixer.push(Artist::new(&a.name)),
+                _ => {
                     return Err(UnknownArtistRoleError(format!(
                         "Failed to write tags: Unknown role for artist {}: {}",
                         a.name, a.role
@@ -552,7 +603,7 @@ where
     if s.is_empty() {
         Ok(None)
     } else {
-        Ok(RoseDate::parse(&s))
+        Ok(RoseDate::parse(Some(&s)))
     }
 }
 
@@ -706,7 +757,7 @@ pub fn edit_release(
         .ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
     
     // Trigger a quick cache update to ensure we are reading the liveliest data.
-    update_cache_for_releases(c, &[release.source_path.clone()], false)?;
+    update_cache_for_releases(c, Some(vec![release.source_path.clone()]), false, false)?;
     
     // Reload release in case any source paths changed.
     release = get_release(c, release_id)?
@@ -793,18 +844,18 @@ fn apply_release_edit(
         let mut dirty = false;
         
         // Track tags.
-        if tags.tracknumber != track_meta.tracknumber {
-            tags.tracknumber = track_meta.tracknumber.clone();
+        if tags.tracknumber != Some(track_meta.tracknumber.clone()) {
+            tags.tracknumber = Some(track_meta.tracknumber.clone());
             dirty = true;
             debug!("modified tag detected for {}: tracknumber", t.source_path.display());
         }
-        if tags.discnumber != track_meta.discnumber {
-            tags.discnumber = track_meta.discnumber.clone();
+        if tags.discnumber != Some(track_meta.discnumber.clone()) {
+            tags.discnumber = Some(track_meta.discnumber.clone());
             dirty = true;
             debug!("modified tag detected for {}: discnumber", t.source_path.display());
         }
-        if tags.tracktitle != track_meta.title {
-            tags.tracktitle = track_meta.title.clone();
+        if tags.tracktitle != Some(track_meta.title.clone()) {
+            tags.tracktitle = Some(track_meta.title.clone());
             dirty = true;
             debug!("modified tag detected for {}: title", t.source_path.display());
         }
@@ -816,8 +867,8 @@ fn apply_release_edit(
         }
         
         // Album tags.
-        if tags.releasetitle != release_meta.title {
-            tags.releasetitle = release_meta.title.clone();
+        if tags.releasetitle != Some(release_meta.title.clone()) {
+            tags.releasetitle = Some(release_meta.title.clone());
             dirty = true;
             debug!("modified tag detected for {}: release", t.source_path.display());
         }
@@ -970,7 +1021,7 @@ pub fn find_releases_matching_rule(
                 include_loose_tracks,
             );
         }
-        if matcher.tags == vec!["genre".to_string()] {
+        if matcher.tags == vec![Tag::Genre] {
             return filter_releases(
                 c,
                 None,               // release_ids
@@ -983,7 +1034,7 @@ pub fn find_releases_matching_rule(
                 include_loose_tracks,
             );
         }
-        if matcher.tags == vec!["label".to_string()] {
+        if matcher.tags == vec![Tag::Label] {
             return filter_releases(
                 c,
                 None,               // release_ids
@@ -996,7 +1047,7 @@ pub fn find_releases_matching_rule(
                 include_loose_tracks,
             );
         }
-        if matcher.tags == vec!["descriptor".to_string()] {
+        if matcher.tags == vec![Tag::Descriptor] {
             return filter_releases(
                 c,
                 None,               // release_ids
@@ -1009,7 +1060,7 @@ pub fn find_releases_matching_rule(
                 include_loose_tracks,
             );
         }
-        if matcher.tags == vec!["releasetype".to_string()] {
+        if matcher.tags == vec![Tag::ReleaseType] {
             return filter_releases(
                 c,
                 None,               // release_ids
@@ -1030,7 +1081,7 @@ pub fn find_releases_matching_rule(
         .collect();
     
     let releases = list_releases_by_ids(c, &release_ids, include_loose_tracks)?;
-    filter_release_false_positives_using_read_cache(matcher, &releases, include_loose_tracks)
+    Ok(filter_release_false_positives_using_read_cache(matcher, releases, include_loose_tracks))
 }
 
 // Python: def run_actions_on_release(
@@ -1187,7 +1238,6 @@ mod tests {
     use super::*;
     use crate::testing;
     use std::fs;
-    use tempfile::TempDir;
     
     // Python: def test_delete_release(config: Config) -> None:
     // Python:     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)

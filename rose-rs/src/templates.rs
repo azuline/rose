@@ -11,7 +11,7 @@ use std::sync::Mutex;
 use tera::{Context, Tera};
 use thiserror::Error;
 
-use crate::common::{ArtistMapping, RoseDate};
+use crate::common::{Artist, ArtistMapping, RoseDate};
 
 #[derive(Error, Debug)]
 pub struct InvalidPathTemplateError {

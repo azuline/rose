@@ -73,6 +73,8 @@ class EventHandler(FileSystemEventHandler):  # pragma: no cover
     def on_any_event(self, event: FileSystemEvent) -> None:
         super().on_any_event(event)
         path = event.dest_path if isinstance(event, FileSystemMovedEvent) else event.src_path
+        if isinstance(path, bytes):
+            path = path.decode()
         logger.debug(f"Notified of {event.event_type} event for {path}")
 
         etype: EventType = event.event_type  # type: ignore
