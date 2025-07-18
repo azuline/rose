@@ -185,7 +185,7 @@ pub fn delete_release(c: &Config, release_id: &str) -> Result<()> {
         .ok_or_else(|| ReleaseDoesNotExistError(format!("Release {} does not exist", release_id)))?;
     
     let _lock = lock(c, &release_lock_name(release_id), 900.0)?;
-    trash::delete(&release.source_path)?;
+    trash::delete(&release.source_path).map_err(|e| RoseError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
     
     let release_logtext = make_release_logtext(
         &release.releasetitle,
@@ -339,7 +339,7 @@ pub fn set_release_cover_art(
         
         if c.valid_cover_arts().contains(&file_name) {
             debug!("deleting existing cover art {} in {}", entry.file_name().to_string_lossy(), release_logtext);
-            trash::delete(entry.path())?;
+            trash::delete(entry.path()).map_err(|e| RoseError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
         }
     }
     
@@ -397,7 +397,7 @@ pub fn delete_release_cover_art(c: &Config, release_id: &str) -> Result<()> {
         
         if c.valid_cover_arts().contains(&file_name) {
             debug!("deleting existing cover art {} in {}", entry.file_name().to_string_lossy(), release_logtext);
-            trash::delete(entry.path())?;
+            trash::delete(entry.path()).map_err(|e| RoseError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
             found = true;
         }
     }
