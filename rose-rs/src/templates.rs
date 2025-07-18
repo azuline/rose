@@ -655,6 +655,78 @@ fn calc_track_variables(track: &Track, position: Option<&str>, context: Option<&
     ctx
 }
 
+/// Format an ArtistMapping for display
+pub fn format_artist_mapping(artists: &ArtistMapping) -> String {
+    let format_artists = |artist_list: &[Artist]| -> String {
+        let names: Vec<String> = artist_list.iter().filter(|a| !a.alias).map(|a| a.name.clone()).collect();
+        if names.is_empty() {
+            String::new()
+        } else if names.len() == 1 {
+            names[0].clone()
+        } else if names.len() == 2 {
+            format!("{} & {}", names[0], names[1])
+        } else {
+            format!("{} & {}", names[..names.len() - 1].join(", "), names.last().unwrap())
+        }
+    };
+
+    let mut parts = Vec::new();
+
+    // Main artists
+    let main_str = format_artists(&artists.main);
+    if !main_str.is_empty() {
+        parts.push(main_str);
+    }
+
+    // Guest artists
+    let guest_str = format_artists(&artists.guest);
+    if !guest_str.is_empty() {
+        parts.push(format!("(feat. {})", guest_str));
+    }
+
+    // Remixer
+    let remixer_str = format_artists(&artists.remixer);
+    if !remixer_str.is_empty() {
+        parts.push(format!("(remixed by {})", remixer_str));
+    }
+
+    // Producer
+    let producer_str = format_artists(&artists.producer);
+    if !producer_str.is_empty() {
+        parts.push(format!("(prod. {})", producer_str));
+    }
+
+    if parts.is_empty() {
+        // Conductor
+        let conductor_str = format_artists(&artists.conductor);
+        if !conductor_str.is_empty() {
+            parts.push(format!("(under {})", conductor_str));
+        }
+    }
+
+    if parts.is_empty() {
+        // Composer
+        let composer_str = format_artists(&artists.composer);
+        if !composer_str.is_empty() {
+            parts.push(composer_str);
+        }
+    }
+
+    if parts.is_empty() {
+        // DJ Mixer
+        let djmixer_str = format_artists(&artists.djmixer);
+        if !djmixer_str.is_empty() {
+            parts.push(format!("(DJ mix by {})", djmixer_str));
+        }
+    }
+
+    if parts.is_empty() {
+        "Unknown Artists".to_string()
+    } else {
+        parts.join(" ")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -826,77 +898,5 @@ mod tests {
             evaluate_release_template(&template, &release, None, None),
             "Debussy, Claude - 1907. Images performed by Cleveland Orchestra under Pierre Boulez (1992)"
         );
-    }
-}
-
-/// Format an ArtistMapping for display
-pub fn format_artist_mapping(artists: &ArtistMapping) -> String {
-    let format_artists = |artist_list: &[Artist]| -> String {
-        let names: Vec<String> = artist_list.iter().filter(|a| !a.alias).map(|a| a.name.clone()).collect();
-        if names.is_empty() {
-            String::new()
-        } else if names.len() == 1 {
-            names[0].clone()
-        } else if names.len() == 2 {
-            format!("{} & {}", names[0], names[1])
-        } else {
-            format!("{} & {}", names[..names.len() - 1].join(", "), names.last().unwrap())
-        }
-    };
-
-    let mut parts = Vec::new();
-
-    // Main artists
-    let main_str = format_artists(&artists.main);
-    if !main_str.is_empty() {
-        parts.push(main_str);
-    }
-
-    // Guest artists
-    let guest_str = format_artists(&artists.guest);
-    if !guest_str.is_empty() {
-        parts.push(format!("(feat. {})", guest_str));
-    }
-
-    // Remixer
-    let remixer_str = format_artists(&artists.remixer);
-    if !remixer_str.is_empty() {
-        parts.push(format!("(remixed by {})", remixer_str));
-    }
-
-    // Producer
-    let producer_str = format_artists(&artists.producer);
-    if !producer_str.is_empty() {
-        parts.push(format!("(prod. {})", producer_str));
-    }
-
-    if parts.is_empty() {
-        // Conductor
-        let conductor_str = format_artists(&artists.conductor);
-        if !conductor_str.is_empty() {
-            parts.push(format!("(under {})", conductor_str));
-        }
-    }
-
-    if parts.is_empty() {
-        // Composer
-        let composer_str = format_artists(&artists.composer);
-        if !composer_str.is_empty() {
-            parts.push(composer_str);
-        }
-    }
-
-    if parts.is_empty() {
-        // DJ Mixer
-        let djmixer_str = format_artists(&artists.djmixer);
-        if !djmixer_str.is_empty() {
-            parts.push(format!("(DJ mix by {})", djmixer_str));
-        }
-    }
-
-    if parts.is_empty() {
-        "Unknown Artists".to_string()
-    } else {
-        parts.join(" ")
     }
 }

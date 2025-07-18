@@ -1161,6 +1161,7 @@ mod tests {
     use super::*;
     use crate::testing;
     use std::fs;
+    use std::path::PathBuf;
 
     // Python: def test_delete_release(config: Config) -> None:
     // Python:     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)

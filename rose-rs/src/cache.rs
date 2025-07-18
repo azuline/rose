@@ -7,7 +7,7 @@ use crate::audiotags::{AudioTags, SUPPORTED_AUDIO_EXTENSIONS};
 use crate::common::{sanitize_dirname, sanitize_filename, Artist, ArtistMapping, RoseDate, VERSION};
 use crate::config::Config;
 use crate::errors::{Result, RoseError};
-use crate::genre_hierarchy::TRANSITIVE_PARENT_GENRES;
+use crate::genre_hierarchy::{TRANSITIVE_CHILD_GENRES, TRANSITIVE_PARENT_GENRES};
 use crate::templates::{evaluate_release_template, evaluate_track_template};
 use once_cell::sync::Lazy;
 use rusqlite::{params, Connection, OptionalExtension, Row};
@@ -2212,12 +2212,14 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
         debug!("updating playlist {} in cache", name);
 
         // Check for cover image
-        let cover_path = playlist_dir.join(format!("{}.jpg", name));
-        let cover_path_str = if cover_path.exists() {
-            Some(cover_path.to_string_lossy().to_string())
-        } else {
-            None
-        };
+        let mut cover_path_str = None;
+        for ext in &c.valid_art_exts {
+            let cover_path = playlist_dir.join(format!("{}.{}", name, ext));
+            if cover_path.exists() {
+                cover_path_str = Some(cover_path.to_string_lossy().to_string());
+                break;
+            }
+        }
 
         // Read and parse the playlist TOML file
         let content = fs::read_to_string(&path)?;
@@ -2991,6 +2993,290 @@ pub fn get_playlist_tracks(c: &Config, playlist_name: &str) -> Result<Vec<Track>
             tracks.push(track);
         }
     }
+
+    Ok(tracks)
+}
+
+// Helper function to create release logtext for display
+pub fn make_release_logtext(title: &str, releasedate: Option<&RoseDate>, artists: &ArtistMapping) -> String {
+    use crate::templates::format_artist_mapping as artistsfmt;
+
+    let mut logtext = format!("{} - ", artistsfmt(artists));
+    if let Some(date) = releasedate {
+        if let Some(year) = date.year {
+            logtext.push_str(&format!("{}. ", year));
+        }
+    }
+    logtext.push_str(title);
+    logtext
+}
+
+/// Filter releases based on various criteria
+#[allow(clippy::too_many_arguments)]
+pub fn filter_releases(
+    c: &Config,
+    release_ids: Option<&[String]>,
+    all_artist_filter: Option<&str>,
+    release_artist_filter: Option<&str>,
+    genre_filter: Option<&str>,
+    descriptor_filter: Option<&str>,
+    label_filter: Option<&str>,
+    release_type_filter: Option<&str>,
+    include_loose_tracks: bool,
+) -> Result<Vec<Release>> {
+    let conn = connect(c)?;
+    let mut query = "SELECT * FROM releases_view rv WHERE 1=1".to_string();
+    let mut args: Vec<String> = Vec::new();
+
+    if !include_loose_tracks {
+        query.push_str(" AND rv.releasetype <> 'loosetrack'");
+    }
+
+    if let Some(ids) = release_ids {
+        if !ids.is_empty() {
+            let placeholders = vec!["?"; ids.len()].join(",");
+            query.push_str(&format!(" AND rv.id IN ({})", placeholders));
+            args.extend(ids.iter().cloned());
+        }
+    }
+
+    if let Some(artist) = release_artist_filter {
+        query.push_str(
+            " AND EXISTS (
+            SELECT * FROM releases_artists ra
+            WHERE ra.release_id = rv.id AND ra.artist = ?
+        )",
+        );
+        args.push(artist.to_string());
+    }
+
+    if let Some(artist) = all_artist_filter {
+        query.push_str(
+            " AND (
+            EXISTS (
+                SELECT * FROM releases_artists
+                WHERE release_id = rv.id AND artist = ?
+            )
+            OR EXISTS (
+                SELECT * FROM tracks_artists ta
+                JOIN tracks t ON ta.track_id = t.id
+                WHERE t.release_id = rv.id AND ta.artist = ?
+            )
+        )",
+        );
+        args.push(artist.to_string());
+        args.push(artist.to_string());
+    }
+
+    if let Some(genre) = genre_filter {
+        query.push_str(
+            " AND (
+            EXISTS (
+                SELECT * FROM releases_genres
+                WHERE release_id = rv.id AND genre = ?
+            )
+            OR EXISTS (
+                SELECT * FROM releases_secondary_genres
+                WHERE release_id = rv.id AND genre = ?
+            )
+        )",
+        );
+        args.push(genre.to_string());
+        args.push(genre.to_string());
+    }
+
+    if let Some(descriptor) = descriptor_filter {
+        query.push_str(
+            " AND EXISTS (
+            SELECT * FROM releases_descriptors
+            WHERE release_id = rv.id AND descriptor = ?
+        )",
+        );
+        args.push(descriptor.to_string());
+    }
+
+    if let Some(label) = label_filter {
+        query.push_str(
+            " AND EXISTS (
+            SELECT * FROM releases_labels
+            WHERE release_id = rv.id AND label = ?
+        )",
+        );
+        args.push(label.to_string());
+    }
+
+    if let Some(release_type) = release_type_filter {
+        query.push_str(" AND rv.releasetype = ?");
+        args.push(release_type.to_string());
+    }
+
+    query.push_str(" ORDER BY rv.id");
+
+    let mut stmt = conn.prepare(&query)?;
+    let releases = stmt
+        .query_map(rusqlite::params_from_iter(&args), |row| {
+            cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    Ok(releases)
+}
+
+/// List releases by IDs, with optional filtering
+pub fn list_releases_by_ids(c: &Config, release_ids: &[String], include_loose_tracks: bool) -> Result<Vec<Release>> {
+    filter_releases(c, Some(release_ids), None, None, None, None, None, None, include_loose_tracks)
+}
+
+/// Get all artist aliases including transitive aliases
+fn get_all_artist_aliases(c: &Config, artist: &str) -> Vec<String> {
+    let mut aliases = HashSet::new();
+    let mut unvisited = HashSet::new();
+    unvisited.insert(artist.to_string());
+
+    while let Some(current) = unvisited.iter().next().cloned() {
+        unvisited.remove(&current);
+        if aliases.insert(current.clone()) {
+            if let Some(artist_aliases) = c.artist_aliases_map.get(&current) {
+                for alias in artist_aliases {
+                    unvisited.insert(alias.clone());
+                }
+            }
+        }
+    }
+
+    aliases.into_iter().collect()
+}
+
+/// Filter tracks based on various criteria
+#[allow(clippy::too_many_arguments)]
+pub fn filter_tracks(
+    c: &Config,
+    track_artist_filter: Option<&str>,
+    release_artist_filter: Option<&str>,
+    all_artist_filter: Option<&str>,
+    genre_filter: Option<&str>,
+    descriptor_filter: Option<&str>,
+    label_filter: Option<&str>,
+    new: Option<bool>,
+) -> Result<Vec<Track>> {
+    let conn = connect(c)?;
+    let mut query = "SELECT * FROM tracks_view tv WHERE 1=1".to_string();
+    let mut args: Vec<String> = Vec::new();
+
+    if let Some(track_artist) = track_artist_filter {
+        let mut artists = vec![track_artist.to_string()];
+        artists.extend(get_all_artist_aliases(c, track_artist));
+
+        let placeholders = vec!["?"; artists.len()].join(",");
+        query.push_str(&format!(
+            " AND EXISTS (
+                SELECT * FROM tracks_artists ta
+                WHERE ta.track_id = tv.id AND ta.artist IN ({})
+            )",
+            placeholders
+        ));
+        args.extend(artists);
+    }
+
+    if let Some(release_artist) = release_artist_filter {
+        let mut artists = vec![release_artist.to_string()];
+        artists.extend(get_all_artist_aliases(c, release_artist));
+
+        let placeholders = vec!["?"; artists.len()].join(",");
+        query.push_str(&format!(
+            " AND EXISTS (
+                SELECT * FROM releases_artists ra
+                WHERE ra.release_id = tv.release_id AND ra.artist IN ({})
+            )",
+            placeholders
+        ));
+        args.extend(artists);
+    }
+
+    if let Some(all_artist) = all_artist_filter {
+        let mut artists = vec![all_artist.to_string()];
+        artists.extend(get_all_artist_aliases(c, all_artist));
+
+        let placeholders = vec!["?"; artists.len()].join(",");
+        query.push_str(&format!(
+            " AND (
+                EXISTS (
+                    SELECT * FROM tracks_artists ta
+                    WHERE ta.track_id = tv.id AND ta.artist IN ({})
+                )
+                OR EXISTS (
+                    SELECT * FROM releases_artists ra
+                    WHERE ra.release_id = tv.release_id AND ra.artist IN ({})
+                )
+            )",
+            placeholders, placeholders
+        ));
+        args.extend(artists.clone());
+        args.extend(artists);
+    }
+
+    if let Some(genre) = genre_filter {
+        let mut genres = vec![genre.to_string()];
+        if let Some(child_genres) = TRANSITIVE_CHILD_GENRES.get(genre) {
+            genres.extend(child_genres.clone());
+        }
+
+        let placeholders = vec!["?"; genres.len()].join(",");
+        query.push_str(&format!(
+            " AND (
+                EXISTS (
+                    SELECT * FROM releases_genres rg
+                    WHERE rg.release_id = tv.release_id AND rg.genre IN ({})
+                )
+                OR EXISTS (
+                    SELECT * FROM releases_secondary_genres rsg
+                    WHERE rsg.release_id = tv.release_id AND rsg.genre IN ({})
+                )
+            )",
+            placeholders, placeholders
+        ));
+        args.extend(genres.clone());
+        args.extend(genres);
+    }
+
+    if let Some(descriptor) = descriptor_filter {
+        query.push_str(
+            " AND EXISTS (
+                SELECT * FROM releases_descriptors rd
+                WHERE rd.release_id = tv.release_id AND rd.descriptor = ?
+            )",
+        );
+        args.push(descriptor.to_string());
+    }
+
+    if let Some(label) = label_filter {
+        query.push_str(
+            " AND EXISTS (
+                SELECT * FROM releases_labels rl
+                WHERE rl.release_id = tv.release_id AND rl.label = ?
+            )",
+        );
+        args.push(label.to_string());
+    }
+
+    if let Some(new_val) = new {
+        query.push_str(" AND EXISTS (SELECT 1 FROM releases r WHERE r.id = tv.release_id AND r.new = ?)");
+        args.push(if new_val { "1" } else { "0" }.to_string());
+    }
+
+    query.push_str(" ORDER BY source_path");
+
+    // Execute query to get track IDs
+    let mut stmt = conn.prepare(&query)?;
+    let track_ids: Vec<String> =
+        stmt.query_map(rusqlite::params_from_iter(&args), |row| row.get::<_, String>("id"))?.collect::<std::result::Result<Vec<_>, _>>()?;
+
+    if track_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Now use list_tracks to get the actual tracks with releases
+    let tracks = list_tracks(c, Some(track_ids))?;
 
     Ok(tracks)
 }
@@ -5189,133 +5475,4 @@ mod tests {
         assert!(playlist_exists(&config, "Turtle Rabbit").unwrap());
         assert!(!playlist_exists(&config, "Bunny Hop").unwrap());
     }
-}
-
-// Helper function to create release logtext for display
-pub fn make_release_logtext(title: &str, releasedate: Option<&RoseDate>, artists: &ArtistMapping) -> String {
-    use crate::templates::format_artist_mapping as artistsfmt;
-
-    let mut logtext = format!("{} - ", artistsfmt(artists));
-    if let Some(date) = releasedate {
-        if let Some(year) = date.year {
-            logtext.push_str(&format!("{}. ", year));
-        }
-    }
-    logtext.push_str(title);
-    logtext
-}
-
-/// Filter releases based on various criteria
-pub fn filter_releases(
-    c: &Config,
-    release_ids: Option<&[String]>,
-    all_artist_filter: Option<&str>,
-    release_artist_filter: Option<&str>,
-    genre_filter: Option<&str>,
-    descriptor_filter: Option<&str>,
-    label_filter: Option<&str>,
-    release_type_filter: Option<&str>,
-    include_loose_tracks: bool,
-) -> Result<Vec<Release>> {
-    let conn = connect(c)?;
-    let mut query = "SELECT * FROM releases_view rv WHERE 1=1".to_string();
-    let mut args: Vec<String> = Vec::new();
-
-    if !include_loose_tracks {
-        query.push_str(" AND rv.releasetype <> 'loosetrack'");
-    }
-
-    if let Some(ids) = release_ids {
-        if !ids.is_empty() {
-            let placeholders = vec!["?"; ids.len()].join(",");
-            query.push_str(&format!(" AND rv.id IN ({})", placeholders));
-            args.extend(ids.iter().cloned());
-        }
-    }
-
-    if let Some(artist) = release_artist_filter {
-        query.push_str(
-            " AND EXISTS (
-            SELECT * FROM releases_artists ra
-            WHERE ra.release_id = rv.id AND ra.artist = ?
-        )",
-        );
-        args.push(artist.to_string());
-    }
-
-    if let Some(artist) = all_artist_filter {
-        query.push_str(
-            " AND (
-            EXISTS (
-                SELECT * FROM releases_artists
-                WHERE release_id = rv.id AND artist = ?
-            )
-            OR EXISTS (
-                SELECT * FROM tracks_artists ta
-                JOIN tracks t ON ta.track_id = t.id
-                WHERE t.release_id = rv.id AND ta.artist = ?
-            )
-        )",
-        );
-        args.push(artist.to_string());
-        args.push(artist.to_string());
-    }
-
-    if let Some(genre) = genre_filter {
-        query.push_str(
-            " AND (
-            EXISTS (
-                SELECT * FROM releases_genres
-                WHERE release_id = rv.id AND genre = ?
-            )
-            OR EXISTS (
-                SELECT * FROM releases_secondary_genres
-                WHERE release_id = rv.id AND genre = ?
-            )
-        )",
-        );
-        args.push(genre.to_string());
-        args.push(genre.to_string());
-    }
-
-    if let Some(descriptor) = descriptor_filter {
-        query.push_str(
-            " AND EXISTS (
-            SELECT * FROM releases_descriptors
-            WHERE release_id = rv.id AND descriptor = ?
-        )",
-        );
-        args.push(descriptor.to_string());
-    }
-
-    if let Some(label) = label_filter {
-        query.push_str(
-            " AND EXISTS (
-            SELECT * FROM releases_labels
-            WHERE release_id = rv.id AND label = ?
-        )",
-        );
-        args.push(label.to_string());
-    }
-
-    if let Some(release_type) = release_type_filter {
-        query.push_str(" AND rv.releasetype = ?");
-        args.push(release_type.to_string());
-    }
-
-    query.push_str(" ORDER BY rv.id");
-
-    let mut stmt = conn.prepare(&query)?;
-    let releases = stmt
-        .query_map(rusqlite::params_from_iter(&args), |row| {
-            cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
-        })?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-
-    Ok(releases)
-}
-
-/// List releases by IDs, with optional filtering
-pub fn list_releases_by_ids(c: &Config, release_ids: &[String], include_loose_tracks: bool) -> Result<Vec<Release>> {
-    filter_releases(c, Some(release_ids), None, None, None, None, None, None, include_loose_tracks)
 }

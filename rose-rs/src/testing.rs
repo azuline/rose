@@ -303,9 +303,21 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
     for cn in ["Rose Gold", "Ruby Red"] {
         fs::write(source_dir.join("!collages").join(format!("{cn}.toml")), "").expect("failed to create collage toml");
     }
-    for pn in ["Lala Lisa", "Turtle Rabbit"] {
-        fs::write(source_dir.join("!playlists").join(format!("{pn}.toml")), "").expect("failed to create playlist toml");
-    }
+    // Create playlist TOML files with proper content
+    fs::write(
+        source_dir.join("!playlists").join("Lala Lisa.toml"),
+        r#"[[tracks]]
+uuid = "t1"
+description_meta = "Techno Man & Bass Man - Track 1"
+
+[[tracks]]
+uuid = "t3"
+description_meta = "Violin Woman - Track 1"
+"#,
+    )
+    .expect("failed to create Lala Lisa playlist toml");
+
+    fs::write(source_dir.join("!playlists").join("Turtle Rabbit.toml"), "").expect("failed to create Turtle Rabbit playlist toml");
 
     (config, temp_dir)
 }

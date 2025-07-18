@@ -4,14 +4,17 @@
 // Internal modules - not exposed to library users
 mod audiotags;
 mod cache;
+mod collages;
 mod common;
 mod config;
 mod errors;
 mod genre_hierarchy;
+mod playlists;
 mod releases;
 mod rule_parser;
 mod rules;
 mod templates;
+mod tracks;
 
 #[cfg(test)]
 mod testing;
@@ -63,6 +66,18 @@ pub use config::{get_config_path, Config, VirtualFSConfig};
 pub use audiotags::{
     format_artist_string, parse_artist_string, AudioTags, UnsupportedFiletypeError, UnsupportedTagValueTypeError, SUPPORTED_AUDIO_EXTENSIONS,
     SUPPORTED_RELEASE_TYPES,
+};
+
+// From collages module
+pub use collages::{
+    add_release_to_collage, create_collage, delete_collage, edit_collage_in_editor, remove_release_from_collage, rename_collage, CollageAlreadyExistsError,
+    CollageDoesNotExistError, DescriptionMismatchError,
+};
+
+// From playlists module
+pub use playlists::{
+    add_track_to_playlist, create_playlist, delete_playlist, delete_playlist_cover_art, edit_playlist_in_editor, remove_track_from_playlist, rename_playlist,
+    set_playlist_cover_art, PlaylistAlreadyExistsError, PlaylistDoesNotExistError,
 };
 
 // from rose.audiotags import (
