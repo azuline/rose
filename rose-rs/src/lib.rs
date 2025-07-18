@@ -9,6 +9,7 @@ mod config;
 mod errors;
 mod genre_hierarchy;
 mod rule_parser;
+mod rules;
 mod templates;
 
 #[cfg(test)]
