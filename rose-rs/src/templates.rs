@@ -580,7 +580,7 @@ fn calc_track_variables(track: &Track, position: Option<&str>, context: Option<&
     ctx.insert("discnumber", &track.discnumber);
     ctx.insert("duration_seconds", &track.duration_seconds);
     ctx.insert("trackartists", &track.trackartists);
-
+    
     // Release fields from the track's release
     ctx.insert("added_at", &track.release.added_at);
     ctx.insert("releasetitle", &track.release.releasetitle);
