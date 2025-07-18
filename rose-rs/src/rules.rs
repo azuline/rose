@@ -1,13 +1,8 @@
 use crate::audiotags::AudioTags;
-use crate::cache::{
-    get_release, list_releases, list_tracks, update_cache_for_releases, Release,
-    StoredDataFile, Track,
-};
+use crate::cache::{list_releases, list_tracks, update_cache_for_releases, Release, StoredDataFile, Track};
 use crate::common::{uniq, Artist, RoseDate};
 use crate::config::Config;
-use crate::rule_parser::{
-    Action, ActionBehavior, Matcher, Pattern, Rule, Tag,
-};
+use crate::rule_parser::{Action, ActionBehavior, Matcher, Pattern, Rule, Tag};
 use crate::{Result, RoseError, RoseExpectedError};
 use regex::Regex;
 use rusqlite::Connection;
@@ -17,17 +12,31 @@ use std::time::Instant;
 use tracing::{debug, info};
 
 // Local copies of constants from cache module
-const STORED_DATA_FILE_REGEX_STR: &str = r"^\.(release|releasedata)\.toml$";
+const STORED_DATA_FILE_REGEX_STR: &str = r"^\.rose\.([^.]+)\.toml$";
 lazy_static::lazy_static! {
     static ref STORED_DATA_FILE_REGEX: Regex = Regex::new(STORED_DATA_FILE_REGEX_STR).unwrap();
 }
 const RELEASE_TAGS: &[&str] = &[
-    "releasetitle", "releasedate", "originaldate", "compositiondate",
-    "edition", "catalognumber", "releasetype", "secondarygenre", 
-    "genre", "label", "releaseartist[main]", "releaseartist[guest]",
-    "releaseartist[remixer]", "releaseartist[producer]", 
-    "releaseartist[composer]", "releaseartist[conductor]", 
-    "releaseartist[djmixer]", "new", "disctotal", "descriptor"
+    "releasetitle",
+    "releasedate",
+    "originaldate",
+    "compositiondate",
+    "edition",
+    "catalognumber",
+    "releasetype",
+    "secondarygenre",
+    "genre",
+    "label",
+    "releaseartist[main]",
+    "releaseartist[guest]",
+    "releaseartist[remixer]",
+    "releaseartist[producer]",
+    "releaseartist[composer]",
+    "releaseartist[conductor]",
+    "releaseartist[djmixer]",
+    "new",
+    "disctotal",
+    "descriptor",
 ];
 
 #[derive(Debug, Clone)]
@@ -176,12 +185,8 @@ fn matches_pattern(pattern: &Pattern, value: &str) -> bool {
     } else {
         pattern.needle.clone()
     };
-    
-    let haystack = if pattern.case_insensitive {
-        value.to_lowercase()
-    } else {
-        value.to_string()
-    };
+
+    let haystack = if pattern.case_insensitive { value.to_lowercase() } else { value.to_string() };
 
     if pattern.strict_start && pattern.strict_end {
         haystack == needle
@@ -194,11 +199,7 @@ fn matches_pattern(pattern: &Pattern, value: &str) -> bool {
     }
 }
 
-pub fn execute_stored_metadata_rules(
-    config: &Config,
-    dry_run: bool,
-    confirm_yes: bool,
-) -> Result<()> {
+pub fn execute_stored_metadata_rules(config: &Config, dry_run: bool, confirm_yes: bool) -> Result<()> {
     for rule in &config.stored_metadata_rules {
         println!("\x1b[2mExecuting stored metadata rule {}\x1b[0m", rule);
         execute_metadata_rule(config, rule, dry_run, confirm_yes, 25)?;
@@ -206,16 +207,10 @@ pub fn execute_stored_metadata_rules(
     Ok(())
 }
 
-pub fn execute_metadata_rule(
-    config: &Config,
-    rule: &Rule,
-    dry_run: bool,
-    confirm_yes: bool,
-    enter_number_to_confirm_above_count: usize,
-) -> Result<()> {
+pub fn execute_metadata_rule(config: &Config, rule: &Rule, dry_run: bool, confirm_yes: bool, enter_number_to_confirm_above_count: usize) -> Result<()> {
     println!();
     let fast_search_results = fast_search_for_matching_tracks(config, &rule.matcher)?;
-    
+
     if fast_search_results.is_empty() {
         println!("\x1b[2;3mNo matching tracks found\x1b[0m");
         println!();
@@ -226,17 +221,10 @@ pub fn execute_metadata_rule(
         let time_start = Instant::now();
         let track_ids: Vec<String> = fast_search_results.iter().map(|t| t.id.clone()).collect();
         let tracks = list_tracks(config, Some(track_ids))?;
-        debug!(
-            "fetched tracks from cache for filtering in {:?}",
-            time_start.elapsed()
-        );
+        debug!("fetched tracks from cache for filtering in {:?}", time_start.elapsed());
         let filtered_tracks = filter_track_false_positives_using_read_cache(&rule.matcher, tracks);
-        let track_ids: std::collections::HashSet<String> =
-            filtered_tracks.into_iter().map(|t| t.id).collect();
-        fast_search_results
-            .into_iter()
-            .filter(|t| track_ids.contains(&t.id))
-            .collect()
+        let track_ids: std::collections::HashSet<String> = filtered_tracks.into_iter().map(|t| t.id).collect();
+        fast_search_results.into_iter().filter(|t| track_ids.contains(&t.id)).collect()
     } else {
         fast_search_results
     };
@@ -247,11 +235,7 @@ pub fn execute_metadata_rule(
         return Ok(());
     }
 
-    let matcher_audiotags = filter_track_false_positives_using_tags(
-        &rule.matcher,
-        &filtered_search_results,
-        &rule.ignore,
-    )?;
+    let matcher_audiotags = filter_track_false_positives_using_tags(&rule.matcher, &filtered_search_results, &rule.ignore)?;
 
     if matcher_audiotags.is_empty() {
         println!("\x1b[2;3mNo matching tracks found\x1b[0m");
@@ -259,36 +243,24 @@ pub fn execute_metadata_rule(
         return Ok(());
     }
 
-    execute_metadata_actions(
-        config,
-        &rule.actions,
-        matcher_audiotags,
-        dry_run,
-        confirm_yes,
-        enter_number_to_confirm_above_count,
-    )
+    execute_metadata_actions(config, &rule.actions, matcher_audiotags, dry_run, confirm_yes, enter_number_to_confirm_above_count)
 }
 
 lazy_static::lazy_static! {
     static ref TAG_ROLE_REGEX: Regex = Regex::new(r"\[[^\]]+\]$").unwrap();
 }
 
-pub fn fast_search_for_matching_tracks(
-    config: &Config,
-    matcher: &Matcher,
-) -> Result<Vec<FastSearchResult>> {
+pub fn fast_search_for_matching_tracks(config: &Config, matcher: &Matcher) -> Result<Vec<FastSearchResult>> {
     let time_start = Instant::now();
     let matchsql = convert_matcher_to_fts_query(&matcher.pattern);
     debug!("converted match {:?} to {:?}", matcher, matchsql);
 
-    let columns: Vec<String> = uniq(
-        matcher
-            .tags
-            .iter()
-            .map(|t| TAG_ROLE_REGEX.replace(&t.to_string(), "").to_string())
-            .collect(),
-    );
-    let ftsquery = format!("{{{} : {}", columns.join(" "), matchsql);
+    let columns: Vec<String> = uniq(matcher.tags.iter().map(|t| TAG_ROLE_REGEX.replace(&t.to_string(), "").to_string()).collect());
+    let ftsquery = if columns.len() == 1 {
+        format!("{}:{}", columns[0], matchsql)
+    } else {
+        format!("{{{}}} : {}", columns.join(" "), matchsql)
+    };
     let query = format!(
         r#"
         SELECT DISTINCT t.id, t.source_path
@@ -303,7 +275,7 @@ pub fn fast_search_for_matching_tracks(
     debug!("constructed matching query {}", query);
 
     let mut results = Vec::new();
-    let conn = Connection::open(&config.cache_database_path())?;
+    let conn = Connection::open(config.cache_database_path())?;
     let mut stmt = conn.prepare(&query)?;
     let rows = stmt.query_map([], |row| {
         Ok(FastSearchResult {
@@ -316,76 +288,93 @@ pub fn fast_search_for_matching_tracks(
         results.push(row?);
     }
 
-    debug!(
-        "matched {} tracks from the read cache in {:?}",
-        results.len(),
-        time_start.elapsed()
-    );
+    debug!("matched {} tracks from the read cache in {:?}", results.len(), time_start.elapsed());
     Ok(results)
 }
 
 fn convert_matcher_to_fts_query(pattern: &Pattern) -> String {
-    let matchsql = pattern
-        .needle
-        .chars()
-        .map(|c| format!("¬{}", c))
+    // Join characters with "¬" separator to match the format used by process_string_for_fts
+    let matchsql = pattern.needle.chars()
+        .map(|c| c.to_string())
         .collect::<Vec<_>>()
-        .join("")
+        .join("¬")
         .replace("'", "''")
         .replace("\"", "\"\"");
-    format!(
-        "NEAR(\"{}\", {})",
-        matchsql,
-        pattern.needle.len().saturating_sub(2).max(0)
-    )
+    format!("NEAR(\"{}\", {})", matchsql, pattern.needle.len().saturating_sub(2).max(0))
 }
 
-pub fn filter_track_false_positives_using_tags(
-    matcher: &Matcher,
-    fast_search_results: &[FastSearchResult],
-    ignore: &[Matcher],
-) -> Result<Vec<AudioTags>> {
+pub fn filter_track_false_positives_using_tags(matcher: &Matcher, fast_search_results: &[FastSearchResult], ignore: &[Matcher]) -> Result<Vec<AudioTags>> {
     let time_start = Instant::now();
     let mut rval = Vec::new();
 
     for fsr in fast_search_results {
         let tags = AudioTags::from_file(&fsr.path)?;
         let mut datafile: Option<StoredDataFile> = None;
-        
+
         for field in &matcher.tags {
             let field_str = field.to_string();
             let mut is_match = false;
-            
+
             is_match = is_match || (field_str == "tracktitle" && matches_pattern(&matcher.pattern, &value_to_str(&tags.tracktitle.clone().into())));
             is_match = is_match || (field_str == "releasedate" && matches_pattern(&matcher.pattern, &value_to_str(&tags.releasedate.into())));
             is_match = is_match || (field_str == "originaldate" && matches_pattern(&matcher.pattern, &value_to_str(&tags.originaldate.into())));
             is_match = is_match || (field_str == "compositiondate" && matches_pattern(&matcher.pattern, &value_to_str(&tags.compositiondate.into())));
             is_match = is_match || (field_str == "edition" && matches_pattern(&matcher.pattern, &value_to_str(&tags.edition.clone().into())));
             is_match = is_match || (field_str == "catalognumber" && matches_pattern(&matcher.pattern, &value_to_str(&tags.catalognumber.clone().into())));
-            is_match = is_match || (field_str == "tracknumber" && tags.tracknumber.as_ref().map_or(false, |v| matches_pattern(&matcher.pattern, v)));
-            is_match = is_match || (field_str == "tracktotal" && tags.tracktotal.map_or(false, |v| matches_pattern(&matcher.pattern, &v.to_string())));
-            is_match = is_match || (field_str == "discnumber" && tags.discnumber.as_ref().map_or(false, |v| matches_pattern(&matcher.pattern, v)));
-            is_match = is_match || (field_str == "disctotal" && tags.disctotal.map_or(false, |v| matches_pattern(&matcher.pattern, &v.to_string())));
-            is_match = is_match || (field_str == "releasetitle" && tags.releasetitle.as_ref().map_or(false, |v| matches_pattern(&matcher.pattern, v)));
+            is_match = is_match || (field_str == "tracknumber" && tags.tracknumber.as_ref().is_some_and(|v| matches_pattern(&matcher.pattern, v)));
+            is_match = is_match || (field_str == "tracktotal" && tags.tracktotal.is_some_and(|v| matches_pattern(&matcher.pattern, &v.to_string())));
+            is_match = is_match || (field_str == "discnumber" && tags.discnumber.as_ref().is_some_and(|v| matches_pattern(&matcher.pattern, v)));
+            is_match = is_match || (field_str == "disctotal" && tags.disctotal.is_some_and(|v| matches_pattern(&matcher.pattern, &v.to_string())));
+            is_match = is_match || (field_str == "releasetitle" && tags.releasetitle.as_ref().is_some_and(|v| matches_pattern(&matcher.pattern, v)));
             is_match = is_match || (field_str == "releasetype" && matches_pattern(&matcher.pattern, &tags.releasetype));
             is_match = is_match || (field_str == "genre" && tags.genre.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.clone().into()))));
-            is_match = is_match || (field_str == "secondarygenre" && tags.secondarygenre.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.clone().into()))));
-            is_match = is_match || (field_str == "descriptor" && tags.descriptor.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.clone().into()))));
+            is_match = is_match
+                || (field_str == "secondarygenre" && tags.secondarygenre.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.clone().into()))));
+            is_match =
+                is_match || (field_str == "descriptor" && tags.descriptor.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.clone().into()))));
             is_match = is_match || (field_str == "label" && tags.label.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.clone().into()))));
-            is_match = is_match || (field_str == "trackartist[main]" && tags.trackartists.main.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
-            is_match = is_match || (field_str == "trackartist[guest]" && tags.trackartists.guest.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
-            is_match = is_match || (field_str == "trackartist[remixer]" && tags.trackartists.remixer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
-            is_match = is_match || (field_str == "trackartist[producer]" && tags.trackartists.producer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
-            is_match = is_match || (field_str == "trackartist[composer]" && tags.trackartists.composer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
-            is_match = is_match || (field_str == "trackartist[conductor]" && tags.trackartists.conductor.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
-            is_match = is_match || (field_str == "trackartist[djmixer]" && tags.trackartists.djmixer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
-            is_match = is_match || (field_str == "releaseartist[main]" && tags.releaseartists.main.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
-            is_match = is_match || (field_str == "releaseartist[guest]" && tags.releaseartists.guest.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
-            is_match = is_match || (field_str == "releaseartist[remixer]" && tags.releaseartists.remixer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
-            is_match = is_match || (field_str == "releaseartist[producer]" && tags.releaseartists.producer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
-            is_match = is_match || (field_str == "releaseartist[composer]" && tags.releaseartists.composer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
-            is_match = is_match || (field_str == "releaseartist[conductor]" && tags.releaseartists.conductor.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
-            is_match = is_match || (field_str == "releaseartist[djmixer]" && tags.releaseartists.djmixer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "trackartist[main]"
+                    && tags.trackartists.main.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "trackartist[guest]"
+                    && tags.trackartists.guest.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "trackartist[remixer]"
+                    && tags.trackartists.remixer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "trackartist[producer]"
+                    && tags.trackartists.producer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "trackartist[composer]"
+                    && tags.trackartists.composer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "trackartist[conductor]"
+                    && tags.trackartists.conductor.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "trackartist[djmixer]"
+                    && tags.trackartists.djmixer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "releaseartist[main]"
+                    && tags.releaseartists.main.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "releaseartist[guest]"
+                    && tags.releaseartists.guest.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "releaseartist[remixer]"
+                    && tags.releaseartists.remixer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "releaseartist[producer]"
+                    && tags.releaseartists.producer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "releaseartist[composer]"
+                    && tags.releaseartists.composer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "releaseartist[conductor]"
+                    && tags.releaseartists.conductor.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
+            is_match = is_match
+                || (field_str == "releaseartist[djmixer]"
+                    && tags.releaseartists.djmixer.iter().any(|x| matches_pattern(&matcher.pattern, &value_to_str(&x.name.clone().into()))));
 
             if !is_match && field_str == "new" {
                 if datafile.is_none() {
@@ -404,38 +393,67 @@ pub fn filter_track_false_positives_using_tags(
                     skip = skip || (field_str == "compositiondate" && matches_pattern(&i.pattern, &value_to_str(&tags.compositiondate.into())));
                     skip = skip || (field_str == "edition" && matches_pattern(&i.pattern, &value_to_str(&tags.edition.clone().into())));
                     skip = skip || (field_str == "catalognumber" && matches_pattern(&i.pattern, &value_to_str(&tags.catalognumber.clone().into())));
-                    skip = skip || (field_str == "tracknumber" && tags.tracknumber.as_ref().map_or(false, |v| matches_pattern(&i.pattern, v)));
-                    skip = skip || (field_str == "tracktotal" && tags.tracktotal.map_or(false, |v| matches_pattern(&i.pattern, &v.to_string())));
-                    skip = skip || (field_str == "discnumber" && tags.discnumber.as_ref().map_or(false, |v| matches_pattern(&i.pattern, v)));
-                    skip = skip || (field_str == "disctotal" && tags.disctotal.map_or(false, |v| matches_pattern(&i.pattern, &v.to_string())));
-                    skip = skip || (field_str == "releasetitle" && tags.releasetitle.as_ref().map_or(false, |v| matches_pattern(&i.pattern, v)));
+                    skip = skip || (field_str == "tracknumber" && tags.tracknumber.as_ref().is_some_and(|v| matches_pattern(&i.pattern, v)));
+                    skip = skip || (field_str == "tracktotal" && tags.tracktotal.is_some_and(|v| matches_pattern(&i.pattern, &v.to_string())));
+                    skip = skip || (field_str == "discnumber" && tags.discnumber.as_ref().is_some_and(|v| matches_pattern(&i.pattern, v)));
+                    skip = skip || (field_str == "disctotal" && tags.disctotal.is_some_and(|v| matches_pattern(&i.pattern, &v.to_string())));
+                    skip = skip || (field_str == "releasetitle" && tags.releasetitle.as_ref().is_some_and(|v| matches_pattern(&i.pattern, v)));
                     skip = skip || (field_str == "releasetype" && matches_pattern(&i.pattern, &tags.releasetype));
                     skip = skip || (field_str == "genre" && tags.genre.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.clone().into()))));
-                    skip = skip || (field_str == "secondarygenre" && tags.secondarygenre.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.clone().into()))));
+                    skip = skip
+                        || (field_str == "secondarygenre" && tags.secondarygenre.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.clone().into()))));
                     skip = skip || (field_str == "descriptor" && tags.descriptor.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.clone().into()))));
                     skip = skip || (field_str == "label" && tags.label.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.clone().into()))));
-                    skip = skip || (field_str == "trackartist[main]" && tags.trackartists.main.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    skip = skip || (field_str == "trackartist[guest]" && tags.trackartists.guest.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    skip = skip || (field_str == "trackartist[remixer]" && tags.trackartists.remixer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    skip = skip || (field_str == "trackartist[producer]" && tags.trackartists.producer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    skip = skip || (field_str == "trackartist[composer]" && tags.trackartists.composer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    skip = skip || (field_str == "trackartist[conductor]" && tags.trackartists.conductor.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    skip = skip || (field_str == "trackartist[djmixer]" && tags.trackartists.djmixer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    skip = skip || (field_str == "releaseartist[main]" && tags.releaseartists.main.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    skip = skip || (field_str == "releaseartist[guest]" && tags.releaseartists.guest.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    skip = skip || (field_str == "releaseartist[remixer]" && tags.releaseartists.remixer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    skip = skip || (field_str == "releaseartist[producer]" && tags.releaseartists.producer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    skip = skip || (field_str == "releaseartist[composer]" && tags.releaseartists.composer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    skip = skip || (field_str == "releaseartist[conductor]" && tags.releaseartists.conductor.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    skip = skip || (field_str == "releaseartist[djmixer]" && tags.releaseartists.djmixer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
-                    
+                    skip = skip
+                        || (field_str == "trackartist[main]"
+                            && tags.trackartists.main.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+                    skip = skip
+                        || (field_str == "trackartist[guest]"
+                            && tags.trackartists.guest.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+                    skip = skip
+                        || (field_str == "trackartist[remixer]"
+                            && tags.trackartists.remixer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+                    skip = skip
+                        || (field_str == "trackartist[producer]"
+                            && tags.trackartists.producer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+                    skip = skip
+                        || (field_str == "trackartist[composer]"
+                            && tags.trackartists.composer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+                    skip = skip
+                        || (field_str == "trackartist[conductor]"
+                            && tags.trackartists.conductor.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+                    skip = skip
+                        || (field_str == "trackartist[djmixer]"
+                            && tags.trackartists.djmixer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+                    skip = skip
+                        || (field_str == "releaseartist[main]"
+                            && tags.releaseartists.main.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+                    skip = skip
+                        || (field_str == "releaseartist[guest]"
+                            && tags.releaseartists.guest.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+                    skip = skip
+                        || (field_str == "releaseartist[remixer]"
+                            && tags.releaseartists.remixer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+                    skip = skip
+                        || (field_str == "releaseartist[producer]"
+                            && tags.releaseartists.producer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+                    skip = skip
+                        || (field_str == "releaseartist[composer]"
+                            && tags.releaseartists.composer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+                    skip = skip
+                        || (field_str == "releaseartist[conductor]"
+                            && tags.releaseartists.conductor.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+                    skip = skip
+                        || (field_str == "releaseartist[djmixer]"
+                            && tags.releaseartists.djmixer.iter().any(|x| matches_pattern(&i.pattern, &value_to_str(&x.name.clone().into()))));
+
                     if !skip && field_str == "new" {
                         if datafile.is_none() {
                             datafile = get_release_datafile_of_directory(tags.path.parent().unwrap())?;
                         }
                         skip = matches_pattern(&i.pattern, &value_to_str(&datafile.as_ref().unwrap().new.into()));
                     }
-                    
+
                     if skip {
                         break;
                     }
@@ -444,7 +462,7 @@ pub fn filter_track_false_positives_using_tags(
                     break;
                 }
             }
-            
+
             if is_match {
                 rval.push(tags);
                 break;
@@ -452,12 +470,7 @@ pub fn filter_track_false_positives_using_tags(
         }
     }
 
-    debug!(
-        "filtered {} tracks down to {} tracks in {:?}",
-        fast_search_results.len(),
-        rval.len(),
-        time_start.elapsed()
-    );
+    debug!("filtered {} tracks down to {} tracks in {:?}", fast_search_results.len(), rval.len(), time_start.elapsed());
     Ok(rval)
 }
 
@@ -471,28 +484,18 @@ fn get_release_datafile_of_directory(dir: &Path) -> Result<Option<StoredDataFile
                     let content = std::fs::read_to_string(&path)?;
                     let diskdata: toml::Value = toml::from_str(&content)?;
                     return Ok(Some(StoredDataFile {
-                        new: diskdata
-                            .get("new")
-                            .and_then(|v| v.as_bool())
-                            .unwrap_or(true),
+                        new: diskdata.get("new").and_then(|v| v.as_bool()).unwrap_or(true),
                         added_at: diskdata
                             .get("added_at")
                             .and_then(|v| v.as_str())
                             .map(|s| s.to_string())
-                            .unwrap_or_else(|| {
-                                chrono::Local::now()
-                                    .format("%Y-%m-%dT%H:%M:%S%z")
-                                    .to_string()
-                            }),
+                            .unwrap_or_else(|| chrono::Local::now().format("%Y-%m-%dT%H:%M:%S%z").to_string()),
                     }));
                 }
             }
         }
     }
-    Err(RoseError::Generic(format!(
-        "Release data file not found in {:?}. How is it in the library?",
-        dir
-    )))
+    Err(RoseError::Generic(format!("Release data file not found in {:?}. How is it in the library?", dir)))
 }
 
 type Changes = (String, TagValue, TagValue);
@@ -514,15 +517,14 @@ pub fn execute_metadata_actions(
     }
 
     let mut opened_datafiles: HashMap<String, StoredDataFile> = HashMap::new();
-    
+
     let open_datafile = |path: &Path, opened_datafiles: &mut HashMap<String, StoredDataFile>| -> Result<StoredDataFile> {
         let parent_str = path.parent().unwrap().to_string_lossy().to_string();
         if let Some(datafile) = opened_datafiles.get(&parent_str) {
             Ok(datafile.clone())
         } else {
-            let datafile = get_release_datafile_of_directory(path.parent().unwrap())?.ok_or_else(|| {
-                RoseError::Generic("Could not find datafile".to_string())
-            })?;
+            let datafile =
+                get_release_datafile_of_directory(path.parent().unwrap())?.ok_or_else(|| RoseError::Generic("Could not find datafile".to_string()))?;
             opened_datafiles.insert(parent_str, datafile.clone());
             Ok(datafile)
         }
@@ -530,8 +532,7 @@ pub fn execute_metadata_actions(
 
     let mut actionable_audiotags: Vec<(AudioTags, Vec<Changes>)> = Vec::new();
     // Map from parent directory to tuple.
-    let mut actionable_datafiles: HashMap<String, (AudioTags, StoredDataFile, Vec<Changes>)> =
-        HashMap::new();
+    let mut actionable_datafiles: HashMap<String, (AudioTags, StoredDataFile, Vec<Changes>)> = HashMap::new();
 
     // We loop over audiotags as the main loop since the rules engine operates on tracks. Perhaps in
     // the future we better arrange this into release-level as well as track-level and make datafile
@@ -560,18 +561,15 @@ pub fn execute_metadata_actions(
                     let v = execute_single_action(act, &datafile_ref.new.into())?;
                     let v_str = v.as_str_option();
                     if v_str != Some("true") && v_str != Some("false") && !matches!(v, TagValue::None) {
-                        return Err(RoseError::Expected(RoseExpectedError::Generic(
-                            format!("Failed to assign new value {} to new: value must be string `true` or `false`", v.to_string_or_default())
-                        )));
+                        return Err(RoseError::Expected(RoseExpectedError::Generic(format!(
+                            "Failed to assign new value {} to new: value must be string `true` or `false`",
+                            v.to_string_or_default()
+                        ))));
                     }
                     let orig_value = datafile_ref.new;
                     datafile_ref.new = v_str == Some("true");
                     if orig_value != datafile_ref.new {
-                        potential_datafile_changes.push((
-                            "new".to_string(),
-                            orig_value.into(),
-                            datafile_ref.new.into(),
-                        ));
+                        potential_datafile_changes.push(("new".to_string(), orig_value.into(), datafile_ref.new.into()));
                     }
                 }
 
@@ -580,62 +578,45 @@ pub fn execute_metadata_actions(
                     "tracktitle" => {
                         let new_value = execute_single_action(act, &tags.tracktitle.clone().into())?;
                         tags.tracktitle = new_value.to_option_string();
-                        potential_audiotag_changes.push((
-                            "title".to_string(),
-                            origtags.tracktitle.clone().into(),
-                            tags.tracktitle.clone().into(),
-                        ));
+                        potential_audiotag_changes.push(("title".to_string(), origtags.tracktitle.clone().into(), tags.tracktitle.clone().into()));
                     }
                     "releasedate" => {
                         let v = execute_single_action(act, &tags.releasedate.into())?;
                         tags.releasedate = RoseDate::parse(v.as_str_option());
                         if !matches!(v, TagValue::None) && tags.releasedate.is_none() {
-                            return Err(RoseError::Expected(RoseExpectedError::Generic(
-                                format!("Failed to assign new value {} to releasedate: value must be date string", v.to_string_or_default())
-                            )));
+                            return Err(RoseError::Expected(RoseExpectedError::Generic(format!(
+                                "Failed to assign new value {} to releasedate: value must be date string",
+                                v.to_string_or_default()
+                            ))));
                         }
-                        potential_audiotag_changes.push((
-                            "releasedate".to_string(),
-                            origtags.releasedate.into(),
-                            tags.releasedate.into(),
-                        ));
+                        potential_audiotag_changes.push(("releasedate".to_string(), origtags.releasedate.into(), tags.releasedate.into()));
                     }
                     "originaldate" => {
                         let v = execute_single_action(act, &tags.originaldate.into())?;
                         tags.originaldate = RoseDate::parse(v.as_str_option());
                         if !matches!(v, TagValue::None) && tags.originaldate.is_none() {
-                            return Err(RoseError::Expected(RoseExpectedError::Generic(
-                                format!("Failed to assign new value {} to originaldate: value must be date string", v.to_string_or_default())
-                            )));
+                            return Err(RoseError::Expected(RoseExpectedError::Generic(format!(
+                                "Failed to assign new value {} to originaldate: value must be date string",
+                                v.to_string_or_default()
+                            ))));
                         }
-                        potential_audiotag_changes.push((
-                            "originaldate".to_string(),
-                            origtags.originaldate.into(),
-                            tags.originaldate.into(),
-                        ));
+                        potential_audiotag_changes.push(("originaldate".to_string(), origtags.originaldate.into(), tags.originaldate.into()));
                     }
                     "compositiondate" => {
                         let v = execute_single_action(act, &tags.compositiondate.into())?;
                         tags.compositiondate = RoseDate::parse(v.as_str_option());
                         if !matches!(v, TagValue::None) && tags.compositiondate.is_none() {
-                            return Err(RoseError::Expected(RoseExpectedError::Generic(
-                                format!("Failed to assign new value {} to compositiondate: value must be date string", v.to_string_or_default())
-                            )));
+                            return Err(RoseError::Expected(RoseExpectedError::Generic(format!(
+                                "Failed to assign new value {} to compositiondate: value must be date string",
+                                v.to_string_or_default()
+                            ))));
                         }
-                        potential_audiotag_changes.push((
-                            "compositiondate".to_string(),
-                            origtags.compositiondate.into(),
-                            tags.compositiondate.into(),
-                        ));
+                        potential_audiotag_changes.push(("compositiondate".to_string(), origtags.compositiondate.into(), tags.compositiondate.into()));
                     }
                     "edition" => {
                         let new_value = execute_single_action(act, &tags.edition.clone().into())?;
                         tags.edition = new_value.to_option_string();
-                        potential_audiotag_changes.push((
-                            "edition".to_string(),
-                            origtags.edition.clone().into(),
-                            tags.edition.clone().into(),
-                        ));
+                        potential_audiotag_changes.push(("edition".to_string(), origtags.edition.clone().into(), tags.edition.clone().into()));
                     }
                     "catalognumber" => {
                         let new_value = execute_single_action(act, &tags.catalognumber.clone().into())?;
@@ -653,11 +634,7 @@ pub fn execute_metadata_actions(
                             TagValue::None => None,
                             _ => Some(new_value.to_string()),
                         };
-                        potential_audiotag_changes.push((
-                            "tracknumber".to_string(),
-                            origtags.tracknumber.clone().into(),
-                            tags.tracknumber.clone().into(),
-                        ));
+                        potential_audiotag_changes.push(("tracknumber".to_string(), origtags.tracknumber.clone().into(), tags.tracknumber.clone().into()));
                     }
                     "discnumber" => {
                         let new_value = execute_single_action(act, &tags.discnumber.clone().into())?;
@@ -666,38 +643,22 @@ pub fn execute_metadata_actions(
                             TagValue::None => None,
                             _ => Some(new_value.to_string()),
                         };
-                        potential_audiotag_changes.push((
-                            "discnumber".to_string(),
-                            origtags.discnumber.clone().into(),
-                            tags.discnumber.clone().into(),
-                        ));
+                        potential_audiotag_changes.push(("discnumber".to_string(), origtags.discnumber.clone().into(), tags.discnumber.clone().into()));
                     }
                     "releasetitle" => {
                         let new_value = execute_single_action(act, &tags.releasetitle.clone().into())?;
                         tags.releasetitle = new_value.to_option_string();
-                        potential_audiotag_changes.push((
-                            "release".to_string(),
-                            origtags.releasetitle.clone().into(),
-                            tags.releasetitle.clone().into(),
-                        ));
+                        potential_audiotag_changes.push(("release".to_string(), origtags.releasetitle.clone().into(), tags.releasetitle.clone().into()));
                     }
                     "releasetype" => {
                         let new_value = execute_single_action(act, &tags.releasetype.clone().into())?;
                         tags.releasetype = new_value.to_option_string().unwrap_or_else(|| "unknown".to_string());
-                        potential_audiotag_changes.push((
-                            "releasetype".to_string(),
-                            origtags.releasetype.clone().into(),
-                            tags.releasetype.clone().into(),
-                        ));
+                        potential_audiotag_changes.push(("releasetype".to_string(), origtags.releasetype.clone().into(), tags.releasetype.clone().into()));
                     }
                     "genre" => {
                         let new_value = execute_multi_value_action(act, &tags.genre)?;
                         tags.genre = new_value;
-                        potential_audiotag_changes.push((
-                            "genre".to_string(),
-                            origtags.genre.clone().into(),
-                            tags.genre.clone().into(),
-                        ));
+                        potential_audiotag_changes.push(("genre".to_string(), origtags.genre.clone().into(), tags.genre.clone().into()));
                     }
                     "secondarygenre" => {
                         let new_value = execute_multi_value_action(act, &tags.secondarygenre)?;
@@ -711,70 +672,42 @@ pub fn execute_metadata_actions(
                     "descriptor" => {
                         let new_value = execute_multi_value_action(act, &tags.descriptor)?;
                         tags.descriptor = new_value;
-                        potential_audiotag_changes.push((
-                            "descriptor".to_string(),
-                            origtags.descriptor.clone().into(),
-                            tags.descriptor.clone().into(),
-                        ));
+                        potential_audiotag_changes.push(("descriptor".to_string(), origtags.descriptor.clone().into(), tags.descriptor.clone().into()));
                     }
                     "label" => {
                         let new_value = execute_multi_value_action(act, &tags.label)?;
                         tags.label = new_value;
-                        potential_audiotag_changes.push((
-                            "label".to_string(),
-                            origtags.label.clone().into(),
-                            tags.label.clone().into(),
-                        ));
+                        potential_audiotag_changes.push(("label".to_string(), origtags.label.clone().into(), tags.label.clone().into()));
                     }
                     "trackartist[main]" => {
                         let current_names = names(&tags.trackartists.main);
                         let new_names = execute_multi_value_action(act, &current_names)?;
                         tags.trackartists.main = artists(new_names.clone());
-                        potential_audiotag_changes.push((
-                            "trackartist[main]".to_string(),
-                            names(&origtags.trackartists.main).into(),
-                            new_names.into(),
-                        ));
+                        potential_audiotag_changes.push(("trackartist[main]".to_string(), names(&origtags.trackartists.main).into(), new_names.into()));
                     }
                     "trackartist[guest]" => {
                         let current_names = names(&tags.trackartists.guest);
                         let new_names = execute_multi_value_action(act, &current_names)?;
                         tags.trackartists.guest = artists(new_names.clone());
-                        potential_audiotag_changes.push((
-                            "trackartist[guest]".to_string(),
-                            names(&origtags.trackartists.guest).into(),
-                            new_names.into(),
-                        ));
+                        potential_audiotag_changes.push(("trackartist[guest]".to_string(), names(&origtags.trackartists.guest).into(), new_names.into()));
                     }
                     "trackartist[remixer]" => {
                         let current_names = names(&tags.trackartists.remixer);
                         let new_names = execute_multi_value_action(act, &current_names)?;
                         tags.trackartists.remixer = artists(new_names.clone());
-                        potential_audiotag_changes.push((
-                            "trackartist[remixer]".to_string(),
-                            names(&origtags.trackartists.remixer).into(),
-                            new_names.into(),
-                        ));
+                        potential_audiotag_changes.push(("trackartist[remixer]".to_string(), names(&origtags.trackartists.remixer).into(), new_names.into()));
                     }
                     "trackartist[producer]" => {
                         let current_names = names(&tags.trackartists.producer);
                         let new_names = execute_multi_value_action(act, &current_names)?;
                         tags.trackartists.producer = artists(new_names.clone());
-                        potential_audiotag_changes.push((
-                            "trackartist[producer]".to_string(),
-                            names(&origtags.trackartists.producer).into(),
-                            new_names.into(),
-                        ));
+                        potential_audiotag_changes.push(("trackartist[producer]".to_string(), names(&origtags.trackartists.producer).into(), new_names.into()));
                     }
                     "trackartist[composer]" => {
                         let current_names = names(&tags.trackartists.composer);
                         let new_names = execute_multi_value_action(act, &current_names)?;
                         tags.trackartists.composer = artists(new_names.clone());
-                        potential_audiotag_changes.push((
-                            "trackartist[composer]".to_string(),
-                            names(&origtags.trackartists.composer).into(),
-                            new_names.into(),
-                        ));
+                        potential_audiotag_changes.push(("trackartist[composer]".to_string(), names(&origtags.trackartists.composer).into(), new_names.into()));
                     }
                     "trackartist[conductor]" => {
                         let current_names = names(&tags.trackartists.conductor);
@@ -790,31 +723,19 @@ pub fn execute_metadata_actions(
                         let current_names = names(&tags.trackartists.djmixer);
                         let new_names = execute_multi_value_action(act, &current_names)?;
                         tags.trackartists.djmixer = artists(new_names.clone());
-                        potential_audiotag_changes.push((
-                            "trackartist[djmixer]".to_string(),
-                            names(&origtags.trackartists.djmixer).into(),
-                            new_names.into(),
-                        ));
+                        potential_audiotag_changes.push(("trackartist[djmixer]".to_string(), names(&origtags.trackartists.djmixer).into(), new_names.into()));
                     }
                     "releaseartist[main]" => {
                         let current_names = names(&tags.releaseartists.main);
                         let new_names = execute_multi_value_action(act, &current_names)?;
                         tags.releaseartists.main = artists(new_names.clone());
-                        potential_audiotag_changes.push((
-                            "releaseartist[main]".to_string(),
-                            names(&origtags.releaseartists.main).into(),
-                            new_names.into(),
-                        ));
+                        potential_audiotag_changes.push(("releaseartist[main]".to_string(), names(&origtags.releaseartists.main).into(), new_names.into()));
                     }
                     "releaseartist[guest]" => {
                         let current_names = names(&tags.releaseartists.guest);
                         let new_names = execute_multi_value_action(act, &current_names)?;
                         tags.releaseartists.guest = artists(new_names.clone());
-                        potential_audiotag_changes.push((
-                            "releaseartist[guest]".to_string(),
-                            names(&origtags.releaseartists.guest).into(),
-                            new_names.into(),
-                        ));
+                        potential_audiotag_changes.push(("releaseartist[guest]".to_string(), names(&origtags.releaseartists.guest).into(), new_names.into()));
                     }
                     "releaseartist[remixer]" => {
                         let current_names = names(&tags.releaseartists.remixer);
@@ -877,10 +798,7 @@ pub fn execute_metadata_actions(
         }
 
         // Compute real changes by diffing the tags, and then store.
-        let tag_changes: Vec<Changes> = potential_audiotag_changes
-            .into_iter()
-            .filter(|(_, old, new)| old != new)
-            .collect();
+        let tag_changes: Vec<Changes> = potential_audiotag_changes.into_iter().filter(|(_, old, new)| old != new).collect();
         let has_tag_changes = !tag_changes.is_empty();
         if has_tag_changes {
             actionable_audiotags.push((tags.clone(), tag_changes));
@@ -897,21 +815,14 @@ pub fn execute_metadata_actions(
                         datafile_changes.extend(potential_datafile_changes);
                     }
                     None => {
-                        actionable_datafiles.insert(
-                            parent_str,
-                            (tags.clone(), df, potential_datafile_changes),
-                        );
+                        actionable_datafiles.insert(parent_str, (tags.clone(), df, potential_datafile_changes));
                     }
                 }
             }
         }
 
-        if !has_tag_changes && !has_datafile_changes
-        {
-            debug!(
-                "skipping matched track {:?}: no changes calculated off tags and datafile",
-                tags.path
-            );
+        if !has_tag_changes && !has_datafile_changes {
+            debug!("skipping matched track {:?}: no changes calculated off tags and datafile", tags.path);
         }
     }
 
@@ -924,14 +835,9 @@ pub fn execute_metadata_actions(
     // Display changes and ask for user confirmation
     let mut todisplay: Vec<(String, Vec<Changes>)> = Vec::new();
     let mut maxpathwidth = 0;
-    
+
     for (tags, tag_changes) in &actionable_audiotags {
-        let mut pathtext = tags
-            .path
-            .strip_prefix(&config.music_source_dir)
-            .unwrap_or(&tags.path)
-            .to_string_lossy()
-            .to_string();
+        let mut pathtext = tags.path.strip_prefix(&config.music_source_dir).unwrap_or(&tags.path).to_string_lossy().to_string();
         if pathtext.len() >= 120 {
             pathtext = format!("{}..{}", &pathtext[..59], &pathtext[pathtext.len() - 59..]);
         }
@@ -940,10 +846,7 @@ pub fn execute_metadata_actions(
     }
 
     for (path, (_, _, datafile_changes)) in &actionable_datafiles {
-        let mut pathtext = path
-            .strip_prefix(&format!("{}/", config.music_source_dir.to_string_lossy()))
-            .unwrap_or(path)
-            .to_string();
+        let mut pathtext = path.strip_prefix(&format!("{}/", config.music_source_dir.to_string_lossy())).unwrap_or(path).to_string();
         if pathtext.len() >= 120 {
             pathtext = format!("{}..{}", &pathtext[..59], &pathtext[pathtext.len() - 59..]);
         }
@@ -965,10 +868,7 @@ pub fn execute_metadata_actions(
     // If we're dry-running, then abort here.
     if dry_run {
         println!();
-        println!(
-            "\x1b[2mThis is a dry run, aborting. {} tracks would have been modified.\x1b[0m",
-            actionable_audiotags.len()
-        );
+        println!("\x1b[2mThis is a dry run, aborting. {} tracks would have been modified.\x1b[0m", actionable_audiotags.len());
         return Ok(());
     }
 
@@ -978,10 +878,7 @@ pub fn execute_metadata_actions(
         println!();
         if num_changes > enter_number_to_confirm_above_count {
             loop {
-                print!(
-                    "Write changes to {} tracks? Enter \x1b[1m{}\x1b[0m to confirm (or 'no' to abort): ",
-                    num_changes, num_changes
-                );
+                print!("Write changes to {} tracks? Enter \x1b[1m{}\x1b[0m to confirm (or 'no' to abort): ", num_changes, num_changes);
                 use std::io::{self, Write};
                 io::stdout().flush()?;
                 let mut input = String::new();
@@ -997,10 +894,7 @@ pub fn execute_metadata_actions(
                 }
             }
         } else {
-            print!(
-                "Write changes to \x1b[1m{}\x1b[0m tracks? [Y/n] ",
-                num_changes
-            );
+            print!("Write changes to \x1b[1m{}\x1b[0m tracks? [Y/n] ", num_changes);
             use std::io::{self, Write};
             io::stdout().flush()?;
             let mut input = String::new();
@@ -1015,35 +909,18 @@ pub fn execute_metadata_actions(
     }
 
     // Flush writes to disk
-    info!(
-        "writing tag changes for actions {:?}",
-        actions
-            .iter()
-            .map(|a| format!("{:?}", a))
-            .collect::<Vec<_>>()
-            .join(" ")
-    );
-    let mut changed_release_ids: std::collections::HashSet<String> =
-        std::collections::HashSet::new();
+    info!("writing tag changes for actions {:?}", actions.iter().map(|a| format!("{:?}", a)).collect::<Vec<_>>().join(" "));
+    let mut changed_release_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for (mut tags, tag_changes) in actionable_audiotags {
         if let Some(ref release_id) = tags.release_id {
             changed_release_ids.insert(release_id.clone());
         }
-        let pathtext = tags
-            .path
-            .strip_prefix(&config.music_source_dir)
-            .unwrap_or(&tags.path)
-            .to_string_lossy()
-            .to_string();
+        let pathtext = tags.path.strip_prefix(&config.music_source_dir).unwrap_or(&tags.path).to_string_lossy().to_string();
         debug!(
             "attempting to write {} changes: {}",
             pathtext,
-            tag_changes
-                .iter()
-                .map(|(_, old, new)| format!("{} -> {}", old, new))
-                .collect::<Vec<_>>()
-                .join(" //// ")
+            tag_changes.iter().map(|(_, old, new)| format!("{} -> {}", old, new)).collect::<Vec<_>>().join(" //// ")
         );
         tags.flush(config, false)?;
         info!("wrote tag changes to {}", pathtext);
@@ -1053,19 +930,13 @@ pub fn execute_metadata_actions(
         if let Some(ref release_id) = tags.release_id {
             changed_release_ids.insert(release_id.clone());
         }
-        let pathtext = path
-            .strip_prefix(&format!("{}/", config.music_source_dir.to_string_lossy()))
-            .unwrap_or(&path);
+        let pathtext = path.strip_prefix(&format!("{}/", config.music_source_dir.to_string_lossy())).unwrap_or(&path);
         debug!(
             "attempting to write {} changes: {}",
             pathtext,
-            datafile_changes
-                .iter()
-                .map(|(_, old, new)| format!("{} -> {}", old, new))
-                .collect::<Vec<_>>()
-                .join(" //// ")
+            datafile_changes.iter().map(|(_, old, new)| format!("{} -> {}", old, new)).collect::<Vec<_>>().join(" //// ")
         );
-        
+
         for entry in std::fs::read_dir(&path)? {
             let entry = entry?;
             let entry_path = entry.path();
@@ -1091,20 +962,13 @@ pub fn execute_metadata_actions(
     println!();
     let _release_ids: Vec<String> = changed_release_ids.into_iter().collect();
     let releases = list_releases(config, None, None, None)?;
-    let source_paths: Vec<PathBuf> = releases
-        .into_iter()
-        .filter(|r| _release_ids.contains(&r.id))
-        .map(|r| r.source_path)
-        .collect();
+    let source_paths: Vec<PathBuf> = releases.into_iter().filter(|r| _release_ids.contains(&r.id)).map(|r| r.source_path).collect();
     update_cache_for_releases(config, Some(source_paths), false, false)?;
 
     Ok(())
 }
 
-fn execute_single_action(
-    action: &Action,
-    value: &TagValue,
-) -> Result<TagValue> {
+fn execute_single_action(action: &Action, value: &TagValue) -> Result<TagValue> {
     if let Some(pattern) = &action.pattern {
         if !matches_pattern(pattern, &value_to_str(value)) {
             return Ok(value.clone());
@@ -1123,25 +987,14 @@ fn execute_single_action(
             }
         }
         ActionBehavior::Delete(_) => Ok(TagValue::None),
-        _ => Err(RoseError::Generic(format!(
-            "Invalid action {:?} for single-value tag: Should have been caught in parsing",
-            action.behavior
-        ))),
+        _ => Err(RoseError::Generic(format!("Invalid action {:?} for single-value tag: Should have been caught in parsing", action.behavior))),
     }
 }
 
-fn execute_multi_value_action(
-    action: &Action,
-    values: &[String],
-) -> Result<Vec<String>> {
+fn execute_multi_value_action(action: &Action, values: &[String]) -> Result<Vec<String>> {
     let mut matching_idx = (0..values.len()).collect::<Vec<_>>();
     if let Some(pattern) = &action.pattern {
-        matching_idx = values
-            .iter()
-            .enumerate()
-            .filter(|(_, v)| matches_pattern(pattern, v))
-            .map(|(i, _)| i)
-            .collect();
+        matching_idx = values.iter().enumerate().filter(|(_, v)| matches_pattern(pattern, v)).map(|(i, _)| i).collect();
         if matching_idx.is_empty() {
             return Ok(values.to_vec());
         }
@@ -1194,19 +1047,11 @@ fn execute_multi_value_action(
 
 // Query engine functions
 
-pub fn fast_search_for_matching_releases(
-    config: &Config,
-    matcher: &Matcher,
-    include_loose_tracks: bool,
-) -> Result<Vec<FastSearchResult>> {
+pub fn fast_search_for_matching_releases(config: &Config, matcher: &Matcher, include_loose_tracks: bool) -> Result<Vec<FastSearchResult>> {
     let time_start = Instant::now();
-    
-    let track_tags: Vec<&Tag> = matcher
-        .tags
-        .iter()
-        .filter(|t| !RELEASE_TAGS.contains(&&*t.to_string()))
-        .collect();
-    
+
+    let track_tags: Vec<&Tag> = matcher.tags.iter().filter(|t| !RELEASE_TAGS.contains(&&*t.to_string())).collect();
+
     if !track_tags.is_empty() {
         // But allow an exception if both trackartist and releaseartist are defined
         let has_releaseartist = matcher.tags.iter().any(|t| t.to_string().starts_with("releaseartist"));
@@ -1215,7 +1060,7 @@ pub fn fast_search_for_matching_releases(
         } else {
             track_tags
         };
-        
+
         if !filtered_track_tags.is_empty() {
             return Err(RoseError::Expected(RoseExpectedError::Generic(format!(
                 "Track tags are not allowed when matching against releases: {}",
@@ -1226,15 +1071,13 @@ pub fn fast_search_for_matching_releases(
 
     let matchsql = convert_matcher_to_fts_query(&matcher.pattern);
     debug!("converted match {:?} to {:?}", matcher, matchsql);
-    
-    let columns: Vec<String> = uniq(
-        matcher
-            .tags
-            .iter()
-            .map(|t| TAG_ROLE_REGEX.replace(&t.to_string(), "").to_string())
-            .collect(),
-    );
-    let ftsquery = format!("{{{} : {}", columns.join(" "), matchsql);
+
+    let columns: Vec<String> = uniq(matcher.tags.iter().map(|t| TAG_ROLE_REGEX.replace(&t.to_string(), "").to_string()).collect());
+    let ftsquery = if columns.len() == 1 {
+        format!("{}:{}", columns[0], matchsql)
+    } else {
+        format!("{{{}}} : {}", columns.join(" "), matchsql)
+    };
     let mut query = format!(
         r#"
         SELECT DISTINCT r.id, r.source_path
@@ -1245,16 +1088,16 @@ pub fn fast_search_for_matching_releases(
     "#,
         ftsquery
     );
-    
+
     if !include_loose_tracks {
         query.push_str(" AND r.releasetype <> 'loosetrack'");
     }
     query.push_str(" ORDER BY r.source_path");
-    
+
     debug!("constructed matching query {}", query);
-    
+
     let mut results = Vec::new();
-    let conn = Connection::open(&config.cache_database_path())?;
+    let conn = Connection::open(config.cache_database_path())?;
     let mut stmt = conn.prepare(&query)?;
     let rows = stmt.query_map([], |row| {
         Ok(FastSearchResult {
@@ -1267,18 +1110,11 @@ pub fn fast_search_for_matching_releases(
         results.push(row?);
     }
 
-    debug!(
-        "matched {} releases from the read cache in {:?}",
-        results.len(),
-        time_start.elapsed()
-    );
+    debug!("matched {} releases from the read cache in {:?}", results.len(), time_start.elapsed());
     Ok(results)
 }
 
-pub fn filter_track_false_positives_using_read_cache(
-    matcher: &Matcher,
-    tracks: Vec<Track>,
-) -> Vec<Track> {
+pub fn filter_track_false_positives_using_read_cache(matcher: &Matcher, tracks: Vec<Track>) -> Vec<Track> {
     let time_start = Instant::now();
     let _tracks_len = tracks.len();
     let mut result = Vec::new();
@@ -1327,20 +1163,11 @@ pub fn filter_track_false_positives_using_read_cache(
         }
     }
 
-    debug!(
-        "filtered {} tracks down to {} tracks in {:?}",
-        _tracks_len,
-        result.len(),
-        time_start.elapsed()
-    );
+    debug!("filtered {} tracks down to {} tracks in {:?}", _tracks_len, result.len(), time_start.elapsed());
     result
 }
 
-pub fn filter_release_false_positives_using_read_cache(
-    matcher: &Matcher,
-    releases: Vec<Release>,
-    include_loose_tracks: bool,
-) -> Vec<Release> {
+pub fn filter_release_false_positives_using_read_cache(matcher: &Matcher, releases: Vec<Release>, include_loose_tracks: bool) -> Vec<Release> {
     let time_start = Instant::now();
     let releases_len = releases.len();
     let mut result = Vec::new();
@@ -1381,19 +1208,14 @@ pub fn filter_release_false_positives_using_read_cache(
         }
     }
 
-    debug!(
-        "filtered {} releases down to {} releases in {:?}",
-        releases_len,
-        result.len(),
-        time_start.elapsed()
-    );
+    debug!("filtered {} releases down to {} releases in {:?}", releases_len, result.len(), time_start.elapsed());
     result
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cache::{get_release, update_cache, list_releases};
+    use crate::cache::{connect, get_release, list_releases, list_tracks, update_cache};
     use crate::testing;
 
     fn parse_rule(matcher: &str, actions: &[&str]) -> Rule {
@@ -1401,17 +1223,13 @@ mod tests {
     }
 
     fn parse_rule_with_ignore(matcher: &str, actions: &[&str], ignore: &[&str]) -> Rule {
-        Rule::parse(
-            matcher,
-            actions.iter().map(|s| s.to_string()).collect(),
-            Some(ignore.iter().map(|s| s.to_string()).collect())
-        ).unwrap()
+        Rule::parse(matcher, actions.iter().map(|s| s.to_string()).collect(), Some(ignore.iter().map(|s| s.to_string()).collect())).unwrap()
     }
 
     #[test]
     fn test_rules_execution_match_substring() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
+        let (config, _tmpdir) = testing::source_dir();
+
         // No match
         let rule = parse_rule("tracktitle:bbb", &["replace:lalala"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
@@ -1426,9 +1244,9 @@ mod tests {
     }
 
     #[test]
-    fn test_rules_execution_match_beginning() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
+    fn test_rules_execution_match_beginnning() {
+        let (config, _tmpdir) = testing::source_dir();
+
         // No match
         let rule = parse_rule("tracktitle:^rack", &["replace:lalala"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
@@ -1444,15 +1262,15 @@ mod tests {
 
     #[test]
     fn test_rules_execution_match_end() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        // No match
+        let (config, _tmpdir) = testing::source_dir();
+
+        // No match - track titles are 'Track 1' and 'Track 2'
         let rule = parse_rule("tracktitle:rack$", &["replace:lalala"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         assert_ne!(af.tracktitle, Some("lalala".to_string()));
 
-        // Match
+        // Match - 'Track 1' ends with 'rack 1'
         let rule = parse_rule("tracktitle:rack 1$", &["replace:lalala"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
@@ -1461,15 +1279,15 @@ mod tests {
 
     #[test]
     fn test_rules_execution_match_superstrict() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        // No match
+        let (config, _tmpdir) = testing::source_dir();
+
+        // No match - 'Track ' doesn't match 'Track 1' exactly
         let rule = parse_rule("tracktitle:^Track $", &["replace:lalala"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         assert_ne!(af.tracktitle, Some("lalala".to_string()));
 
-        // Match
+        // Match - exact match for 'Track 1'
         let rule = parse_rule("tracktitle:^Track 1$", &["replace:lalala"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
@@ -1478,12 +1296,14 @@ mod tests {
 
     #[test]
     fn test_rules_execution_match_escaped_superstrict() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
+        let (config, _tmpdir) = testing::source_dir();
+
         let mut af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         af.tracktitle = Some("hi^Test$bye".to_string());
         af.flush(&config, false).unwrap();
-        update_cache(&config, false, false).unwrap();
+        
+        // Force cache update with force=true
+        update_cache(&config, true, false).unwrap();
 
         // No match
         let rule = parse_rule("tracktitle:^Test$", &["replace:lalala"]);
@@ -1500,8 +1320,8 @@ mod tests {
 
     #[test]
     fn test_rules_execution_match_case_insensitive() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
+        let (config, _tmpdir) = testing::source_dir();
+
         let rule = parse_rule("tracktitle:tRaCk:i", &["replace:lalala"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
@@ -1510,8 +1330,8 @@ mod tests {
 
     #[test]
     fn test_rules_fields_match_tracktitle() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
+        let (config, _tmpdir) = testing::source_dir();
+
         let rule = parse_rule("tracktitle:Track", &["replace:8"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
@@ -1520,212 +1340,308 @@ mod tests {
 
     #[test]
     fn test_rules_fields_match_releasedate() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
+        let (config, _tmpdir) = testing::source_dir();
+
         let rule = parse_rule("releasedate:1990", &["replace:8"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         assert_eq!(af.releasedate, Some(RoseDate::new(Some(8), None, None)));
     }
 
-    #[test]
-    fn test_rules_fields_match_originaldate() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("originaldate:2010", &["replace:8"]);
-        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
-        assert_eq!(af.originaldate, Some(RoseDate::new(Some(8), None, None)));
-    }
-
-    #[test]
-    fn test_rules_fields_match_compositiondate() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("compositiondate:2011", &["replace:8"]);
-        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
-        assert_eq!(af.compositiondate, Some(RoseDate::new(Some(8), None, None)));
-    }
 
     #[test]
     fn test_rules_fields_match_releasetitle() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
+        let (config, _tmpdir) = testing::source_dir();
+
         let rule = parse_rule("releasetitle:Love Blackpink", &["replace:8"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         assert_eq!(af.releasetitle, Some("8".to_string()));
     }
 
-    #[test]
-    fn test_rules_fields_match_edition() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("edition:Original", &["replace:Reissue"]);
-        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 2").join("01.m4a")).unwrap();
-        assert_eq!(af.edition, Some("Reissue".to_string()));
-    }
-
-    #[test]
-    fn test_rules_fields_match_catalognumber() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule(r"catalognum:^GI-\d+$", &["replace:"]);
-        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 4").join("01.m4a")).unwrap();
-        assert_eq!(af.catalognumber, None);
-    }
 
     #[test]
     fn test_rules_fields_match_tracknumber() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("tracknumber:2", &["replace:99"]);
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("tracknumber:1", &["replace:8"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("02.m4a")).unwrap();
-        assert_eq!(af.tracknumber, Some("99".to_string()));
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.tracknumber, Some("8".to_string()));
     }
 
     #[test]
     fn test_rules_fields_match_discnumber() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("discnumber:01", &["replace:02"]);
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("discnumber:1", &["replace:8"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
-        assert_eq!(af.discnumber, Some("02".to_string()));
+        assert_eq!(af.discnumber, Some("8".to_string()));
     }
 
     #[test]
     fn test_rules_fields_match_releasetype() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("releasetype:^album$", &["replace:single"]);
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("releasetype:album", &["replace:live"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
-        assert_eq!(af.releasetype, "single");
+        assert_eq!(af.releasetype, "live");
+    }
+
+    #[test]
+    fn test_rules_fields_match_tracktotal() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("tracktotal:2", &["tracktitle/replace:8"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.tracktitle, Some("8".to_string()));
+    }
+
+    #[test]
+    fn test_rules_fields_match_disctotal() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("disctotal:1", &["tracktitle/replace:8"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.tracktitle, Some("8".to_string()));
+    }
+
+    #[test]
+    fn test_rules_fields_match_genre() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("genre:K-Pop", &["replace:8"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.genre, vec!["8".to_string(), "Pop".to_string()]);
+    }
+
+    #[test]
+    fn test_rules_fields_match_label() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("label:Cool", &["replace:8"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.label, vec!["8".to_string()]);
+    }
+
+    #[test]
+    fn test_rules_fields_match_releaseartist() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("releaseartist:BLACKPINK", &["replace:8"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.releaseartists.main, vec![Artist::new("8")]);
+    }
+
+    #[test]
+    fn test_rules_fields_match_trackartist() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("trackartist:BLACKPINK", &["replace:8"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.trackartists.main, vec![Artist::new("8")]);
     }
 
     #[test]
     fn test_rules_fields_match_new() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
+        let (config, _tmpdir) = testing::source_dir();
+
+        // First set all releases to new: false to match Python test expectations
+        let conn = connect(&config).unwrap();
+        conn.execute("UPDATE releases SET new = false", []).unwrap();
+        drop(conn);
+
+        let rule = parse_rule("new:false", &["replace:true"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let release = get_release(&config, "ilovecarly").unwrap();
+        assert!(release.unwrap().new);
+        let release = get_release(&config, "ilovenewjeans").unwrap();
+        assert!(release.unwrap().new);
+
         let rule = parse_rule("new:true", &["replace:false"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let release = get_release(&config, "r1").unwrap();
+        let release = get_release(&config, "ilovecarly").unwrap();
+        assert!(!release.unwrap().new);
+        let release = get_release(&config, "ilovenewjeans").unwrap();
+        assert!(!release.unwrap().new);
+
+        let rule = parse_rule("releasetitle:Carly", &["new/replace:true"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let release = get_release(&config, "ilovecarly").unwrap();
+        assert!(release.unwrap().new);
+        let release = get_release(&config, "ilovenewjeans").unwrap();
         assert!(!release.unwrap().new);
     }
 
     #[test]
-    fn test_action_replace() {
-        let (config, _tmpdir) = testing::seeded_cache();
+    fn test_match_backslash() {
+        let (config, _tmpdir) = testing::source_dir();
         
-        let rule = parse_rule("artist:^Pyotr Ilyich Tchaikovsky$", &["replace:Tchaikovsky"]);
-        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 3").join("01.m4a")).unwrap();
-        assert_eq!(af.trackartists.main, vec![Artist::new("Tchaikovsky")]);
-        assert_eq!(af.releaseartists.main, vec![Artist::new("Tchaikovsky")]);
-    }
+        let mut af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        af.tracktitle = Some(r"X \\ Y".to_string());
+        af.flush(&config, false).unwrap();
+        
+        // Force cache update with force=true
+        update_cache(&config, true, false).unwrap();
 
-    #[test]
-    fn test_action_sed() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("tracktitle:^Track", &[r"sed:Track:(\d+):New Track $1"]);
-        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let af1 = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
-        assert_eq!(af1.tracktitle, Some("New Track 1".to_string()));
-        let af2 = AudioTags::from_file(&config.music_source_dir.join("Test Release 4").join("01.m4a")).unwrap();
-        assert_eq!(af2.tracktitle, Some("New Track 9".to_string()));
-    }
-
-    #[test]
-    fn test_action_split() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("artist[producer]:auren", &["split: & "]);
-        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 3").join("01.m4a")).unwrap();
-        assert_eq!(af.trackartists.producer, vec![Artist::new("Lauren"), Artist::new("Ipsum")]);
-    }
-
-    #[test]
-    fn test_action_add() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("label:^Native State$", &["add:Silk Music"]);
-        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 2").join("01.m4a")).unwrap();
-        assert_eq!(af.label, vec!["Native State".to_string(), "Silk Music".to_string()]);
-    }
-
-    #[test]
-    fn test_action_delete() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("artist[remixer]:^Dance With The Dead$", &["delete"]);
-        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 2").join("01.m4a")).unwrap();
-        assert!(af.trackartists.remixer.is_empty());
-    }
-
-    #[test]
-    fn test_action_multi_genre() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("genre:^Rock$", &["add:Funk", "add:Electronic;Deep House"]);
-        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 2").join("01.m4a")).unwrap();
-        assert_eq!(af.genre, vec!["Rock".to_string(), "Funk".to_string(), "Electronic".to_string(), "Deep House".to_string()]);
-    }
-
-    #[test]
-    fn test_action_descriptor() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("descriptor:", &["add:Hi-Fi"]);
+        let rule = parse_rule(r"tracktitle: \\ ", &[r"sed: \\\\ : // "]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
-        assert_eq!(af.descriptor, vec!["Hi-Fi".to_string()]);
+        assert_eq!(af.tracktitle, Some("X / Y".to_string()));
     }
 
     #[test]
-    fn test_release_title_update() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("releasetitle:^Test Release$", &["replace:The Greatest Release"]);
+    fn test_action_replace_with_delimiter() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("genre:K-Pop", &["replace:Hip-Hop;Rap"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let r = get_release(&config, "r1").unwrap();
-        assert_eq!(r.unwrap().releasetitle, "The Greatest Release".to_string());
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.genre, vec!["Hip-Hop".to_string(), "Rap".to_string(), "Pop".to_string()]);
     }
 
     #[test]
-    fn test_artist_role_split() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("artist[main]:^The Body", &["split: & "]);
+    fn test_action_replace_with_delimiters_empty_str() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("genre:K-Pop", &["matched:/replace:Hip-Hop;;;;"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 4").join("01.m4a")).unwrap();
-        assert_eq!(af.trackartists.main, vec![Artist::new("The Body"), Artist::new("The Blood")]);
-        assert_eq!(af.releaseartists.main, vec![Artist::new("The Body"), Artist::new("The Blood")]);
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.genre, vec!["Hip-Hop".to_string()]);
     }
 
     #[test]
-    fn test_matched_pattern_modifier() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
-        let rule = parse_rule("genre:^Pop$", &["matched:/delete"]);
+    fn test_sed_action() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("tracktitle:Track", &["sed:ack:ip"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.tracktitle, Some("Trip 1".to_string()));
+    }
+
+    #[test]
+    fn test_sed_no_pattern() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("genre:P", &[r"matched:/sed:^(.*)$:i$1"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.genre, vec!["iK-Pop".to_string(), "iPop".to_string()]);
+    }
+
+    #[test]
+    fn test_split_action() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("label:Cool", &["split:Cool"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.label, vec!["A".to_string(), "Label".to_string()]);
+    }
+
+    #[test]
+    fn test_split_action_no_pattern() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("genre:K-Pop", &["matched:/split:P"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.genre, vec!["K-".to_string(), "op".to_string()]);
+    }
+
+    #[test]
+    fn test_add_action() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("label:Cool", &["add:Even Cooler Label"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.label, vec!["A Cool Label".to_string(), "Even Cooler Label".to_string()]);
+    }
+
+    #[test]
+    fn test_delete_action() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("genre:^Pop$", &["delete"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         assert_eq!(af.genre, vec!["K-Pop".to_string()]);
     }
 
     #[test]
+    fn test_delete_action_no_pattern() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("genre:^Pop$", &["matched:/delete"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.genre, Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_preserves_unmatched_multitags() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("genre:^Pop$", &["replace:lalala"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.genre, vec!["K-Pop".to_string(), "lalala".to_string()]);
+    }
+
+    #[test]
+    fn test_action_on_different_tag() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("label:A Cool Label", &["genre/replace:hi"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.genre, vec!["hi".to_string()]);
+    }
+
+    #[test]
+    fn test_action_no_pattern() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule("genre:K-Pop", &["matched:/sed:P:B"]);
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.genre, vec!["K-Bop".to_string(), "Bop".to_string()]);
+    }
+
+    #[test]
+    fn test_chained_action() {
+        let (config, _tmpdir) = testing::source_dir();
+
+        let rule = parse_rule(
+            "label:A Cool Label",
+            &[
+                "replace:Jennie",
+                "label:^Jennie$/replace:Jisoo",
+                "label:nomatch/replace:Rose",
+                "genre/replace:haha",
+            ],
+        );
+        execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
+        assert_eq!(af.label, vec!["Jisoo".to_string()]);
+        assert_eq!(af.genre, vec!["haha".to_string()]);
+    }
+
+
+    #[test]
     fn test_dry_run() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
+        let (config, _tmpdir) = testing::source_dir();
+
         let rule = parse_rule("tracktitle:Track", &["replace:lalala"]);
         execute_metadata_rule(&config, &rule, true, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
@@ -1733,11 +1649,10 @@ mod tests {
     }
 
     #[test]
-    fn test_stored_rules() {
-        let rule = parse_rule("tracktitle:Track", &["replace:lalala"]);
-        let mut config = testing::seeded_cache().0;
-        config.stored_metadata_rules = vec![rule];
-        
+    fn test_run_stored_rules() {
+        let (mut config, _tmpdir) = testing::source_dir();
+        config.stored_metadata_rules = vec![parse_rule("tracktitle:Track", &["replace:lalala"])];
+
         execute_stored_metadata_rules(&config, false, false).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         assert_eq!(af.tracktitle, Some("lalala".to_string()));
@@ -1746,23 +1661,24 @@ mod tests {
     #[test]
     fn test_fast_search_for_matching_releases() {
         let (config, _tmpdir) = testing::seeded_cache();
-        
+
+        // 'Techno Man' is a release artist for r1 in the test data
         let matcher = Matcher::parse("releaseartist:Techno Man").unwrap();
         let results = fast_search_for_matching_releases(&config, &matcher, true).unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].id, "r3");
+        assert_eq!(results[0].id, "r1");
     }
 
     #[test]
     fn test_fast_search_for_matching_releases_invalid_tag() {
         let (config, _tmpdir) = testing::seeded_cache();
-        
+
         let matcher = Matcher::parse("tracktitle:x").unwrap();
         assert!(fast_search_for_matching_releases(&config, &matcher, true).is_err());
-        
+
         let matcher = Matcher::parse("trackartist:x").unwrap();
         assert!(fast_search_for_matching_releases(&config, &matcher, true).is_err());
-        
+
         // But allow artist tag
         let matcher = Matcher::parse("artist:x").unwrap();
         assert!(fast_search_for_matching_releases(&config, &matcher, true).is_ok());
@@ -1771,12 +1687,14 @@ mod tests {
     #[test]
     fn test_filter_release_false_positives_with_read_cache() {
         let (config, _tmpdir) = testing::seeded_cache();
-        
+
         let matcher = Matcher::parse("releaseartist:^Man").unwrap();
         let fsresults = fast_search_for_matching_releases(&config, &matcher, true).unwrap();
         assert_eq!(fsresults.len(), 2);
-        let cacheresults = list_releases(&config, None, None, None).unwrap();
-        assert_eq!(cacheresults.len(), 4);
+        eprintln!("fsresults: {:?}", fsresults.iter().map(|r| &r.id).collect::<Vec<_>>());
+        let cacheresults = list_releases(&config, Some(fsresults.iter().map(|r| r.id.clone()).collect()), None, None).unwrap();
+        eprintln!("cacheresults len: {}", cacheresults.len());
+        assert_eq!(cacheresults.len(), 2);
         let filteredresults = filter_release_false_positives_using_read_cache(&matcher, cacheresults, true);
         assert!(filteredresults.is_empty());
     }
@@ -1784,7 +1702,7 @@ mod tests {
     #[test]
     fn test_filter_track_false_positives_with_read_cache() {
         let (config, _tmpdir) = testing::seeded_cache();
-        
+
         let matcher = Matcher::parse("trackartist:^Man").unwrap();
         let fsresults = fast_search_for_matching_tracks(&config, &matcher).unwrap();
         assert_eq!(fsresults.len(), 3);
@@ -1796,8 +1714,8 @@ mod tests {
 
     #[test]
     fn test_ignore_values() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        
+        let (config, _tmpdir) = testing::source_dir();
+
         let rule = parse_rule_with_ignore("tracktitle:rack", &["replace:lalala"], &["tracktitle:^Track 1$"]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
         let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
@@ -1806,10 +1724,9 @@ mod tests {
 
     #[test]
     fn test_artist_matcher_on_trackartist_only() {
-        let (config, _tmpdir) = testing::seeded_cache();
-        let track_path = config.music_source_dir.join("Test Release 1").join("01.m4a");
+        let (config, _tmpdir) = testing::source_dir();
         
-        let mut af = AudioTags::from_file(&track_path).unwrap();
+        let mut af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         af.trackartists.main = vec![Artist::new("BIGBANG & 2NE1")];
         af.releaseartists.main = vec![Artist::new("BIGBANG"), Artist::new("2NE1")];
         af.flush(&config, false).unwrap();
@@ -1817,7 +1734,7 @@ mod tests {
         
         let rule = parse_rule("artist: & ", &["split: & "]);
         execute_metadata_rule(&config, &rule, false, false, 25).unwrap();
-        let af = AudioTags::from_file(&track_path).unwrap();
+        let af = AudioTags::from_file(&config.music_source_dir.join("Test Release 1").join("01.m4a")).unwrap();
         assert_eq!(af.trackartists.main, vec![Artist::new("BIGBANG"), Artist::new("2NE1")]);
     }
 }

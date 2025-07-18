@@ -33,6 +33,41 @@ pub fn config() -> (Config, TempDir) {
     fs::create_dir_all(base_path.join("source")).expect("failed to create source dir");
     fs::create_dir_all(base_path.join("mount")).expect("failed to create mount dir");
 
+    // Initialize database with schema
+    let cache_database_path = base_path.join("cache").join("cache.sqlite3");
+    let conn = Connection::open(&cache_database_path).expect("failed to open database");
+
+    // Load and execute schema
+    let schema_content = include_str!("cache.sql");
+    conn.execute_batch(schema_content).expect("failed to create schema");
+
+    // Create _schema_hash table
+    conn.execute(
+        "CREATE TABLE _schema_hash (
+            schema_hash TEXT,
+            config_hash TEXT,
+            version TEXT,
+            PRIMARY KEY (schema_hash, config_hash, version)
+        )",
+        [],
+    )
+    .expect("failed to create _schema_hash table");
+
+    // Calculate schema hash
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(schema_content.as_bytes());
+    let schema_hash = format!("{:x}", hasher.finalize());
+
+    // Insert schema hash
+    conn.execute(
+        "INSERT INTO _schema_hash (schema_hash, config_hash, version) VALUES (?1, ?2, ?3)",
+        rusqlite::params![schema_hash, "00ff", crate::common::VERSION],
+    )
+    .expect("failed to insert schema hash");
+
+    drop(conn);
+
     let config = Config {
         music_source_dir: base_path.join("source"),
         cache_dir: base_path.join("cache"),
@@ -83,7 +118,6 @@ pub fn seeded_cache() -> (Config, TempDir) {
     let imagepaths = [source_dir.join("r2").join("cover.jpg"), source_dir.join("!playlists").join("Lala Lisa.jpg")];
 
     let conn = Connection::open(base_path.join("cache").join("cache.sqlite3")).expect("failed to open database");
-    conn.execute_batch(include_str!("cache.sql")).expect("failed to create schema");
 
     // Insert test data
     let sql = format!(
@@ -256,7 +290,14 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
         let filename = d.file_name().unwrap().to_str().unwrap();
         fs::write(d.join(format!(".rose.{filename}.toml")), "").expect("failed to create toml");
     }
-    for f in musicpaths.iter().chain(imagepaths.iter()) {
+    // Copy a real audio file to use for tests
+    let testdata_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata");
+    let test_m4a = testdata_dir.join("Tagger").join("track2.m4a");
+
+    for f in &musicpaths {
+        fs::copy(&test_m4a, f).expect("failed to copy test audio file");
+    }
+    for f in &imagepaths {
         fs::write(f, "").expect("failed to create file");
     }
     for cn in ["Rose Gold", "Ruby Red"] {
@@ -269,21 +310,24 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
     (config, temp_dir)
 }
 
-// Creates a test environment with a seeded cache with fake testdata. The files on disk are not real.
+// Creates a test environment with a seeded cache with real testdata files.
 #[cfg(test)]
 pub fn source_dir() -> (Config, TempDir) {
     let (config, temp_dir) = config();
-    let base_path = temp_dir.path();
-    let _source_dir = base_path.join("source");
 
-    // CONVERT TO RUST.
-    // shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
-    // shutil.copytree(TEST_RELEASE_2, config.music_source_dir / TEST_RELEASE_2.name)
-    // shutil.copytree(TEST_RELEASE_3, config.music_source_dir / TEST_RELEASE_3.name)
-    // shutil.copytree(TEST_COLLAGE_1, config.music_source_dir / "!collages")
-    // shutil.copytree(TEST_PLAYLIST_1, config.music_source_dir / "!playlists")
-    // update_cache(config)
-    // return config.music_source_dir
+    let testdata_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata");
+
+    // Copy test releases
+    copy_dir_all(&testdata_dir.join("Test Release 1"), &config.music_source_dir.join("Test Release 1")).expect("failed to copy Test Release 1");
+    copy_dir_all(&testdata_dir.join("Test Release 2"), &config.music_source_dir.join("Test Release 2")).expect("failed to copy Test Release 2");
+    copy_dir_all(&testdata_dir.join("Test Release 3"), &config.music_source_dir.join("Test Release 3")).expect("failed to copy Test Release 3");
+
+    // Copy collages and playlists
+    copy_dir_all(&testdata_dir.join("Collage 1"), &config.music_source_dir.join("!collages")).expect("failed to copy collages");
+    copy_dir_all(&testdata_dir.join("Playlist 1"), &config.music_source_dir.join("!playlists")).expect("failed to copy playlists");
+
+    // Update cache
+    crate::cache::update_cache(&config, false, false).expect("failed to update cache");
 
     (config, temp_dir)
 }

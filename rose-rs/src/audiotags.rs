@@ -246,9 +246,13 @@ impl AudioTags {
             genre: {
                 // Collect all genre values from the tag
                 let genres: Vec<String> = tag.genres().map(|s| s.to_string()).collect();
-                // Join them with semicolons and then split using our standard splitter
-                let joined = genres.join(";");
-                _split_genre_tag(Some(&joined))
+                if genres.is_empty() {
+                    vec![]
+                } else {
+                    // Join them with semicolons and then split using our standard splitter
+                    let joined = genres.join(";");
+                    _split_genre_tag(Some(&joined))
+                }
             },
             secondarygenre: _split_genre_tag(_get_mp4_tag(&tag, "----:net.sunsetglow.rose:SECONDARYGENRE").as_deref()),
             descriptor: _split_tag(_get_mp4_tag(&tag, "----:net.sunsetglow.rose:DESCRIPTOR").as_deref()),
