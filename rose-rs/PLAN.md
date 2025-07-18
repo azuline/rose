@@ -157,7 +157,7 @@ Layer 7:
 
 
 ### Translation Guidelines
-1. **DO NOT DELETE PYTHON CODE** - Keep original Python code as comments in the Rust files until fully translated
+1. **DO NOT DELETE PYTHON CODE UNTIL TRANSLATED** - Keep original Python code as comments in the Rust files until fully translated
    - **CRITICAL**: Never move Python code to separate files - always keep it commented in the same file being translated
    - If a Python function is too large, add a reference comment with line numbers to cache_py.rs
    - Comment out Python code using `//` line comments to ensure it doesn't interfere with Rust compilation
@@ -167,13 +167,14 @@ Layer 7:
    - Iterators instead of loops where appropriate
    - Pattern matching for control flow
    - Option/Result for nullable/fallible operations
-5. Only modify control flow for borrow checker compliance
+5. Only modify control flow for borrow checker compliance. PRESERVE THE SAME LOGIC AND BEHAVIOR AS
+   THE PYTHON.
 6. Keep data structures similar but use Rust idioms:
    - Vec instead of list
    - HashMap instead of dict
    - PathBuf instead of Path strings
-7. Maintain exact same behavior and testing behavior
-8. Do not modify control flow or guarantees under test
+7. MAINTAIN EXACT SAME BEHAVIOR AND TESTING BEHAVIOR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+8. Do not modify control flow or guarantees under test!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 ### Testing Strategy
 1. Port all Python tests to Rust
@@ -244,8 +245,8 @@ Layer 7:
 | templates.rs | ~300 | ✅ | 100% | Fully implemented |
 | rule_parser.rs | ~600 | ✅ | 100% | Fully implemented |
 | genre_hierarchy.rs | ~100 | ✅ | 100% | Data module |
-| audiotags.rs | ~1400 | 8/8 | 100% | Complete re-implementation, tag preservation fixed |
-| cache.rs | ~5000 | 73/73 | 100% | All tests translated! 46 passing, 22 failing, 5 ignored |
+| audiotags.rs | ~1400 | ✅ | 100% | Complete re-implementation, tag preservation fixed |
+| cache.rs | ~5000 | ✅ | 100% | All tests translated! 46 passing, 22 failing, 5 ignored |
 | rules.rs | 0 | 0 | 0% | Not started |
 | releases.rs | 0 | 0 | 0% | Not started |
 | tracks.rs | 0 | 0 | 0% | Not started |
