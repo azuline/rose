@@ -1333,7 +1333,7 @@ mod tests {
 
         // Use a release from seeded cache
         let action = Action::parse("tracktitle/replace:Bop", None, None).unwrap();
-        run_actions_on_release(&config, "r2", &[action], false, true).unwrap();
+        run_actions_on_release(&config, "r2", &[action], false, false).unwrap();
 
         // Verify the action was applied
         let conn = crate::cache::connect(&config).unwrap();
