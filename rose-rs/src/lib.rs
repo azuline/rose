@@ -8,6 +8,7 @@ mod common;
 mod config;
 mod errors;
 mod genre_hierarchy;
+mod releases;
 mod rule_parser;
 mod rules;
 mod templates;

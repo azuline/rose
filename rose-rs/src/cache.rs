@@ -23,7 +23,7 @@ use uuid::Uuid;
 
 static CACHE_SCHEMA: &str = include_str!("cache.sql");
 
-static STORED_DATA_FILE_REGEX: Lazy<regex::Regex> = Lazy::new(|| regex::Regex::new(r"^\.rose\.([^.]+)\.toml$").unwrap());
+pub static STORED_DATA_FILE_REGEX: Lazy<regex::Regex> = Lazy::new(|| regex::Regex::new(r"^\.rose\.([^.]+)\.toml$").unwrap());
 
 /// Connect to the SQLite database with appropriate settings
 pub fn connect(c: &Config) -> Result<Connection> {
@@ -5189,4 +5189,136 @@ mod tests {
         assert!(playlist_exists(&config, "Turtle Rabbit").unwrap());
         assert!(!playlist_exists(&config, "Bunny Hop").unwrap());
     }
+}
+
+// Helper function to create release logtext for display
+pub fn make_release_logtext(
+    title: &str,
+    releasedate: Option<&RoseDate>,
+    artists: &ArtistMapping,
+) -> String {
+    use crate::templates::format_artist_mapping as artistsfmt;
+    
+    let mut logtext = format!("{} - ", artistsfmt(artists));
+    if let Some(date) = releasedate {
+        if let Some(year) = date.year {
+            logtext.push_str(&format!("{}. ", year));
+        }
+    }
+    logtext.push_str(title);
+    logtext
+}
+
+/// Filter releases based on various criteria
+pub fn filter_releases(
+    c: &Config,
+    release_ids: Option<&[String]>,
+    all_artist_filter: Option<&str>,
+    release_artist_filter: Option<&str>,
+    genre_filter: Option<&str>,
+    descriptor_filter: Option<&str>,
+    label_filter: Option<&str>,
+    release_type_filter: Option<&str>,
+    include_loose_tracks: bool,
+) -> Result<Vec<Release>> {
+    let conn = connect(c)?;
+    let mut query = "SELECT * FROM releases_view rv WHERE 1=1".to_string();
+    let mut args: Vec<String> = Vec::new();
+    
+    if !include_loose_tracks {
+        query.push_str(" AND rv.releasetype <> 'loosetrack'");
+    }
+    
+    if let Some(ids) = release_ids {
+        if !ids.is_empty() {
+            let placeholders = vec!["?"; ids.len()].join(",");
+            query.push_str(&format!(" AND rv.id IN ({})", placeholders));
+            args.extend(ids.iter().cloned());
+        }
+    }
+    
+    if let Some(artist) = release_artist_filter {
+        query.push_str(" AND EXISTS (
+            SELECT * FROM releases_artists ra
+            WHERE ra.release_id = rv.id AND ra.artist = ?
+        )");
+        args.push(artist.to_string());
+    }
+    
+    if let Some(artist) = all_artist_filter {
+        query.push_str(" AND (
+            EXISTS (
+                SELECT * FROM releases_artists
+                WHERE release_id = rv.id AND artist = ?
+            )
+            OR EXISTS (
+                SELECT * FROM tracks_artists
+                WHERE release_id = rv.id AND artist = ?
+            )
+        )");
+        args.push(artist.to_string());
+        args.push(artist.to_string());
+    }
+    
+    if let Some(genre) = genre_filter {
+        query.push_str(" AND (
+            EXISTS (
+                SELECT * FROM releases_genres
+                WHERE release_id = rv.id AND genre = ?
+            )
+            OR EXISTS (
+                SELECT * FROM releases_secondary_genres
+                WHERE release_id = rv.id AND genre = ?
+            )
+        )");
+        args.push(genre.to_string());
+        args.push(genre.to_string());
+    }
+    
+    if let Some(descriptor) = descriptor_filter {
+        query.push_str(" AND EXISTS (
+            SELECT * FROM releases_descriptors
+            WHERE release_id = rv.id AND descriptor = ?
+        )");
+        args.push(descriptor.to_string());
+    }
+    
+    if let Some(label) = label_filter {
+        query.push_str(" AND EXISTS (
+            SELECT * FROM releases_labels
+            WHERE release_id = rv.id AND label = ?
+        )");
+        args.push(label.to_string());
+    }
+    
+    if let Some(release_type) = release_type_filter {
+        query.push_str(" AND rv.releasetype = ?");
+        args.push(release_type.to_string());
+    }
+    
+    query.push_str(" ORDER BY rv.id");
+    
+    let mut stmt = conn.prepare(&query)?;
+    let releases = stmt
+        .query_map(rusqlite::params_from_iter(&args), |row| {
+            cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    
+    Ok(releases)
+}
+
+/// List releases by IDs, with optional filtering
+pub fn list_releases_by_ids(c: &Config, release_ids: &[String], include_loose_tracks: bool) -> Result<Vec<Release>> {
+    filter_releases(
+        c,
+        Some(release_ids),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        include_loose_tracks,
+    )
 }

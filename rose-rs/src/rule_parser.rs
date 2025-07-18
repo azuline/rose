@@ -192,7 +192,7 @@ impl fmt::Display for ExpandableTag {
 lazy_static::lazy_static! {
     /// Map of a tag to its "resolved" tags. Most tags simply resolve to themselves; however, we let
     /// certain tags be aliases for multiple other tags, purely for convenience.
-    static ref ALL_TAGS: HashMap<ExpandableTag, Vec<Tag>> = {
+    pub static ref ALL_TAGS: HashMap<ExpandableTag, Vec<Tag>> = {
         let mut map = HashMap::new();
 
         // Single tags that resolve to themselves
