@@ -10,6 +10,8 @@ python-pin.pkgs.buildPythonApplication {
   pname = "rose";
   version = version;
   src = ./.;
+  pyproject = true;
+  build-system = [ py-deps.setuptools ];
   propagatedBuildInputs = [
     rose-py
     rose-vfs
