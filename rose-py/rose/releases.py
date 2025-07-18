@@ -334,7 +334,7 @@ def edit_release(
         try:
             try:
                 release_meta = MetadataRelease.from_toml(toml)
-            except tomllib.TOMLDecodeError as e:
+            except (tomllib.TOMLDecodeError, KeyError) as e:
                 raise ReleaseEditFailedError("Failed to decode TOML file.") from e
             for t in tracks:
                 track_meta = release_meta.tracks[t.id]
@@ -420,7 +420,7 @@ def edit_release(
 
             if release_meta.new != release.new:
                 toggle_release_new(c, release.id)
-        except RoseError as e:
+        except Exception as e:
             new_resume_path = c.cache_dir / f"failed-release-edit.{release_id}.toml"
             with new_resume_path.open("w") as fp:
                 fp.write(toml)
