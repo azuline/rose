@@ -471,7 +471,7 @@ pub fn evaluate_track_template(template: &PathTemplate, track: &Track, context: 
     let mut tera = env.lock().unwrap();
     let ctx = calc_track_variables(track, position, context);
 
-    let result = match tera.render_str(&template.text, &ctx) {
+    let mut result = match tera.render_str(&template.text, &ctx) {
         Ok(rendered) => {
             // Collapse whitespace - all newlines and multi-spaces are replaced with a single space
             let spacing_regex = Regex::new(r"\s+").unwrap();
@@ -484,6 +484,12 @@ pub fn evaluate_track_template(template: &PathTemplate, track: &Track, context: 
             String::new()
         }
     };
+
+    // Append file extension
+    if let Some(extension) = track.source_path.extension() {
+        result.push('.');
+        result.push_str(&extension.to_string_lossy());
+    }
 
     result
 }
@@ -580,7 +586,7 @@ fn calc_track_variables(track: &Track, position: Option<&str>, context: Option<&
     ctx.insert("discnumber", &track.discnumber);
     ctx.insert("duration_seconds", &track.duration_seconds);
     ctx.insert("trackartists", &track.trackartists);
-    
+
     // Release fields from the track's release
     ctx.insert("added_at", &track.release.added_at);
     ctx.insert("releasetitle", &track.release.releasetitle);
@@ -729,8 +735,8 @@ mod tests {
         let mut track = empty_cached_track();
         track.tracknumber = "2".to_string();
         track.tracktitle = "Trick".to_string();
-        assert_eq!(evaluate_track_template(&templates.source.track, &track, None, None), "02. Trick");
-        assert_eq!(evaluate_track_template(&templates.playlists, &track, None, Some("4")), "4. Unknown Artists - Trick");
+        assert_eq!(evaluate_track_template(&templates.source.track, &track, None, None), "02. Trick.m4a");
+        assert_eq!(evaluate_track_template(&templates.playlists, &track, None, Some("4")), "4. Unknown Artists - Trick.m4a");
 
         let mut track = empty_cached_track();
         track.release.disctotal = 2;
@@ -742,8 +748,8 @@ mod tests {
             guest: vec![Artist::new("Hi"), Artist::new("High"), Artist::new("Hye")],
             ..Default::default()
         };
-        assert_eq!(evaluate_track_template(&templates.source.track, &track, None, None), "04-02. Trick (feat. Hi, High & Hye)");
-        assert_eq!(evaluate_track_template(&templates.playlists, &track, None, Some("4")), "4. Main (feat. Hi, High & Hye) - Trick");
+        assert_eq!(evaluate_track_template(&templates.source.track, &track, None, None), "04-02. Trick (feat. Hi, High & Hye).m4a");
+        assert_eq!(evaluate_track_template(&templates.playlists, &track, None, Some("4")), "4. Main (feat. Hi, High & Hye) - Trick.m4a");
     }
 
     #[test]
@@ -757,7 +763,7 @@ mod tests {
         track.tracktitle = "Trick".to_string();
 
         let result = evaluate_track_template(&template, &track, None, None);
-        assert_eq!(result, "2. Trick");
+        assert_eq!(result, "2. Trick.m4a");
     }
 
     #[test]

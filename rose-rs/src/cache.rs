@@ -1278,14 +1278,8 @@ fn _update_cache_for_releases_executor(
                 };
 
                 let template_track = temp_track.to_template_track();
-                let wanted_stem = evaluate_track_template(&c.path_templates.source.track, &template_track, None, None);
-                let wanted_stem = sanitize_filename(c, &wanted_stem, false); // Don't enforce max length yet
-                let extension = track_path.extension().and_then(|e| e.to_str()).unwrap_or("");
-                let wanted_filename = if extension.is_empty() {
-                    sanitize_filename(c, &wanted_stem, true)
-                } else {
-                    sanitize_filename(c, &format!("{}.{}", wanted_stem, extension), true)
-                };
+                let wanted_filename = evaluate_track_template(&c.path_templates.source.track, &template_track, None, None);
+                let wanted_filename = sanitize_filename(c, &wanted_filename, true);
 
                 let current_filename = track_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
 
@@ -1301,26 +1295,27 @@ fn _update_cache_for_releases_executor(
                     let mut final_track_path = wanted_path.clone();
                     let mut collision_no = 2;
                     while final_track_path.exists() && final_track_path != track_path {
+                        // Extract stem and extension from wanted_filename
+                        let (stem, ext) = if let Some(dot_pos) = wanted_filename.rfind('.') {
+                            (&wanted_filename[..dot_pos], &wanted_filename[dot_pos..])
+                        } else {
+                            (wanted_filename.as_str(), "")
+                        };
+
                         // Calculate space needed for collision suffix " [N]" plus extension
                         let collision_suffix = format!(" [{}]", collision_no);
-                        let ext_len = if extension.is_empty() { 0 } else { 1 + extension.len() }; // +1 for dot
-                        let suffix_len = collision_suffix.len() + ext_len;
+                        let suffix_len = collision_suffix.len() + ext.len();
                         let available_for_stem = c.max_filename_bytes.saturating_sub(suffix_len);
 
-                        // Get the original stem (without extension)
-                        let original_stem = wanted_stem.as_str();
-                        let stem_bytes = original_stem.as_bytes();
+                        // Truncate stem if needed
+                        let stem_bytes = stem.as_bytes();
                         let truncated_stem = if stem_bytes.len() > available_for_stem {
                             String::from_utf8_lossy(&stem_bytes[..available_for_stem]).trim().to_string()
                         } else {
-                            original_stem.to_string()
+                            stem.to_string()
                         };
 
-                        let collision_filename = if extension.is_empty() {
-                            format!("{}{}", truncated_stem, collision_suffix)
-                        } else {
-                            format!("{}{}.{}", truncated_stem, collision_suffix, extension)
-                        };
+                        let collision_filename = format!("{}{}{}", truncated_stem, collision_suffix, ext);
 
                         final_track_path = release.source_path.join(collision_filename);
                         collision_no += 1;
@@ -2044,7 +2039,7 @@ pub fn update_cache_for_collages(c: &Config, collage_names: Option<Vec<String>>,
             let release_ids: Vec<String> = release_positions.iter().map(|(id, _, _)| id.clone()).collect();
             let placeholders = vec!["?"; release_ids.len()].join(",");
             let query = format!(
-                "SELECT id, releasetitle, originaldate, releasedate, releaseartist_names, releaseartist_roles 
+                "SELECT id, releasetitle, originaldate, releasedate, releaseartist_names, releaseartist_roles
                  FROM releases_view WHERE id IN ({})",
                 placeholders
             );
@@ -2273,7 +2268,7 @@ pub fn update_cache_for_playlists(c: &Config, playlist_names: Option<Vec<String>
         // Update database
         conn.execute(
             "INSERT INTO playlists (name, source_mtime, cover_path) VALUES (?1, ?2, ?3)
-             ON CONFLICT (name) DO UPDATE SET 
+             ON CONFLICT (name) DO UPDATE SET
                 source_mtime = excluded.source_mtime,
                 cover_path = excluded.cover_path",
             params![&name, &file_mtime, &cover_path_str],
@@ -2425,64 +2420,69 @@ pub fn get_release(c: &Config, release_id: &str) -> Result<Option<Release>> {
     Ok(release)
 }
 
-// def list_releases(
-//     c: Config,
-//     # The or_labels/or_genres/or_descriptors fields contain labels/genres/descriptors that we are going
-//     # to union together when filtering. We want releases that have at least one of the labels and at
-//     # least one of the genres.
-//     #
-//     # Labels, Genres, and Descriptors are three separate fields, so we still intersect them together.
-//     # That is, to match, a release must match at least one of the labels and genres. But both labels
-//     # and genres must have a match.
-//     or_labels: list[str] | None = None,
-//     or_genres: list[str] | None = None,
-//     or_descriptors: list[str] | None = None,
-// ) -> list[Release]:
-//     """Fetch all releases. Can be filtered. By default, returns all releases."""
-//     filter_sql = ""
-//     filter_params: list[str] = []
-//     if or_labels:
-//         filter_sql += f"""
-//             AND id IN (
-//               SELECT release_id FROM releases_labels
-//               WHERE label IN ({','.join(['?'] * len(or_labels))})
-//             )
-//         """
-//         filter_params.extend(or_labels)
-//     if or_genres:
-//         filter_sql += f"""
-//             AND id IN (
-//               SELECT release_id FROM releases_genres
-//               WHERE genre IN ({','.join(['?'] * len(or_genres))})
-//             )
-//         """
-//         filter_params.extend(or_genres)
-//     if or_descriptors:
-//         filter_sql += f"""
-//             AND id IN (
-//               SELECT release_id FROM releases_descriptors
-//               WHERE descriptor IN ({','.join(['?'] * len(or_descriptors))})
-//             )
-//         """
-//         filter_params.extend(or_descriptors)
-//
-//     releases: list[Release] = []
-//     with connect(c) as conn:
-//         cursor = conn.execute(
-//             f"SELECT * FROM releases_view WHERE true {filter_sql} ORDER BY id",
-//             filter_params,
-//         )
-//         for row in cursor:
-//             releases.append(cached_release_from_view(c, row))
-//     return releases
-pub fn list_releases(c: &Config) -> Result<Vec<Release>> {
-    // For now, implement without filters - just return all releases
-    // TODO: Implement full filtering support with or_labels, or_genres, or_descriptors
+/// Fetch all releases. Can be filtered. By default, returns all releases.
+///
+/// The or_labels/or_genres/or_descriptors fields contain labels/genres/descriptors that we are going
+/// to union together when filtering. We want releases that have at least one of the labels and at
+/// least one of the genres.
+///
+/// Labels, Genres, and Descriptors are three separate fields, so we still intersect them together.
+/// That is, to match, a release must match at least one of the labels and genres. But both labels
+/// and genres must have a match.
+pub fn list_releases(c: &Config, or_labels: Option<Vec<String>>, or_genres: Option<Vec<String>>, or_descriptors: Option<Vec<String>>) -> Result<Vec<Release>> {
+    let mut filter_sql = String::new();
+    let mut filter_params: Vec<String> = Vec::new();
+
+    if let Some(labels) = or_labels {
+        if !labels.is_empty() {
+            let placeholders = vec!["?"; labels.len()].join(",");
+            filter_sql.push_str(&format!(
+                " AND id IN (
+                    SELECT release_id FROM releases_labels
+                    WHERE label IN ({})
+                )",
+                placeholders
+            ));
+            filter_params.extend(labels);
+        }
+    }
+
+    if let Some(genres) = or_genres {
+        if !genres.is_empty() {
+            let placeholders = vec!["?"; genres.len()].join(",");
+            filter_sql.push_str(&format!(
+                " AND id IN (
+                    SELECT release_id FROM releases_genres
+                    WHERE genre IN ({})
+                )",
+                placeholders
+            ));
+            filter_params.extend(genres);
+        }
+    }
+
+    if let Some(descriptors) = or_descriptors {
+        if !descriptors.is_empty() {
+            let placeholders = vec!["?"; descriptors.len()].join(",");
+            filter_sql.push_str(&format!(
+                " AND id IN (
+                    SELECT release_id FROM releases_descriptors
+                    WHERE descriptor IN ({})
+                )",
+                placeholders
+            ));
+            filter_params.extend(descriptors);
+        }
+    }
+
     let conn = connect(c)?;
-    let mut stmt = conn.prepare("SELECT * FROM releases_view ORDER BY id")?;
+    let query = format!("SELECT * FROM releases_view WHERE 1=1 {} ORDER BY id", filter_sql);
+    let mut stmt = conn.prepare(&query)?;
 
     let releases = stmt
-        .query_map([], |row| cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?
+        .query_map(rusqlite::params_from_iter(&filter_params), |row| {
+            cached_release_from_view(c, row, true).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+        })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(releases)
@@ -2627,7 +2627,7 @@ pub fn list_descriptors(c: &Config) -> Result<Vec<DescriptorEntry>> {
     let conn = connect(c)?;
     let mut stmt = conn.prepare(
         "
-        SELECT DISTINCT d.descriptor, 
+        SELECT DISTINCT d.descriptor,
                CASE WHEN COUNT(CASE WHEN r.new = false THEN 1 END) > 0 THEN false ELSE true END as only_new
         FROM releases_descriptors d
         JOIN releases r ON r.id = d.release_id
@@ -2938,8 +2938,8 @@ pub fn get_collage(c: &Config, collage_name: &str) -> Result<Option<Collage>> {
 pub fn get_collage_releases(c: &Config, collage_name: &str) -> Result<Vec<Release>> {
     let conn = connect(c)?;
     let mut stmt = conn.prepare(
-        "SELECT release_id FROM collages_releases 
-         WHERE collage_name = ? AND NOT missing 
+        "SELECT release_id FROM collages_releases
+         WHERE collage_name = ? AND NOT missing
          ORDER BY position",
     )?;
 
@@ -2978,8 +2978,8 @@ pub fn get_playlist(c: &Config, playlist_name: &str) -> Result<Option<Playlist>>
 pub fn get_playlist_tracks(c: &Config, playlist_name: &str) -> Result<Vec<Track>> {
     let conn = connect(c)?;
     let mut stmt = conn.prepare(
-        "SELECT track_id FROM playlists_tracks 
-         WHERE playlist_name = ? AND NOT missing 
+        "SELECT track_id FROM playlists_tracks
+         WHERE playlist_name = ? AND NOT missing
          ORDER BY position",
     )?;
 
@@ -3431,7 +3431,7 @@ mod tests {
 
         // Manually insert a release
         conn.execute(
-            "INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, disctotal, metahash, new) 
+            "INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, disctotal, metahash, new)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params!["test-release-id", "/test/path", "2024-01-01T00:00:00Z", "999", "Test Release", "album", 1, "test-hash", true],
         )
@@ -4657,7 +4657,7 @@ mod tests {
     fn test_list_releases() {
         let (config, _temp_dir) = testing::seeded_cache();
 
-        let releases = list_releases(&config).unwrap();
+        let releases = list_releases(&config, None, None, None).unwrap();
         assert_eq!(releases.len(), 4); // r1, r2, r3, r4
 
         // Check r1
