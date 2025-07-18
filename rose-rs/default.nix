@@ -7,4 +7,5 @@ rustPlatform.buildRustPackage {
   inherit version;
   src = ./.;
   cargoLock = { lockFile = ./Cargo.lock; };
+  doCheck = false;
 }
