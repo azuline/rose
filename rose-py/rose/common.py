@@ -14,7 +14,7 @@ import sys
 import unicodedata
 from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Literal
 
 import appdirs
 
@@ -23,8 +23,6 @@ if TYPE_CHECKING:
 
 with (Path(__file__).parent / ".version").open("r") as fp:
     VERSION = fp.read().strip()
-
-T = TypeVar("T")
 
 
 class RoseError(Exception):
@@ -91,14 +89,14 @@ class ArtistMapping:
         yield "djmixer", self.djmixer
 
 
-def flatten(xxs: list[list[T]]) -> list[T]:
+def flatten[T](xxs: list[list[T]]) -> list[T]:
     xs: list[T] = []
     for group in xxs:
         xs.extend(group)
     return xs
 
 
-def uniq(xs: list[T]) -> list[T]:
+def uniq[T](xs: list[T]) -> list[T]:
     rv: list[T] = []
     seen: set[T] = set()
     for x in xs:

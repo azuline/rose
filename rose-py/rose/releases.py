@@ -414,7 +414,7 @@ def edit_release(
 
                 if dirty:
                     logger.info(
-                        f"Flushing changed tags to {str(t.source_path).removeprefix(str(c.music_source_dir) + "/")}"
+                        f"Flushing changed tags to {str(t.source_path).removeprefix(str(c.music_source_dir) + '/')}"
                     )
                     tags.flush(c)
 

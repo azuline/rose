@@ -166,7 +166,7 @@ def fast_search_for_matching_tracks(
     # table. The false positives should be minimal enough that performance should be roughly the
     # same if we filter them out in the tag checking step.
     columns = uniq([TAG_ROLE_REGEX.sub("", t) for t in matcher.tags])
-    ftsquery = f"{{{" ".join(columns)}}} : {matchsql}"
+    ftsquery = f"{{{' '.join(columns)}}} : {matchsql}"
     query = f"""
         SELECT DISTINCT t.id, t.source_path
         FROM rules_engine_fts
@@ -593,14 +593,14 @@ def execute_metadata_actions(
 
     # === Step 5: Flush writes to disk ===
 
-    logger.info(f"Writing tag changes for actions {" ".join([shlex.quote(str(a)) for a in actions])}")
+    logger.info(f"Writing tag changes for actions {' '.join([shlex.quote(str(a)) for a in actions])}")
     changed_release_ids: set[str] = set()
     for tags, tag_changes in actionable_audiotags:
         if tags.release_id:
             changed_release_ids.add(tags.release_id)
         pathtext = str(tags.path).removeprefix(str(c.music_source_dir) + "/")
         logger.debug(
-            f"Attempting to write {pathtext} changes: {" //// ".join([str(x) + " -> " + str(y) for _, x, y in tag_changes])}"
+            f"Attempting to write {pathtext} changes: {' //// '.join([str(x) + ' -> ' + str(y) for _, x, y in tag_changes])}"
         )
         tags.flush(c)
         logger.info(f"Wrote tag changes to {pathtext}")
@@ -609,7 +609,7 @@ def execute_metadata_actions(
             changed_release_ids.add(tags.release_id)
         pathtext = path.removeprefix(str(c.music_source_dir) + "/")
         logger.debug(
-            f"Attempting to write {pathtext} changes: {" //// ".join([str(x) + " -> " + str(y) for _, x, y in datafile_changes])}"
+            f"Attempting to write {pathtext} changes: {' //// '.join([str(x) + ' -> ' + str(y) for _, x, y in datafile_changes])}"
         )
         for f in Path(path).iterdir():
             if not STORED_DATA_FILE_REGEX.match(f.name):
@@ -737,13 +737,13 @@ def fast_search_for_matching_releases(
             track_tags = [t for t in track_tags if not t.startswith("trackartist")]
         else:
             raise TrackTagNotAllowedError(
-                f"Track tags are not allowed when matching against releases: {", ".join(track_tags)}"
+                f"Track tags are not allowed when matching against releases: {', '.join(track_tags)}"
             )
 
     matchsql = _convert_matcher_to_fts_query(matcher.pattern)
     logger.debug(f"Converted match {matcher=} to {matchsql=}")
     columns = uniq([TAG_ROLE_REGEX.sub("", t) for t in matcher.tags])
-    ftsquery = f"{{{" ".join(columns)}}} : {matchsql}"
+    ftsquery = f"{{{' '.join(columns)}}} : {matchsql}"
     query = f"""
         SELECT DISTINCT r.id, r.source_path
         FROM rules_engine_fts

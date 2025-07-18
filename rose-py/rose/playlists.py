@@ -162,7 +162,7 @@ def edit_playlist_in_editor(c: Config, playlist_name: str) -> None:
         line_occurrences = Counter([r["description_meta"] for r in raw_tracks])
         for r in raw_tracks:
             if line_occurrences[r["description_meta"]] > 1:
-                line = f'{r["description_meta"]} [{r["uuid"]}]'
+                line = f"{r['description_meta']} [{r['uuid']}]"
             else:
                 line = r["description_meta"]
             lines_to_edit.append(line)

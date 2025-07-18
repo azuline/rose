@@ -37,6 +37,7 @@ make check
 ## Architecture and Code Structure
 
 ### Core Dependencies
+
 - **Error Handling**: Uses `thiserror` with enum-based errors (`RoseError` and `RoseExpectedError`). Use the project's `Result<T>` type alias from common.rs
 - **Logging**: Uses `tracing` and `tracing-subscriber` (not log/log4rs)
 - **Serialization**: `serde` with JSON and TOML support
@@ -45,7 +46,9 @@ make check
 - **Templates**: `tera` for templating engine
 
 ### Database Schema
+
 The project uses SQLite with a schema defined in `src/cache.sql`.
+
 - `releases` - Music releases with metadata
 - `tracks` - Individual tracks
 - `releases_artists`, `tracks_artists` - Artist relationships
@@ -53,6 +56,7 @@ The project uses SQLite with a schema defined in `src/cache.sql`.
 - Full-text search tables for efficient querying
 
 ### Translation Guidelines
+
 - Preserve Python docstrings as Rust doc comments
 - Maintain the same function names and signatures where possible
 - Use idiomatic Rust patterns (iterators, pattern matching, etc.)
@@ -61,6 +65,7 @@ The project uses SQLite with a schema defined in `src/cache.sql`.
 - Prefer concise Rust code without sacrificing clarity
 
 ### Key Patterns
+
 - Use `once_cell::sync::Lazy` for lazy static initialization
 - Use enum-based errors with `#[derive(Error)]` from thiserror
 - Use the project's `Result<T>` type alias (defined in common.rs) for error propagation
@@ -108,6 +113,7 @@ mod tests {
 ```
 
 ### Test Data in `seeded_cache()`
+
 - 4 releases (r1-r4) with various metadata
 - 5 tracks (t1-t5) with artist associations
 - 2 collages ("Rose Gold", "Ruby Red")

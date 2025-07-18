@@ -319,7 +319,7 @@ class AudioTags:
         if validate and self.releasetype not in SUPPORTED_RELEASE_TYPES:
             raise UnsupportedTagValueTypeError(
                 f"Release type {self.releasetype} is not a supported release type.\n"
-                f"Supported release types: {", ".join(SUPPORTED_RELEASE_TYPES)}"
+                f"Supported release types: {', '.join(SUPPORTED_RELEASE_TYPES)}"
             )
 
         if isinstance(m, mutagen.mp3.MP3):

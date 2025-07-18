@@ -5,6 +5,7 @@ This report compares the unit tests for the rules module between the Rust implem
 ## Test Coverage Summary
 
 Both implementations provide comprehensive test coverage for the rules engine functionality, with tests for:
+
 - Pattern matching (substring, beginning, end, superstrict, case-insensitive)
 - Field matching (various metadata fields)
 - Actions (replace, sed, split, add, delete)
@@ -18,11 +19,13 @@ Both implementations provide comprehensive test coverage for the rules engine fu
 ### 1. Test Data Setup
 
 **Python:**
+
 - Uses fixtures from `config: Config` and `source_dir: Path` parameters
 - Test data setup appears to be in external fixture files
 - Uses `AudioTags.from_file()` directly with paths
 
 **Rust:**
+
 - Uses `testing::seeded_cache()` and `testing::source_dir()` helper functions
 - Explicitly manages test data within the tests
 - Returns tuples like `(config, _tmpdir)`
@@ -61,11 +64,13 @@ The Rust implementation includes these tests not found in Python:
 ### 4. API Differences
 
 **Python:**
+
 - `execute_metadata_rule(config, rule, confirm_yes=False)`
 - `Rule.parse(matcher, actions)` for parsing rules
 - Direct field assertions: `assert af.tracktitle == "lalala"`
 
 **Rust:**
+
 - `execute_metadata_rule(&config, &rule, false, false, 25).unwrap()`
 - Additional parameters for dry_run and confirmation threshold
 - Uses `unwrap()` for error handling
@@ -74,11 +79,13 @@ The Rust implementation includes these tests not found in Python:
 ### 5. Test Organization
 
 **Python:**
+
 - Uses pytest decorators like `@pytest.mark.usefixtures("seeded_cache")`
 - `@pytest.mark.timeout(2)` for timeout handling
 - Cleaner test function signatures with dependency injection
 
 **Rust:**
+
 - Manual test data setup with helper functions
 - More verbose with explicit `unwrap()` calls
 - No timeout annotations (likely handled differently)
@@ -86,19 +93,23 @@ The Rust implementation includes these tests not found in Python:
 ### 6. Mock/Stub Differences
 
 **Python:**
+
 - Uses `monkeypatch` for mocking user input in confirmation tests
 - Can mock `click.confirm` and `click.prompt`
 
 **Rust:**
+
 - No interactive confirmation tests implemented
 - Missing the interactive user input testing capability
 
 ### 7. Error Type Differences
 
 **Python:**
+
 - Uses custom `TrackTagNotAllowedError` exception
 
 **Rust:**
+
 - Returns `Result` types with error variants
 - Uses `.is_err()` for error checking
 

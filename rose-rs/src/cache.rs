@@ -5252,8 +5252,9 @@ pub fn filter_releases(
                 WHERE release_id = rv.id AND artist = ?
             )
             OR EXISTS (
-                SELECT * FROM tracks_artists
-                WHERE release_id = rv.id AND artist = ?
+                SELECT * FROM tracks_artists ta
+                JOIN tracks t ON ta.track_id = t.id
+                WHERE t.release_id = rv.id AND ta.artist = ?
             )
         )");
         args.push(artist.to_string());

@@ -154,7 +154,7 @@ def edit_collage_in_editor(c: Config, collage_name: str) -> None:
                 uuid = uuid_mapping[desc]
             except KeyError as e:
                 raise DescriptionMismatchError(
-                    f"Release {desc} does not match a known release in the collage. " "Was the line edited?"
+                    f"Release {desc} does not match a known release in the collage. Was the line edited?"
                 ) from e
             edited_releases.append({"uuid": uuid, "description_meta": desc})
         data["releases"] = edited_releases

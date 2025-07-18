@@ -828,7 +828,7 @@ pub fn edit_release(
 
 fn apply_release_edit(
     c: &Config,
-    release: &Release,
+    _release: &Release,
     tracks: &[Track],
     toml: &str,
     _release_id: &str,
@@ -1341,7 +1341,7 @@ mod tests {
     // Python:     ... (test implementation)
     #[test]
     fn test_delete_release_cover_art() {
-        let (config, temp_dir) = testing::seeded_cache();
+        let (config, _temp_dir) = testing::seeded_cache();
         
         // Get a release and add a cover
         let conn = crate::cache::connect(&config).unwrap();
@@ -1358,7 +1358,7 @@ mod tests {
         fs::write(&cover_path, "fake cover").unwrap();
         
         // Update cache to pick up the cover
-        update_cache_for_releases(&config, &[PathBuf::from(&source_path)], true).unwrap();
+        update_cache_for_releases(&config, Some(vec![PathBuf::from(&source_path)]), true, false).unwrap();
         
         // Delete cover art
         delete_release_cover_art(&config, &release_id).unwrap();
@@ -1422,7 +1422,7 @@ mod tests {
         let (config, _temp_dir) = testing::seeded_cache();
         
         // Use a release from seeded cache
-        let action = Action::parse("tracktitle/replace:Bop").unwrap();
+        let action = Action::parse("tracktitle/replace:Bop", None, None).unwrap();
         run_actions_on_release(&config, "r2", &[action], false, true).unwrap();
         
         // Verify the action was applied
@@ -1437,6 +1437,6 @@ mod tests {
         drop(conn);
         
         let af = AudioTags::from_file(Path::new(&track_path)).unwrap();
-        assert_eq!(af.tracktitle, "Bop");
+        assert_eq!(af.tracktitle, Some("Bop".to_string()));
     }
 }

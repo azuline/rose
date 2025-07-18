@@ -1,6 +1,7 @@
 # Rose Rust Port Implementation Plan
 
 ## Overview
+
 This document outlines the plan for completing the Rust port of the Rose music library management system. The porting strategy follows a bottom-up approach based on module dependencies, starting with foundational modules and building up to higher-level functionality.
 
 Our approach is a test driven development approach. We want to port over all the tests from rose-py and then make sure that they are all implemented effectively.
@@ -8,6 +9,7 @@ Our approach is a test driven development approach. We want to port over all the
 ## Current Status (Updated: 2025-01-18)
 
 ### ✅ Completed Modules (100% Feature Parity)
+
 1. **common.rs** - Core utilities, error types, and basic data structures
 2. **genre_hierarchy.rs** - Genre relationship data and lookups
 3. **testing.rs** - Test utilities and helpers
@@ -19,7 +21,7 @@ Our approach is a test driven development approach. We want to port over all the
 
 ### ⚠️ Partially Completed (Limited Feature Parity)
 
-1. **cache.rs** - SQLite database layer  
+1. **cache.rs** - SQLite database layer
    - ✅ Basic database connection and schema
    - ✅ Eviction functions (collages, playlists, releases)
    - ✅ get_track, list_tracks, list_tracks_with_filter
@@ -38,6 +40,7 @@ Our approach is a test driven development approach. We want to port over all the
    - Tests: 73/73 translated (46 passing, 22 failing, 5 ignored due to specific bugs)
 
 ### ❌ Not Started
+
 1. **releases.rs** - Release management
 2. **tracks.rs** - Track management
 3. **collages.rs** - Collection management
@@ -78,7 +81,9 @@ Layer 7:
 ## Implementation Order
 
 ### Phase 1: Complete In-Progress Modules (High Priority)
+
 1. **rule_parser.rs**
+
    - Port the DSL parser for rules engine
    - Implement Pattern, Matcher, Action types
    - Port all action types (Replace, Sed, Split, Add, Delete)
@@ -86,6 +91,7 @@ Layer 7:
    - Translate comprehensive test suite
 
 2. **config.rs**
+
    - Complete translation of VirtualFSConfig
    - Implement Config struct with all parsing logic
    - Port validation and error handling
@@ -99,6 +105,7 @@ Layer 7:
    - Translate tests
 
 ### Phase 2: Foundation Layer (High Priority) ✅ COMPLETED
+
 4. **audiotags.rs** ✅
    - Integrated format-specific crates for audio metadata
    - Implemented tag reading/writing interfaces
@@ -106,6 +113,7 @@ Layer 7:
    - Handle various audio formats (MP3, M4A, FLAC, OGG/Opus)
 
 ### Phase 3: Data Layer (High Priority)
+
 5. **cache.rs**
    - Set up rusqlite integration
    - Implement database schema from cache.sql
@@ -114,12 +122,15 @@ Layer 7:
    - Handle concurrent access patterns
 
 ### Phase 4: Business Logic (Medium Priority)
+
 6. **rules.rs**
+
    - Implement rule execution engine
    - Port matcher/action execution logic
    - Integrate with cache for metadata updates
 
 7. **releases.rs**
+
    - Port release management functionality
    - Implement file system operations
    - Handle release metadata and organization
@@ -129,22 +140,27 @@ Layer 7:
    - Implement track-specific operations
 
 ### Phase 5: Collections (Medium/Low Priority)
+
 9. **collages.rs**
+
    - Port collection management
    - Implement collage file handling
 
 10. **playlists.rs**
-   - Port playlist functionality
-   - Implement M3U generation and management
+
+- Port playlist functionality
+- Implement M3U generation and management
 
 ## Key Technical Considerations
 
 ### Error Handling
+
 - Use `thiserror` with enum-based errors (RoseError, RoseExpectedError)
 - Maintain consistent error propagation using project's Result<T> type
 - Preserve Python's error message clarity
 
 ### Dependencies
+
 - **Templating**: tera (Jinja2-like syntax)
 - **Audio**: Format-specific libraries for metadata operations:
   - **MP3**: id3 v1.14
@@ -155,8 +171,8 @@ Layer 7:
 - **Serialization**: serde with JSON/TOML support
 - **Logging**: tracing (not log/log4rs)
 
-
 ### Translation Guidelines
+
 1. **DO NOT DELETE PYTHON CODE UNTIL TRANSLATED** - Keep original Python code as comments in the Rust files until fully translated
    - **CRITICAL**: Never move Python code to separate files - always keep it commented in the same file being translated
    - If a Python function is too large, add a reference comment with line numbers to cache_py.rs
@@ -177,6 +193,7 @@ Layer 7:
 8. Do not modify control flow or guarantees under test!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 ### Testing Strategy
+
 1. Port all Python tests to Rust
 2. Ensure test coverage remains comprehensive
 3. Add Rust-specific tests for ownership/borrowing edge cases
@@ -206,31 +223,36 @@ Layer 7:
 ## Next Steps
 
 ### Immediate Priority
+
 1. Complete remaining cache.rs functionality:
    - Remaining test implementations (29 tests to go)
    - Add cover art functionality
 
 ### Medium Priority
+
 2. Implement rules.rs for metadata operations
 3. Implement releases.rs for release management
 4. Implement tracks.rs for track operations
 
 ### Long Term
-5. Complete remaining modules
 
+5. Complete remaining modules
 
 ## Success Criteria
 
 ### Achieved
+
 - ✅ Core modules (common, config, templates, rule_parser) fully ported
 - ✅ Clean, idiomatic Rust code following project conventions
 - ✅ Test framework established
 
 ### In Progress
+
 - 🚧 Database layer implementation (cache.rs)
 - 🚧 Audio metadata handling (limited by lofty)
 
 ### Not Yet Achieved
+
 - ❌ All modules successfully ported with tests passing
 - ❌ Full feature parity
 - ❌ CLI interface implementation
@@ -238,17 +260,17 @@ Layer 7:
 
 ## Module Implementation Status Summary
 
-| Module | Lines of Code | Tests | Status | Notes |
-|--------|---------------|-------|---------|-------|
-| common.rs | ~200 | ✅ | 100% | Fully implemented |
-| config.rs | ~400 | ✅ | 100% | Fully implemented |
-| templates.rs | ~300 | ✅ | 100% | Fully implemented |
-| rule_parser.rs | ~600 | ✅ | 100% | Fully implemented |
-| genre_hierarchy.rs | ~100 | ✅ | 100% | Data module |
-| audiotags.rs | ~1400 | ✅ | 100% | Complete re-implementation, tag preservation fixed |
-| cache.rs | ~5000 | ✅ | 100% | All tests translated! 46 passing, 22 failing, 5 ignored |
-| rules.rs | ~1800 | ✅ | 100% | Fully implemented, 40 tests passing |
-| releases.rs | 0 | 0 | 0% | Not started |
-| tracks.rs | 0 | 0 | 0% | Not started |
-| collages.rs | 0 | 0 | 0% | Not started |
-| playlists.rs | 0 | 0 | 0% | Not started |
+| Module             | Lines of Code | Tests | Status | Notes                                                   |
+| ------------------ | ------------- | ----- | ------ | ------------------------------------------------------- |
+| common.rs          | ~200          | ✅    | 100%   | Fully implemented                                       |
+| config.rs          | ~400          | ✅    | 100%   | Fully implemented                                       |
+| templates.rs       | ~300          | ✅    | 100%   | Fully implemented                                       |
+| rule_parser.rs     | ~600          | ✅    | 100%   | Fully implemented                                       |
+| genre_hierarchy.rs | ~100          | ✅    | 100%   | Data module                                             |
+| audiotags.rs       | ~1400         | ✅    | 100%   | Complete re-implementation, tag preservation fixed      |
+| cache.rs           | ~5000         | ✅    | 100%   | All tests translated! 46 passing, 22 failing, 5 ignored |
+| rules.rs           | ~1800         | ✅    | 100%   | Fully implemented, 40 tests passing                     |
+| releases.rs        | 0             | 0     | 0%     | Not started                                             |
+| tracks.rs          | 0             | 0     | 0%     | Not started                                             |
+| collages.rs        | 0             | 0     | 0%     | Not started                                             |
+| playlists.rs       | 0             | 0     | 0%     | Not started                                             |
