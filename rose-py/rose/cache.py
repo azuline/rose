@@ -2472,5 +2472,8 @@ def _compare_strs(a: str, b: str) -> bool:
     library is ported across operating systems otherwise.
 
     Use for guarding significant mutations (cache updates are insignificant).
+
+    Tmp: Try without normalizing, see if the churn was due to another problem.
     """
-    return unicodedata.normalize("NFC", a) == unicodedata.normalize("NFC", b)
+    return a == b
+    # return unicodedata.normalize("NFC", a) == unicodedata.normalize("NFC", b)
