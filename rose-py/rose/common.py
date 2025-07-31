@@ -126,10 +126,12 @@ def sanitize_dirname(
     name = ILLEGAL_FS_CHARS_REGEX.sub("_", name)
     if enforce_maxlen:
         name = name.encode("utf-8")[: c.max_filename_bytes].decode("utf-8", "ignore").strip()
-    name = unicodedata.normalize("NFD", name)
-    if not sanitize_diacritics:
-        return name
-    return "".join(c for c in name if not unicodedata.combining(c))
+    if sanitize_diacritics:
+        # Normalize to non-combined characters to strip the combination characters.
+        name = "".join(c for c in unicodedata.normalize("NFD", name) if not unicodedata.combining(c))
+    # Normalize to combined characters (Linux standard) for remaining special characters. MacOS
+    # won't be happy. Bummer.
+    return unicodedata.normalize("NFC", name)
 
 
 def sanitize_filename(
@@ -149,10 +151,12 @@ def sanitize_filename(
             ext = ""
         stem = stem.encode("utf-8")[: c.max_filename_bytes].decode("utf-8", "ignore").strip()
         name = stem + ext
-    name = unicodedata.normalize("NFD", name)
-    if not sanitize_diacritics:
-        return name
-    return "".join(c for c in name if not unicodedata.combining(c))
+    if sanitize_diacritics:
+        # Normalize to non-combined characters to strip the combination characters.
+        name = "".join(c for c in unicodedata.normalize("NFD", name) if not unicodedata.combining(c))
+    # Normalize to combined characters (Linux standard) for remaining special characters. MacOS
+    # won't be happy. Bummer.
+    return unicodedata.normalize("NFC", name)
 
 
 def sha256_dataclass(dc: Any) -> str:
