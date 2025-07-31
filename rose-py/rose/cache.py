@@ -860,7 +860,7 @@ def _update_cache_for_releases_executor(
         if c.rename_source_files:
             if release_dirty:
                 wanted_dirname = evaluate_release_template(c.path_templates.source.release, release)
-                wanted_dirname = sanitize_dirname(c, wanted_dirname, True)
+                wanted_dirname = sanitize_dirname(c, wanted_dirname, True, sanitize_diacritics=True)
                 # Iterate until we've either:
                 # 1. Realized that the name of the source path matches the desired dirname (which we
                 #    may not realize immediately if there are name conflicts).
@@ -892,7 +892,7 @@ def _update_cache_for_releases_executor(
                         track_ids_to_insert.add(track.id)
             for track in [t for t in tracks if t.id in track_ids_to_insert]:
                 wanted_filename = evaluate_track_template(c.path_templates.source.track, track)
-                wanted_filename = sanitize_filename(c, wanted_filename, True)
+                wanted_filename = sanitize_filename(c, wanted_filename, True, sanitize_diacritics=True)
                 # And repeat a similar process to the release rename handling. Except: we can have
                 # arbitrarily nested files here, so we need to compare more than the name.
                 original_wanted_stem = Path(wanted_filename).stem

@@ -109,7 +109,13 @@ def uniq[T](xs: list[T]) -> list[T]:
 ILLEGAL_FS_CHARS_REGEX = re.compile(r'[:\?<>\\*\|"\/]+')
 
 
-def sanitize_dirname(c: "Config", name: str, enforce_maxlen: bool) -> str:
+def sanitize_dirname(
+    c: "Config",
+    name: str,
+    enforce_maxlen: bool,
+    *,
+    sanitize_diacritics: bool = False,
+) -> str:
     """
     Replace illegal characters and truncate. We have 255 bytes in ext4, and we truncate to 240 in
     order to leave room for any collision numbers.
@@ -120,10 +126,18 @@ def sanitize_dirname(c: "Config", name: str, enforce_maxlen: bool) -> str:
     name = ILLEGAL_FS_CHARS_REGEX.sub("_", name)
     if enforce_maxlen:
         name = name.encode("utf-8")[: c.max_filename_bytes].decode("utf-8", "ignore").strip()
-    return unicodedata.normalize("NFD", name)
+    name = unicodedata.normalize("NFD", name)
+    if not sanitize_diacritics:
+        return name
+    return "".join(c for c in name if not unicodedata.combining(c))
 
 
-def sanitize_filename(c: "Config", name: str, enforce_maxlen: bool) -> str:
+def sanitize_filename(
+    c: "Config",
+    name: str,
+    enforce_maxlen: bool,
+    sanitize_diacritics: bool = False,
+) -> str:
     """Same as sanitize dirname, except we preserve file extension."""
     name = ILLEGAL_FS_CHARS_REGEX.sub("_", name)
     if enforce_maxlen:
@@ -135,7 +149,10 @@ def sanitize_filename(c: "Config", name: str, enforce_maxlen: bool) -> str:
             ext = ""
         stem = stem.encode("utf-8")[: c.max_filename_bytes].decode("utf-8", "ignore").strip()
         name = stem + ext
-    return unicodedata.normalize("NFD", name)
+    name = unicodedata.normalize("NFD", name)
+    if not sanitize_diacritics:
+        return name
+    return "".join(c for c in name if not unicodedata.combining(c))
 
 
 def sha256_dataclass(dc: Any) -> str:
