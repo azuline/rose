@@ -55,6 +55,7 @@ from rose.common import (
     VERSION,
     Artist,
     ArtistMapping,
+    RoseError,
     flatten,
     sanitize_dirname,
     sanitize_filename,
@@ -70,6 +71,14 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 CACHE_SCHEMA_PATH = Path(__file__).resolve().parent / "cache.sql"
+
+
+class DuplicateReleaseError(RoseError):
+    pass
+
+
+class DuplicateTrackError(RoseError):
+    pass
 
 
 @contextlib.contextmanager
@@ -839,6 +848,8 @@ def _update_cache_for_releases_executor(
                 release=release,
             )
             tracks.append(track)
+            if track.id in track_ids_to_insert:
+                raise DuplicateTrackError(f"Duplicate track found at {f}")
             track_ids_to_insert.add(track.id)
             totals_ctr[track.discnumber] += 1
 
@@ -950,6 +961,8 @@ def _update_cache_for_releases_executor(
                 release.new,
                 sha256_dataclass(release),
             ])
+            if release.id in upd_release_ids:
+                raise DuplicateReleaseError(f"Duplicate release found at {release.source_path}")
             upd_release_ids.append(release.id)
             for pos, genre in enumerate(release.genres):
                 upd_release_genre_args.append([release.id, genre, pos])
