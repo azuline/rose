@@ -121,6 +121,9 @@ def maybe_invalidate_cache_database(c: Config) -> None:
     }
     config_hash = sha256(json.dumps(config_hash_fields).encode()).hexdigest()
 
+    logger.debug("beginning database migration process via cache invalidation schema hashes")
+    logger.debug(f"calculated cache invalidation schema hashes as {schema_hash=} and {config_hash=}")
+
     with connect(c) as conn:
         cursor = conn.execute(
             """
@@ -133,15 +136,18 @@ def maybe_invalidate_cache_database(c: Config) -> None:
         if cursor.fetchone()[0]:
             cursor = conn.execute("SELECT schema_hash, config_hash, version FROM _schema_hash")
             row = cursor.fetchone()
-            if (
-                row
-                and row["schema_hash"] == schema_hash
-                and row["config_hash"] == config_hash
-                and row["version"] == VERSION
-            ):
-                # Everything matches! Exit!
-                return
+            if row:
+                logger.debug(f"current cache database has hashes {row["schema_hash"]=} and {row["config_hash"]=}")
+                if (
+                    row["schema_hash"] == schema_hash
+                    and row["config_hash"] == config_hash
+                    and row["version"] == VERSION
+                ):
+                    logger.debug("cache invalidation schema hashes match database, ending database migration process")
+                    # Everything matches! Exit!
+                    return
 
+    logger.info("schema and config hashes do not match cache database, clearing cache database and re-migrating")
     c.cache_database_path.unlink(missing_ok=True)
     with connect(c) as conn:
         with CACHE_SCHEMA_PATH.open("r") as fp:

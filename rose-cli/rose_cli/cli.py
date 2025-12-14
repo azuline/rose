@@ -113,7 +113,6 @@ def cli(cc: click.Context, verbose: bool, config: Path | None = None) -> None:
 @cli.command()
 def version() -> None:
     """Print version."""
-
     click.echo(VERSION)
 
 
@@ -134,7 +133,6 @@ def generate_completion(shell: str) -> None:
 @click.pass_obj
 def preview_templates(ctx: Context) -> None:
     """Preview the configured path templates with sample data."""
-
     preview_path_templates(ctx.config)
 
 
