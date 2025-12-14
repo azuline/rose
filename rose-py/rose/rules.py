@@ -181,12 +181,7 @@ def fast_search_for_matching_tracks(
     results: list[FastSearchResult] = []
     with connect(c) as conn:
         for row in conn.execute(query):
-            results.append(
-                FastSearchResult(
-                    id=row["id"],
-                    path=Path(row["source_path"]).resolve(),
-                )
-            )
+            results.append(FastSearchResult(id=row["id"], path=Path(row["source_path"]).resolve()))
     logger.debug(f"Matched {len(results)} tracks from the read cache in {time.time() - time_start} seconds")
     return results
 
@@ -260,6 +255,7 @@ def filter_track_false_positives_using_tags(
                 if not datafile:
                     datafile = _get_release_datafile_of_directory(tags.path.parent)
                 match = matches_pattern(matcher.pattern, datafile.favorite)
+                print(datafile)
 
             # If there is a match, check to see if the track is matched by one of the ignore values.
             # If it is ignored, skip the result entirely.
@@ -302,6 +298,10 @@ def filter_track_false_positives_using_tags(
                         if not datafile:
                             datafile = _get_release_datafile_of_directory(tags.path.parent)
                         match = matches_pattern(i.pattern, datafile.new)
+                    if not skip and field == "favorite":
+                        if not datafile:
+                            datafile = _get_release_datafile_of_directory(tags.path.parent)
+                        match = matches_pattern(i.pattern, datafile.favorite)
                     # fmt: on
                     if skip:
                         break
@@ -326,6 +326,7 @@ def _get_release_datafile_of_directory(d: Path) -> StoredDataFile:
             diskdata = tomllib.load(fp)
         return StoredDataFile(
             new=diskdata.get("new", True),
+            favorite=diskdata.get("favorite", True),
             added_at=diskdata.get("added_at", datetime.now().astimezone().replace(microsecond=0).isoformat()),
         )
     raise RoseError(f"Release data file not found in {d}. How is it in the library?")
@@ -801,6 +802,7 @@ def filter_track_false_positives_using_read_cache(
             match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, t.release.releasetitle))
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, t.release.releasetype))
             match = match or (field == "new" and matches_pattern(matcher.pattern, t.release.new))
+            match = match or (field == "favorite" and matches_pattern(matcher.pattern, t.release.favorite))
             match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in t.release.genres))
             match = match or (field == "secondarygenre" and any(matches_pattern(matcher.pattern, x) for x in t.release.secondary_genres))
             match = match or (field == "descriptor" and any(matches_pattern(matcher.pattern, x) for x in t.release.descriptors))
