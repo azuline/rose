@@ -107,6 +107,7 @@ from rose.releases import (
     find_releases_matching_rule,
     run_actions_on_release,
     set_release_cover_art,
+    toggle_release_favorite,
     toggle_release_new,
 )
 from rose.rule_parser import (
@@ -212,6 +213,7 @@ __all__ = [
     "find_releases_matching_rule",
     "get_release",
     "set_release_cover_art",
+    "toggle_release_favorite",
     "toggle_release_new",
     # Tracks
     "Track",
