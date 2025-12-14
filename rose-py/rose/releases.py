@@ -236,6 +236,7 @@ class MetadataTrack:
 class MetadataRelease:
     title: str
     new: bool
+    favorite: bool
     releasetype: str
     releasedate: RoseDate | None
     originaldate: RoseDate | None
@@ -254,6 +255,7 @@ class MetadataRelease:
         return MetadataRelease(
             title=release.releasetitle,
             new=release.new,
+            favorite=release.favorite,
             releasetype=release.releasetype,
             releasedate=release.releasedate,
             originaldate=release.originaldate,
@@ -292,6 +294,7 @@ class MetadataRelease:
         return MetadataRelease(
             title=d["title"],
             new=d["new"],
+            favorite=d["favorite"],
             releasetype=d["releasetype"],
             originaldate=RoseDate.parse(d["originaldate"]),
             releasedate=RoseDate.parse(d["releasedate"]),
@@ -445,6 +448,8 @@ def edit_release(
 
             if release_meta.new != release.new:
                 toggle_release_new(c, release.id)
+            if release_meta.favorite != release.favorite:
+                toggle_release_favorite(c, release.id)
         except Exception as e:
             new_resume_path = c.cache_dir / f"failed-release-edit.{release_id}.toml"
             with new_resume_path.open("w") as fp:
