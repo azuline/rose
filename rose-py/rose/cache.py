@@ -1741,6 +1741,7 @@ def filter_releases(
     label_filter: str | None = None,
     release_type_filter: str | None = None,
     new: bool | None = None,
+    favorite: bool | None = None,
     include_loose_tracks: bool = True,
 ) -> list[Release]:
     with connect(c) as conn:
@@ -1816,6 +1817,9 @@ def filter_releases(
         if new is not None:
             query += " AND new = ?"
             args.append(new)
+        if favorite is not None:
+            query += " AND favorite = ?"
+            args.append(favorite)
         query += " ORDER BY source_path"
 
         cursor = conn.execute(query, args)
@@ -1834,6 +1838,7 @@ def filter_tracks(
     descriptor_filter: str | None = None,
     label_filter: str | None = None,
     new: bool | None = None,
+    favorite: bool | None = None,
 ) -> list[Track]:
     with connect(c) as conn:
         query = "SELECT * FROM tracks_view tv WHERE 1=1"
@@ -1914,6 +1919,9 @@ def filter_tracks(
         if new is not None:
             query += " AND new = ?"
             args.append(new)
+        if favorite is not None:
+            query += " AND favorite = ?"
+            args.append(favorite)
         query += " ORDER BY source_path"
 
         cursor = conn.execute(query, args)
