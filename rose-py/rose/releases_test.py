@@ -167,6 +167,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
     new_toml = f"""
         title = "I Really Love Blackpink"
         new = false
+        favorite = false
         releasetype = "single"
         releasedate = "2222"
         originaldate = "2000"
@@ -287,6 +288,7 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
     bad_toml = f"""
         title = "I Really Love Blackpink"
         new = false
+        favorite = false
         releasetype = "bullshit"
         releasedate = "2222"
         originaldate = ""
@@ -335,6 +337,7 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
     correct_toml = f"""
         title = "I Really Love Blackpink"
         new = false
+        favorite = false
         releasetype = "single"
         releasedate = "2222"
         originaldate = ""

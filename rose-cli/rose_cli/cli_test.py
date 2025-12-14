@@ -25,7 +25,7 @@ from rose_cli.cli import (
 def test_parse_release_from_path(config: Config) -> None:
     with start_virtual_fs(config):
         # Directory is resolved.
-        path = str(config.vfs.mount_dir / "1. Releases" / "Techno Man & Bass Man - 2023. Release 1")
+        path = str(config.vfs.mount_dir / "1. Releases" / "Techno Man & Bass Man - 2023. Release 1 [FAVORITE]")
         assert parse_release_argument(path) == "r1"
         # UUID is no-opped.
         uuid_value = str(uuid.uuid4())
@@ -42,7 +42,7 @@ def test_parse_release_from_path(config: Config) -> None:
                 str(
                     config.vfs.mount_dir
                     / "1. Releases"
-                    / "Techno Man & Bass Man - 2023. Release 1"
+                    / "Techno Man & Bass Man - 2023. Release 1 [FAVORITE]"
                     / "01 - Track 1.m4a"
                 )
             )

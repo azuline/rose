@@ -181,8 +181,8 @@ class VirtualPath:
             "Loose Tracks",
             "Collages",
             "Playlists",
-            "Favorites",
             "New",
+            "Favorites",
             "Added On",
             "Released On",
         ]
@@ -282,15 +282,6 @@ class VirtualPath:
                 return VirtualPath(view="Releases", release=parts[1], file=parts[2])
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if parts[0] == "1. Releases - Favorites":
-            if len(parts) == 1:
-                return VirtualPath(view="Favorites")
-            if len(parts) == 2:
-                return VirtualPath(view="Favorites", release=parts[1])
-            if len(parts) == 3:
-                return VirtualPath(view="Favorites", release=parts[1], file=parts[2])
-            raise llfuse.FUSEError(errno.ENOENT)
-
         if parts[0] == "1. Releases - New":
             if len(parts) == 1:
                 return VirtualPath(view="New")
@@ -298,6 +289,15 @@ class VirtualPath:
                 return VirtualPath(view="New", release=parts[1])
             if len(parts) == 3:
                 return VirtualPath(view="New", release=parts[1], file=parts[2])
+            raise llfuse.FUSEError(errno.ENOENT)
+
+        if parts[0] == "1. Releases - Favorites":
+            if len(parts) == 1:
+                return VirtualPath(view="Favorites")
+            if len(parts) == 2:
+                return VirtualPath(view="Favorites", release=parts[1])
+            if len(parts) == 3:
+                return VirtualPath(view="Favorites", release=parts[1], file=parts[2])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "1. Releases - Added On":
@@ -571,6 +571,8 @@ class VirtualNameGenerator:
                     template = self._config.path_templates.releases.all_tracks
                 elif track_parent.view == "New":
                     template = self._config.path_templates.releases_new.all_tracks
+                elif track_parent.view == "Favorites":
+                    template = self._config.path_templates.releases_favorite.all_tracks
                 elif track_parent.view == "Added On":
                     template = self._config.path_templates.releases_added_on.all_tracks
                 elif track_parent.view == "Released On":
@@ -592,6 +594,8 @@ class VirtualNameGenerator:
                     template = self._config.path_templates.releases.track
                 elif track_parent.view == "New":
                     template = self._config.path_templates.releases_new.track
+                elif track_parent.view == "Favorites":
+                    template = self._config.path_templates.releases_favorite.track
                 elif track_parent.view == "Added On":
                     template = self._config.path_templates.releases_added_on.track
                 elif track_parent.view == "Released On":
@@ -1071,7 +1075,11 @@ class RoseLogicalCore:
             if p.release == ALL_TRACKS:
                 if not p.file:
                     return self.stat("dir")
-                if (track := get_track(self.config, self._get_track_id(p))) and (p.view != "New" or track.release.new):
+                if (
+                    (track := get_track(self.config, self._get_track_id(p)))
+                    and (p.view != "New" or track.release.new)
+                    and (p.view != "Favorites" or track.release.favorite)
+                ):
                     return self.stat("file", track.source_path)
                 raise llfuse.FUSEError(errno.ENOENT)
             return self._getattr_release(p)
@@ -1100,8 +1108,8 @@ class RoseLogicalCore:
         if p.view == "Root":
             yield from [
                 ("1. Releases", self.stat("dir")),
-                ("1. Releases - Favorites", self.stat("dir")),
                 ("1. Releases - New", self.stat("dir")),
+                ("1. Releases - Favorites", self.stat("dir")),
                 ("1. Releases - Added On", self.stat("dir")),
                 ("1. Releases - Released On", self.stat("dir")),
                 ("2. Artists", self.stat("dir")),
@@ -1119,7 +1127,7 @@ class RoseLogicalCore:
             or p.genre
             or p.descriptor
             or p.label
-            or p.view in ["Releases", "Released On", "Added On", "New", "Loose Tracks"]
+            or p.view in ["Releases", "Released On", "Added On", "New", "Favorites", "Loose Tracks"]
         ):
             matcher = None
             if p.artist:
@@ -1130,10 +1138,10 @@ class RoseLogicalCore:
                 matcher = Matcher(["descriptor"], Pattern(p.descriptor, strict=True))
             elif p.label:
                 matcher = Matcher(["label"], Pattern(p.label, strict=True))
-            elif p.view == "Favorites":
-                matcher = Matcher(["favorite"], Pattern("true", strict=True))
             elif p.view == "New":
                 matcher = Matcher(["new"], Pattern("true", strict=True))
+            elif p.view == "Favorites":
+                matcher = Matcher(["favorite"], Pattern("true", strict=True))
             elif p.view == "Loose Tracks":
                 matcher = Matcher(["releasetype"], Pattern("loosetrack", strict=True))
 
@@ -1163,7 +1171,13 @@ class RoseLogicalCore:
                 return
             raise llfuse.FUSEError(errno.ENOENT)
 
-        if p.artist or p.genre or p.descriptor or p.label or p.view in ["Releases", "New", "Added On", "Released On"]:
+        if (
+            p.artist
+            or p.genre
+            or p.descriptor
+            or p.label
+            or p.view in ["Releases", "New", "Favorites", "Added On", "Released On"]
+        ):
             matcher = None
             if p.artist:
                 matcher = Matcher(["releaseartist"], Pattern(p.artist, strict=True))

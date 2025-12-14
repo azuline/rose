@@ -1098,7 +1098,7 @@ def test_list_releases(config: Config) -> None:
             releasedate=RoseDate(2023),
             disctotal=1,
             new=False,
-            favorite=False,
+            favorite=True,
             genres=["Techno", "Deep House"],
             parent_genres=[
                 "Dance",
@@ -1222,7 +1222,7 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
         catalognumber=None,
         disctotal=1,
         new=False,
-        favorite=False,
+        favorite=True,
         genres=["Techno", "Deep House"],
         parent_genres=[
             "Dance",
@@ -1340,7 +1340,7 @@ def test_list_tracks(config: Config) -> None:
                 catalognumber=None,
                 disctotal=1,
                 new=False,
-                favorite=False,
+                favorite=True,
                 genres=["Techno", "Deep House"],
                 parent_genres=[
                     "Dance",
@@ -1388,7 +1388,7 @@ def test_list_tracks(config: Config) -> None:
                 catalognumber=None,
                 disctotal=1,
                 new=False,
-                favorite=False,
+                favorite=True,
                 genres=["Techno", "Deep House"],
                 parent_genres=[
                     "Dance",
@@ -1558,7 +1558,7 @@ def test_get_track(config: Config) -> None:
             catalognumber=None,
             disctotal=1,
             new=False,
-            favorite=False,
+            favorite=True,
             genres=["Techno", "Deep House"],
             parent_genres=[
                 "Dance",
@@ -1687,7 +1687,7 @@ def test_get_collage(config: Config) -> None:
             compositiondate=None,
             catalognumber=None,
             new=False,
-            favorite=False,
+            favorite=True,
             disctotal=1,
             genres=["Techno", "Deep House"],
             parent_genres=[
@@ -1786,7 +1786,7 @@ def test_get_playlist(config: Config) -> None:
                 catalognumber=None,
                 disctotal=1,
                 new=False,
-                favorite=False,
+                favorite=True,
                 genres=["Techno", "Deep House"],
                 parent_genres=[
                     "Dance",

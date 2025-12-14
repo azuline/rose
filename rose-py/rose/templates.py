@@ -162,7 +162,7 @@ DEFAULT_RELEASE_TEMPLATE = PathTemplate(
 {% if releasedate %}{{ releasedate.year }}.{% endif %}
 {{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
-{% if favorite %}[FAVORITE]{% endif %}{% if new %}[NEW]{% endif %}
+{% if favorite %} [FAVORITE]{% endif %}{% if new %} [NEW]{% endif %}
 """
 )
 
