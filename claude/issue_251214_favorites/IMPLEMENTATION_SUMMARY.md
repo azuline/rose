@@ -13,6 +13,7 @@ Successfully implemented a "favorite" release classification system that exactly
 ## What Was Implemented
 
 ### Core Features
+
 1. ✅ **Boolean favorite field** - Defaults to `false` (opt-in)
 2. ✅ **Persistent storage** - Stored in `.rose.{uuid}.toml` files and SQLite cache
 3. ✅ **VirtualFS view** - "1. Releases - Favorites" (appears first in release views)
@@ -24,30 +25,38 @@ Successfully implemented a "favorite" release classification system that exactly
 ### Files Changed (13 files total)
 
 **Database & Data Models:**
+
 - `rose-py/rose/cache.sql` - Added `favorite` column, index, FTS entry, view field
 - `rose-py/rose/cache.py` - Updated Release/StoredDataFile dataclasses, TOML I/O, filtering, instantiation
 
 **Business Logic:**
+
 - `rose-py/rose/releases.py` - Added `toggle_release_favorite()` function
 - `rose-py/rose/__init__.py` - Exported `toggle_release_favorite` in public API
 
 **Templates:**
+
 - `rose-py/rose/templates.py` - Added `releases_favorite` config, exposed `favorite` in context, updated DEFAULT_RELEASE_TEMPLATE
 
 **Configuration:**
+
 - `rose-py/rose/config.py` - Added `releases_favorite` to template parsing
 
 **Rule Engine:**
+
 - `rose-py/rose/rule_parser.py` - Registered "favorite" in all tag lists
 - `rose-py/rose/rules.py` - Added matching and action logic for `favorite` field
 
 **VirtualFS:**
+
 - `rose-vfs/rose_vfs/virtualfs.py` - Added "Favorites" view, path parsing, filtering, template selection
 
 **CLI:**
+
 - `rose-cli/rose_cli/cli.py` - Added `toggle-favorite` command
 
 **Tests (8 files):**
+
 - `rose-py/rose/releases_test.py` - Added `test_toggle_release_favorite()`
 - `rose-py/rose/cache_test.py` - Updated Release() instantiations
 - `rose-py/rose/config_test.py` - Updated PathTemplateConfig instantiation
@@ -58,6 +67,7 @@ Successfully implemented a "favorite" release classification system that exactly
 ## Usage Examples
 
 ### CLI
+
 ```bash
 # Toggle a release as favorite
 rose releases toggle-favorite {release_id_or_path}
@@ -67,6 +77,7 @@ cd /path/to/mount/1. Releases - Favorites/
 ```
 
 ### Rule Engine
+
 ```bash
 # Mark all Pop releases as favorite
 rose rules run "genre:Pop" "favorite/replace:true"
@@ -79,6 +90,7 @@ rose rules run "favorite:true AND releasedate:<2020" "favorite/replace:false"
 ```
 
 ### Templates
+
 ```jinja2
 {# Default template now includes: #}
 {% if favorite %}[FAVORITE]{% endif %}{% if new %}[NEW]{% endif %}
@@ -116,6 +128,7 @@ CREATE VIEW releases_view AS SELECT ..., r.new, r.favorite, ...;
 ## Design Decisions
 
 ### Key Choices Made:
+
 1. **Default value**: `false` (opt-in, unlike `new` which defaults to `true`)
 2. **View ordering**: Favorites appears first ("1. Releases - Favorites")
 3. **Template**: Integrated into DEFAULT_RELEASE_TEMPLATE with `{% if favorite %}[FAVORITE]{% endif %}`
@@ -125,6 +138,7 @@ CREATE VIEW releases_view AS SELECT ..., r.new, r.favorite, ...;
 7. **Migration**: Silent automatic recreation (no user notification)
 
 ### Differences from "New" Feature:
+
 - **Default value**: `false` vs `true`
 - **Semantic purpose**: User preference tracking vs recency indicator
 - **Classifier hiding**: Not implemented (users cannot hide genres/descriptors/labels with only favorites)
@@ -132,6 +146,7 @@ CREATE VIEW releases_view AS SELECT ..., r.new, r.favorite, ...;
 ## Commits
 
 Planning cycles (6 commits):
+
 1. PC1: Initial specification
 2. PC2: Answered specification questions
 3. PC3: Created design document
@@ -140,6 +155,7 @@ Planning cycles (6 commits):
 6. PC6: Created milestones
 
 Implementation milestones (5 commits):
+
 1. M1: Database schema and data models
 2. M2: Toggle function
 3. M3: Cache filtering
