@@ -1,4 +1,5 @@
 # "New" Release Implementation Analysis
+
 ## Purpose: Planning "Favorite" Feature Parallel Implementation
 
 **Date**: 2025-12-14
@@ -10,6 +11,7 @@
 ## Executive Summary
 
 The "new" release feature is a **user-controlled boolean flag** that:
+
 - Defaults to `true` when releases are first added to the library
 - Persists in `.rose.{uuid}.toml` files within each release directory
 - Is stored in the SQLite database with an index for performance
@@ -30,6 +32,7 @@ The "new" release feature is a **user-controlled boolean flag** that:
 **File**: `rose-py/rose/cache.py`
 
 **Primary Release Model** (lines 203-231):
+
 ```python
 @dataclasses.dataclass(slots=True)
 class Release:
@@ -45,6 +48,7 @@ class Release:
 ```
 
 **Disk Storage Model** (lines 318-323):
+
 ```python
 @dataclasses.dataclass(slots=True)
 class StoredDataFile:
@@ -54,6 +58,7 @@ class StoredDataFile:
 ```
 
 **VirtualFS Filter Models** (lines 2304-2378):
+
 ```python
 @dataclasses.dataclass(slots=True, frozen=True)
 class GenreEntry:
@@ -72,6 +77,7 @@ class LabelEntry:
 ```
 
 **Pattern for Favorites**:
+
 - Add `favorite: bool` field to `Release` dataclass
 - Add `favorite: bool = False` to `StoredDataFile` (default to False since favorites are opt-in)
 - Add `only_favorite_releases: bool` to `GenreEntry`, `DescriptorEntry`, `LabelEntry`
@@ -83,6 +89,7 @@ class LabelEntry:
 **File**: `rose-py/rose/cache.sql`
 
 **Releases Table** (lines 8-28):
+
 ```sql
 CREATE TABLE releases (
     id TEXT PRIMARY KEY NOT NULL,
@@ -99,6 +106,7 @@ CREATE INDEX releases_new ON releases(new);
 ```
 
 **Full-Text Search Table** (line 186):
+
 ```sql
 CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
     id,
@@ -111,6 +119,7 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
 ```
 
 **Releases View** (line 243):
+
 ```sql
 CREATE VIEW releases_view AS
 SELECT
@@ -123,6 +132,7 @@ FROM releases r;
 ```
 
 **Pattern for Favorites**:
+
 - Add `favorite BOOLEAN NOT NULL DEFAULT false` column to `releases` table
 - Create index: `CREATE INDEX releases_favorite ON releases(favorite);`
 - Add `favorite` to `rules_engine_fts` virtual table
@@ -136,12 +146,14 @@ FROM releases r;
 **File Naming**: `.rose.{uuid}.toml` (one per release directory)
 
 **Example TOML Content**:
+
 ```toml
 new = true
 added_at = "2025-01-15T14:30:00-05:00"
 ```
 
 **Reading Logic** (cache.py lines 650-669):
+
 ```python
 diskdata = tomllib.load(fp)
 datafile = StoredDataFile(
@@ -152,6 +164,7 @@ release.new = datafile.new
 ```
 
 **Writing Logic** (cache.py lines 632-645):
+
 ```python
 stored_release_data = StoredDataFile(
     new=True,
@@ -166,6 +179,7 @@ toml_data = {
 ```
 
 **Pattern for Favorites**:
+
 - Add `favorite = false` field to TOML files
 - Update `StoredDataFile` serialization/deserialization
 - Default to `false` when reading missing `favorite` key
@@ -179,6 +193,7 @@ toml_data = {
 **File**: `rose-py/rose/releases.py`
 
 **Primary Toggle Function** (lines 90-115):
+
 ```python
 def toggle_release_new(c: Config, release_id: str) -> None:
     """Toggle a release's "new"-ness."""
@@ -206,6 +221,7 @@ def toggle_release_new(c: Config, release_id: str) -> None:
 ```
 
 **Integration with Metadata Editor** (releases.py lines 421-422):
+
 ```python
 def edit_release(c: Config, release_id: str) -> None:
     # ... user edits metadata in editor ...
@@ -216,6 +232,7 @@ def edit_release(c: Config, release_id: str) -> None:
 ```
 
 **Automatic Default for Extracted Singles** (releases.py lines 563-570):
+
 ```python
 def make_single_release(...):
     # ... extract single from album ...
@@ -225,6 +242,7 @@ def make_single_release(...):
 ```
 
 **Pattern for Favorites**:
+
 - Create `toggle_release_favorite(c: Config, release_id: str) -> None`
 - Identical logic: read TOML → toggle → write TOML → update cache
 - Integrate into metadata editor (add `favorite` field to editor)
@@ -237,6 +255,7 @@ def make_single_release(...):
 **File**: `rose-py/rose/cache.py`
 
 **Release Filtering** (lines 1807-1809):
+
 ```python
 def filter_releases(
     c: Config,
@@ -255,6 +274,7 @@ def filter_releases(
 ```
 
 **Track Filtering** (lines 1827, 1905-1907):
+
 ```python
 def filter_tracks(
     c: Config,
@@ -269,6 +289,7 @@ def filter_tracks(
 ```
 
 **Pattern for Favorites**:
+
 - Add `favorite: bool | None = None` parameter to `filter_releases()`
 - Add `favorite: bool | None = None` parameter to `filter_tracks()`
 - Add query clause: `if favorite is not None: query += " AND favorite = ?"`
@@ -280,6 +301,7 @@ def filter_tracks(
 **File**: `rose-py/rose/cache.py`
 
 **Genre Listing** (lines 2310-2327):
+
 ```python
 def list_genres(c: Config) -> list[GenreEntry]:
     """Return all genres with a flag if they contain only new releases."""
@@ -305,6 +327,7 @@ def list_genres(c: Config) -> list[GenreEntry]:
 ```
 
 **Descriptor Listing** (lines 2347-2363):
+
 ```python
 def list_descriptors(c: Config) -> list[DescriptorEntry]:
     # Identical pattern: LEFT JOIN with `NOT r.new` check
@@ -312,6 +335,7 @@ def list_descriptors(c: Config) -> list[DescriptorEntry]:
 ```
 
 **Label Listing** (lines 2381-2391):
+
 ```python
 def list_labels(c: Config) -> list[LabelEntry]:
     # Identical pattern: LEFT JOIN with `NOT r.new` check
@@ -319,6 +343,7 @@ def list_labels(c: Config) -> list[LabelEntry]:
 ```
 
 **Pattern for Favorites**:
+
 - Add parallel queries with `NOT r.favorite` instead of `NOT r.new`
 - Return `only_favorite_releases` flag in each Entry dataclass
 - These are used by VirtualFS to conditionally hide classifiers
@@ -332,6 +357,7 @@ def list_labels(c: Config) -> list[LabelEntry]:
 **File**: `rose-py/rose/config.py`
 
 **Config Dataclass** (lines 71-73):
+
 ```python
 @dataclass
 class VirtualFSConfig:
@@ -344,6 +370,7 @@ class VirtualFSConfig:
 ```
 
 **Parsing from Config File** (lines 222-269):
+
 ```toml
 [vfs]
 hide_genres_with_only_new_releases = false
@@ -352,6 +379,7 @@ hide_labels_with_only_new_releases = false
 ```
 
 **Pattern for Favorites**:
+
 - Add three new config fields:
   - `hide_genres_with_only_favorite_releases: bool`
   - `hide_descriptors_with_only_favorite_releases: bool`
@@ -367,6 +395,7 @@ hide_labels_with_only_new_releases = false
 **File**: `rose-py/rose/templates.py`
 
 **Template Config** (lines 196-197):
+
 ```python
 @dataclasses.dataclass
 class PathTemplateConfig:
@@ -377,6 +406,7 @@ class PathTemplateConfig:
 ```
 
 **Triad Definition** (lines 92-96):
+
 ```python
 @dataclasses.dataclass
 class PathTemplateTriad:
@@ -387,6 +417,7 @@ class PathTemplateTriad:
 ```
 
 **Default Release Template** (lines 160-166):
+
 ```python
 DEFAULT_RELEASE_TEMPLATE = PathTemplate(
     """
@@ -400,6 +431,7 @@ DEFAULT_RELEASE_TEMPLATE = PathTemplate(
 ```
 
 **Pattern for Favorites**:
+
 - Add `releases_favorite: PathTemplateTriad` to `PathTemplateConfig`
 - Create default template with `{% if favorite %}[FAVORITE]{% endif %}` (or user's preferred formatting)
 - Update config parser to load `releases_favorite` from TOML
@@ -411,6 +443,7 @@ DEFAULT_RELEASE_TEMPLATE = PathTemplate(
 **File**: `rose-py/rose/templates.py`
 
 **Context Builder** (lines 365-368, 396-398):
+
 ```python
 def build_template_context(release: Release, ...) -> dict[str, Any]:
     return {
@@ -422,6 +455,7 @@ def build_template_context(release: Release, ...) -> dict[str, Any]:
 ```
 
 **Pattern for Favorites**:
+
 - Add `"favorite": release.favorite` to template context
 - Enables `{% if favorite %}` conditionals in Jinja2 templates
 
@@ -434,6 +468,7 @@ def build_template_context(release: Release, ...) -> dict[str, Any]:
 **File**: `rose-vfs/rose_vfs/virtualfs.py`
 
 **View Type** (line 184):
+
 ```python
 view: Literal[
     "Releases",
@@ -447,11 +482,13 @@ view: Literal[
 ```
 
 **Simplified in Code As** (line 286):
+
 ```python
 view: Literal["Releases", "New", "RecentlyAdded", ...]
 ```
 
 **Pattern for Favorites**:
+
 - Add `"Favorites"` to view Literal types
 - Add display name like `"Releases - Favorites"` for user-facing path
 
@@ -462,6 +499,7 @@ view: Literal["Releases", "New", "RecentlyAdded", ...]
 **File**: `rose-vfs/rose_vfs/virtualfs.py`
 
 **Path Parser** (lines 286-290):
+
 ```python
 if parts[0] == "1. Releases - New":
     if len(parts) == 1:
@@ -473,6 +511,7 @@ if parts[0] == "1. Releases - New":
 ```
 
 **Pattern for Favorites**:
+
 ```python
 if parts[0] == "1. Releases - Favorites":
     if len(parts) == 1:
@@ -490,6 +529,7 @@ if parts[0] == "1. Releases - Favorites":
 **File**: `rose-vfs/rose_vfs/virtualfs.py`
 
 **Release List Generation** (lines 1120-1162):
+
 ```python
 elif p.view == "New":
     # Create matcher that filters to only new releases
@@ -504,6 +544,7 @@ elif p.view == "New":
 ```
 
 **Track List Generation** (similar pattern):
+
 ```python
 if p.view == "New":
     matcher = Matcher(["new"], Pattern("true", strict=True))
@@ -516,6 +557,7 @@ if p.view == "New":
 ```
 
 **Pattern for Favorites**:
+
 ```python
 elif p.view == "Favorites":
     matcher = Matcher(["favorite"], Pattern("true", strict=True))
@@ -529,12 +571,14 @@ elif p.view == "Favorites":
 **File**: `rose-vfs/rose_vfs/virtualfs.py`
 
 **Template Switching Logic** (lines 449, 560, 581):
+
 ```python
 elif release_parent.view == "New":
     template = self._config.path_templates.releases_new.release
 ```
 
 **Pattern for Favorites**:
+
 ```python
 elif release_parent.view == "Favorites":
     template = self._config.path_templates.releases_favorite.release
@@ -547,6 +591,7 @@ elif release_parent.view == "Favorites":
 **File**: `rose-vfs/rose_vfs/virtualfs.py`
 
 **Hiding Genres/Descriptors/Labels** (lines 1186, 1195, 1204):
+
 ```python
 # When listing genres:
 for e1 in list_genres(self.config):
@@ -568,12 +613,14 @@ for e3 in list_labels(self.config):
 ```
 
 **Track Visibility Check** (line 1062):
+
 ```python
 if (track := get_track(...)) and (p.view != "New" or track.release.new):
     # Allow track to be visible
 ```
 
 **Pattern for Favorites**:
+
 - Add checks for `hide_genres_with_only_favorite_releases`
 - Add checks for `hide_descriptors_with_only_favorite_releases`
 - Add checks for `hide_labels_with_only_favorite_releases`
@@ -588,6 +635,7 @@ if (track := get_track(...)) and (p.view != "New" or track.release.new):
 **File**: `rose-py/rose/rule_parser.py`
 
 **Queryable Tags** (line 78):
+
 ```python
 ALL_QUERYABLE_TAGS = [
     "tracktitle",
@@ -599,6 +647,7 @@ ALL_QUERYABLE_TAGS = [
 ```
 
 **Expandable Tags** (lines 134):
+
 ```python
 ALL_TAGS: dict[ExpandableTag, list[Tag]] = {
     "albumartist": ["albumartist", "albumartists"],
@@ -609,6 +658,7 @@ ALL_TAGS: dict[ExpandableTag, list[Tag]] = {
 ```
 
 **Modifiable Tags** (line 182):
+
 ```python
 MODIFIABLE_TAGS: list[Tag] = [
     "tracktitle",
@@ -620,6 +670,7 @@ MODIFIABLE_TAGS: list[Tag] = [
 ```
 
 **Single-Value Tags** (line 198):
+
 ```python
 SINGLE_VALUE_TAGS: list[Tag] = [
     "tracktitle",
@@ -631,6 +682,7 @@ SINGLE_VALUE_TAGS: list[Tag] = [
 ```
 
 **Pattern for Favorites**:
+
 - Add `"favorite"` to `ALL_QUERYABLE_TAGS`
 - Add `"favorite": ["favorite"]` to `ALL_TAGS`
 - Add `"favorite"` to `MODIFIABLE_TAGS`
@@ -643,6 +695,7 @@ SINGLE_VALUE_TAGS: list[Tag] = [
 **File**: `rose-py/rose/rules.py`
 
 **Matching Logic** (lines 255-258):
+
 ```python
 if not match and field == "new":
     if not datafile:
@@ -651,12 +704,14 @@ if not match and field == "new":
 ```
 
 **Usage Examples**:
+
 ```
 new:true          # Match releases marked as new
 new:false         # Match releases NOT marked as new
 ```
 
 **Pattern for Favorites**:
+
 ```python
 if not match and field == "favorite":
     if not datafile:
@@ -665,6 +720,7 @@ if not match and field == "favorite":
 ```
 
 **Usage Examples**:
+
 ```
 favorite:true     # Match favorited releases
 favorite:false    # Match non-favorited releases
@@ -677,6 +733,7 @@ favorite:false    # Match non-favorited releases
 **File**: `rose-py/rose/rules.py`
 
 **Action Execution** (lines 392-402):
+
 ```python
 if field == "new":
     datafile = datafile or open_datafile(tags.path)
@@ -698,12 +755,14 @@ if field == "new":
 ```
 
 **Usage Examples**:
+
 ```
 new:true/replace:false    # Mark as not new
 new:false/replace:true    # Mark as new
 ```
 
 **Pattern for Favorites**:
+
 ```python
 if field == "favorite":
     datafile = datafile or open_datafile(tags.path)
@@ -722,6 +781,7 @@ if field == "favorite":
 ```
 
 **Usage Examples**:
+
 ```
 favorite:false/replace:true    # Mark as favorite
 favorite:true/replace:false    # Unmark as favorite
@@ -736,6 +796,7 @@ favorite:true/replace:false    # Unmark as favorite
 **File**: `rose-cli/rose_cli/cli.py`
 
 **Command Definition** (lines 253-259):
+
 ```python
 @releases.command()
 @click.argument("release", type=click.Path(), nargs=1)
@@ -747,11 +808,13 @@ def toggle_new(ctx: Context, release: str) -> None:
 ```
 
 **Usage**:
+
 ```bash
 rose releases toggle-new {release_id_or_path}
 ```
 
 **Pattern for Favorites**:
+
 ```python
 @releases.command()
 @click.argument("release", type=click.Path(), nargs=1)
@@ -763,6 +826,7 @@ def toggle_favorite(ctx: Context, release: str) -> None:
 ```
 
 **Usage**:
+
 ```bash
 rose releases toggle-favorite {release_id_or_path}
 ```
@@ -776,6 +840,7 @@ rose releases toggle-favorite {release_id_or_path}
 **File**: `rose-py/rose/__init__.py`
 
 **Exports** (lines 110, 215):
+
 ```python
 from rose.releases import (
     create_single_release,
@@ -793,6 +858,7 @@ __all__ = [
 ```
 
 **Pattern for Favorites**:
+
 - Add `toggle_release_favorite` to imports
 - Add `"toggle_release_favorite"` to `__all__`
 
@@ -805,6 +871,7 @@ __all__ = [
 **File**: `rose-py/rose/releases_test.py`
 
 **Toggle Test** (lines 48-72):
+
 ```python
 def test_toggle_release_new(config: Config) -> None:
     # Step 1: Create a test release
@@ -829,6 +896,7 @@ def test_toggle_release_new(config: Config) -> None:
 ```
 
 **Pattern for Favorites**:
+
 ```python
 def test_toggle_release_favorite(config: Config) -> None:
     release = get_release(config, "r1")
@@ -857,6 +925,7 @@ def test_toggle_release_favorite(config: Config) -> None:
 **File**: `rose-py/rose/rules_test.py`
 
 **Rule Test** (lines 197-223):
+
 ```python
 def test_rules_fields_match_new(config: Config) -> None:
     # Create rule that matches new:false and changes to true
@@ -876,6 +945,7 @@ def test_rules_fields_match_new(config: Config) -> None:
 ```
 
 **Pattern for Favorites**:
+
 ```python
 def test_rules_fields_match_favorite(config: Config) -> None:
     rule = Rule.parse("favorite:false", ["replace:true"])
@@ -897,6 +967,7 @@ def test_rules_fields_match_favorite(config: Config) -> None:
 **File**: `rose-vfs/rose_vfs/virtualfs_test.py`
 
 **Hiding Test** (lines 503-521):
+
 ```python
 def test_virtual_filesystem_hide_new_release_classifiers(config: Config) -> None:
     # Enable hiding in config
@@ -917,6 +988,7 @@ def test_virtual_filesystem_hide_new_release_classifiers(config: Config) -> None
 ```
 
 **Pattern for Favorites**:
+
 ```python
 def test_virtual_filesystem_hide_favorite_release_classifiers(config: Config) -> None:
     config.vfs.hide_genres_with_only_favorite_releases = True
@@ -941,6 +1013,7 @@ This section provides a comprehensive checklist for implementing "favorite" as a
 ### Python Files (rose-py)
 
 - [ ] **rose-py/rose/cache.py**
+
   - [ ] Add `favorite: bool` field to `Release` dataclass (line ~220)
   - [ ] Add `favorite: bool = False` field to `StoredDataFile` dataclass (line ~320)
   - [ ] Add `only_favorite_releases: bool` to `GenreEntry` (line ~2304)
@@ -956,6 +1029,7 @@ This section provides a comprehensive checklist for implementing "favorite" as a
   - [ ] Add `release.favorite = datafile.favorite` mapping (line ~665)
 
 - [ ] **rose-py/rose/cache.sql**
+
   - [ ] Add `favorite BOOLEAN NOT NULL DEFAULT false` column to `releases` table
   - [ ] Add `CREATE INDEX releases_favorite ON releases(favorite);`
   - [ ] Add `favorite` field to `rules_engine_fts` virtual table
@@ -963,34 +1037,39 @@ This section provides a comprehensive checklist for implementing "favorite" as a
   - [ ] Create migration script for existing databases
 
 - [ ] **rose-py/rose/releases.py**
+
   - [ ] Create `toggle_release_favorite(c: Config, release_id: str) -> None` function
   - [ ] Integrate `favorite` into metadata editor (if applicable)
   - [ ] Decide: Should extracted singles default to favorite? (Probably not)
 
 - [ ] **rose-py/rose/config.py**
+
   - [ ] Add `hide_genres_with_only_favorite_releases: bool` to `VirtualFSConfig`
   - [ ] Add `hide_descriptors_with_only_favorite_releases: bool` to `VirtualFSConfig`
   - [ ] Add `hide_labels_with_only_favorite_releases: bool` to `VirtualFSConfig`
   - [ ] Parse these fields from `[vfs]` section with default `False`
 
 - [ ] **rose-py/rose/templates.py**
+
   - [ ] Add `releases_favorite: PathTemplateTriad` to `PathTemplateConfig` (line ~196)
   - [ ] Create default template with `{% if favorite %}[FAVORITE]{% endif %}`
   - [ ] Add `"favorite": release.favorite` to `build_template_context()` (line ~365)
   - [ ] Parse `releases_favorite` templates from config TOML
 
 - [ ] **rose-py/rose/rule_parser.py**
+
   - [ ] Add `"favorite"` to `ALL_QUERYABLE_TAGS` (line ~78)
   - [ ] Add `"favorite": ["favorite"]` to `ALL_TAGS` (line ~134)
   - [ ] Add `"favorite"` to `MODIFIABLE_TAGS` (line ~182)
   - [ ] Add `"favorite"` to `SINGLE_VALUE_TAGS` (line ~198)
 
 - [ ] **rose-py/rose/rules.py**
+
   - [ ] Add matching logic for `field == "favorite"` (line ~255)
   - [ ] Add action execution for `field == "favorite"` (line ~392)
   - [ ] Include validation: `if v != "true" and v != "false": raise`
 
-- [ ] **rose-py/rose/__init__.py**
+- [ ] **rose-py/rose/**init**.py**
   - [ ] Import `toggle_release_favorite`
   - [ ] Add `"toggle_release_favorite"` to `__all__`
 
@@ -1016,11 +1095,13 @@ This section provides a comprehensive checklist for implementing "favorite" as a
 ### Test Files
 
 - [ ] **rose-py/rose/releases_test.py**
+
   - [ ] Create `test_toggle_release_favorite()` (parallel to line ~48)
   - [ ] Verify TOML file updates
   - [ ] Test toggling both directions
 
 - [ ] **rose-py/rose/rules_test.py**
+
   - [ ] Create `test_rules_fields_match_favorite()` (parallel to line ~197)
   - [ ] Test matching `favorite:true` and `favorite:false`
   - [ ] Test actions: `favorite:false/replace:true`
@@ -1033,10 +1114,12 @@ This section provides a comprehensive checklist for implementing "favorite" as a
 ### Documentation Files
 
 - [ ] **README.md** (if exists)
+
   - [ ] Document "favorite" feature
   - [ ] Add CLI command examples
 
 - [ ] **Config Documentation**
+
   - [ ] Document `hide_*_with_only_favorite_releases` options
   - [ ] Document `releases_favorite` templates
 
@@ -1051,6 +1134,7 @@ This section provides a comprehensive checklist for implementing "favorite" as a
 Recommended order for implementing the "favorite" feature:
 
 ### Phase 1: Data Layer (No user-facing changes)
+
 1. Update `cache.sql` schema
 2. Create database migration script
 3. Update `cache.py` data models (`Release`, `StoredDataFile`, `*Entry`)
@@ -1058,29 +1142,34 @@ Recommended order for implementing the "favorite" feature:
 5. Add tests for data layer
 
 ### Phase 2: Business Logic
+
 6. Implement `toggle_release_favorite()` in `releases.py`
 7. Add filtering parameters to `filter_releases()` and `filter_tracks()`
 8. Add `list_*()` functions for favorite checking
 9. Add tests for business logic
 
 ### Phase 3: Configuration
+
 10. Add config fields to `config.py`
 11. Update config parsing
 12. Add tests for config parsing
 
 ### Phase 4: Templates
+
 13. Add `releases_favorite` templates to `templates.py`
 14. Add `favorite` to template context
 15. Create default templates with `[FAVORITE]` suffix
 16. Add tests for template rendering
 
 ### Phase 5: Rule Engine
+
 17. Register `favorite` tags in `rule_parser.py`
 18. Add matching logic in `rules.py`
 19. Add action logic in `rules.py`
 20. Add tests for rule matching and actions
 
 ### Phase 6: VirtualFS
+
 21. Add "Favorites" view to `virtualfs.py`
 22. Add path parsing for favorites view
 23. Add filtering logic (matcher creation)
@@ -1089,10 +1178,12 @@ Recommended order for implementing the "favorite" feature:
 26. Add tests for VirtualFS
 
 ### Phase 7: CLI
+
 27. Add `toggle-favorite` command to `cli.py`
 28. Add tests for CLI command
 
 ### Phase 8: Integration & Documentation
+
 29. Export function in `__init__.py`
 30. Run full integration tests
 31. Update documentation
@@ -1103,10 +1194,12 @@ Recommended order for implementing the "favorite" feature:
 ## 12. Key Differences & Design Decisions
 
 ### Default Values
+
 - **New**: Defaults to `true` (new releases are marked automatically)
 - **Favorite**: Should default to `false` (favorites are opt-in by user)
 
 ### Naming Conventions
+
 - SQL column: `favorite`
 - Python field: `favorite`
 - Config fields: `hide_*_with_only_favorite_releases`
@@ -1118,23 +1211,28 @@ Recommended order for implementing the "favorite" feature:
 ### User Experience Questions (To Be Decided)
 
 1. **Template Formatting**: How should favorites be displayed?
+
    - Option A: `[FAVORITE]` suffix (like `[NEW]`)
    - Option B: `★` emoji/symbol prefix
    - Option C: Custom user-defined format
    - **Recommendation**: Allow user customization via templates
 
 2. **View Ordering**: Where should "Favorites" appear in VirtualFS hierarchy?
+
    - Option A: After "New" (e.g., `"2. Releases - Favorites"`)
    - Option B: Before "New" (e.g., `"1. Releases - Favorites"`)
    - **Recommendation**: User-configurable order
 
 3. **Classifier Hiding**: Should hiding favorite-only classifiers be enabled by default?
+
    - **Recommendation**: Default to `false` (consistent with "new")
 
 4. **Extracted Singles**: Should singles created from albums inherit favorite status?
+
    - **Recommendation**: No, extracted singles should default to `favorite=false`
 
 5. **Bulk Operations**: Should there be a bulk favorite/unfavorite command?
+
    - **Recommendation**: Yes, add later as enhancement (e.g., `rose releases favorite-all {pattern}`)
 
 6. **Metadata Editor**: Should favorite status be editable in the metadata editor?
@@ -1171,6 +1269,7 @@ def migrate_add_favorite_column(conn: sqlite3.Connection) -> None:
 ### TOML File Migration
 
 Existing `.rose.{uuid}.toml` files don't need migration:
+
 - The TOML parser already handles missing keys with default values
 - `favorite` will default to `false` when reading old files
 - Files will be updated with `favorite` field on next toggle or write
@@ -1201,6 +1300,7 @@ releases_favorite.release = """
 ## 14. Testing Strategy
 
 ### Unit Tests (Per Component)
+
 - Data model serialization/deserialization
 - Toggle function behavior
 - Filtering functions with `favorite` parameter
@@ -1209,11 +1309,13 @@ releases_favorite.release = """
 - Template rendering
 
 ### Integration Tests
+
 - End-to-end: Toggle → Read TOML → Query database → Verify cache
 - VirtualFS: Mount → Browse favorites view → Verify filtering
 - Rule engine: Create rule → Execute → Verify favorite status changes
 
 ### Edge Cases to Test
+
 - Toggling favorite on non-existent release
 - Toggling when TOML file is missing
 - Toggling when TOML file is corrupted
@@ -1227,18 +1329,22 @@ releases_favorite.release = """
 ## 15. Performance Considerations
 
 ### Database Indexing
+
 - `CREATE INDEX releases_favorite ON releases(favorite)` is **critical**
 - Without index, filtering favorites will be slow on large libraries
 
 ### Query Optimization
+
 - The `list_*()` functions with `only_favorite_releases` use LEFT JOIN
 - These queries are already optimized for "new", same pattern applies
 
 ### TOML File I/O
+
 - Toggling favorite requires reading + writing one TOML file
 - No performance concerns (similar to "new")
 
 ### VirtualFS Caching
+
 - VirtualFS already caches release metadata
 - Adding `favorite` field has negligible memory impact
 
@@ -1249,14 +1355,17 @@ releases_favorite.release = """
 ### Future Enhancements
 
 1. **Multiple Tags**: Instead of just `favorite`, support arbitrary tags like `wishlist`, `owned`, `loaned`
+
    - Would require schema change: `release_tags` table instead of boolean columns
    - Significant architectural change, not recommended for initial implementation
 
 2. **Rating System**: 5-star ratings instead of boolean
+
    - Could coexist with `favorite` (e.g., `favorite` = 5-star rating)
    - Requires UI changes for input
 
 3. **Date-Based Favorites**: Track when a release was favorited
+
    - Add `favorited_at` timestamp to `StoredDataFile`
    - Enable "Recently Favorited" view
 
@@ -1343,11 +1452,13 @@ if field == "favorite":
 ## 18. Summary
 
 The "new" release feature is a comprehensive boolean flag system that touches:
+
 - **10+ files** across 3 Python packages (`rose-py`, `rose-vfs`, `rose-cli`)
 - **6 major subsystems**: Data models, storage, configuration, templates, VirtualFS, rule engine
 - **3 user interfaces**: CLI commands, VirtualFS views, rule engine syntax
 
 Implementing "favorite" as a parallel feature requires:
+
 - **~50-70 discrete code changes** across the codebase
 - **Database schema migration** for existing users
 - **Comprehensive test coverage** (~10-15 new test functions)

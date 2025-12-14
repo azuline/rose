@@ -39,7 +39,6 @@ import re
 import sqlite3
 import time
 import tomllib
-import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Iterator
 from datetime import datetime
@@ -220,6 +219,7 @@ class Release:
     edition: str | None
     catalognumber: str | None
     new: bool
+    favorite: bool
     disctotal: int
     genres: list[str]
     parent_genres: list[str]
@@ -318,6 +318,7 @@ class Playlist:
 @dataclasses.dataclass(slots=True)
 class StoredDataFile:
     new: bool = True
+    favorite: bool = False
     added_at: str = dataclasses.field(
         default_factory=lambda: datetime.now().astimezone().replace(microsecond=0).isoformat()
     )
@@ -643,6 +644,7 @@ def _update_cache_for_releases_executor(
                     tomli_w.dump(dataclasses.asdict(stored_release_data), fp)
                 release.id = new_release_id
                 release.new = stored_release_data.new
+                release.favorite = stored_release_data.favorite
                 release.added_at = stored_release_data.added_at
                 release.datafile_mtime = str(os.stat(datafile_path).st_mtime)
                 release_dirty = True
@@ -661,12 +663,14 @@ def _update_cache_for_releases_executor(
                         diskdata = tomllib.load(fp)
                     datafile = StoredDataFile(
                         new=diskdata.get("new", True),
+                        favorite=diskdata.get("favorite", False),
                         added_at=diskdata.get(
                             "added_at",
                             datetime.now().astimezone().replace(microsecond=0).isoformat(),
                         ),
                     )
                     release.new = datafile.new
+                    release.favorite = datafile.favorite
                     release.added_at = datafile.added_at
                     new_resolved_data = dataclasses.asdict(datafile)
                     logger.debug(f"Updating values in stored data file for release {source_path}")
@@ -959,6 +963,7 @@ def _update_cache_for_releases_executor(
                 release.catalognumber,
                 release.disctotal,
                 release.new,
+                release.favorite,
                 sha256_dataclass(release),
             ])
             if release.id in upd_release_ids:
@@ -1040,8 +1045,9 @@ def _update_cache_for_releases_executor(
                   , catalognumber
                   , disctotal
                   , new
+                  , favorite
                   , metahash
-                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
+                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
                 ON CONFLICT (id) DO UPDATE SET
                     source_path      = excluded.source_path
                   , cover_image_path = excluded.cover_image_path
@@ -1056,6 +1062,7 @@ def _update_cache_for_releases_executor(
                   , catalognumber    = excluded.catalognumber
                   , disctotal        = excluded.disctotal
                   , new              = excluded.new
+                  , favorite         = excluded.favorite
                   , metahash         = excluded.metahash
                """,
                 flatten(upd_release_args),
