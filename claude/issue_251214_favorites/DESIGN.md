@@ -365,11 +365,11 @@ Minimal test count: **4 new tests** (one per feature) + **extend 1 existing test
 - Modify property: "1. Releases - Favorites" appears before "1. Releases - New"
 - Verify property: All views maintain "1." prefix (no renumbering)
 
-**[NEW] test_database_migration**:
-- Property 1: Migration adds `favorite` column to existing database
-- Property 2: Migration creates index on `favorite`
-- Property 3: Existing releases default to `favorite = false`
-- Property 4: Migration is idempotent (can run multiple times safely)
+**[NEW] test_schema_recreation**:
+- Property 1: Schema hash changes when `cache.sql` is modified
+- Property 2: Database is recreated with `favorite` column on next cache operation
+- Property 3: All releases default to `favorite = false` after recreation
+- Note: This test may already be covered by existing cache update tests
 
 ## Removed Features
 
@@ -386,7 +386,7 @@ None. No features are being removed.
 ## rose-py/rose/cache.py
 - **Line ~222**: Add `favorite: bool` field to `Release` dataclass after `new: bool`
 - **Line ~320**: Add `favorite: bool = False` field to `StoredDataFile` dataclass after `new: bool = True`
-- **Line ~650-669**: Update TOML deserialization to read `favorite` field with default `False`
+- **Line ~650-669**: Update TOML deserialization to read `favorite` field with `diskdata.get("favorite", False)` (defaults to `False` if missing)
 - **Line ~632-645**: Update TOML serialization to write `favorite` field
 - **Line ~1807-1809**: Add `favorite: bool | None = None` parameter to `filter_releases()` function
 - **Line ~1810**: Add query clause `if favorite is not None: query += " AND favorite = ?"; args.append(favorite)`
@@ -461,26 +461,24 @@ None. No features are being removed.
   - Change field from `new` to `favorite`
   - Test matching `favorite:false` and replacing with `true`
 
-## Database Migration (NEW FILE)
-- **Create**: `rose-py/rose/migrations/add_favorite_column.py` (or inline in cache update logic)
-  - Check if `favorite` column exists (`PRAGMA table_info(releases)`)
-  - If not exists: `ALTER TABLE releases ADD COLUMN favorite BOOLEAN NOT NULL DEFAULT false`
-  - Create index: `CREATE INDEX releases_favorite ON releases(favorite)`
-  - Rebuild FTS: `INSERT INTO rules_engine_fts(rules_engine_fts) VALUES('rebuild')`
-  - Commit changes
+## Database Migration
+- **No separate migration file needed**: Rose uses schema hash comparison (cache.py line 130-145)
+- When `cache.sql` is modified, the schema hash changes
+- On next cache operation, database is automatically recreated from `cache.sql`
+- All releases will have `favorite = false` by default (per column definition)
 
-# Open Questions
+# Open Questions - ANSWERED
 
-1. **Migration Timing**: Should the database migration run automatically on first cache update, or should it be a separate `rose migrate` command? (Suggestion: automatic on cache update for seamless UX)
+1. **Migration Timing**: ~~Should the database migration run automatically on first cache update, or should it be a separate `rose migrate` command?~~ **RESOLVED**: Rose uses schema hash comparison - when schema changes, database is automatically recreated on next cache operation. No custom migration needed.
 
-2. **Extracted Singles Inheritance**: The spec says extracted singles default to `favorite=false`, but should we check if the parent album is favorited and inherit that status? Or always default to `false`? (Suggestion: always default to `false` for consistency with "new")
+2. **Extracted Singles Inheritance**: Always default to `false` (consistent with "new" behavior)
 
-3. **Template Context**: Should we expose both `new` and `favorite` in the same template context, allowing users to write templates like `{% if favorite %}★{% elif new %}[NEW]{% endif %}`? (Suggestion: yes, expose both for flexibility)
+3. **Template Context**: Yes, expose both `new` and `favorite` in same template context for flexibility (e.g., `{% if favorite %}★{% elif new %}[NEW]{% endif %}`)
 
-4. **VirtualFS View Numbers**: ~~The VirtualFS currently uses hardcoded strings like "1. Releases - New". Should we make these numbers configurable, or is hardcoded renumbering acceptable?~~ **RESOLVED**: All views keep "1." prefix, no renumbering needed
+4. **VirtualFS View Numbers**: All views keep "1." prefix, no renumbering needed
 
-5. **Metadata Editor Format**: What format should the metadata editor use for the `favorite` field? Should it be `favorite: true` / `favorite: false` (boolean), or `favorite: yes` / `favorite: no` (string)? (Suggestion: match existing `new` field format)
+5. **Metadata Editor Format**: Match existing `new` field format (boolean: `true`/`false`)
 
-6. **CLI Command Naming**: Should the command be `toggle-favorite` (matches `toggle-new` pattern) or `favorite` (shorter)? (Suggestion: `toggle-favorite` for consistency)
+6. **CLI Command Naming**: Use `toggle-favorite` for consistency with `toggle-new`
 
-7. **TOML Field Ordering**: In `.rose.{uuid}.toml`, should `favorite` come before or after `new`? (Suggestion: after `new` for consistency with database schema)
+7. **TOML Field Ordering**: `favorite` comes after `new`, defaults to `false` if field is missing from TOML
