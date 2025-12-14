@@ -256,6 +256,10 @@ def filter_track_false_positives_using_tags(
                 if not datafile:
                     datafile = _get_release_datafile_of_directory(tags.path.parent)
                 match = matches_pattern(matcher.pattern, datafile.new)
+            if not match and field == "favorite":
+                if not datafile:
+                    datafile = _get_release_datafile_of_directory(tags.path.parent)
+                match = matches_pattern(matcher.pattern, datafile.favorite)
 
             # If there is a match, check to see if the track is matched by one of the ignore values.
             # If it is ignored, skip the result entirely.
@@ -400,6 +404,17 @@ def execute_metadata_actions(
                     datafile.new = v == "true"
                     if orig_value != datafile.new:
                         potential_datafile_changes.append(("new", orig_value, datafile.new))
+                if field == "favorite":
+                    datafile = datafile or open_datafile(tags.path)
+                    v = execute_single_action(act, datafile.favorite)
+                    if v != "true" and v != "false":
+                        raise InvalidReplacementValueError(
+                            f"Failed to assign new value {v} to favorite: value must be string `true` or `false`"
+                        )
+                    orig_value = datafile.favorite
+                    datafile.favorite = v == "true"
+                    if orig_value != datafile.favorite:
+                        potential_datafile_changes.append(("favorite", orig_value, datafile.favorite))
 
                 # AudioTag Actions
                 # fmt: off

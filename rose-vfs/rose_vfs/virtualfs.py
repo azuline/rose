@@ -181,6 +181,7 @@ class VirtualPath:
             "Loose Tracks",
             "Collages",
             "Playlists",
+            "Favorites",
             "New",
             "Added On",
             "Released On",
@@ -279,6 +280,15 @@ class VirtualPath:
                 return VirtualPath(view="Releases", release=parts[1])
             if len(parts) == 3:
                 return VirtualPath(view="Releases", release=parts[1], file=parts[2])
+            raise llfuse.FUSEError(errno.ENOENT)
+
+        if parts[0] == "1. Releases - Favorites":
+            if len(parts) == 1:
+                return VirtualPath(view="Favorites")
+            if len(parts) == 2:
+                return VirtualPath(view="Favorites", release=parts[1])
+            if len(parts) == 3:
+                return VirtualPath(view="Favorites", release=parts[1], file=parts[2])
             raise llfuse.FUSEError(errno.ENOENT)
 
         if parts[0] == "1. Releases - New":
@@ -445,6 +455,8 @@ class VirtualNameGenerator:
             template = None
             if release_parent.view == "Releases":
                 template = self._config.path_templates.releases.release
+            elif release_parent.view == "Favorites":
+                template = self._config.path_templates.releases_favorite.release
             elif release_parent.view == "New":
                 template = self._config.path_templates.releases_new.release
             elif release_parent.view == "Added On":
@@ -1088,6 +1100,7 @@ class RoseLogicalCore:
         if p.view == "Root":
             yield from [
                 ("1. Releases", self.stat("dir")),
+                ("1. Releases - Favorites", self.stat("dir")),
                 ("1. Releases - New", self.stat("dir")),
                 ("1. Releases - Added On", self.stat("dir")),
                 ("1. Releases - Released On", self.stat("dir")),
@@ -1117,6 +1130,8 @@ class RoseLogicalCore:
                 matcher = Matcher(["descriptor"], Pattern(p.descriptor, strict=True))
             elif p.label:
                 matcher = Matcher(["label"], Pattern(p.label, strict=True))
+            elif p.view == "Favorites":
+                matcher = Matcher(["favorite"], Pattern("true", strict=True))
             elif p.view == "New":
                 matcher = Matcher(["new"], Pattern("true", strict=True))
             elif p.view == "Loose Tracks":
@@ -1158,6 +1173,8 @@ class RoseLogicalCore:
                 matcher = Matcher(["descriptor"], Pattern(p.descriptor, strict=True))
             if p.label:
                 matcher = Matcher(["label"], Pattern(p.label, strict=True))
+            if p.view == "Favorites":
+                matcher = Matcher(["favorite"], Pattern("true", strict=True))
             if p.view == "New":
                 matcher = Matcher(["new"], Pattern("true", strict=True))
 

@@ -114,6 +114,31 @@ def toggle_release_new(c: Config, release_id: str) -> None:
     logger.critical(f"Failed to find .rose.toml in {release.source_path}")
 
 
+def toggle_release_favorite(c: Config, release_id: str) -> None:
+    release = get_release(c, release_id)
+    if not release:
+        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
+
+    release_logtext = make_release_logtext(
+        title=release.releasetitle, releasedate=release.releasedate, artists=release.releaseartists
+    )
+
+    for f in release.source_path.iterdir():
+        if not STORED_DATA_FILE_REGEX.match(f.name):
+            continue
+        with lock(c, release_lock_name(release_id)):
+            with f.open("rb") as fp:
+                data = tomllib.load(fp)
+            data["favorite"] = not data.get("favorite", False)
+            with f.open("wb") as fp:
+                tomli_w.dump(data, fp)
+        logger.info(f'Toggled "favorite"-ness of release {release_logtext} to {data["favorite"]}')
+        update_cache_for_releases(c, [release.source_path], force=True)
+        return
+
+    logger.critical(f"Failed to find .rose.toml in {release.source_path}")
+
+
 def set_release_cover_art(
     c: Config,
     release_id: str,

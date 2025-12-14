@@ -154,6 +154,11 @@ def test_config_full() -> None:
                     track=PathTemplate("{{ title }}"),
                     all_tracks=PathTemplate("{{ title }}"),
                 ),
+                releases_favorite=PathTemplateTriad(
+                    release=PathTemplate("{{ title }}"),
+                    track=PathTemplate("{{ title }}"),
+                    all_tracks=PathTemplate("{{ title }}"),
+                ),
                 releases_new=PathTemplateTriad(
                     release=PathTemplate("{{ title }}"),
                     track=PathTemplate("{{ title }}"),

@@ -162,7 +162,7 @@ DEFAULT_RELEASE_TEMPLATE = PathTemplate(
 {% if releasedate %}{{ releasedate.year }}.{% endif %}
 {{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
-{% if new %}[NEW]{% endif %}
+{% if favorite %}[FAVORITE]{% endif %}{% if new %}[NEW]{% endif %}
 """
 )
 
@@ -194,6 +194,7 @@ DEFAULT_TEMPLATE_PAIR = PathTemplateTriad(
 class PathTemplateConfig:
     source: PathTemplateTriad
     releases: PathTemplateTriad
+    releases_favorite: PathTemplateTriad
     releases_new: PathTemplateTriad
     releases_added_on: PathTemplateTriad
     releases_released_on: PathTemplateTriad
@@ -213,6 +214,7 @@ class PathTemplateConfig:
         return PathTemplateConfig(
             source=deepcopy(default_triad),
             releases=deepcopy(default_triad),
+            releases_favorite=deepcopy(default_triad),
             releases_new=deepcopy(default_triad),
             releases_added_on=PathTemplateTriad(
                 release=PathTemplate("[{{ added_at[:10] }}] " + default_triad.release.text),
@@ -366,6 +368,7 @@ def _calc_release_variables(release: Release, position: str | None) -> dict[str,
         "edition": release.edition,
         "catalognumber": release.catalognumber,
         "new": release.new,
+        "favorite": release.favorite,
         "disctotal": release.disctotal,
         "genres": release.genres,
         "parentgenres": release.parent_genres,
@@ -396,6 +399,7 @@ def _calc_track_variables(track: Track, position: str | None) -> dict[str, Any]:
         "edition": track.release.edition,
         "catalognumber": track.release.catalognumber,
         "new": track.release.new,
+        "favorite": track.release.favorite,
         "genres": track.release.genres,
         "parentgenres": track.release.parent_genres,
         "secondarygenres": track.release.secondary_genres,
@@ -434,6 +438,7 @@ def get_sample_music(
         edition=None,
         catalognumber="CMCC11088",
         new=True,
+        favorite=False,
         disctotal=1,
         genres=["K-Pop", "Dance-Pop", "Contemporary R&B"],
         parent_genres=["Pop", "R&B"],
@@ -471,6 +476,7 @@ def get_sample_music(
         edition="Deluxe",
         catalognumber="L200001238",
         new=False,
+        favorite=False,
         disctotal=2,
         genres=["K-Pop"],
         parent_genres=["Pop"],
@@ -512,6 +518,7 @@ def get_sample_music(
         edition=None,
         catalognumber="435-766 2",
         new=False,
+        favorite=False,
         disctotal=2,
         genres=["Impressionism, Orchestral"],
         parent_genres=["Modern Classical"],

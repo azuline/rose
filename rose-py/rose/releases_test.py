@@ -27,6 +27,7 @@ from rose.releases import (
     find_releases_matching_rule,
     run_actions_on_release,
     set_release_cover_art,
+    toggle_release_favorite,
     toggle_release_new,
 )
 from rose.rule_parser import Action, Matcher
@@ -70,6 +71,41 @@ def test_toggle_release_new(config: Config) -> None:
     with connect(config) as conn:
         cursor = conn.execute("SELECT new FROM releases")
         assert cursor.fetchone()["new"]
+
+
+def test_toggle_release_favorite(config: Config) -> None:
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    update_cache(config)
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT id FROM releases")
+        release_id = cursor.fetchone()["id"]
+    datafile = config.music_source_dir / TEST_RELEASE_1.name / f".rose.{release_id}.toml"
+
+    # Default should be False
+    with datafile.open("rb") as fp:
+        data = tomllib.load(fp)
+        assert data["favorite"] is False
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT favorite FROM releases")
+        assert not cursor.fetchone()["favorite"]
+
+    # Set favorite.
+    toggle_release_favorite(config, release_id)
+    with datafile.open("rb") as fp:
+        data = tomllib.load(fp)
+        assert data["favorite"] is True
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT favorite FROM releases")
+        assert cursor.fetchone()["favorite"]
+
+    # Set not favorite.
+    toggle_release_favorite(config, release_id)
+    with datafile.open("rb") as fp:
+        data = tomllib.load(fp)
+        assert data["favorite"] is False
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT favorite FROM releases")
+        assert not cursor.fetchone()["favorite"]
 
 
 def test_set_release_cover_art(isolated_dir: Path, config: Config) -> None:
@@ -191,6 +227,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         catalognumber="Lalala",
         edition="Blabla",
         new=False,
+        favorite=False,
         disctotal=1,
         genres=["J-Pop", "Pop Rap"],
         parent_genres=["Hip Hop", "Pop"],
@@ -361,6 +398,7 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
         catalognumber=None,
         edition=None,
         new=False,
+        favorite=False,
         disctotal=1,
         genres=["J-Pop", "Pop Rap"],
         parent_genres=["Hip Hop", "Pop"],

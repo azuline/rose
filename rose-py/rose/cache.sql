@@ -22,10 +22,12 @@ CREATE TABLE releases (
     disctotal INTEGER NOT NULL,
     -- A sha256 of the release object, which can be used as a performant cache key.
     metahash TEXT NOT NULL UNIQUE,
-    new BOOLEAN NOT NULL DEFAULT true
+    new BOOLEAN NOT NULL DEFAULT true,
+    favorite BOOLEAN NOT NULL DEFAULT false
 );
 CREATE INDEX releases_source_path ON releases(source_path);
 CREATE INDEX releases_new ON releases(new);
+CREATE INDEX releases_favorite ON releases(favorite);
 
 CREATE TABLE releases_genres (
     release_id TEXT REFERENCES releases(id) ON DELETE CASCADE,
@@ -184,6 +186,7 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
   , releaseartist
   , trackartist
   , new
+  , favorite
   -- Use standard unicode tokenizer; do not remove diacritics; treat everything we know as token.
   -- Except for the ¬, which is our "separator." We use that separator to produce single-character
   -- tokens.
@@ -241,6 +244,7 @@ CREATE VIEW releases_view AS
       , r.catalognumber
       , r.disctotal
       , r.new
+      , r.favorite
       , r.metahash
       , COALESCE(g.genres, '') AS genres
       , COALESCE(s.genres, '') AS secondary_genres
