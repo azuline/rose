@@ -65,8 +65,6 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert can_read(root / "1. Releases" / R2_VNAME / ".rose.r2.toml")
 
         assert (root / "1. Releases - Favorites").is_dir()
-        print("Favorites dir contents:", list((root / "1. Releases - Favorites").iterdir()))
-        print("Expected R1_VNAME:", R1_VNAME)
         assert (root / "1. Releases - Favorites" / R1_VNAME).is_dir()
         assert not (root / "1. Releases - Favorites" / R2_VNAME).exists()
         assert not (root / "1. Releases - Favorites" / R3_VNAME).exists()
