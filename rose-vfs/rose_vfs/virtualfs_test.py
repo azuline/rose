@@ -13,7 +13,7 @@ from rose import AudioTags, Config
 from conftest import retry_for_sec
 from rose_vfs.virtualfs import ALL_TRACKS, mount_virtualfs, unmount_virtualfs
 
-R1_VNAME = "Techno Man & Bass Man - 2023. Release 1"
+R1_VNAME = "Techno Man & Bass Man - 2023. Release 1 [FAVORITE]"
 R2_VNAME = "Violin Woman (feat. Conductor Woman) - 2021. Release 2 [NEW]"
 R3_VNAME = "Unknown Artists - 2021. Release 3"
 R4_VNAME = "Unknown Artists - 2021. Release 4"
@@ -65,9 +65,13 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert can_read(root / "1. Releases" / R2_VNAME / ".rose.r2.toml")
 
         assert (root / "1. Releases - Favorites").is_dir()
-        assert not (root / "1. Releases - Favorites" / R1_VNAME).exists()
+        print("Favorites dir contents:", list((root / "1. Releases - Favorites").iterdir()))
+        print("Expected R1_VNAME:", R1_VNAME)
+        assert (root / "1. Releases - Favorites" / R1_VNAME).is_dir()
         assert not (root / "1. Releases - Favorites" / R2_VNAME).exists()
         assert not (root / "1. Releases - Favorites" / R3_VNAME).exists()
+        assert (root / "1. Releases - Favorites" / R1_VNAME / "01. Track 1.m4a").is_file()
+        assert not (root / "1. Releases - Favorites" / R1_VNAME / "lalala").exists()
 
         assert (root / "1. Releases - New").is_dir()
         assert (root / "1. Releases - New" / R2_VNAME).is_dir()
@@ -159,8 +163,8 @@ def test_virtual_filesystem_reads_all_tracks(config: Config) -> None:
         with p.open("rb") as fp:
             return fp.read(256) != b"\\x00" * 256
 
-    r1_track = "Techno Man & Bass Man - 2023. Release 1 - Track 1.m4a"
-    r2_track = "Violin Woman (feat. Conductor Woman) - 2021. Release 2 - Track 1.m4a"
+    r1_track = "Techno Man & Bass Man - 2023. Release 1 [FAVORITE] - Track 1.m4a"
+    r2_track = "Violin Woman (feat. Conductor Woman) - 2021. Release 2 [NEW] - Track 1.m4a"
     r4_track = "Unknown Artists - 2021. Release 4 - Track 1.m4a"
 
     root = config.vfs.mount_dir
@@ -173,8 +177,9 @@ def test_virtual_filesystem_reads_all_tracks(config: Config) -> None:
         assert can_read(root / "1. Releases" / ALL_TRACKS / r1_track)
 
         assert (root / "1. Releases - Favorites" / ALL_TRACKS).is_dir()
-        assert not (root / "1. Releases - Favorites" / ALL_TRACKS / r1_track).exists()
+        assert (root / "1. Releases - Favorites" / ALL_TRACKS / r1_track).is_file()
         assert not (root / "1. Releases - Favorites" / ALL_TRACKS / r2_track).exists()
+        assert can_read(root / "1. Releases - Favorites" / ALL_TRACKS / r1_track)
 
         assert (root / "1. Releases - New" / ALL_TRACKS).is_dir()
         assert (root / "1. Releases - New" / ALL_TRACKS / r2_track).is_file()

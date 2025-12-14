@@ -1098,7 +1098,7 @@ def test_list_releases(config: Config) -> None:
             releasedate=RoseDate(2023),
             disctotal=1,
             new=False,
-            favorite=False,
+            favorite=True,
             genres=["Techno", "Deep House"],
             parent_genres=[
                 "Dance",
