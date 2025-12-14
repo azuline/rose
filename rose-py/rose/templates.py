@@ -183,6 +183,16 @@ DEFAULT_ALL_TRACKS_TEMPLATE = PathTemplate(
 """
 )
 
+DEFAULT_FAVORITE_RELEASE_TEMPLATE = PathTemplate(
+    """
+{{ releaseartists | artistsfmt }} -
+{% if releasedate %}{{ releasedate.year }}.{% endif %}
+{{ releasetitle }}
+{% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
+[FAVORITE]
+"""
+)
+
 DEFAULT_TEMPLATE_PAIR = PathTemplateTriad(
     release=DEFAULT_RELEASE_TEMPLATE,
     track=DEFAULT_TRACK_TEMPLATE,
@@ -194,6 +204,7 @@ DEFAULT_TEMPLATE_PAIR = PathTemplateTriad(
 class PathTemplateConfig:
     source: PathTemplateTriad
     releases: PathTemplateTriad
+    releases_favorite: PathTemplateTriad
     releases_new: PathTemplateTriad
     releases_added_on: PathTemplateTriad
     releases_released_on: PathTemplateTriad
@@ -213,6 +224,11 @@ class PathTemplateConfig:
         return PathTemplateConfig(
             source=deepcopy(default_triad),
             releases=deepcopy(default_triad),
+            releases_favorite=PathTemplateTriad(
+                release=DEFAULT_FAVORITE_RELEASE_TEMPLATE,
+                track=deepcopy(default_triad.track),
+                all_tracks=deepcopy(default_triad.all_tracks),
+            ),
             releases_new=deepcopy(default_triad),
             releases_added_on=PathTemplateTriad(
                 release=PathTemplate("[{{ added_at[:10] }}] " + default_triad.release.text),
@@ -366,6 +382,7 @@ def _calc_release_variables(release: Release, position: str | None) -> dict[str,
         "edition": release.edition,
         "catalognumber": release.catalognumber,
         "new": release.new,
+        "favorite": release.favorite,
         "disctotal": release.disctotal,
         "genres": release.genres,
         "parentgenres": release.parent_genres,
@@ -396,6 +413,7 @@ def _calc_track_variables(track: Track, position: str | None) -> dict[str, Any]:
         "edition": track.release.edition,
         "catalognumber": track.release.catalognumber,
         "new": track.release.new,
+        "favorite": track.release.favorite,
         "genres": track.release.genres,
         "parentgenres": track.release.parent_genres,
         "secondarygenres": track.release.secondary_genres,
