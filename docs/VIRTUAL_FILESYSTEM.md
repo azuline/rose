@@ -16,19 +16,20 @@ if the virtual filesystem is currently in use, unmounting command will fail.
 
 # Directory Structure
 
-Rosé has 11 top-level directories, each of which is a different view into the library. They are:
+Rosé has 12 top-level directories, each of which is a different view into the library. They are:
 
 1. `Releases`
-2. `Releases - New`
-3. `Releases - Recently Added`
+3. `Releases - New`
+2. `Releases - Favorites`
 4. `Releases - Added On`
-5. `Artists`
-6. `Genres`
-7. `Descriptors`
-8. `Labels`
-9. `Loose Tracks`
-10. `Collages`
-11. `Playlists`
+5. `Releases - Released On`
+6. `Artists`
+7. `Genres`
+8. `Descriptors`
+9. `Labels`
+10. `Loose Tracks`
+11. `Collages`
+12. `Playlists`
 
 Most directories should be fairly intuitive. They are numbered in the filesystem to create an
 intentional ordering.

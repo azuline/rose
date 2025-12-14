@@ -20,6 +20,8 @@ tags. The format of this file is:
 ```toml
 # Release "new"-ness.
 new = false
+# Release "favorite" status.
+favorite = false
 # The timestamp that the release was "added" to the library. Rosé uses the
 # timestamp when the `.rose.{uuid}.toml` file was created, as that is
 # equivalent to the first time Rosé scanned the release.
@@ -33,12 +35,21 @@ details.
 # "New" Releases
 
 Rosé supports flagging releases as "new." "New"-ness has no effects besides suffixing the release's
-virtual filesystem name with `[NEW]` (with the default release template) and adding the release to
-the `2. Releases - New` top-level directory.
+virtual filesystem name with ` [NEW]` (with the default release template) and adding the release to
+the `1. Releases - New` top-level directory.
 
 On first import, releases are flagged as new by default. "New"-ness can be toggled manually
 afterwards. This feature is designed to allow you to distinguish between music you've listened to
 and music you're planning on listening to.
+
+# "Favorite" Releases
+
+Rosé supports marking releases as "favorite." Favoriting has no effects besides suffixing the release's
+virtual filesystem name with ` [FAVORITE]` (with the default release template) and adding the release to
+the `1. Releases - Favorites` top-level directory.
+
+Releases are not favorited by default. Favorite status can be toggled manually via the CLI or
+metadata editor. This feature is designed to allow you to quickly access your most valued releases.
 
 # Printing Metadata
 
@@ -82,8 +93,8 @@ $ rose releases toggle-new "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Mat
 [21:47:52] INFO: Updating release descriptions for Long Flight
 [21:47:52] INFO: Updating cache for collage Long Flight
 
-$ tree "2. Releases - New/"
-2. Releases - New/
+$ tree "1. Releases - New/"
+1. Releases - New/
 ├── LOOΠΔ - 2017. Kim Lip - Single [NEW]/...
 └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [NEW]/...
 
@@ -92,9 +103,32 @@ $ rose releases toggle-new "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Mat
 [21:49:36] INFO: Updating release descriptions for Long Flight
 [21:49:36] INFO: Updating cache for collage Long Flight
 
-$ tree "2. Releases - New/"
-2. Releases - New/
+$ tree "1. Releases - New/"
+1. Releases - New/
 └── LOOΠΔ - 2017. Kim Lip - Single [NEW]/...
+```
+
+## Toggle Release "favorite" Status
+
+This operation is only supported on the command line.
+
+```bash
+$ cd $vfs_mount_dir
+
+$ rose releases toggle-favorite "1. Releases/NewJeans - 2022. Ditto - Single"
+[21:47:52] INFO: Toggled "favorite"-ness of release NewJeans - 2022. Ditto to True
+[21:47:52] INFO: Updating cache for release NewJeans - 2022. Ditto
+
+$ tree "1. Releases - Favorites/"
+1. Releases - Favorites/
+└── NewJeans - 2022. Ditto - Single [FAVORITE]/...
+
+$ rose releases toggle-favorite "1. Releases/NewJeans - 2022. Ditto - Single [FAVORITE]"
+[21:49:36] INFO: Toggled "favorite"-ness of release NewJeans - 2022. Ditto to False
+[21:49:36] INFO: Updating cache for release NewJeans - 2022. Ditto
+
+$ tree "1. Releases - Favorites/"
+1. Releases - Favorites/
 ```
 
 ## Set Release Cover Art

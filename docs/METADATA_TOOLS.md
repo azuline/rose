@@ -35,6 +35,7 @@ An example of the release's TOML representation:
 ```toml
 title = "Mix & Match"
 new = false
+favorite = true
 releasetype = "ep"
 releasedate = 2017
 originaldate = 2017
@@ -328,13 +329,14 @@ The rules engine supports matching and acting on the following tags:
 - `catalognumber`
 - `edition`
 - `new`
+- `favorite`
 
 The `trackartist[*]`, `releaseartist[*]`, `genre` (& parents), `secondarygenre` (& parents),
 `descriptor`, and `label` tags are _multi-value_ tags, which have a slightly different behavior from
 single-value tags for some of the actions. We'll explore this difference in the [Actions](#actions)
 section.
 
-The `new` tag will always be the string `true` or `false`.
+The `new` and `favorite` tags will always be the string `true` or `false`.
 
 For convenience, the rules parser also allows you to specify _tag aliases_ in
 place of the above tags, which expand to multiple tags when matching. The

@@ -22,6 +22,9 @@ source.all_tracks = "..."
 releases.release = "..."
 releases.track = "..."
 releases.all_tracks = "..."
+releases_favorite.release = "..."
+releases_favorite.track = "..."
+releases_favorite.all_tracks = "..."
 releases_new.release = "..."
 releases_new.track = "..."
 releases_new.all_tracks = "..."
@@ -59,7 +62,7 @@ If set, the `default.xxx` templates are used as the default values for all other
 {% if releasedate %}{{ releasedate }}.{% endif %}
 {{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
-{% if new %}[NEW]{% endif %}
+{% if favorite %} [FAVORITE]{% endif %}{% if new %} [NEW]{% endif %}
 
 {# "Default Default" Track Template #}
 
@@ -104,6 +107,7 @@ releasedate: int | None              # The year of this edition of the release.
 originaldate: int | None             # The year of the first edition of the release.
 compositiondate: int | None          # The year that the release was composed. Mainly of interest in classical music.
 new: bool                            # The "new"-ness of the release. See RELEASES.md for documentation on this feature.
+favorite: bool                       # The "favorite" status of the release. See RELEASES.md for documentation on this feature.
 disctotal: int                       # The number of discs in the release.
 genres: list[str]
 parent_genres: list[str]             # The parent genres of `genres`, excluding `genres`.
@@ -152,6 +156,7 @@ releasedate: int | None
 originaldate: int | None             # The year of the first edition of the release.
 compositiondate: int | None          # The year that the release was composed. Mainly of interest in classical music.
 new: bool                            # The "new"-ness of the track's release.
+favorite: bool                       # The "favorite" status of the track's release.
 genres: list[str]
 parent_genres: list[str]             # The parent genres of `genres`, excluding `genres`.
 secondary_genres: list[str]          # The secondary/minor genres.
