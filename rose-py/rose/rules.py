@@ -326,7 +326,7 @@ def _get_release_datafile_of_directory(d: Path) -> StoredDataFile:
             diskdata = tomllib.load(fp)
         return StoredDataFile(
             new=diskdata.get("new", True),
-            favorite=diskdata.get("favorite", True),
+            favorite=diskdata.get("favorite", False),
             added_at=diskdata.get("added_at", datetime.now().astimezone().replace(microsecond=0).isoformat()),
         )
     raise RoseError(f"Release data file not found in {d}. How is it in the library?")
