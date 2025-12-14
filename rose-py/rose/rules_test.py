@@ -223,6 +223,36 @@ def test_rules_fields_match_new(config: Config) -> None:
     assert not release.new
 
 
+@pytest.mark.usefixtures("source_dir")
+def test_rules_fields_match_favorite(config: Config) -> None:
+    rule = Rule.parse("favorite:false", ["replace:true"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    release = get_release(config, "ilovecarly")
+    assert release
+    assert release.favorite
+    release = get_release(config, "ilovenewjeans")
+    assert release
+    assert release.favorite
+
+    rule = Rule.parse("favorite:true", ["replace:false"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    release = get_release(config, "ilovecarly")
+    assert release
+    assert not release.favorite
+    release = get_release(config, "ilovenewjeans")
+    assert release
+    assert not release.favorite
+
+    rule = Rule.parse("releasetitle:Carly", ["favorite/replace:true"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    release = get_release(config, "ilovecarly")
+    assert release
+    assert release.favorite
+    release = get_release(config, "ilovenewjeans")
+    assert release
+    assert not release.favorite
+
+
 def test_match_backslash(config: Config, source_dir: Path) -> None:
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     af.tracktitle = r"X \\ Y"

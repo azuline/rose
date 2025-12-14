@@ -64,6 +64,11 @@ def test_virtual_filesystem_reads(config: Config) -> None:
         assert (root / "1. Releases" / R2_VNAME / ".rose.r2.toml").is_file()
         assert can_read(root / "1. Releases" / R2_VNAME / ".rose.r2.toml")
 
+        assert (root / "1. Releases - Favorites").is_dir()
+        assert not (root / "1. Releases - Favorites" / R1_VNAME).exists()
+        assert not (root / "1. Releases - Favorites" / R2_VNAME).exists()
+        assert not (root / "1. Releases - Favorites" / R3_VNAME).exists()
+
         assert (root / "1. Releases - New").is_dir()
         assert (root / "1. Releases - New" / R2_VNAME).is_dir()
         assert not (root / "1. Releases - New" / R3_VNAME).exists()
@@ -166,6 +171,10 @@ def test_virtual_filesystem_reads_all_tracks(config: Config) -> None:
         assert (root / "1. Releases" / ALL_TRACKS / r1_track).is_file()
         assert (root / "1. Releases" / ALL_TRACKS / r4_track).is_file()
         assert can_read(root / "1. Releases" / ALL_TRACKS / r1_track)
+
+        assert (root / "1. Releases - Favorites" / ALL_TRACKS).is_dir()
+        assert not (root / "1. Releases - Favorites" / ALL_TRACKS / r1_track).exists()
+        assert not (root / "1. Releases - Favorites" / ALL_TRACKS / r2_track).exists()
 
         assert (root / "1. Releases - New" / ALL_TRACKS).is_dir()
         assert (root / "1. Releases - New" / ALL_TRACKS / r2_track).is_file()

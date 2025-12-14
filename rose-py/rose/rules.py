@@ -850,6 +850,7 @@ def filter_release_false_positives_using_read_cache(
             match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, r.releasetitle))
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, r.releasetype))
             match = match or (field == "new" and matches_pattern(matcher.pattern, r.new))
+            match = match or (field == "favorite" and matches_pattern(matcher.pattern, r.favorite))
             match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in r.genres))
             match = match or (field == "secondarygenre" and any(matches_pattern(matcher.pattern, x) for x in r.secondary_genres))
             match = match or (field == "descriptor" and any(matches_pattern(matcher.pattern, x) for x in r.descriptors))
