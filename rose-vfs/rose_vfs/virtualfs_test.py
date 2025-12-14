@@ -161,8 +161,8 @@ def test_virtual_filesystem_reads_all_tracks(config: Config) -> None:
         with p.open("rb") as fp:
             return fp.read(256) != b"\\x00" * 256
 
-    r1_track = "Techno Man & Bass Man - 2023. Release 1 [FAVORITE] - Track 1.m4a"
-    r2_track = "Violin Woman (feat. Conductor Woman) - 2021. Release 2 [NEW] - Track 1.m4a"
+    r1_track = "Techno Man & Bass Man - 2023. Release 1 - Track 1.m4a"
+    r2_track = "Violin Woman (feat. Conductor Woman) - 2021. Release 2 - Track 1.m4a"
     r4_track = "Unknown Artists - 2021. Release 4 - Track 1.m4a"
 
     root = config.vfs.mount_dir

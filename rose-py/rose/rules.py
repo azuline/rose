@@ -255,7 +255,6 @@ def filter_track_false_positives_using_tags(
                 if not datafile:
                     datafile = _get_release_datafile_of_directory(tags.path.parent)
                 match = matches_pattern(matcher.pattern, datafile.favorite)
-                print(datafile)
 
             # If there is a match, check to see if the track is matched by one of the ignore values.
             # If it is ignored, skip the result entirely.
