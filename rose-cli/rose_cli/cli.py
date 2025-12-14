@@ -47,6 +47,7 @@ from rose import (
     run_actions_on_track,
     set_playlist_cover_art,
     set_release_cover_art,
+    toggle_release_favorite,
     toggle_release_new,
     update_cache,
 )
@@ -257,6 +258,15 @@ def toggle_new(ctx: Context, release: str) -> None:
     """Toggle a release's "new"-ness. Accepts a release's UUID/path."""
     release = parse_release_argument(release)
     toggle_release_new(ctx.config, release)
+
+
+@releases.command()
+@click.argument("release", type=click.Path(), nargs=1)
+@click.pass_obj
+def toggle_favorite(ctx: Context, release: str) -> None:
+    """Toggle a release's "favorite" status. Accepts a release's UUID/path."""
+    release = parse_release_argument(release)
+    toggle_release_favorite(ctx.config, release)
 
 
 @releases.command(name="delete")
