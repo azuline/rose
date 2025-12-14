@@ -108,12 +108,12 @@ We will implement a "favorite" release classification system that exactly parall
 
 **New Behaviors:**
 1. Each release will have a `favorite: bool` field (default `false`) persisted in `.rose.{uuid}.toml` and the cache database
-2. A new "1. Releases - Favorites" view will appear in the VirtualFS showing only favorited releases
+2. A new "1. Releases - Favorites" view will appear in the VirtualFS showing only favorited releases (all other views shift down by 1)
 3. Users can run `rose releases toggle-favorite {release_id_or_path}` to mark/unmark favorites
 4. Templates will have access to `{% if favorite %}` conditionals with a default `[FAVORITE]` suffix rendering
 5. Rules can match (`favorite:true`/`favorite:false`) and modify (`favorite/replace:true`) favorite status
-6. Configuration will support hiding genres/descriptors/labels that only contain favorite releases
-7. The metadata editor will allow editing the favorite field
+6. The metadata editor will allow editing the favorite field
+7. Extracted singles will default to `favorite=false` (matching "new" behavior)
 
 **Modified Behaviors:**
 - `.rose.{uuid}.toml` files will gain a `favorite = false` field
@@ -127,22 +127,21 @@ We will implement a "favorite" release classification system that exactly parall
 
 ## Affected Systems
 
-1. **Storage System**: Add `favorite BOOLEAN NOT NULL DEFAULT false` column to `releases` table with index; add `favorite` field to TOML serialization/deserialization
-2. **Data Model System**: Add `favorite: bool` to `Release` dataclass; add `favorite: bool = False` to `StoredDataFile`; add `only_favorite_releases: bool` to classifier entry dataclasses
-3. **Business Logic System**: Create `toggle_release_favorite()` function; add `favorite: bool | None` parameter to filtering functions; add LEFT JOIN queries for "only favorite" classifier detection
-4. **VirtualFS System**: Add "Favorites" view with path parsing; add filtering with `Matcher(["favorite"], Pattern("true"))]; add template selection for `releases_favorite`; add classifier hiding logic
+1. **Storage System**: Add `favorite BOOLEAN NOT NULL DEFAULT false` column to `releases` table with index; add `favorite` field to TOML serialization/deserialization; perform silent database migration
+2. **Data Model System**: Add `favorite: bool` to `Release` dataclass; add `favorite: bool = False` to `StoredDataFile`
+3. **Business Logic System**: Create `toggle_release_favorite()` function; add `favorite: bool | None` parameter to filtering functions; handle extracted singles defaulting to `favorite=false`
+4. **VirtualFS System**: Add "Favorites" view (as view #1, shifting others down) with path parsing; add filtering with `Matcher(["favorite"], Pattern("true"))`; add template selection for `releases_favorite`
 5. **Rule Engine System**: Register "favorite" in tag lists; add matching logic for `favorite` field from TOML; add action logic with boolean validation
-6. **Template System**: Add `releases_favorite: PathTemplateTriad` config; add default template with `[FAVORITE]` suffix; expose `favorite` in template context
-7. **Configuration System**: Add three config fields for hiding classifiers with only favorites
-8. **CLI System**: Add `toggle-favorite` command under `rose releases`
-9. **Public API**: Export `toggle_release_favorite` function
+6. **Template System**: Add `releases_favorite: PathTemplateTriad` config with sensible defaults; add default template with `[FAVORITE]` suffix; expose `favorite` in template context
+7. **CLI System**: Add `toggle-favorite` command under `rose releases`
+8. **Public API**: Export `toggle_release_favorite` function
+9. **Metadata Editor**: Add `favorite` field for editing (parallel to `new` field)
 
 ## Affected Tests
 
 1. **test_toggle_release_new** → Create parallel `test_toggle_release_favorite`: Test toggling favorite status, verify TOML updates, verify cache updates
 2. **test_rules_fields_match_new** → Create parallel `test_rules_fields_match_favorite`: Test matching `favorite:false`, replacing with `true`, verify rule execution
-3. **test_virtual_filesystem_hide_new_release_classifiers** → Create parallel `test_virtual_filesystem_hide_favorite_release_classifiers`: Test hiding classifiers with only favorite releases
-4. **Global test suite**: Run `just test` after implementation to ensure no regressions
+3. **Global test suite**: Run `just test` after implementation to ensure no regressions (especially VirtualFS view ordering changes)
 
 ## Relevant Files
 
@@ -155,42 +154,32 @@ Core files requiring changes (in implementation order):
 
 **Phase 2 - Business Logic:**
 - `rose-py/rose/releases.py` - Implement `toggle_release_favorite()`
-- `rose-py/rose/cache.py` - Add filtering parameters and "only favorite" queries
+- `rose-py/rose/cache.py` - Add filtering parameters
 
-**Phase 3 - Configuration:**
-- `rose-py/rose/config.py` - Add VirtualFS hiding config fields
-
-**Phase 4 - Templates:**
+**Phase 3 - Templates:**
 - `rose-py/rose/templates.py` - Add `releases_favorite` config and context
 
-**Phase 5 - Rule Engine:**
+**Phase 4 - Rule Engine:**
 - `rose-py/rose/rule_parser.py` - Register "favorite" tags
 - `rose-py/rose/rules.py` - Add matching and action logic
 
-**Phase 6 - VirtualFS:**
-- `rose-vfs/rose_vfs/virtualfs.py` - Add view, parsing, filtering, hiding
+**Phase 5 - VirtualFS:**
+- `rose-vfs/rose_vfs/virtualfs.py` - Add view, parsing, filtering, template selection
 
-**Phase 7 - CLI:**
+**Phase 6 - CLI:**
 - `rose-cli/rose_cli/cli.py` - Add `toggle-favorite` command
 
-**Phase 8 - API & Tests:**
+**Phase 7 - API & Tests:**
 - `rose-py/rose/__init__.py` - Export function
 - `rose-py/rose/releases_test.py` - Add toggle test
 - `rose-py/rose/rules_test.py` - Add rule test
-- `rose-vfs/rose_vfs/virtualfs_test.py` - Add hiding test
 
-# Open Questions
+# Open Questions - ANSWERED
 
-1. **Template Formatting**: Should the default template use `[FAVORITE]` text suffix (like `[NEW]`), or would you prefer a symbol like `★` or a different format?
-
-2. **View Ordering**: Should "Favorites" appear before or after "New" in the VirtualFS hierarchy? (e.g., "1. Releases - Favorites" vs "2. Releases - Favorites")
-
-3. **Metadata Editor**: Should the `favorite` field be editable in the metadata editor like `new` is? (Assumption: yes, for consistency)
-
-4. **Extracted Singles**: When creating a single from an album, should it inherit the parent's favorite status or default to `false`? (Assumption: default to `false` like "new" does)
-
-5. **Migration Messaging**: Should we log or notify users when the database migration adds the `favorite` column, or should it be silent?
-
-6. **Config Defaults**: Should we provide a default `releases_favorite` template in the config, or only if users explicitly configure it? (Assumption: provide sensible default)
-
-7. **Classifier Hiding**: The "only favorites" classifier hiding feature adds complexity. Is this a must-have for v1, or can it be deferred? (Assumption: include for feature parity with "new")
+1. **Template Formatting**: Use `[FAVORITE]` text suffix (like `[NEW]`)
+2. **View Ordering**: "Favorites" appears BEFORE "New" - shift all views down by 1
+3. **Metadata Editor**: Yes, `favorite` field is editable in metadata editor
+4. **Extracted Singles**: Default to `false`, matching "new" behavior
+5. **Migration Messaging**: Silent database migration
+6. **Config Defaults**: Provide sensible default `releases_favorite` template
+7. **Classifier Hiding**: Skip the "only favorites" classifier hiding feature (not needed for favorites)
