@@ -221,8 +221,9 @@ All operations are ergonomic.
 
 **VirtualFS view ordering** (MODIFIED):
 - Current: "1. Releases", "1. Releases - New", "1. Releases - Added On", etc.
-- New: "1. Releases - Favorites" (NEW), then shift all numbered views down
-- Update all view number constants and display strings
+- New: Add "1. Releases - Favorites" (NEW), keep all others as "1." prefix
+- Order: "1. Releases - Favorites", "1. Releases - New", "1. Releases - Added On", "1. Releases - Released On"
+- No renumbering needed, just add new view before existing ones
 
 This data flow is optimal because:
 1. **Single source of truth**: TOML file is authoritative, cache is derivative
@@ -253,11 +254,12 @@ rose releases toggle-favorite <release_id_or_path>
 - **Template**: Uses `path_templates.releases_favorite` configuration
 - **Behavior**: Identical to "1. Releases - New" but filters on `favorite` field
 
-**View renumbering**: All existing views shift down by 1
-- Current "1. Releases - New" → "2. Releases - New"
-- Current "1. Releases - Added On" → "2. Releases - Added On"
-- Current "1. Releases - Released On" → "2. Releases - Released On"
-- Update all hardcoded strings in `virtualfs.py`
+**View ordering**: All release views use "1." prefix
+- "1. Releases - Favorites" (NEW, appears first)
+- "1. Releases - New" (no change)
+- "1. Releases - Added On" (no change)
+- "1. Releases - Released On" (no change)
+- No renumbering needed, just insert new view at the beginning
 
 ## Metadata Editor
 
@@ -286,7 +288,7 @@ collectiontrack = "{{ tracktitle }}"
 
 # Solution Restatement
 
-We will implement a "favorite" boolean classification system that exactly parallels the "new" architecture: adding a `favorite BOOLEAN NOT NULL DEFAULT false` column to the `releases` table with index, adding `favorite: bool = False` to `Release` and `StoredDataFile` dataclasses, creating `toggle_release_favorite()` function, exposing a "1. Releases - Favorites" VirtualFS view (shifting all other views down by 1), registering "favorite" in the rule engine tag lists, providing a default `[FAVORITE]` template suffix, and adding a `rose releases toggle-favorite` CLI command. The key trapdoor decision is NOT implementing the "only favorites" classifier hiding feature—this simplifies implementation but means users cannot hide genres/descriptors/labels that only contain favorites like they can with "new".
+We will implement a "favorite" boolean classification system that exactly parallels the "new" architecture: adding a `favorite BOOLEAN NOT NULL DEFAULT false` column to the `releases` table with index, adding `favorite: bool = False` to `Release` and `StoredDataFile` dataclasses, creating `toggle_release_favorite()` function, exposing a "1. Releases - Favorites" VirtualFS view (appearing first in the list, all views keep "1." prefix), registering "favorite" in the rule engine tag lists, providing a default `[FAVORITE]` template suffix, and adding a `rose releases toggle-favorite` CLI command. The key trapdoor decision is NOT implementing the "only favorites" classifier hiding feature—this simplifies implementation but means users cannot hide genres/descriptors/labels that only contain favorites like they can with "new".
 
 # Observability
 
@@ -359,10 +361,9 @@ Minimal test count: **4 new tests** (one per feature) + **extend 1 existing test
 - Add property: Unchanged `favorite` does not trigger toggle
 
 **[EXISTING] VirtualFS view enumeration tests**:
-- Modify property: Root directory contains "1. Releases - Favorites"
-- Modify property: "New" is now "2. Releases - New" (shifted down)
-- Modify property: "Added On" is now "2. Releases - Added On" (shifted down)
-- Modify property: "Released On" is now "2. Releases - Released On" (shifted down)
+- Modify property: Root directory contains "1. Releases - Favorites" as first release view
+- Modify property: "1. Releases - Favorites" appears before "1. Releases - New"
+- Verify property: All views maintain "1." prefix (no renumbering)
 
 **[NEW] test_database_migration**:
 - Property 1: Migration adds `favorite` column to existing database
@@ -435,11 +436,8 @@ None. No features are being removed.
   - Parse 1-part path → `VirtualPath(view="Favorites")`
   - Parse 2-part path → `VirtualPath(view="Favorites", release=parts[1])`
   - Parse 3-part path → `VirtualPath(view="Favorites", release=parts[1], file=parts[2])`
-- **Line ~284**: Change `"1. Releases - New"` to `"2. Releases - New"`
-- **Line ~293**: Change `"1. Releases - Added On"` to `"2. Releases - Added On"`
-- **Line ~302**: Change `"1. Releases - Released On"` to `"2. Releases - Released On"`
 - **Line ~560**: Add template selection for `elif release_parent.view == "Favorites": template = self._config.path_templates.releases_favorite.release`
-- **Line ~1090-1093**: Update root directory listing to include `"1. Releases - Favorites"` and renumber others
+- **Line ~1090-1093**: Update root directory listing to include `"1. Releases - Favorites"` (insert first, before "1. Releases - New")
 - **Line ~1120-1162**: Add release filtering for `elif p.view == "Favorites": matcher = Matcher(["favorite"], Pattern("true", strict=True))`
 - **Similar location**: Add track filtering for `if p.view == "Favorites": matcher = Matcher(["favorite"], Pattern("true", strict=True))`
 
@@ -479,7 +477,7 @@ None. No features are being removed.
 
 3. **Template Context**: Should we expose both `new` and `favorite` in the same template context, allowing users to write templates like `{% if favorite %}★{% elif new %}[NEW]{% endif %}`? (Suggestion: yes, expose both for flexibility)
 
-4. **VirtualFS View Numbers**: The VirtualFS currently uses hardcoded strings like "1. Releases - New". Should we make these numbers configurable, or is hardcoded renumbering acceptable? (Suggestion: hardcoded is fine, users care about ordering not specific numbers)
+4. **VirtualFS View Numbers**: ~~The VirtualFS currently uses hardcoded strings like "1. Releases - New". Should we make these numbers configurable, or is hardcoded renumbering acceptable?~~ **RESOLVED**: All views keep "1." prefix, no renumbering needed
 
 5. **Metadata Editor Format**: What format should the metadata editor use for the `favorite` field? Should it be `favorite: true` / `favorite: false` (boolean), or `favorite: yes` / `favorite: no` (string)? (Suggestion: match existing `new` field format)
 
