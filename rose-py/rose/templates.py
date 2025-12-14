@@ -162,7 +162,7 @@ DEFAULT_RELEASE_TEMPLATE = PathTemplate(
 {% if releasedate %}{{ releasedate.year }}.{% endif %}
 {{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
-{% if new %}[NEW]{% endif %}
+{% if favorite %}[FAVORITE]{% endif %}{% if new %}[NEW]{% endif %}
 """
 )
 
@@ -180,16 +180,6 @@ DEFAULT_ALL_TRACKS_TEMPLATE = PathTemplate(
 {% if releasedate %}{{ releasedate.year }}.{% endif %}
 {{ releasetitle }} -
 {{ tracktitle }}
-"""
-)
-
-DEFAULT_FAVORITE_RELEASE_TEMPLATE = PathTemplate(
-    """
-{{ releaseartists | artistsfmt }} -
-{% if releasedate %}{{ releasedate.year }}.{% endif %}
-{{ releasetitle }}
-{% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
-[FAVORITE]
 """
 )
 
@@ -224,11 +214,7 @@ class PathTemplateConfig:
         return PathTemplateConfig(
             source=deepcopy(default_triad),
             releases=deepcopy(default_triad),
-            releases_favorite=PathTemplateTriad(
-                release=DEFAULT_FAVORITE_RELEASE_TEMPLATE,
-                track=deepcopy(default_triad.track),
-                all_tracks=deepcopy(default_triad.all_tracks),
-            ),
+            releases_favorite=deepcopy(default_triad),
             releases_new=deepcopy(default_triad),
             releases_added_on=PathTemplateTriad(
                 release=PathTemplate("[{{ added_at[:10] }}] " + default_triad.release.text),
@@ -452,6 +438,7 @@ def get_sample_music(
         edition=None,
         catalognumber="CMCC11088",
         new=True,
+        favorite=False,
         disctotal=1,
         genres=["K-Pop", "Dance-Pop", "Contemporary R&B"],
         parent_genres=["Pop", "R&B"],
@@ -489,6 +476,7 @@ def get_sample_music(
         edition="Deluxe",
         catalognumber="L200001238",
         new=False,
+        favorite=False,
         disctotal=2,
         genres=["K-Pop"],
         parent_genres=["Pop"],
@@ -530,6 +518,7 @@ def get_sample_music(
         edition=None,
         catalognumber="435-766 2",
         new=False,
+        favorite=False,
         disctotal=2,
         genres=["Impressionism, Orchestral"],
         parent_genres=["Modern Classical"],

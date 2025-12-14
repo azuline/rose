@@ -520,6 +520,7 @@ class Config:
             for key in [
                 "source",
                 "releases",
+                "releases_favorite",
                 "releases_new",
                 "releases_added_on",
                 "releases_released_on",
