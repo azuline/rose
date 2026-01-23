@@ -226,4 +226,5 @@ def initialize_logging(logger_name: str | None = None, output: Literal["stderr",
                 backupCount=10,
             )
             file_handler.setFormatter(verbose_formatter)
+            file_handler.setLevel(logging.INFO)
             logger.addHandler(file_handler)
