@@ -16,7 +16,7 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
-        python-pin = pkgs.python312;
+        python-pin = pkgs.python313;
         version = nixpkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./rose-py/rose/.version);
         uuid6 = python-pin.pkgs.buildPythonPackage {
           pname = "uuid6-python";
