@@ -1747,6 +1747,10 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
     def lookup(self, parent_inode: int, name: bytes, _: Any) -> llfuse.EntryAttributes:
         logger.debug(f"FUSE: Received lookup for {parent_inode=}/{name=}")
+        # Early exit if we encounter a known bad filename. For some reason, mpv is spamming us with
+        # lookup for `:` and after we ENOENT it re-errors in an infinite loop, consuming a core.
+        if name in (b":", b".", b"..", b""):
+            raise llfuse.FUSEError(errno.ENOENT)
         # For performance, pull from the lookup cache if possible.
         with contextlib.suppress(KeyError):
             attrs = self.lookup_cache[(parent_inode, name)]
