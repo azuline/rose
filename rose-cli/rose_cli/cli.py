@@ -47,6 +47,7 @@ from rose import (
     run_actions_on_track,
     set_playlist_cover_art,
     set_release_cover_art,
+    set_release_rating,
     toggle_release_favorite,
     toggle_release_new,
     update_cache,
@@ -265,6 +266,22 @@ def toggle_favorite(ctx: Context, release: str) -> None:
     """Toggle a release's "favorite" status. Accepts a release's UUID/path."""
     release = parse_release_argument(release)
     toggle_release_favorite(ctx.config, release)
+
+
+@releases.command(name="set-rating")
+@click.argument("release", type=click.Path(), nargs=1)
+@click.argument("rating", type=int, required=False, default=None)
+@click.option("--clear", is_flag=True, help="Clear the rating (set to unrated).")
+@click.pass_obj
+def set_rating_cmd(ctx: Context, release: str, rating: int | None, clear: bool) -> None:
+    """Set a release's rating (1-100) or clear it. Accepts a release's UUID/path."""
+    release = parse_release_argument(release)
+    if clear:
+        set_release_rating(ctx.config, release, None)
+    elif rating is not None:
+        set_release_rating(ctx.config, release, rating)
+    else:
+        raise click.UsageError("Must provide a rating value (1-100) or use --clear.")
 
 
 @releases.command(name="delete")

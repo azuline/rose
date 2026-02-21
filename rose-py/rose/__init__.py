@@ -97,6 +97,7 @@ from rose.playlists import (
 )
 from rose.releases import (
     InvalidCoverArtFileError,
+    InvalidRatingValueError,
     ReleaseDoesNotExistError,
     ReleaseEditFailedError,
     UnknownArtistRoleError,
@@ -107,6 +108,7 @@ from rose.releases import (
     find_releases_matching_rule,
     run_actions_on_release,
     set_release_cover_art,
+    set_release_rating,
     toggle_release_favorite,
     toggle_release_new,
 )
@@ -205,6 +207,7 @@ __all__ = [
     "InvalidPathTemplateError",
     # Releases
     "Release",
+    "InvalidRatingValueError",
     "create_single_release",
     "delete_release",
     "delete_release_cover_art",
@@ -213,6 +216,7 @@ __all__ = [
     "find_releases_matching_rule",
     "get_release",
     "set_release_cover_art",
+    "set_release_rating",
     "toggle_release_favorite",
     "toggle_release_new",
     # Tracks

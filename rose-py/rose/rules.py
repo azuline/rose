@@ -19,7 +19,6 @@ import re
 import shlex
 import time
 import tomllib
-from datetime import datetime
 from pathlib import Path
 
 import click
@@ -255,6 +254,10 @@ def filter_track_false_positives_using_tags(
                 if not datafile:
                     datafile = _get_release_datafile_of_directory(tags.path.parent)
                 match = matches_pattern(matcher.pattern, datafile.favorite)
+            if not match and field == "rating":
+                if not datafile:
+                    datafile = _get_release_datafile_of_directory(tags.path.parent)
+                match = matches_pattern(matcher.pattern, str(datafile.rating) if datafile.rating is not None else "")
 
             # If there is a match, check to see if the track is matched by one of the ignore values.
             # If it is ignored, skip the result entirely.
@@ -301,6 +304,10 @@ def filter_track_false_positives_using_tags(
                         if not datafile:
                             datafile = _get_release_datafile_of_directory(tags.path.parent)
                         match = matches_pattern(i.pattern, datafile.favorite)
+                    if not skip and field == "rating":
+                        if not datafile:
+                            datafile = _get_release_datafile_of_directory(tags.path.parent)
+                        skip = matches_pattern(i.pattern, str(datafile.rating) if datafile.rating is not None else "")
                     # fmt: on
                     if skip:
                         break
@@ -323,11 +330,7 @@ def _get_release_datafile_of_directory(d: Path) -> StoredDataFile:
             continue
         with f.open("rb") as fp:
             diskdata = tomllib.load(fp)
-        return StoredDataFile(
-            new=diskdata.get("new", True),
-            favorite=diskdata.get("favorite", False),
-            added_at=diskdata.get("added_at", datetime.now().astimezone().replace(microsecond=0).isoformat()),
-        )
+        return StoredDataFile.parse(diskdata)
     raise RoseError(f"Release data file not found in {d}. How is it in the library?")
 
 
@@ -415,6 +418,26 @@ def execute_metadata_actions(
                     datafile.favorite = v == "true"
                     if orig_value != datafile.favorite:
                         potential_datafile_changes.append(("favorite", orig_value, datafile.favorite))
+                if field == "rating":
+                    datafile = datafile or open_datafile(tags.path)
+                    v = execute_single_action(act, str(datafile.rating) if datafile.rating is not None else "")
+                    if v is None or v == "":
+                        new_rating: int | None = None
+                    else:
+                        try:
+                            new_rating = int(v)
+                        except ValueError as e:
+                            raise InvalidReplacementValueError(
+                                f"Failed to assign new value {v} to rating: value must be an integer 1-100 or empty to clear"
+                            ) from e
+                        if new_rating < 1 or new_rating > 100:
+                            raise InvalidReplacementValueError(
+                                f"Failed to assign new value {v} to rating: value must be between 1 and 100"
+                            )
+                    orig_rating = datafile.rating
+                    datafile.rating = new_rating
+                    if orig_rating != datafile.rating:
+                        potential_datafile_changes.append(("rating", orig_rating, datafile.rating))
 
                 # AudioTag Actions
                 # fmt: off
@@ -630,7 +653,7 @@ def execute_metadata_actions(
             if not STORED_DATA_FILE_REGEX.match(f.name):
                 continue
             with f.open("wb") as fp:
-                tomli_w.dump(dataclasses.asdict(datafile), fp)
+                tomli_w.dump(datafile.serialize(), fp)
         logger.info(f"Wrote datafile changes to {pathtext}")
 
     click.echo()
@@ -802,6 +825,7 @@ def filter_track_false_positives_using_read_cache(
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, t.release.releasetype))
             match = match or (field == "new" and matches_pattern(matcher.pattern, t.release.new))
             match = match or (field == "favorite" and matches_pattern(matcher.pattern, t.release.favorite))
+            match = match or (field == "rating" and matches_pattern(matcher.pattern, str(t.release.rating) if t.release.rating is not None else ""))
             match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in t.release.genres))
             match = match or (field == "secondarygenre" and any(matches_pattern(matcher.pattern, x) for x in t.release.secondary_genres))
             match = match or (field == "descriptor" and any(matches_pattern(matcher.pattern, x) for x in t.release.descriptors))
@@ -852,6 +876,7 @@ def filter_release_false_positives_using_read_cache(
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, r.releasetype))
             match = match or (field == "new" and matches_pattern(matcher.pattern, r.new))
             match = match or (field == "favorite" and matches_pattern(matcher.pattern, r.favorite))
+            match = match or (field == "rating" and matches_pattern(matcher.pattern, str(r.rating) if r.rating is not None else ""))
             match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in r.genres))
             match = match or (field == "secondarygenre" and any(matches_pattern(matcher.pattern, x) for x in r.secondary_genres))
             match = match or (field == "descriptor" and any(matches_pattern(matcher.pattern, x) for x in r.descriptors))
