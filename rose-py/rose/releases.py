@@ -323,7 +323,7 @@ class MetadataRelease:
         data["compositiondate"] = str(self.compositiondate) if self.compositiondate else ""
         data["edition"] = self.edition or ""
         data["catalognumber"] = self.catalognumber or ""
-        data["rating"] = self.rating if self.rating is not None else 0
+        data["rating"] = self.rating if self.rating is not None else -1
         return tomli_w.dumps(data)
 
     @classmethod
@@ -333,7 +333,7 @@ class MetadataRelease:
             title=d["title"],
             new=d["new"],
             favorite=d["favorite"],
-            rating=d.get("rating", None) or None,
+            rating=d["rating"] if d.get("rating", -1) != -1 else None,
             releasetype=d["releasetype"],
             originaldate=RoseDate.parse(d["originaldate"]),
             releasedate=RoseDate.parse(d["releasedate"]),
