@@ -34,6 +34,7 @@
           ]),
           'disctotal': 1,
           'edition': None,
+          'favorite': True,
           'genres': list([
             'Techno',
             'Deep House',
@@ -57,6 +58,7 @@
             'House',
             'Tech House',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -134,6 +136,7 @@
             ]),
             'disctotal': 1,
             'edition': None,
+            'favorite': True,
             'genres': list([
               'Techno',
               'Deep House',
@@ -157,6 +160,7 @@
               'House',
               'Tech House',
             ]),
+            'rating': None,
             'releaseartists': dict({
               'composer': list([
               ]),
@@ -223,6 +227,7 @@
             ]),
             'disctotal': 1,
             'edition': 'Deluxe',
+            'favorite': False,
             'genres': list([
               'Modern Classical',
             ]),
@@ -240,6 +245,7 @@
               'Classical Music',
               'Western Classical Music',
             ]),
+            'rating': None,
             'releaseartists': dict({
               'composer': list([
               ]),
@@ -315,6 +321,7 @@
             ]),
             'disctotal': 1,
             'edition': None,
+            'favorite': True,
             'genres': list([
               'Techno',
               'Deep House',
@@ -338,6 +345,7 @@
               'House',
               'Tech House',
             ]),
+            'rating': None,
             'releaseartists': dict({
               'composer': list([
               ]),
@@ -406,6 +414,7 @@
             ]),
             'disctotal': 1,
             'edition': 'Deluxe',
+            'favorite': False,
             'genres': list([
               'Modern Classical',
             ]),
@@ -423,6 +432,7 @@
               'Classical Music',
               'Western Classical Music',
             ]),
+            'rating': None,
             'releaseartists': dict({
               'composer': list([
               ]),
@@ -490,6 +500,7 @@
         ]),
         'disctotal': 1,
         'edition': None,
+        'favorite': True,
         'genres': list([
           'Techno',
           'Deep House',
@@ -514,6 +525,7 @@
           'Tech House',
         ]),
         'position': 1,
+        'rating': None,
         'releaseartists': dict({
           'composer': list([
           ]),
@@ -563,6 +575,7 @@
         ]),
         'disctotal': 1,
         'edition': 'Deluxe',
+        'favorite': False,
         'genres': list([
           'Modern Classical',
         ]),
@@ -581,6 +594,7 @@
           'Western Classical Music',
         ]),
         'position': 2,
+        'rating': None,
         'releaseartists': dict({
           'composer': list([
           ]),
@@ -643,6 +657,7 @@
           ]),
           'disctotal': 1,
           'edition': None,
+          'favorite': True,
           'genres': list([
             'Techno',
             'Deep House',
@@ -667,6 +682,7 @@
             'Tech House',
           ]),
           'position': 1,
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -716,6 +732,7 @@
           ]),
           'disctotal': 1,
           'edition': 'Deluxe',
+          'favorite': False,
           'genres': list([
             'Modern Classical',
           ]),
@@ -734,6 +751,7 @@
             'Western Classical Music',
           ]),
           'position': 2,
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -801,6 +819,7 @@
         ]),
         'disctotal': 1,
         'edition': None,
+        'favorite': True,
         'genres': list([
           'Techno',
           'Deep House',
@@ -824,6 +843,7 @@
           'House',
           'Tech House',
         ]),
+        'rating': None,
         'releaseartists': dict({
           'composer': list([
           ]),
@@ -888,6 +908,7 @@
           ]),
           'disctotal': 1,
           'edition': None,
+          'favorite': True,
           'genres': list([
             'Techno',
             'Deep House',
@@ -911,6 +932,7 @@
             'House',
             'Tech House',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -972,6 +994,7 @@
           ]),
           'disctotal': 1,
           'edition': None,
+          'favorite': True,
           'genres': list([
             'Techno',
             'Deep House',
@@ -995,6 +1018,7 @@
             'House',
             'Tech House',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -1050,6 +1074,7 @@
           ]),
           'disctotal': 1,
           'edition': 'Deluxe',
+          'favorite': False,
           'genres': list([
             'Modern Classical',
           ]),
@@ -1067,6 +1092,7 @@
             'Classical Music',
             'Western Classical Music',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -1129,6 +1155,7 @@
         ]),
         'disctotal': 1,
         'edition': None,
+        'favorite': True,
         'genres': list([
           'Techno',
           'Deep House',
@@ -1152,6 +1179,7 @@
           'House',
           'Tech House',
         ]),
+        'rating': None,
         'releaseartists': dict({
           'composer': list([
           ]),
@@ -1216,6 +1244,7 @@
           ]),
           'disctotal': 1,
           'edition': None,
+          'favorite': True,
           'genres': list([
             'Techno',
             'Deep House',
@@ -1239,6 +1268,7 @@
             'House',
             'Tech House',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -1300,6 +1330,7 @@
           ]),
           'disctotal': 1,
           'edition': None,
+          'favorite': True,
           'genres': list([
             'Techno',
             'Deep House',
@@ -1323,6 +1354,7 @@
             'House',
             'Tech House',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -1384,6 +1416,7 @@
           ]),
           'disctotal': 1,
           'edition': None,
+          'favorite': True,
           'genres': list([
             'Techno',
             'Deep House',
@@ -1407,6 +1440,7 @@
             'House',
             'Tech House',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -1468,6 +1502,7 @@
           ]),
           'disctotal': 1,
           'edition': None,
+          'favorite': True,
           'genres': list([
             'Techno',
             'Deep House',
@@ -1491,6 +1526,7 @@
             'House',
             'Tech House',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -1552,6 +1588,7 @@
           ]),
           'disctotal': 1,
           'edition': None,
+          'favorite': True,
           'genres': list([
             'Techno',
             'Deep House',
@@ -1575,6 +1612,7 @@
             'House',
             'Tech House',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -1630,6 +1668,7 @@
           ]),
           'disctotal': 1,
           'edition': 'Deluxe',
+          'favorite': False,
           'genres': list([
             'Modern Classical',
           ]),
@@ -1647,6 +1686,7 @@
             'Classical Music',
             'Western Classical Music',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -1701,6 +1741,7 @@
           ]),
           'disctotal': 1,
           'edition': 'Deluxe',
+          'favorite': False,
           'genres': list([
             'Modern Classical',
           ]),
@@ -1718,6 +1759,7 @@
             'Classical Music',
             'Western Classical Music',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -1772,6 +1814,7 @@
           ]),
           'disctotal': 1,
           'edition': 'Deluxe',
+          'favorite': False,
           'genres': list([
             'Modern Classical',
           ]),
@@ -1789,6 +1832,7 @@
             'Classical Music',
             'Western Classical Music',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -1849,6 +1893,7 @@
           ]),
           'disctotal': 1,
           'edition': None,
+          'favorite': True,
           'genres': list([
             'Techno',
             'Deep House',
@@ -1872,6 +1917,7 @@
             'House',
             'Tech House',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -1935,6 +1981,7 @@
         ]),
         'disctotal': 1,
         'edition': None,
+        'favorite': True,
         'genres': list([
           'Techno',
           'Deep House',
@@ -1958,6 +2005,7 @@
           'House',
           'Tech House',
         ]),
+        'rating': None,
         'releaseartists': dict({
           'composer': list([
           ]),
@@ -2016,6 +2064,7 @@
           ]),
           'disctotal': 1,
           'edition': 'Deluxe',
+          'favorite': False,
           'genres': list([
             'Modern Classical',
           ]),
@@ -2033,6 +2082,7 @@
             'Classical Music',
             'Western Classical Music',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -2093,6 +2143,7 @@
           ]),
           'disctotal': 1,
           'edition': None,
+          'favorite': True,
           'genres': list([
             'Techno',
             'Deep House',
@@ -2116,6 +2167,7 @@
             'House',
             'Tech House',
           ]),
+          'rating': None,
           'releaseartists': dict({
             'composer': list([
             ]),
@@ -2170,6 +2222,7 @@
         'disctotal': 1,
         'duration_seconds': 120,
         'edition': None,
+        'favorite': True,
         'genres': list([
           'Techno',
           'Deep House',
@@ -2194,6 +2247,7 @@
           'Tech House',
         ]),
         'position': 1,
+        'rating': None,
         'release_id': 'r1',
         'releaseartists': dict({
           'composer': list([
@@ -2266,6 +2320,7 @@
         'disctotal': 1,
         'duration_seconds': 120,
         'edition': 'Deluxe',
+        'favorite': False,
         'genres': list([
           'Modern Classical',
         ]),
@@ -2284,6 +2339,7 @@
           'Western Classical Music',
         ]),
         'position': 2,
+        'rating': None,
         'release_id': 'r2',
         'releaseartists': dict({
           'composer': list([
@@ -2365,6 +2421,7 @@
           'disctotal': 1,
           'duration_seconds': 120,
           'edition': None,
+          'favorite': True,
           'genres': list([
             'Techno',
             'Deep House',
@@ -2389,6 +2446,7 @@
             'Tech House',
           ]),
           'position': 1,
+          'rating': None,
           'release_id': 'r1',
           'releaseartists': dict({
             'composer': list([
@@ -2461,6 +2519,7 @@
           'disctotal': 1,
           'duration_seconds': 120,
           'edition': 'Deluxe',
+          'favorite': False,
           'genres': list([
             'Modern Classical',
           ]),
@@ -2479,6 +2538,7 @@
             'Western Classical Music',
           ]),
           'position': 2,
+          'rating': None,
           'release_id': 'r2',
           'releaseartists': dict({
             'composer': list([
@@ -2572,6 +2632,7 @@
     ]),
     'disctotal': 1,
     'edition': None,
+    'favorite': True,
     'genres': list([
       'Techno',
       'Deep House',
@@ -2595,6 +2656,7 @@
       'House',
       'Tech House',
     ]),
+    'rating': None,
     'releaseartists': dict({
       'composer': list([
       ]),
@@ -2721,6 +2783,7 @@
       ]),
       'disctotal': 1,
       'edition': None,
+      'favorite': True,
       'genres': list([
         'Techno',
         'Deep House',
@@ -2744,6 +2807,7 @@
         'House',
         'Tech House',
       ]),
+      'rating': None,
       'releaseartists': dict({
         'composer': list([
         ]),
@@ -2861,6 +2925,7 @@
       ]),
       'disctotal': 1,
       'edition': 'Deluxe',
+      'favorite': False,
       'genres': list([
         'Modern Classical',
       ]),
@@ -2878,6 +2943,7 @@
         'Classical Music',
         'Western Classical Music',
       ]),
+      'rating': None,
       'releaseartists': dict({
         'composer': list([
         ]),
@@ -2956,6 +3022,7 @@
       ]),
       'disctotal': 1,
       'edition': None,
+      'favorite': False,
       'genres': list([
       ]),
       'id': 'r3',
@@ -2967,6 +3034,7 @@
       ]),
       'parent_secondary_genres': list([
       ]),
+      'rating': None,
       'releaseartists': dict({
         'composer': list([
         ]),
@@ -3028,6 +3096,7 @@
       ]),
       'disctotal': 1,
       'edition': None,
+      'favorite': False,
       'genres': list([
       ]),
       'id': 'r4',
@@ -3039,6 +3108,7 @@
       ]),
       'parent_secondary_genres': list([
       ]),
+      'rating': None,
       'releaseartists': dict({
         'composer': list([
         ]),
@@ -3109,6 +3179,7 @@
       ]),
       'disctotal': 1,
       'edition': 'Deluxe',
+      'favorite': False,
       'genres': list([
         'Modern Classical',
       ]),
@@ -3126,6 +3197,7 @@
         'Classical Music',
         'Western Classical Music',
       ]),
+      'rating': None,
       'releaseartists': dict({
         'composer': list([
         ]),
@@ -3208,6 +3280,7 @@
     'disctotal': 1,
     'duration_seconds': 120,
     'edition': None,
+    'favorite': True,
     'genres': list([
       'Techno',
       'Deep House',
@@ -3231,6 +3304,7 @@
       'House',
       'Tech House',
     ]),
+    'rating': None,
     'release_id': 'r1',
     'releaseartists': dict({
       'composer': list([
@@ -3307,6 +3381,7 @@
       'disctotal': 1,
       'duration_seconds': 120,
       'edition': None,
+      'favorite': True,
       'genres': list([
         'Techno',
         'Deep House',
@@ -3330,6 +3405,7 @@
         'House',
         'Tech House',
       ]),
+      'rating': None,
       'release_id': 'r1',
       'releaseartists': dict({
         'composer': list([
@@ -3403,6 +3479,7 @@
       'disctotal': 1,
       'duration_seconds': 240,
       'edition': None,
+      'favorite': True,
       'genres': list([
         'Techno',
         'Deep House',
@@ -3426,6 +3503,7 @@
         'House',
         'Tech House',
       ]),
+      'rating': None,
       'release_id': 'r1',
       'releaseartists': dict({
         'composer': list([
@@ -3498,6 +3576,7 @@
       'disctotal': 1,
       'duration_seconds': 120,
       'edition': 'Deluxe',
+      'favorite': False,
       'genres': list([
         'Modern Classical',
       ]),
@@ -3515,6 +3594,7 @@
         'Classical Music',
         'Western Classical Music',
       ]),
+      'rating': None,
       'release_id': 'r2',
       'releaseartists': dict({
         'composer': list([
@@ -3585,6 +3665,7 @@
       'disctotal': 1,
       'duration_seconds': 120,
       'edition': None,
+      'favorite': False,
       'genres': list([
       ]),
       'id': 't4',
@@ -3596,6 +3677,7 @@
       ]),
       'parent_secondary_genres': list([
       ]),
+      'rating': None,
       'release_id': 'r3',
       'releaseartists': dict({
         'composer': list([
@@ -3649,6 +3731,7 @@
       'disctotal': 1,
       'duration_seconds': 120,
       'edition': None,
+      'favorite': False,
       'genres': list([
       ]),
       'id': 't5',
@@ -3660,6 +3743,7 @@
       ]),
       'parent_secondary_genres': list([
       ]),
+      'rating': None,
       'release_id': 'r4',
       'releaseartists': dict({
         'composer': list([
@@ -3719,6 +3803,7 @@
       'disctotal': 1,
       'duration_seconds': 120,
       'edition': None,
+      'favorite': True,
       'genres': list([
         'Techno',
         'Deep House',
@@ -3742,6 +3827,7 @@
         'House',
         'Tech House',
       ]),
+      'rating': None,
       'release_id': 'r1',
       'releaseartists': dict({
         'composer': list([
@@ -3815,6 +3901,7 @@
       'disctotal': 1,
       'duration_seconds': 240,
       'edition': None,
+      'favorite': True,
       'genres': list([
         'Techno',
         'Deep House',
@@ -3838,6 +3925,7 @@
         'House',
         'Tech House',
       ]),
+      'rating': None,
       'release_id': 'r1',
       'releaseartists': dict({
         'composer': list([

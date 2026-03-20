@@ -77,6 +77,7 @@ Tag = Literal[
     "label",
     "new",
     "favorite",
+    "rating",
 ]
 
 ExpandableTag = Tag | Literal["artist", "trackartist", "releaseartist"]
@@ -134,6 +135,7 @@ ALL_TAGS: dict[ExpandableTag, list[Tag]] = {
     "label": ["label"],
     "new": ["new"],
     "favorite": ["favorite"],
+    "rating": ["rating"],
     "artist": [
         "trackartist[main]",
         "trackartist[guest]",
@@ -183,6 +185,7 @@ MODIFIABLE_TAGS: list[Tag] = [
     "label",
     "new",
     "favorite",
+    "rating",
 ]
 
 SINGLE_VALUE_TAGS: list[Tag] = [
@@ -200,6 +203,7 @@ SINGLE_VALUE_TAGS: list[Tag] = [
     "catalognumber",
     "new",
     "favorite",
+    "rating",
 ]
 
 RELEASE_TAGS: list[Tag] = [
@@ -225,6 +229,7 @@ RELEASE_TAGS: list[Tag] = [
     "disctotal",
     "new",
     "favorite",
+    "rating",
 ]
 
 

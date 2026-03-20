@@ -134,7 +134,6 @@ class AudioTags:
         """Read the tags of an audio file on disk."""
         import mutagen
         import mutagen.flac
-        import mutagen.id3
         import mutagen.mp3
         import mutagen.mp4
         import mutagen.oggopus

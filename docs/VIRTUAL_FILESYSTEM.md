@@ -19,8 +19,8 @@ if the virtual filesystem is currently in use, unmounting command will fail.
 Rosé has 12 top-level directories, each of which is a different view into the library. They are:
 
 1. `Releases`
-3. `Releases - New`
-2. `Releases - Favorites`
+2. `Releases - New`
+3. `Releases - Favorites`
 4. `Releases - Added On`
 5. `Releases - Released On`
 6. `Artists`

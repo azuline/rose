@@ -28,6 +28,7 @@ EMPTY_CACHED_RELEASE = Release(
     catalognumber=None,
     new=False,
     favorite=False,
+    rating=None,
     disctotal=1,
     genres=[],
     parent_genres=[],

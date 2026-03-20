@@ -226,6 +226,7 @@ class Release:
     catalognumber: str | None
     new: bool
     favorite: bool
+    rating: int | None
     disctotal: int
     genres: list[str]
     parent_genres: list[str]
@@ -256,6 +257,7 @@ def cached_release_from_view(c: Config, row: dict[str, Any], aliases: bool = Tru
         disctotal=row["disctotal"],
         new=bool(row["new"]),
         favorite=bool(row["favorite"]),
+        rating=int(row["rating"]) if row["rating"] is not None else None,
         genres=genres,
         secondary_genres=secondary_genres,
         parent_genres=_get_parent_genres(genres),
@@ -326,9 +328,34 @@ class Playlist:
 class StoredDataFile:
     new: bool = True
     favorite: bool = False
+    rating: int | None = None
     added_at: str = dataclasses.field(
         default_factory=lambda: datetime.now().astimezone().replace(microsecond=0).isoformat()
     )
+
+    def serialize(self) -> dict[str, object]:
+        """Serialize to a dict suitable for TOML writing. Uses -1 for unset rating since TOML has no null."""
+        d: dict[str, object] = dataclasses.asdict(self)
+        d["rating"] = self.rating if self.rating is not None else -1
+        return d
+
+    @classmethod
+    def parse(cls, data: dict[str, object]) -> StoredDataFile:
+        """Parse a StoredDataFile from a TOML dict. Converts -1 rating to None."""
+        raw_rating = data.get("rating", -1)
+        assert isinstance(raw_rating, (int, str, float, type(None)))
+        rating = int(raw_rating) if raw_rating is not None and int(raw_rating) != -1 else None
+        return cls(
+            new=bool(data.get("new", True)),
+            favorite=bool(data.get("favorite", False)),
+            rating=rating,
+            added_at=str(
+                data.get(
+                    "added_at",
+                    datetime.now().astimezone().replace(microsecond=0).isoformat(),
+                )
+            ),
+        )
 
 
 STORED_DATA_FILE_REGEX = re.compile(r"^\.rose\.([^.]+)\.toml$")
@@ -596,6 +623,7 @@ def _update_cache_for_releases_executor(
                 edition=None,
                 new=True,
                 favorite=False,
+                rating=None,
                 disctotal=0,
                 genres=[],
                 parent_genres=[],
@@ -649,10 +677,11 @@ def _update_cache_for_releases_executor(
                 # No need to lock here, as since the release ID is new, there is no way there is a
                 # concurrent writer.
                 with datafile_path.open("wb") as fp:
-                    tomli_w.dump(dataclasses.asdict(stored_release_data), fp)
+                    tomli_w.dump(stored_release_data.serialize(), fp)
                 release.id = new_release_id
                 release.new = stored_release_data.new
                 release.favorite = stored_release_data.favorite
+                release.rating = stored_release_data.rating
                 release.added_at = stored_release_data.added_at
                 release.datafile_mtime = str(os.stat(datafile_path).st_mtime)
                 release_dirty = True
@@ -669,18 +698,12 @@ def _update_cache_for_releases_executor(
                     # if we are to write to the file. We won't worry about lost writes here.
                     with datafile_path.open("rb") as fp:
                         diskdata = tomllib.load(fp)
-                    datafile = StoredDataFile(
-                        new=diskdata.get("new", True),
-                        favorite=diskdata.get("favorite", False),
-                        added_at=diskdata.get(
-                            "added_at",
-                            datetime.now().astimezone().replace(microsecond=0).isoformat(),
-                        ),
-                    )
+                    datafile = StoredDataFile.parse(diskdata)
                     release.new = datafile.new
                     release.favorite = datafile.favorite
+                    release.rating = datafile.rating
                     release.added_at = datafile.added_at
-                    new_resolved_data = dataclasses.asdict(datafile)
+                    new_resolved_data = datafile.serialize()
                     logger.debug(f"Updating values in stored data file for release {source_path}")
                     if new_resolved_data != diskdata:
                         # And then write the data back to disk if it changed. This allows us to update
@@ -726,7 +749,7 @@ def _update_cache_for_releases_executor(
             if f.suffix.lower() not in SUPPORTED_AUDIO_EXTENSIONS:
                 continue
 
-            cached_track = cached_tracks.get(str(f), None)
+            cached_track = cached_tracks.get(str(f))
             with contextlib.suppress(KeyError):
                 unknown_cached_tracks.remove(str(f))
 
@@ -972,6 +995,7 @@ def _update_cache_for_releases_executor(
                 release.disctotal,
                 release.new,
                 release.favorite,
+                release.rating,
                 sha256_dataclass(release),
             ])
             if release.id in upd_release_ids:
@@ -1054,8 +1078,9 @@ def _update_cache_for_releases_executor(
                   , disctotal
                   , new
                   , favorite
+                  , rating
                   , metahash
-                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
+                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
                 ON CONFLICT (id) DO UPDATE SET
                     source_path      = excluded.source_path
                   , cover_image_path = excluded.cover_image_path
@@ -1071,6 +1096,7 @@ def _update_cache_for_releases_executor(
                   , disctotal        = excluded.disctotal
                   , new              = excluded.new
                   , favorite         = excluded.favorite
+                  , rating           = excluded.rating
                   , metahash         = excluded.metahash
                """,
                 flatten(upd_release_args),
@@ -1240,6 +1266,7 @@ def _update_cache_for_releases_executor(
                   , trackartist
                   , new
                   , favorite
+                  , rating
                 )
                 SELECT
                     t.rowid
@@ -1263,6 +1290,7 @@ def _update_cache_for_releases_executor(
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(ta.artist, ' '), '')) AS trackartist
                   , process_string_for_fts(CASE WHEN r.new THEN 'true' ELSE 'false' END) AS new
                   , process_string_for_fts(CASE WHEN r.favorite THEN 'true' ELSE 'false' END) AS favorite
+                  , process_string_for_fts(COALESCE(CAST(r.rating AS TEXT), '')) AS rating
                 FROM tracks t
                 JOIN releases r ON r.id = t.release_id
                 LEFT JOIN releases_genres rg ON rg.release_id = r.id

@@ -68,6 +68,10 @@ class UnknownArtistRoleError(RoseExpectedError):
     pass
 
 
+class InvalidRatingValueError(RoseExpectedError):
+    pass
+
+
 def delete_release(c: Config, release_id: str) -> None:
     release = get_release(c, release_id)
     if not release:
@@ -133,6 +137,37 @@ def toggle_release_favorite(c: Config, release_id: str) -> None:
             with f.open("wb") as fp:
                 tomli_w.dump(data, fp)
         logger.info(f'Toggled "favorite"-ness of release {release_logtext} to {data["favorite"]}')
+        update_cache_for_releases(c, [release.source_path], force=True)
+        return
+
+    logger.critical(f"Failed to find .rose.toml in {release.source_path}")
+
+
+def set_release_rating(c: Config, release_id: str, rating: int | None) -> None:
+    if rating is not None and (rating < 1 or rating > 100):
+        raise InvalidRatingValueError(f"Rating must be between 1 and 100, got {rating}")
+
+    release = get_release(c, release_id)
+    if not release:
+        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
+
+    release_logtext = make_release_logtext(
+        title=release.releasetitle, releasedate=release.releasedate, artists=release.releaseartists
+    )
+
+    for f in release.source_path.iterdir():
+        if not STORED_DATA_FILE_REGEX.match(f.name):
+            continue
+        with lock(c, release_lock_name(release_id)):
+            with f.open("rb") as fp:
+                data = tomllib.load(fp)
+            if rating is not None:
+                data["rating"] = rating
+            else:
+                data.pop("rating", None)
+            with f.open("wb") as fp:
+                tomli_w.dump(data, fp)
+        logger.info(f"Set rating of release {release_logtext} to {rating}")
         update_cache_for_releases(c, [release.source_path], force=True)
         return
 
@@ -237,6 +272,7 @@ class MetadataRelease:
     title: str
     new: bool
     favorite: bool
+    rating: int | None
     releasetype: str
     releasedate: RoseDate | None
     originaldate: RoseDate | None
@@ -256,6 +292,7 @@ class MetadataRelease:
             title=release.releasetitle,
             new=release.new,
             favorite=release.favorite,
+            rating=release.rating,
             releasetype=release.releasetype,
             releasedate=release.releasedate,
             originaldate=release.originaldate,
@@ -286,6 +323,7 @@ class MetadataRelease:
         data["compositiondate"] = str(self.compositiondate) if self.compositiondate else ""
         data["edition"] = self.edition or ""
         data["catalognumber"] = self.catalognumber or ""
+        data["rating"] = self.rating if self.rating is not None else 0
         return tomli_w.dumps(data)
 
     @classmethod
@@ -295,6 +333,7 @@ class MetadataRelease:
             title=d["title"],
             new=d["new"],
             favorite=d["favorite"],
+            rating=d.get("rating", None) or None,
             releasetype=d["releasetype"],
             originaldate=RoseDate.parse(d["originaldate"]),
             releasedate=RoseDate.parse(d["releasedate"]),
@@ -450,6 +489,8 @@ def edit_release(
                 toggle_release_new(c, release.id)
             if release_meta.favorite != release.favorite:
                 toggle_release_favorite(c, release.id)
+            if release_meta.rating != release.rating:
+                set_release_rating(c, release.id, release_meta.rating)
         except Exception as e:
             new_resume_path = c.cache_dir / f"failed-release-edit.{release_id}.toml"
             with new_resume_path.open("w") as fp:
