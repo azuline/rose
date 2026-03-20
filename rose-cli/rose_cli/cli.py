@@ -337,13 +337,19 @@ def run_rule(ctx: Context, release: str, actions: list[str], dry_run: bool, yes:
 @releases.command()
 @click.argument("track_path", type=click.Path(path_type=Path), nargs=1)
 @click.option("--loose-track", "-l", is_flag=True, help="Set the single as a loose track.")
+@click.option("--update-references", "-u", is_flag=True, help="Update playlist references to point to the new track.")
 @click.pass_obj
-def create_single(ctx: Context, track_path: Path, loose_track: bool = False) -> None:
+def create_single(ctx: Context, track_path: Path, loose_track: bool = False, update_references: bool = False) -> None:
     """
     Create a single release for the given track, and copy the track into it. Only accepts a track
     path.
     """
-    create_single_release(ctx.config, track_path, releasetype="loosetrack" if loose_track else "single")
+    create_single_release(
+        ctx.config,
+        track_path,
+        releasetype="loosetrack" if loose_track else "single",
+        update_references=update_references,
+    )
 
 
 @cli.group()
