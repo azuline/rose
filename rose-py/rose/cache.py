@@ -343,7 +343,8 @@ class StoredDataFile:
     def parse(cls, data: dict[str, object]) -> StoredDataFile:
         """Parse a StoredDataFile from a TOML dict. Converts -1 rating to None."""
         raw_rating = data.get("rating", -1)
-        rating = int(raw_rating) if raw_rating is not None and int(raw_rating) != -1 else None  # type: ignore[arg-type]
+        assert isinstance(raw_rating, (int, str, float, type(None)))
+        rating = int(raw_rating) if raw_rating is not None and int(raw_rating) != -1 else None
         return cls(
             new=bool(data.get("new", True)),
             favorite=bool(data.get("favorite", False)),
@@ -748,7 +749,7 @@ def _update_cache_for_releases_executor(
             if f.suffix.lower() not in SUPPORTED_AUDIO_EXTENSIONS:
                 continue
 
-            cached_track = cached_tracks.get(str(f), None)
+            cached_track = cached_tracks.get(str(f))
             with contextlib.suppress(KeyError):
                 unknown_cached_tracks.remove(str(f))
 
