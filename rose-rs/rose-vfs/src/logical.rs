@@ -1364,3 +1364,652 @@ impl RoseLogicalCore {
         }
     }
 }
+
+// ===========================================================================
+// Tests
+// ===========================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use std::path::Path;
+    use tempfile::TempDir;
+
+    use rose_core::cache::{connect, maybe_invalidate_cache_database};
+    use rose_core::config::Config;
+
+    use crate::virtualfs::{ViewType, VirtualPath};
+
+    // -----------------------------------------------------------------------
+    // Test helpers
+    // -----------------------------------------------------------------------
+
+    /// Create a seeded database matching the canonical test fixture.
+    /// Returns (TempDir, Config) — TempDir must be kept alive for the DB.
+    fn seeded_config() -> (TempDir, Config) {
+        let dir = TempDir::new().unwrap();
+        let music_dir = dir.path().join("music");
+        let cache_dir = dir.path().join("cache");
+        std::fs::create_dir_all(&music_dir).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        let cfg_path = dir.path().join("config.toml");
+        let mut f = std::fs::File::create(&cfg_path).unwrap();
+        write!(
+            f,
+            r#"
+            music_source_dir = "{}"
+            cache_dir = "{}"
+            vfs.mount_dir = "{}"
+            "#,
+            music_dir.display(),
+            cache_dir.display(),
+            dir.path().join("vfs").display(),
+        )
+        .unwrap();
+        let config = Config::parse(Some(&cfg_path)).unwrap();
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let dirpaths = [
+            music_dir.join("r1"),
+            music_dir.join("r2"),
+            music_dir.join("r3"),
+            music_dir.join("r4"),
+        ];
+        let musicpaths = [
+            music_dir.join("r1/01.m4a"),
+            music_dir.join("r1/02.m4a"),
+            music_dir.join("r2/01.m4a"),
+            music_dir.join("r3/01.m4a"),
+            music_dir.join("r4/01.m4a"),
+        ];
+        let imagepaths = [
+            music_dir.join("r2/cover.jpg"),
+            music_dir.join("!playlists/Lala Lisa.jpg"),
+        ];
+
+        // Create actual files so that EntryAttrs::stat can stat them.
+        for dp in &dirpaths {
+            std::fs::create_dir_all(dp).unwrap();
+        }
+        for mp in &musicpaths {
+            if let Some(parent) = mp.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+            std::fs::write(mp, b"fake audio data for testing").unwrap();
+        }
+        let playlists_dir = music_dir.join("!playlists");
+        std::fs::create_dir_all(&playlists_dir).unwrap();
+        for ip in &imagepaths {
+            if let Some(parent) = ip.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+            std::fs::write(ip, b"fake image data").unwrap();
+        }
+
+        let conn = connect(&config).unwrap();
+        conn.execute_batch(&format!(
+            r#"
+INSERT INTO releases
+       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype , releasedate , originaldate, compositiondate, catalognumber, edition , disctotal, new  , favorite, metahash)
+VALUES ('r1', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'     , '2023'      , null        , null           , null         , null    , 1        , false, true    , '1')
+     , ('r2', '{}'           , '{}'             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'     , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 1        , true , false   , '2')
+     , ('r3', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'     , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, false   , '3')
+     , ('r4', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 4', 'loosetrack', '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, false   , '4');
+
+INSERT INTO releases_genres
+       (release_id, genre             , position)
+VALUES ('r1'      , 'Techno'          , 1)
+     , ('r1'      , 'Deep House'      , 2)
+     , ('r2'      , 'Modern Classical', 1);
+
+INSERT INTO releases_secondary_genres
+       (release_id, genre             , position)
+VALUES ('r1'      , 'Rominimal'       , 1)
+     , ('r1'      , 'Ambient'         , 2)
+     , ('r2'      , 'Orchestral Music', 1);
+
+INSERT INTO releases_descriptors
+       (release_id, descriptor, position)
+VALUES ('r1'      , 'Warm'    , 1)
+     , ('r1'      , 'Hot'     , 2)
+     , ('r2'      , 'Wet'     , 1);
+
+INSERT INTO releases_labels
+       (release_id, label         , position)
+VALUES ('r1'      , 'Silk Music'  , 1)
+     , ('r2'      , 'Native State', 1);
+
+INSERT INTO tracks
+       (id  , source_path    , source_mtime, title    , release_id, tracknumber, tracktotal, discnumber, duration_seconds, metahash)
+VALUES ('t1', '{}'           , '999'       , 'Track 1', 'r1'      , '01'       , 2         , '01'      , 120             , '1')
+     , ('t2', '{}'           , '999'       , 'Track 2', 'r1'      , '02'       , 2         , '01'      , 240             , '2')
+     , ('t3', '{}'           , '999'       , 'Track 1', 'r2'      , '01'       , 1         , '01'      , 120             , '3')
+     , ('t4', '{}'           , '999'       , 'Track 1', 'r3'      , '01'       , 1         , '01'      , 120             , '4')
+     , ('t5', '{}'           , '999'       , 'Track 1', 'r4'      , '01'       , 1         , '01'      , 120             , '5');
+
+INSERT INTO releases_artists
+       (release_id, artist           , role   , position)
+VALUES ('r1'      , 'Techno Man'     , 'main' , 1)
+     , ('r1'      , 'Bass Man'       , 'main' , 2)
+     , ('r2'      , 'Violin Woman'   , 'main' , 1)
+     , ('r2'      , 'Conductor Woman', 'guest', 2);
+
+INSERT INTO tracks_artists
+       (track_id, artist           , role   , position)
+VALUES ('t1'    , 'Techno Man'     , 'main' , 1)
+     , ('t1'    , 'Bass Man'       , 'main' , 2)
+     , ('t2'    , 'Techno Man'     , 'main' , 1)
+     , ('t2'    , 'Bass Man'       , 'main' , 2)
+     , ('t3'    , 'Violin Woman'   , 'main' , 1)
+     , ('t3'    , 'Conductor Woman', 'guest', 2);
+
+INSERT INTO collages
+       (name       , source_mtime)
+VALUES ('Rose Gold', '999')
+     , ('Ruby Red' , '999');
+
+INSERT INTO collages_releases
+       (collage_name, release_id, position, missing)
+VALUES ('Rose Gold' , 'r1'      , 1       , false)
+     , ('Rose Gold' , 'r2'      , 2       , false);
+
+INSERT INTO playlists
+       (name           , source_mtime, cover_path)
+VALUES ('Lala Lisa'    , '999'       , '{}')
+     , ('Turtle Rabbit', '999'       , null);
+
+INSERT INTO playlists_tracks
+       (playlist_name, track_id, position, missing)
+VALUES ('Lala Lisa'  , 't1'    , 1       , false)
+     , ('Lala Lisa'  , 't3'    , 2       , false);
+            "#,
+            dirpaths[0].display(),
+            dirpaths[1].display(), imagepaths[0].display(),
+            dirpaths[2].display(),
+            dirpaths[3].display(),
+            musicpaths[0].display(),
+            musicpaths[1].display(),
+            musicpaths[2].display(),
+            musicpaths[3].display(),
+            musicpaths[4].display(),
+            imagepaths[1].display(),
+        ))
+        .expect("Failed to seed cache database");
+
+        (dir, config)
+    }
+
+    /// Create a seeded config with custom VFS whitelist/blacklist.
+    fn seeded_config_with_vfs_options(
+        artists_whitelist: Option<Vec<String>>,
+        artists_blacklist: Option<Vec<String>>,
+    ) -> (TempDir, Config) {
+        let dir = TempDir::new().unwrap();
+        let music_dir = dir.path().join("music");
+        let cache_dir = dir.path().join("cache");
+        std::fs::create_dir_all(&music_dir).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        // Build VFS config section.
+        let mut vfs_extra = String::new();
+        if let Some(ref wl) = artists_whitelist {
+            let items: Vec<String> = wl.iter().map(|s| format!("\"{}\"", s)).collect();
+            vfs_extra.push_str(&format!("vfs.artists_whitelist = [{}]\n", items.join(", ")));
+        }
+        if let Some(ref bl) = artists_blacklist {
+            let items: Vec<String> = bl.iter().map(|s| format!("\"{}\"", s)).collect();
+            vfs_extra.push_str(&format!("vfs.artists_blacklist = [{}]\n", items.join(", ")));
+        }
+
+        let cfg_path = dir.path().join("config.toml");
+        let mut f = std::fs::File::create(&cfg_path).unwrap();
+        write!(
+            f,
+            r#"
+            music_source_dir = "{}"
+            cache_dir = "{}"
+            vfs.mount_dir = "{}"
+            {}
+            "#,
+            music_dir.display(),
+            cache_dir.display(),
+            dir.path().join("vfs").display(),
+            vfs_extra,
+        )
+        .unwrap();
+        let config = Config::parse(Some(&cfg_path)).unwrap();
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let dirpaths = [
+            music_dir.join("r1"),
+            music_dir.join("r2"),
+            music_dir.join("r3"),
+        ];
+        let musicpaths = [
+            music_dir.join("r1/01.m4a"),
+            music_dir.join("r1/02.m4a"),
+            music_dir.join("r2/01.m4a"),
+            music_dir.join("r3/01.m4a"),
+        ];
+
+        for dp in &dirpaths {
+            std::fs::create_dir_all(dp).unwrap();
+        }
+        for mp in &musicpaths {
+            if let Some(parent) = mp.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+            std::fs::write(mp, b"fake audio data for testing").unwrap();
+        }
+
+        let conn = connect(&config).unwrap();
+        conn.execute_batch(&format!(
+            r#"
+INSERT INTO releases
+       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype , releasedate , originaldate, compositiondate, catalognumber, edition , disctotal, new  , favorite, metahash)
+VALUES ('r1', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'     , '2023'      , null        , null           , null         , null    , 1        , false, true    , '1')
+     , ('r2', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'     , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 1        , true , false   , '2')
+     , ('r3', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'     , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, false   , '3');
+
+INSERT INTO releases_genres
+       (release_id, genre             , position)
+VALUES ('r1'      , 'Techno'          , 1);
+
+INSERT INTO tracks
+       (id  , source_path    , source_mtime, title    , release_id, tracknumber, tracktotal, discnumber, duration_seconds, metahash)
+VALUES ('t1', '{}'           , '999'       , 'Track 1', 'r1'      , '01'       , 2         , '01'      , 120             , '1')
+     , ('t2', '{}'           , '999'       , 'Track 2', 'r1'      , '02'       , 2         , '01'      , 240             , '2')
+     , ('t3', '{}'           , '999'       , 'Track 1', 'r2'      , '01'       , 1         , '01'      , 120             , '3')
+     , ('t4', '{}'           , '999'       , 'Track 1', 'r3'      , '01'       , 1         , '01'      , 120             , '4');
+
+INSERT INTO releases_artists
+       (release_id, artist           , role   , position)
+VALUES ('r1'      , 'Techno Man'     , 'main' , 1)
+     , ('r1'      , 'Bass Man'       , 'main' , 2)
+     , ('r2'      , 'Violin Woman'   , 'main' , 1)
+     , ('r3'      , 'Conductor Woman', 'main' , 1);
+
+INSERT INTO tracks_artists
+       (track_id, artist           , role   , position)
+VALUES ('t1'    , 'Techno Man'     , 'main' , 1)
+     , ('t1'    , 'Bass Man'       , 'main' , 2)
+     , ('t2'    , 'Techno Man'     , 'main' , 1)
+     , ('t3'    , 'Violin Woman'   , 'main' , 1)
+     , ('t4'    , 'Conductor Woman', 'main' , 1);
+            "#,
+            dirpaths[0].display(),
+            dirpaths[1].display(),
+            dirpaths[2].display(),
+            musicpaths[0].display(),
+            musicpaths[1].display(),
+            musicpaths[2].display(),
+            musicpaths[3].display(),
+        ))
+        .expect("Failed to seed cache database");
+
+        (dir, config)
+    }
+
+    /// Helper: extract only the "real" entry names (excluding "." and "..").
+    fn entry_names(entries: &[(String, EntryAttrs)]) -> Vec<String> {
+        entries
+            .iter()
+            .filter(|(n, _)| n != "." && n != "..")
+            .map(|(n, _)| n.clone())
+            .collect()
+    }
+
+    // -----------------------------------------------------------------------
+    // readdir tests
+    // -----------------------------------------------------------------------
+
+    // 1. readdir on root returns all 12 top-level view directories.
+    #[test]
+    fn test_readdir_root() {
+        let (_dir, config) = seeded_config();
+        let mut core = RoseLogicalCore::new(config);
+
+        let root = VirtualPath::parse(Path::new("/")).unwrap();
+        let entries = core.readdir(&root).unwrap();
+        let names = entry_names(&entries);
+
+        let expected = vec![
+            "1. Releases",
+            "1. Releases - New",
+            "1. Releases - Favorites",
+            "1. Releases - Added On",
+            "1. Releases - Released On",
+            "2. Artists",
+            "3. Genres",
+            "4. Descriptors",
+            "5. Labels",
+            "6. Loose Tracks",
+            "7. Collages",
+            "8. Playlists",
+        ];
+        assert_eq!(names.len(), expected.len(), "root should have 12 view dirs");
+        for e in &expected {
+            assert!(
+                names.contains(&e.to_string()),
+                "root should contain '{}', got {:?}",
+                e,
+                names
+            );
+        }
+    }
+
+    // 2. readdir on /Releases returns release virtual directory names.
+    #[test]
+    fn test_readdir_releases_view() {
+        let (_dir, config) = seeded_config();
+        let mut core = RoseLogicalCore::new(config);
+
+        let vp = VirtualPath::parse(Path::new("/1. Releases")).unwrap();
+        let entries = core.readdir(&vp).unwrap();
+        let names = entry_names(&entries);
+
+        // Should have 3 releases (r1, r2, r3 — not r4 which is loosetrack) + "!All Tracks"
+        assert!(
+            names.contains(&"!All Tracks".to_string()),
+            "should contain !All Tracks"
+        );
+        // Releases view uses list_releases with include_loose_tracks=false for filter,
+        // but actually goes through find_releases_matching_rule or list_releases.
+        // The seeded data has r1, r2, r3 as albums and r4 as loosetrack.
+        // The code calls list_releases(config, None, false) which excludes loose tracks.
+        let release_names: Vec<&String> = names.iter().filter(|n| *n != "!All Tracks").collect();
+        assert_eq!(
+            release_names.len(),
+            3,
+            "should have 3 album releases, got {:?}",
+            release_names
+        );
+    }
+
+    // 3. readdir on /Artists returns artist names.
+    #[test]
+    fn test_readdir_artists_view() {
+        let (_dir, config) = seeded_config();
+        let mut core = RoseLogicalCore::new(config);
+
+        let vp = VirtualPath::parse(Path::new("/2. Artists")).unwrap();
+        let entries = core.readdir(&vp).unwrap();
+        let names = entry_names(&entries);
+
+        // Artists: Techno Man, Bass Man, Violin Woman, Conductor Woman
+        assert!(
+            names.iter().any(|n| n.contains("Techno Man")),
+            "should contain Techno Man, got {:?}",
+            names
+        );
+        assert!(
+            names.iter().any(|n| n.contains("Bass Man")),
+            "should contain Bass Man"
+        );
+        assert!(
+            names.iter().any(|n| n.contains("Violin Woman")),
+            "should contain Violin Woman"
+        );
+        assert!(
+            names.iter().any(|n| n.contains("Conductor Woman")),
+            "should contain Conductor Woman"
+        );
+        assert_eq!(names.len(), 4, "should have 4 artists, got {:?}", names);
+    }
+
+    // 4. readdir on a specific release returns track filenames and .rose.{id}.toml.
+    #[test]
+    fn test_readdir_release_tracks() {
+        let (_dir, config) = seeded_config();
+        let mut core = RoseLogicalCore::new(config);
+
+        // First, readdir on /1. Releases to populate release name cache.
+        let releases_vp = VirtualPath::parse(Path::new("/1. Releases")).unwrap();
+        let release_entries = core.readdir(&releases_vp).unwrap();
+        let release_names = entry_names(&release_entries);
+
+        // Find the release name for r1 (Release 1). The template generates a name
+        // that includes "Release 1" somewhere.
+        let r1_name = release_names
+            .iter()
+            .find(|n| n.contains("Release 1"))
+            .expect("should find Release 1 in readdir");
+
+        // Now readdir on that specific release.
+        let release_path = format!("/1. Releases/{}", r1_name);
+        let vp = VirtualPath::parse(Path::new(&release_path)).unwrap();
+        let entries = core.readdir(&vp).unwrap();
+        let names = entry_names(&entries);
+
+        // r1 has 2 tracks (t1, t2), no cover image, and a .rose.r1.toml datafile.
+        assert!(
+            names.iter().any(|n| n.contains(".rose.r1.toml")),
+            "should contain .rose.r1.toml, got {:?}",
+            names
+        );
+        // 2 tracks + 1 datafile = 3 entries (no cover art for r1)
+        assert_eq!(
+            names.len(),
+            3,
+            "r1 should have 2 tracks + 1 datafile, got {:?}",
+            names
+        );
+    }
+
+    // 5. readdir on /Collages returns collage names.
+    #[test]
+    fn test_readdir_collages_view() {
+        let (_dir, config) = seeded_config();
+        let mut core = RoseLogicalCore::new(config);
+
+        let vp = VirtualPath::parse(Path::new("/7. Collages")).unwrap();
+        let entries = core.readdir(&vp).unwrap();
+        let names = entry_names(&entries);
+
+        assert!(
+            names.contains(&"Rose Gold".to_string()),
+            "should contain Rose Gold"
+        );
+        assert!(
+            names.contains(&"Ruby Red".to_string()),
+            "should contain Ruby Red"
+        );
+        assert_eq!(names.len(), 2, "should have 2 collages");
+    }
+
+    // 6. readdir on /Playlists returns playlist names.
+    #[test]
+    fn test_readdir_playlists_view() {
+        let (_dir, config) = seeded_config();
+        let mut core = RoseLogicalCore::new(config);
+
+        let vp = VirtualPath::parse(Path::new("/8. Playlists")).unwrap();
+        let entries = core.readdir(&vp).unwrap();
+        let names = entry_names(&entries);
+
+        assert!(
+            names.contains(&"Lala Lisa".to_string()),
+            "should contain Lala Lisa"
+        );
+        assert!(
+            names.contains(&"Turtle Rabbit".to_string()),
+            "should contain Turtle Rabbit"
+        );
+        assert_eq!(names.len(), 2, "should have 2 playlists");
+    }
+
+    // -----------------------------------------------------------------------
+    // getattr tests
+    // -----------------------------------------------------------------------
+
+    // 7. getattr on root returns directory attributes.
+    #[test]
+    fn test_getattr_root() {
+        let (_dir, config) = seeded_config();
+        let mut core = RoseLogicalCore::new(config);
+
+        let root = VirtualPath::parse(Path::new("/")).unwrap();
+        let attrs = core.getattr(&root).unwrap();
+
+        // Root should be a directory.
+        assert_ne!(
+            attrs.st_mode & libc::S_IFDIR,
+            0,
+            "root should be a directory"
+        );
+    }
+
+    // 8. getattr on a release directory returns directory attributes.
+    #[test]
+    fn test_getattr_release_dir() {
+        let (_dir, config) = seeded_config();
+        let mut core = RoseLogicalCore::new(config);
+
+        // First populate release cache via readdir.
+        let releases_vp = VirtualPath::parse(Path::new("/1. Releases")).unwrap();
+        let release_entries = core.readdir(&releases_vp).unwrap();
+        let release_names = entry_names(&release_entries);
+
+        let r1_name = release_names
+            .iter()
+            .find(|n| n.contains("Release 1"))
+            .expect("should find Release 1");
+
+        let release_path = format!("/1. Releases/{}", r1_name);
+        let vp = VirtualPath::parse(Path::new(&release_path)).unwrap();
+        let attrs = core.getattr(&vp).unwrap();
+
+        assert_ne!(
+            attrs.st_mode & libc::S_IFDIR,
+            0,
+            "release dir should be a directory"
+        );
+    }
+
+    // 9. getattr on a track file returns file attributes with non-zero size.
+    #[test]
+    fn test_getattr_track_file() {
+        let (_dir, config) = seeded_config();
+        let mut core = RoseLogicalCore::new(config);
+
+        // Populate release + track caches via readdir.
+        let releases_vp = VirtualPath::parse(Path::new("/1. Releases")).unwrap();
+        let release_entries = core.readdir(&releases_vp).unwrap();
+        let release_names = entry_names(&release_entries);
+
+        let r1_name = release_names
+            .iter()
+            .find(|n| n.contains("Release 1"))
+            .expect("should find Release 1");
+
+        let release_path = format!("/1. Releases/{}", r1_name);
+        let release_vp = VirtualPath::parse(Path::new(&release_path)).unwrap();
+        let track_entries = core.readdir(&release_vp).unwrap();
+        let track_names = entry_names(&track_entries);
+
+        // Find a track file (not the .rose.*.toml datafile).
+        let track_name = track_names
+            .iter()
+            .find(|n| !n.starts_with(".rose."))
+            .expect("should find at least one track file");
+
+        let track_path = format!("/1. Releases/{}/{}", r1_name, track_name);
+        let vp = VirtualPath::parse(Path::new(&track_path)).unwrap();
+        let attrs = core.getattr(&vp).unwrap();
+
+        // Should be a file.
+        assert_ne!(
+            attrs.st_mode & libc::S_IFREG,
+            0,
+            "track should be a regular file"
+        );
+        // The actual source file exists (we created it), so st_size should be > 0.
+        assert!(attrs.st_size > 0, "track file should have non-zero size");
+    }
+
+    // 10. getattr on a nonexistent path returns ENOENT.
+    #[test]
+    fn test_getattr_nonexistent() {
+        let (_dir, config) = seeded_config();
+        let mut core = RoseLogicalCore::new(config);
+
+        // A completely unknown view path.
+        let result = VirtualPath::parse(Path::new("/9. Nonexistent"));
+        assert_eq!(result, Err(libc::ENOENT));
+
+        // An artist that doesn't exist.
+        let vp = VirtualPath {
+            view: Some(ViewType::Artists),
+            artist: Some("Nobody At All".to_string()),
+            genre: None,
+            descriptor: None,
+            label: None,
+            collage: None,
+            playlist: None,
+            release: None,
+            file: None,
+        };
+        let result = core.getattr(&vp);
+        assert!(
+            matches!(result, Err(e) if e == libc::ENOENT),
+            "nonexistent artist should return ENOENT, got {:?}",
+            result.err()
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Whitelist / blacklist integration tests
+    // -----------------------------------------------------------------------
+
+    // 11. readdir with artist blacklist: blacklisted artist doesn't appear.
+    #[test]
+    fn test_readdir_with_blacklist() {
+        let (_dir, config) =
+            seeded_config_with_vfs_options(None, Some(vec!["Techno Man".to_string()]));
+        let mut core = RoseLogicalCore::new(config);
+
+        let vp = VirtualPath::parse(Path::new("/2. Artists")).unwrap();
+        let entries = core.readdir(&vp).unwrap();
+        let names = entry_names(&entries);
+
+        assert!(
+            !names.iter().any(|n| n.contains("Techno Man")),
+            "blacklisted artist 'Techno Man' should not appear, got {:?}",
+            names
+        );
+        // Other artists should still be present.
+        assert!(
+            names.iter().any(|n| n.contains("Violin Woman")),
+            "non-blacklisted artist should still appear"
+        );
+    }
+
+    // 12. readdir with artist whitelist: only whitelisted artists appear.
+    #[test]
+    fn test_readdir_with_whitelist() {
+        let (_dir, config) =
+            seeded_config_with_vfs_options(Some(vec!["Violin Woman".to_string()]), None);
+        let mut core = RoseLogicalCore::new(config);
+
+        let vp = VirtualPath::parse(Path::new("/2. Artists")).unwrap();
+        let entries = core.readdir(&vp).unwrap();
+        let names = entry_names(&entries);
+
+        assert_eq!(
+            names.len(),
+            1,
+            "only whitelisted artist should appear, got {:?}",
+            names
+        );
+        assert!(
+            names.iter().any(|n| n.contains("Violin Woman")),
+            "whitelisted artist 'Violin Woman' should appear"
+        );
+        assert!(
+            !names.iter().any(|n| n.contains("Techno Man")),
+            "non-whitelisted artist should not appear"
+        );
+    }
+}
