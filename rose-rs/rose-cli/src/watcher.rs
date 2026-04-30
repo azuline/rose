@@ -603,4 +603,244 @@ mod tests {
         // PID file should be removed.
         assert!(!pid_path.exists(), "PID file should have been removed");
     }
+
+    // -- handle_event integration tests --------------------------------------
+
+    /// Locate the monorepo root from CARGO_MANIFEST_DIR.
+    fn repo_root() -> PathBuf {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        manifest_dir
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    }
+
+    /// Copy the real test audio file into a destination directory.
+    fn copy_audio_file(dest_dir: &Path, filename: &str) -> PathBuf {
+        let src = repo_root().join("testdata/Test Release 1/01.m4a");
+        let dst = dest_dir.join(filename);
+        std::fs::copy(&src, &dst)
+            .unwrap_or_else(|e| panic!("copy {} -> {}: {e}", src.display(), dst.display()));
+        dst
+    }
+
+    /// Create a minimal Config pointing at a temporary directory with a seeded
+    /// cache database (schema + hash table created).
+    fn test_config_with_cache(dir: &tempfile::TempDir) -> Config {
+        let music_dir = dir.path().join("music");
+        let cache_dir = dir.path().join("cache");
+        std::fs::create_dir_all(&music_dir).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        std::fs::create_dir_all(music_dir.join("!collages")).unwrap();
+        std::fs::create_dir_all(music_dir.join("!playlists")).unwrap();
+
+        let cfg_path = dir.path().join("config.toml");
+        let mut f = std::fs::File::create(&cfg_path).unwrap();
+        std::io::Write::write_fmt(
+            &mut f,
+            format_args!(
+                "music_source_dir = {:?}\ncache_dir = {:?}\nrename_source_files = false\n[vfs]\nmount_dir = {:?}\n",
+                music_dir.display().to_string(),
+                cache_dir.display().to_string(),
+                dir.path().join("vfs").display().to_string(),
+            ),
+        )
+        .unwrap();
+        let config = Config::parse(Some(&cfg_path)).unwrap();
+        cache::maybe_invalidate_cache_database(&config).unwrap();
+        config
+    }
+
+    #[test]
+    fn test_handle_collage_created_event() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let config = test_config_with_cache(&dir);
+
+        // Create a collage TOML file on disk.
+        let collage_path = config
+            .music_source_dir
+            .join("!collages")
+            .join("Road Trip.toml");
+        std::fs::write(&collage_path, "releases = []\n").unwrap();
+
+        // No collage in cache yet.
+        let collages = cache::list_collages(&config).unwrap();
+        assert!(!collages.contains(&"Road Trip".to_string()));
+
+        // Dispatch Created event.
+        let event = WatchEvent::Collage {
+            name: "Road Trip".to_string(),
+            event_type: EventType::Created,
+        };
+        handle_event(&config, &event);
+
+        // Collage should now be in cache.
+        let collages = cache::list_collages(&config).unwrap();
+        assert!(
+            collages.contains(&"Road Trip".to_string()),
+            "Expected 'Road Trip' in cache, got: {collages:?}"
+        );
+    }
+
+    #[test]
+    fn test_handle_collage_deleted_event() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let config = test_config_with_cache(&dir);
+
+        // Create a collage TOML, seed it into the cache.
+        let collage_path = config
+            .music_source_dir
+            .join("!collages")
+            .join("Doomed.toml");
+        std::fs::write(&collage_path, "releases = []\n").unwrap();
+        cache::update_cache_for_collages(&config, Some(vec!["Doomed".to_string()]), false).unwrap();
+        assert!(cache::list_collages(&config)
+            .unwrap()
+            .contains(&"Doomed".to_string()));
+
+        // Delete the file on disk.
+        std::fs::remove_file(&collage_path).unwrap();
+
+        // Dispatch Deleted event.
+        let event = WatchEvent::Collage {
+            name: "Doomed".to_string(),
+            event_type: EventType::Deleted,
+        };
+        handle_event(&config, &event);
+
+        // Collage should be evicted.
+        let collages = cache::list_collages(&config).unwrap();
+        assert!(
+            !collages.contains(&"Doomed".to_string()),
+            "Expected 'Doomed' to be evicted, got: {collages:?}"
+        );
+    }
+
+    #[test]
+    fn test_handle_release_created_event() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let config = test_config_with_cache(&dir);
+
+        // Create a release directory with a real audio file.
+        let release_dir = config.music_source_dir.join("NewRelease");
+        std::fs::create_dir_all(&release_dir).unwrap();
+        copy_audio_file(&release_dir, "01.m4a");
+
+        // No releases in cache yet.
+        let releases = cache::list_releases(&config, None, true).unwrap();
+        assert!(releases.is_empty());
+
+        // Dispatch Created event.
+        let event = WatchEvent::Release {
+            dir: release_dir.clone(),
+            event_type: EventType::Created,
+        };
+        handle_event(&config, &event);
+
+        // A release should now be in cache.
+        let releases = cache::list_releases(&config, None, true).unwrap();
+        assert_eq!(releases.len(), 1, "Expected one release in cache");
+    }
+
+    #[test]
+    fn test_handle_release_deleted_event() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let config = test_config_with_cache(&dir);
+
+        // Create and cache a release.
+        let release_dir = config.music_source_dir.join("ToDelete");
+        std::fs::create_dir_all(&release_dir).unwrap();
+        copy_audio_file(&release_dir, "01.m4a");
+        cache::update_cache_for_releases(&config, Some(vec![release_dir.clone()]), false).unwrap();
+        assert_eq!(cache::list_releases(&config, None, true).unwrap().len(), 1);
+
+        // Delete the release directory.
+        std::fs::remove_dir_all(&release_dir).unwrap();
+
+        // Dispatch Deleted event.
+        let event = WatchEvent::Release {
+            dir: release_dir,
+            event_type: EventType::Deleted,
+        };
+        handle_event(&config, &event);
+
+        // Release should be evicted from cache.
+        let releases = cache::list_releases(&config, None, true).unwrap();
+        assert!(
+            releases.is_empty(),
+            "Expected release to be evicted, got {} release(s)",
+            releases.len()
+        );
+    }
+
+    #[test]
+    fn test_handle_playlist_modified_event() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let config = test_config_with_cache(&dir);
+
+        // Create a playlist TOML and seed it into the cache.
+        let playlist_path = config
+            .music_source_dir
+            .join("!playlists")
+            .join("Chill.toml");
+        std::fs::write(&playlist_path, "tracks = []\n").unwrap();
+        cache::update_cache_for_playlists(&config, Some(vec!["Chill".to_string()]), false).unwrap();
+
+        let pl = cache::get_playlist(&config, "Chill").unwrap();
+        assert!(pl.is_some(), "Playlist should be in cache");
+        let old_mtime = pl.unwrap().source_mtime;
+
+        // Modify the file on disk (touch it with new content to bump mtime).
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        std::fs::write(&playlist_path, "# modified\ntracks = []\n").unwrap();
+
+        // Dispatch Modified event.
+        let event = WatchEvent::Playlist {
+            name: "Chill".to_string(),
+            event_type: EventType::Modified,
+        };
+        handle_event(&config, &event);
+
+        // Playlist mtime should have changed.
+        let pl = cache::get_playlist(&config, "Chill").unwrap().unwrap();
+        assert_ne!(
+            pl.source_mtime, old_mtime,
+            "Playlist mtime should have been updated after modification"
+        );
+    }
+
+    #[test]
+    fn test_handle_moved_event() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let config = test_config_with_cache(&dir);
+
+        // Create and cache a release.
+        let old_dir = config.music_source_dir.join("OldName");
+        std::fs::create_dir_all(&old_dir).unwrap();
+        copy_audio_file(&old_dir, "01.m4a");
+        cache::update_cache_for_releases(&config, Some(vec![old_dir.clone()]), false).unwrap();
+        assert_eq!(cache::list_releases(&config, None, true).unwrap().len(), 1);
+
+        // Rename the directory on disk.
+        let new_dir = config.music_source_dir.join("NewName");
+        std::fs::rename(&old_dir, &new_dir).unwrap();
+
+        // Dispatch Moved event with the new directory path.
+        let event = WatchEvent::Release {
+            dir: new_dir.clone(),
+            event_type: EventType::Moved,
+        };
+        handle_event(&config, &event);
+
+        // There should still be exactly one release, at the new path.
+        let releases = cache::list_releases(&config, None, true).unwrap();
+        assert_eq!(releases.len(), 1, "Should have exactly one release");
+        let resolved_new = std::fs::canonicalize(&new_dir).unwrap();
+        assert_eq!(
+            releases[0].source_path, resolved_new,
+            "Release source path should be the new directory"
+        );
+    }
 }
