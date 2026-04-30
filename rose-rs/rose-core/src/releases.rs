@@ -819,15 +819,22 @@ static FAILED_RELEASE_EDIT_FILENAME_REGEX: LazyLock<Regex> =
 // edit_release
 // ---------------------------------------------------------------------------
 
+/// Callback type for programmatic TOML editing (used in tests / headless mode).
+pub type EditorFn<'a> = Option<&'a dyn Fn(&str) -> Result<String, RoseError>>;
+
 /// Interactive metadata editor for a release.
 ///
 /// Opens `$EDITOR` with a TOML file representing the release metadata.
 /// On save, applies per-track per-field dirty checking to minimize disk writes.
 /// On failure, saves the edited TOML to a resume file.
+///
+/// If `editor_fn` is `Some`, the callback is used instead of `$EDITOR`; it
+/// receives the serialized TOML and must return the (possibly modified) TOML.
 pub fn edit_release(
     c: &Config,
     release_id: &str,
     resume_file: Option<&Path>,
+    editor_fn: EditorFn<'_>,
 ) -> Result<(), RoseError> {
     let release = get_release(c, release_id)?.ok_or_else(|| release_not_found(release_id))?;
 
@@ -878,8 +885,12 @@ pub fn edit_release(
         original_metadata.serialize()
     };
 
-    // Open $EDITOR via a temp file
-    let toml = open_editor(&original_toml)?;
+    // Use the callback when provided, otherwise open $EDITOR.
+    let toml = if let Some(f) = editor_fn {
+        f(&original_toml)?
+    } else {
+        open_editor(&original_toml)?
+    };
 
     if original_toml == toml && resume_file.is_none() {
         tracing::info!("Aborting manual release edit: no metadata change detected.");
@@ -1560,5 +1571,859 @@ mod tests {
             }
         }
         Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // edit_release integration tests (editor callback refactor)
+    // -----------------------------------------------------------------------
+
+    use crate::audiotags::AudioTags;
+    use crate::cache::{
+        get_release, get_tracks_of_release, list_releases, maybe_invalidate_cache_database,
+        update_cache_for_releases, STORED_DATA_FILE_REGEX,
+    };
+    use std::io::Write;
+    use std::path::{Path, PathBuf};
+    use tempfile::TempDir;
+
+    /// Locate the repo root (two parents up from CARGO_MANIFEST_DIR).
+    fn repo_root() -> PathBuf {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        manifest_dir
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    }
+
+    /// Copy the test audio file into `dest_dir` with the given filename.
+    fn copy_audio_file(dest_dir: &Path, filename: &str) -> PathBuf {
+        let src = repo_root().join("testdata/Test Release 1/01.m4a");
+        let dst = dest_dir.join(filename);
+        std::fs::copy(&src, &dst)
+            .unwrap_or_else(|e| panic!("copy {} -> {}: {e}", src.display(), dst.display()));
+        dst
+    }
+
+    /// Create a minimal Config with a temp directory, initialise the cache DB,
+    /// seed one release with two tracks, and return the release ID.
+    fn setup_release_env() -> (Config, TempDir, String) {
+        let tmp = TempDir::new().unwrap();
+        let music_dir = tmp.path().join("music");
+        std::fs::create_dir_all(&music_dir).unwrap();
+        let cache_dir = tmp.path().join("cache");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        let vfs_dir = tmp.path().join("vfs");
+        std::fs::create_dir_all(&vfs_dir).unwrap();
+
+        let config_toml = format!(
+            "music_source_dir = \"{}\"\ncache_dir = \"{}\"\nvfs.mount_dir = \"{}\"",
+            music_dir.display(),
+            cache_dir.display(),
+            vfs_dir.display(),
+        );
+        let config_path = tmp.path().join("config.toml");
+        std::fs::write(&config_path, &config_toml).unwrap();
+        let c = Config::parse(Some(&config_path)).unwrap();
+
+        maybe_invalidate_cache_database(&c).unwrap();
+
+        // Seed a release with two tracks.
+        let release_dir = music_dir.join("TestRelease");
+        std::fs::create_dir_all(&release_dir).unwrap();
+        copy_audio_file(&release_dir, "01.m4a");
+        copy_audio_file(&release_dir, "02.m4a");
+
+        update_cache_for_releases(&c, None, false).unwrap();
+
+        let releases = list_releases(&c, None, true).unwrap();
+        assert_eq!(releases.len(), 1);
+        let release_id = releases[0].id.clone();
+
+        (c, tmp, release_id)
+    }
+
+    /// Create a minimal Config backed by a temporary directory.
+    fn test_config(dir: &TempDir) -> Config {
+        let music_dir = dir.path().join("music");
+        let cache_dir = dir.path().join("cache");
+        std::fs::create_dir_all(&music_dir).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        let cfg_path = dir.path().join("config.toml");
+        let mut f = std::fs::File::create(&cfg_path).unwrap();
+        write!(
+            f,
+            r#"
+            music_source_dir = "{}"
+            cache_dir = "{}"
+            vfs.mount_dir = "{}"
+            "#,
+            music_dir.display(),
+            cache_dir.display(),
+            dir.path().join("vfs").display(),
+        )
+        .unwrap();
+        Config::parse(Some(&cfg_path)).unwrap()
+    }
+
+    /// Set up a single-release environment with one audio file.
+    /// Returns `(release_id, release_dir)`.
+    fn setup_single_release(config: &Config) -> (String, PathBuf) {
+        maybe_invalidate_cache_database(config).unwrap();
+
+        let release_dir = config.music_source_dir.join("TestRelease");
+        std::fs::create_dir_all(&release_dir).unwrap();
+        copy_audio_file(&release_dir, "01.m4a");
+
+        update_cache_for_releases(config, None, false).unwrap();
+
+        let releases = list_releases(config, None, true).unwrap();
+        assert_eq!(releases.len(), 1);
+        let release_id = releases[0].id.clone();
+        (release_id, release_dir)
+    }
+
+    /// Read and parse the `.rose.{uuid}.toml` sidecar from a release directory.
+    fn read_sidecar(release_dir: &Path) -> toml::Table {
+        for entry in std::fs::read_dir(release_dir).unwrap() {
+            let entry = entry.unwrap();
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if STORED_DATA_FILE_REGEX.is_match(&name_str) {
+                let content = std::fs::read_to_string(entry.path()).unwrap();
+                return content.parse().unwrap();
+            }
+        }
+        panic!("No .rose.*.toml sidecar found in {}", release_dir.display());
+    }
+
+    // -----------------------------------------------------------------------
+    // CRUD integration tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_delete_release() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        let (release_id, release_dir) = setup_single_release(&config);
+
+        // Pre-condition: release exists on disk and in DB.
+        assert!(release_dir.exists());
+        assert!(get_release(&config, &release_id).unwrap().is_some());
+
+        // Delete the release (moves to trash).
+        delete_release(&config, &release_id).unwrap();
+
+        // Directory should be gone.
+        assert!(!release_dir.exists());
+        // DB should no longer contain the release.
+        assert!(get_release(&config, &release_id).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_toggle_release_new() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        let (release_id, release_dir) = setup_single_release(&config);
+
+        // Default new=true.
+        let r = get_release(&config, &release_id).unwrap().unwrap();
+        assert!(r.new);
+        let sidecar = read_sidecar(&release_dir);
+        assert_eq!(sidecar["new"].as_bool().unwrap(), true);
+
+        // Toggle → false.
+        toggle_release_new(&config, &release_id).unwrap();
+        let r = get_release(&config, &release_id).unwrap().unwrap();
+        assert!(!r.new);
+        let sidecar = read_sidecar(&release_dir);
+        assert_eq!(sidecar["new"].as_bool().unwrap(), false);
+
+        // Toggle → true again.
+        toggle_release_new(&config, &release_id).unwrap();
+        let r = get_release(&config, &release_id).unwrap().unwrap();
+        assert!(r.new);
+        let sidecar = read_sidecar(&release_dir);
+        assert_eq!(sidecar["new"].as_bool().unwrap(), true);
+    }
+
+    #[test]
+    fn test_toggle_release_favorite() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        let (release_id, release_dir) = setup_single_release(&config);
+
+        // Default favorite=false.
+        let r = get_release(&config, &release_id).unwrap().unwrap();
+        assert!(!r.favorite);
+        let sidecar = read_sidecar(&release_dir);
+        assert_eq!(sidecar["favorite"].as_bool().unwrap(), false);
+
+        // Toggle → true.
+        toggle_release_favorite(&config, &release_id).unwrap();
+        let r = get_release(&config, &release_id).unwrap().unwrap();
+        assert!(r.favorite);
+        let sidecar = read_sidecar(&release_dir);
+        assert_eq!(sidecar["favorite"].as_bool().unwrap(), true);
+
+        // Toggle → false.
+        toggle_release_favorite(&config, &release_id).unwrap();
+        let r = get_release(&config, &release_id).unwrap().unwrap();
+        assert!(!r.favorite);
+        let sidecar = read_sidecar(&release_dir);
+        assert_eq!(sidecar["favorite"].as_bool().unwrap(), false);
+    }
+
+    #[test]
+    fn test_set_release_rating() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        let (release_id, release_dir) = setup_single_release(&config);
+
+        // Default rating is None.
+        let r = get_release(&config, &release_id).unwrap().unwrap();
+        assert_eq!(r.rating, None);
+
+        // Set to 85.
+        set_release_rating(&config, &release_id, Some(85)).unwrap();
+        let r = get_release(&config, &release_id).unwrap().unwrap();
+        assert_eq!(r.rating, Some(85));
+        let sidecar = read_sidecar(&release_dir);
+        assert_eq!(sidecar["rating"].as_integer().unwrap(), 85);
+
+        // Clear (set to None).
+        set_release_rating(&config, &release_id, None).unwrap();
+        let r = get_release(&config, &release_id).unwrap().unwrap();
+        assert_eq!(r.rating, None);
+        // Sidecar uses -1 as the None sentinel after cache normalisation.
+        let sidecar = read_sidecar(&release_dir);
+        assert_eq!(sidecar["rating"].as_integer().unwrap(), -1);
+    }
+
+    #[test]
+    fn test_set_release_cover_art() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        let (release_id, release_dir) = setup_single_release(&config);
+
+        // Place an existing cover art file and refresh the cache.
+        let old_cover = release_dir.join("cover.jpg");
+        std::fs::write(&old_cover, b"old-cover-bytes").unwrap();
+        update_cache_for_releases(&config, Some(vec![release_dir.clone()]), false).unwrap();
+        let r = get_release(&config, &release_id).unwrap().unwrap();
+        assert!(r.cover_image_path.is_some());
+
+        // Prepare a new image file.
+        let new_cover = dir.path().join("new_cover.png");
+        std::fs::write(&new_cover, b"new-cover-bytes").unwrap();
+
+        // Replace cover art.
+        set_release_cover_art(&config, &release_id, &new_cover).unwrap();
+
+        // Old cover should be gone.
+        assert!(!old_cover.exists());
+        // New cover should exist as cover.png.
+        let dest_cover = release_dir.join("cover.png");
+        assert!(dest_cover.exists());
+        assert_eq!(std::fs::read(&dest_cover).unwrap(), b"new-cover-bytes");
+
+        // DB should reference the new cover.
+        let r = get_release(&config, &release_id).unwrap().unwrap();
+        let db_cover = r.cover_image_path.unwrap();
+        assert!(
+            db_cover.to_string_lossy().contains("cover.png"),
+            "expected cover.png in path, got: {}",
+            db_cover.display()
+        );
+    }
+
+    #[test]
+    fn test_delete_release_cover_art() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        let (release_id, release_dir) = setup_single_release(&config);
+
+        // Place a cover art file and refresh the cache.
+        let cover = release_dir.join("cover.jpg");
+        std::fs::write(&cover, b"cover-bytes").unwrap();
+        update_cache_for_releases(&config, Some(vec![release_dir.clone()]), false).unwrap();
+        let r = get_release(&config, &release_id).unwrap().unwrap();
+        assert!(r.cover_image_path.is_some());
+
+        // Delete cover art.
+        delete_release_cover_art(&config, &release_id).unwrap();
+
+        // File should be gone.
+        assert!(!cover.exists());
+        // DB should have NULL cover_image_path.
+        let r = get_release(&config, &release_id).unwrap().unwrap();
+        assert!(r.cover_image_path.is_none());
+    }
+
+    #[test]
+    fn test_set_release_rating_invalid() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        let (release_id, _) = setup_single_release(&config);
+
+        // 0 is below the valid range (1–100).
+        assert!(set_release_rating(&config, &release_id, Some(0)).is_err());
+        // 101 is above the valid range.
+        assert!(set_release_rating(&config, &release_id, Some(101)).is_err());
+    }
+
+    // -----------------------------------------------------------------------
+    // edit_release integration tests (editor callback refactor)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_edit_release_full() {
+        let (c, _tmp, release_id) = setup_release_env();
+
+        // Edit callback: modify many fields via TOML manipulation.
+        let editor_fn = |toml_str: &str| -> Result<String, RoseError> {
+            let mut meta = MetadataRelease::from_toml(toml_str)?;
+
+            meta.title = "Edited Title".to_string();
+            meta.releasetype = "ep".to_string();
+            meta.releasedate = RoseDate::parse(Some("2025"));
+            meta.originaldate = RoseDate::parse(Some("2000"));
+            meta.edition = Some("Deluxe".to_string());
+            meta.catalognumber = Some("CAT-999".to_string());
+            meta.labels = vec!["New Label".to_string()];
+            meta.genres = vec!["Jazz".to_string(), "Funk".to_string()];
+            meta.secondary_genres = vec!["Soul".to_string()];
+            meta.descriptors = vec!["Groovy".to_string(), "Smooth".to_string()];
+            meta.artists = vec![
+                MetadataArtist {
+                    name: "New Main".to_string(),
+                    role: "main".to_string(),
+                },
+                MetadataArtist {
+                    name: "New Guest".to_string(),
+                    role: "guest".to_string(),
+                },
+            ];
+
+            // Edit the first track we find.
+            if let Some((_tid, track)) = meta.tracks.iter_mut().next() {
+                track.title = "Edited Track Title".to_string();
+                track.artists = vec![MetadataArtist {
+                    name: "Track Artist X".to_string(),
+                    role: "main".to_string(),
+                }];
+            }
+
+            Ok(meta.serialize())
+        };
+
+        edit_release(&c, &release_id, None, Some(&editor_fn)).unwrap();
+
+        // Reload from cache and assert release-level fields.
+        let release = get_release(&c, &release_id).unwrap().unwrap();
+        assert_eq!(release.releasetitle, "Edited Title");
+        assert_eq!(release.releasetype, "ep");
+        assert_eq!(release.releasedate.as_ref().unwrap().year, 2025);
+        assert_eq!(release.originaldate.as_ref().unwrap().year, 2000);
+        assert_eq!(release.edition, Some("Deluxe".to_string()));
+        assert_eq!(release.catalognumber, Some("CAT-999".to_string()));
+        assert_eq!(release.labels, vec!["New Label"]);
+        assert_eq!(release.genres, vec!["Jazz", "Funk"]);
+        assert_eq!(release.secondary_genres, vec!["Soul"]);
+        assert_eq!(release.descriptors, vec!["Groovy", "Smooth"]);
+        assert_eq!(release.releaseartists.main.len(), 1);
+        assert_eq!(release.releaseartists.main[0].name, "New Main");
+        assert_eq!(release.releaseartists.guest.len(), 1);
+        assert_eq!(release.releaseartists.guest[0].name, "New Guest");
+
+        // Check that at least one track has the edited title & artists.
+        let tracks = get_tracks_of_release(&c, &release).unwrap();
+        let edited_track = tracks.iter().find(|t| t.tracktitle == "Edited Track Title");
+        assert!(
+            edited_track.is_some(),
+            "expected a track with the edited title"
+        );
+        let et = edited_track.unwrap();
+        assert_eq!(et.trackartists.main.len(), 1);
+        assert_eq!(et.trackartists.main[0].name, "Track Artist X");
+
+        // Verify the audio file tags on disk match.
+        let tags = AudioTags::from_file(&et.source_path).unwrap();
+        assert_eq!(tags.releasetitle.as_deref(), Some("Edited Title"));
+        assert_eq!(tags.releasetype, "ep");
+        assert_eq!(tags.tracktitle.as_deref(), Some("Edited Track Title"));
+        assert_eq!(tags.genre, vec!["Jazz", "Funk"]);
+        assert_eq!(tags.secondarygenre, vec!["Soul"]);
+        assert_eq!(tags.descriptor, vec!["Groovy", "Smooth"]);
+        assert_eq!(tags.label, vec!["New Label"]);
+        assert_eq!(tags.edition, Some("Deluxe".to_string()));
+        assert_eq!(tags.catalognumber, Some("CAT-999".to_string()));
+    }
+
+    #[test]
+    fn test_edit_release_no_changes() {
+        let (c, _tmp, release_id) = setup_release_env();
+
+        // Read the original tags from the first track to compare later.
+        let release = get_release(&c, &release_id).unwrap().unwrap();
+        let tracks = get_tracks_of_release(&c, &release).unwrap();
+        let original_tags = AudioTags::from_file(&tracks[0].source_path).unwrap();
+        let original_mtime = std::fs::metadata(&tracks[0].source_path)
+            .unwrap()
+            .modified()
+            .unwrap();
+
+        // Sleep briefly so any write would produce a different mtime.
+        std::thread::sleep(std::time::Duration::from_millis(50));
+
+        // Editor callback returns TOML unchanged (identity).
+        let editor_fn = |toml_str: &str| -> Result<String, RoseError> { Ok(toml_str.to_string()) };
+
+        edit_release(&c, &release_id, None, Some(&editor_fn)).unwrap();
+
+        // Verify the file was NOT re-written (mtime unchanged).
+        let after_mtime = std::fs::metadata(&tracks[0].source_path)
+            .unwrap()
+            .modified()
+            .unwrap();
+        assert_eq!(
+            original_mtime, after_mtime,
+            "file should not have been flushed"
+        );
+
+        // Tags should be identical.
+        let after_tags = AudioTags::from_file(&tracks[0].source_path).unwrap();
+        assert_eq!(original_tags.releasetitle, after_tags.releasetitle);
+        assert_eq!(original_tags.tracktitle, after_tags.tracktitle);
+    }
+
+    #[test]
+    fn test_edit_release_failure_and_resume() {
+        let (c, _tmp, release_id) = setup_release_env();
+
+        // 1. Provide invalid TOML: an artist with an unknown role.
+        let bad_editor = |toml_str: &str| -> Result<String, RoseError> {
+            let mut meta = MetadataRelease::from_toml(toml_str)?;
+            meta.artists = vec![MetadataArtist {
+                name: "Bad".to_string(),
+                role: "bogus_role".to_string(),
+            }];
+            Ok(meta.serialize())
+        };
+
+        let result = edit_release(&c, &release_id, None, Some(&bad_editor));
+        assert!(result.is_err(), "should fail with unknown artist role");
+
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("failed-release-edit"),
+            "error should mention resume file"
+        );
+
+        // 2. Verify the resume file was written.
+        let resume_path = c
+            .cache_dir
+            .join(format!("failed-release-edit.{release_id}.toml"));
+        assert!(
+            resume_path.exists(),
+            "resume file should exist at {}",
+            resume_path.display()
+        );
+
+        // 3. Re-invoke with resume file and a fixing callback.
+        let fix_editor = |toml_str: &str| -> Result<String, RoseError> {
+            let mut meta = MetadataRelease::from_toml(toml_str)?;
+            // Fix the bad role to a valid one.
+            for a in &mut meta.artists {
+                if a.role == "bogus_role" {
+                    a.role = "main".to_string();
+                }
+            }
+            meta.title = "Fixed Title".to_string();
+            Ok(meta.serialize())
+        };
+
+        edit_release(&c, &release_id, Some(&resume_path), Some(&fix_editor)).unwrap();
+
+        // 4. Resume file should be deleted on success.
+        assert!(
+            !resume_path.exists(),
+            "resume file should be deleted after successful edit"
+        );
+
+        // 5. Verify the fix was applied.
+        let release = get_release(&c, &release_id).unwrap().unwrap();
+        assert_eq!(release.releasetitle, "Fixed Title");
+        assert_eq!(release.releaseartists.main.len(), 1);
+        assert_eq!(release.releaseartists.main[0].name, "Bad");
+    }
+
+    // -----------------------------------------------------------------------
+    // Integration tests: create_single_release (T-6.3)
+    // -----------------------------------------------------------------------
+
+    /// Copy a specific file from testdata into dest_dir.
+    fn copy_testdata_file(relative: &str, dest_dir: &Path, filename: &str) -> PathBuf {
+        let src = repo_root().join(relative);
+        let dst = dest_dir.join(filename);
+        std::fs::copy(&src, &dst)
+            .unwrap_or_else(|e| panic!("copy {} -> {}: {e}", src.display(), dst.display()));
+        dst
+    }
+
+    /// Create a minimal Config backed by a temporary directory.
+    fn test_config_for_integration(dir: &TempDir) -> Config {
+        let music_dir = dir.path().join("music");
+        let cache_dir = dir.path().join("cache");
+        std::fs::create_dir_all(&music_dir).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        let cfg_path = dir.path().join("config.toml");
+        std::fs::write(
+            &cfg_path,
+            format!(
+                "music_source_dir = \"{}\"\ncache_dir = \"{}\"\nvfs.mount_dir = \"{}\"",
+                music_dir.display(),
+                cache_dir.display(),
+                dir.path().join("vfs").display(),
+            ),
+        )
+        .unwrap();
+        Config::parse(Some(&cfg_path)).unwrap()
+    }
+
+    #[test]
+    fn test_create_single_release() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config_for_integration(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        // Seed a multi-track release with cover art.
+        let release_dir = config.music_source_dir.join("OriginalRelease");
+        std::fs::create_dir_all(&release_dir).unwrap();
+        copy_testdata_file("testdata/Test Release 1/01.m4a", &release_dir, "01.m4a");
+        copy_testdata_file("testdata/Test Release 1/02.m4a", &release_dir, "02.m4a");
+        let cover_path = release_dir.join("cover.jpg");
+        std::fs::write(&cover_path, b"fake-cover-data").unwrap();
+
+        // Populate the cache.
+        update_cache_for_releases(&config, None, false).unwrap();
+        let releases_before = list_releases(&config, None, true).unwrap();
+        assert_eq!(
+            releases_before.len(),
+            1,
+            "should have 1 release before extraction"
+        );
+
+        // Extract track 02.m4a as a single.
+        let track_path = release_dir.join("02.m4a");
+        create_single_release(&config, &track_path, "single").unwrap();
+
+        // Original release is untouched.
+        assert!(
+            release_dir.join("01.m4a").is_file(),
+            "original 01.m4a still exists"
+        );
+        assert!(
+            release_dir.join("02.m4a").is_file(),
+            "original 02.m4a still exists"
+        );
+        assert!(cover_path.is_file(), "original cover.jpg still exists");
+
+        // New single directory created (trackartists=BLACKPINK, year=1990, title=Track 2).
+        let single_dir = config.music_source_dir.join("BLACKPINK - 1990. Track 2");
+        assert!(
+            single_dir.is_dir(),
+            "single dir should exist: {}",
+            single_dir.display()
+        );
+
+        // Track file copied as 01. {title}.{ext}.
+        let single_track = single_dir.join("01. Track 2.m4a");
+        assert!(single_track.is_file(), "single track should exist");
+
+        // Cover art copied.
+        assert!(
+            single_dir.join("cover.jpg").is_file(),
+            "cover art should be copied"
+        );
+
+        // Audio tags verified.
+        let af = AudioTags::from_file(&single_track).unwrap();
+        assert_eq!(af.tracknumber.as_deref(), Some("1"));
+        assert_eq!(af.discnumber.as_deref(), Some("1"));
+        assert_eq!(af.releasetype, "single");
+        assert_eq!(af.releasetitle.as_deref(), Some("Track 2"));
+        assert_eq!(af.releaseartists, af.trackartists);
+        // Rose IDs are cleared and then new IDs assigned during cache update.
+        // The original track's IDs should not appear in the new single.
+        let orig_af = AudioTags::from_file(&track_path).unwrap();
+        assert_ne!(
+            af.release_id, orig_af.release_id,
+            "new single should have a different release_id than original"
+        );
+
+        // Cache has 2 releases now.
+        let releases_after = list_releases(&config, None, true).unwrap();
+        assert_eq!(
+            releases_after.len(),
+            2,
+            "should have 2 releases after extraction"
+        );
+    }
+
+    #[test]
+    fn test_create_single_release_trailing_space() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config_for_integration(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let release_dir = config.music_source_dir.join("OriginalRelease");
+        std::fs::create_dir_all(&release_dir).unwrap();
+        let track_path =
+            copy_testdata_file("testdata/Test Release 1/02.m4a", &release_dir, "02.m4a");
+
+        // Set trailing whitespace on title.
+        let mut af = AudioTags::from_file(&track_path).unwrap();
+        af.tracktitle = Some("Trailing Space ".to_string());
+        af.flush(config.write_parent_genres).unwrap();
+
+        update_cache_for_releases(&config, None, false).unwrap();
+        create_single_release(&config, &track_path, "single").unwrap();
+
+        // Directory and filename should have trailing space stripped.
+        let single_dir = config
+            .music_source_dir
+            .join("BLACKPINK - 1990. Trailing Space");
+        assert!(
+            single_dir.is_dir(),
+            "trailing space should be stripped from dir name"
+        );
+        assert!(
+            single_dir.join("01. Trailing Space.m4a").is_file(),
+            "trailing space should be stripped from filename"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Integration tests: find_releases_matching_rule (T-6.3)
+    // -----------------------------------------------------------------------
+
+    /// Seed a database with two releases and known metadata for rule matching.
+    fn seeded_config_for_rules() -> (TempDir, Config) {
+        use crate::cache::connect;
+
+        let dir = TempDir::new().unwrap();
+        let config = test_config_for_integration(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let music_dir = &config.music_source_dir;
+
+        let r1_dir = music_dir.join("Release1Dir");
+        std::fs::create_dir_all(&r1_dir).unwrap();
+        copy_audio_file(&r1_dir, "01.m4a");
+
+        let r2_dir = music_dir.join("Release2Dir");
+        std::fs::create_dir_all(&r2_dir).unwrap();
+        copy_audio_file(&r2_dir, "01.m4a");
+
+        update_cache_for_releases(&config, None, false).unwrap();
+
+        let conn = connect(&config).unwrap();
+
+        // Deterministic release IDs by source_path order.
+        let mut stmt = conn
+            .prepare("SELECT id FROM releases ORDER BY source_path")
+            .unwrap();
+        let release_ids: Vec<String> = stmt
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(release_ids.len(), 2);
+        let r1_id = &release_ids[0];
+        let r2_id = &release_ids[1];
+
+        conn.execute(
+            "UPDATE releases SET title = 'Release 1' WHERE id = ?1",
+            [r1_id],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE releases SET title = 'Release 2' WHERE id = ?1",
+            [r2_id],
+        )
+        .unwrap();
+
+        conn.execute_batch(
+            "DELETE FROM releases_artists; DELETE FROM tracks_artists; \
+             DELETE FROM releases_genres; DELETE FROM releases_secondary_genres; \
+             DELETE FROM releases_descriptors; DELETE FROM releases_labels;",
+        )
+        .unwrap();
+
+        // Artists
+        conn.execute(
+            "INSERT INTO releases_artists (release_id, artist, role, position) VALUES (?1, 'Techno Man', 'main', 1)",
+            [r1_id],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO releases_artists (release_id, artist, role, position) VALUES (?1, 'Bass Man', 'main', 2)",
+            [r1_id],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO releases_artists (release_id, artist, role, position) VALUES (?1, 'Violin Woman', 'main', 1)",
+            [r2_id],
+        ).unwrap();
+
+        // Track artists
+        let t1_ids: Vec<String> = conn
+            .prepare("SELECT id FROM tracks WHERE release_id = ?1")
+            .unwrap()
+            .query_map([r1_id], |row| row.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        let t2_ids: Vec<String> = conn
+            .prepare("SELECT id FROM tracks WHERE release_id = ?1")
+            .unwrap()
+            .query_map([r2_id], |row| row.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+
+        for tid in &t1_ids {
+            conn.execute(
+                "INSERT INTO tracks_artists (track_id, artist, role, position) VALUES (?1, 'Techno Man', 'main', 1)",
+                [tid],
+            ).unwrap();
+        }
+        for tid in &t2_ids {
+            conn.execute(
+                "INSERT INTO tracks_artists (track_id, artist, role, position) VALUES (?1, 'Violin Woman', 'main', 1)",
+                [tid],
+            ).unwrap();
+        }
+
+        // Genres
+        conn.execute(
+            "INSERT INTO releases_genres (release_id, genre, position) VALUES (?1, 'Techno', 1)",
+            [r1_id],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO releases_genres (release_id, genre, position) VALUES (?1, 'Deep House', 2)", [r1_id],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO releases_genres (release_id, genre, position) VALUES (?1, 'Modern Classical', 1)", [r2_id],
+        ).unwrap();
+
+        // Descriptors
+        conn.execute(
+            "INSERT INTO releases_descriptors (release_id, descriptor, position) VALUES (?1, 'Warm', 1)", [r1_id],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO releases_descriptors (release_id, descriptor, position) VALUES (?1, 'Wet', 1)", [r2_id],
+        ).unwrap();
+
+        // Labels
+        conn.execute(
+            "INSERT INTO releases_labels (release_id, label, position) VALUES (?1, 'Silk Music', 1)", [r1_id],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO releases_labels (release_id, label, position) VALUES (?1, 'Native State', 1)", [r2_id],
+        ).unwrap();
+
+        // Re-sync FTS index.
+        let all_track_ids: Vec<String> = conn
+            .prepare("SELECT id FROM tracks")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        crate::cache::sync_fts_index(&conn, &all_track_ids, &[r1_id.clone(), r2_id.clone()])
+            .unwrap();
+
+        (dir, config)
+    }
+
+    #[test]
+    fn test_find_releases_matching_rule() {
+        let (_dir, config) = seeded_config_for_rules();
+
+        // 1. releasetitle:Release 2 (FTS fallback)
+        let m = Matcher::parse("releasetitle:Release 2").unwrap();
+        let r = find_releases_matching_rule(&config, &m, true).unwrap();
+        assert_eq!(r.len(), 1, "releasetitle:Release 2 should match 1");
+        assert_eq!(r[0].releasetitle, "Release 2");
+
+        // 2. artist:^Techno Man$ (strict, optimized)
+        let m = Matcher::parse("artist:^Techno Man$").unwrap();
+        let r = find_releases_matching_rule(&config, &m, true).unwrap();
+        assert_eq!(r.len(), 1, "artist:^Techno Man$ should match 1");
+        assert_eq!(r[0].releasetitle, "Release 1");
+
+        // 3. genre:^Deep House$ (strict, optimized)
+        let m = Matcher::parse("genre:^Deep House$").unwrap();
+        let r = find_releases_matching_rule(&config, &m, true).unwrap();
+        assert_eq!(r.len(), 1, "genre:^Deep House$ should match 1");
+        assert_eq!(r[0].releasetitle, "Release 1");
+
+        // 4. label:^Native State$ (strict, optimized)
+        let m = Matcher::parse("label:^Native State$").unwrap();
+        let r = find_releases_matching_rule(&config, &m, true).unwrap();
+        assert_eq!(r.len(), 1, "label:^Native State$ should match 1");
+        assert_eq!(r[0].releasetitle, "Release 2");
+
+        // 5. descriptor:^Wet$ (strict, optimized)
+        let m = Matcher::parse("descriptor:^Wet$").unwrap();
+        let r = find_releases_matching_rule(&config, &m, true).unwrap();
+        assert_eq!(r.len(), 1, "descriptor:^Wet$ should match 1");
+        assert_eq!(r[0].releasetitle, "Release 2");
+    }
+
+    // -----------------------------------------------------------------------
+    // Integration tests: run_actions_on_release (T-6.3)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_run_actions_on_release() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config_for_integration(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let release_dir = config.music_source_dir.join("TestRelease2");
+        std::fs::create_dir_all(&release_dir).unwrap();
+        copy_testdata_file("testdata/Test Release 2/01.m4a", &release_dir, "01.m4a");
+        copy_testdata_file("testdata/Test Release 2/02.m4a", &release_dir, "02.m4a");
+
+        update_cache_for_releases(&config, None, false).unwrap();
+
+        let releases = list_releases(&config, None, true).unwrap();
+        assert_eq!(releases.len(), 1);
+        let release_id = &releases[0].id;
+
+        // Parse action: tracktitle/replace:Bop
+        let action = Action::parse("tracktitle/replace:Bop", None, None).unwrap();
+
+        // Run with confirm_yes=true to skip interactive prompt.
+        run_actions_on_release(&config, release_id, &[action], false, true).unwrap();
+
+        // Verify both tracks had their title replaced.
+        let af1 = AudioTags::from_file(&release_dir.join("01.m4a")).unwrap();
+        assert_eq!(
+            af1.tracktitle.as_deref(),
+            Some("Bop"),
+            "track 1 title should be Bop"
+        );
+        let af2 = AudioTags::from_file(&release_dir.join("02.m4a")).unwrap();
+        assert_eq!(
+            af2.tracktitle.as_deref(),
+            Some("Bop"),
+            "track 2 title should be Bop"
+        );
     }
 }
