@@ -1516,4 +1516,376 @@ mod tests {
             .to_string()
             .contains("Failed to parse stored_metadata_rules"));
     }
+
+    // -----------------------------------------------------------------------
+    // T-3.1: Type validation error tests for all config fields
+    // -----------------------------------------------------------------------
+
+    // 1. artist_aliases must be a list, not a string
+    #[test]
+    fn test_invalid_artist_aliases_type() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            vfs.mount_dir = "/"
+            artist_aliases = "not a list"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("artist_aliases"),
+            "Error should mention artist_aliases: {}",
+            err
+        );
+    }
+
+    // 2. artist_aliases entries must be dicts, not strings
+    #[test]
+    fn test_invalid_artist_aliases_entry() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            vfs.mount_dir = "/"
+            artist_aliases = ["not a dict"]
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("artist_aliases"),
+            "Error should mention artist_aliases: {}",
+            err
+        );
+    }
+
+    // 3. cover_art_stems must be a list, not a string
+    #[test]
+    fn test_invalid_cover_art_stems_type() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            vfs.mount_dir = "/"
+            cover_art_stems = "not a list"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("cover_art_stems"),
+            "Error should mention cover_art_stems: {}",
+            err
+        );
+    }
+
+    // 4. valid_art_exts must be a list, not a string
+    #[test]
+    fn test_invalid_valid_art_exts_type() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            vfs.mount_dir = "/"
+            valid_art_exts = "not a list"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("valid_art_exts"),
+            "Error should mention valid_art_exts: {}",
+            err
+        );
+    }
+
+    // 5. write_parent_genres must be a bool, not a string
+    #[test]
+    fn test_invalid_write_parent_genres_type() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            vfs.mount_dir = "/"
+            write_parent_genres = "not a bool"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("write_parent_genres"),
+            "Error should mention write_parent_genres: {}",
+            err
+        );
+    }
+
+    // 6. max_filename_bytes must be an int, not a string
+    #[test]
+    fn test_invalid_max_filename_bytes_type() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            vfs.mount_dir = "/"
+            max_filename_bytes = "not an int"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("max_filename_bytes"),
+            "Error should mention max_filename_bytes: {}",
+            err
+        );
+    }
+
+    // 7. rename_source_files must be a bool, not a string
+    #[test]
+    fn test_invalid_rename_source_files_type() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            vfs.mount_dir = "/"
+            rename_source_files = "not a bool"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("rename_source_files"),
+            "Error should mention rename_source_files: {}",
+            err
+        );
+    }
+
+    // 8. ignore_release_directories must be a list, not a string
+    #[test]
+    fn test_invalid_ignore_release_directories_type() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            vfs.mount_dir = "/"
+            ignore_release_directories = "not a list"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("ignore_release_directories"),
+            "Error should mention ignore_release_directories: {}",
+            err
+        );
+    }
+
+    // 9. stored_metadata_rules must be a list, not a string
+    #[test]
+    fn test_stored_rules_not_a_list() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            vfs.mount_dir = "/"
+            stored_metadata_rules = "not a list"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("stored_metadata_rules"),
+            "Error should mention stored_metadata_rules: {}",
+            err
+        );
+    }
+
+    // 10. stored_metadata_rules entries must have a matcher key
+    #[test]
+    fn test_stored_rules_missing_matcher() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            vfs.mount_dir = "/"
+            [[stored_metadata_rules]]
+            actions = ["delete"]
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("matcher"),
+            "Error should mention matcher: {}",
+            err
+        );
+    }
+
+    // 11. stored_metadata_rules entries must have an actions key
+    #[test]
+    fn test_stored_rules_missing_actions() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            vfs.mount_dir = "/"
+            [[stored_metadata_rules]]
+            matcher = "tracktitle:hi"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("actions"),
+            "Error should mention actions: {}",
+            err
+        );
+    }
+
+    // 12. stored_metadata_rules actions must be a list, not a string
+    #[test]
+    fn test_stored_rules_actions_not_a_list() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            vfs.mount_dir = "/"
+            [[stored_metadata_rules]]
+            matcher = "tracktitle:hi"
+            actions = "delete"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("actions"),
+            "Error should mention actions: {}",
+            err
+        );
+    }
+
+    // 13. vfs.artists_whitelist must be a list, not a string
+    #[test]
+    fn test_invalid_vfs_whitelist_type() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            [vfs]
+            mount_dir = "/"
+            artists_whitelist = "not a list"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("artists_whitelist"),
+            "Error should mention artists_whitelist: {}",
+            err
+        );
+    }
+
+    // 14. vfs.artists_whitelist elements must be strings, not ints
+    #[test]
+    fn test_invalid_vfs_whitelist_element() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            [vfs]
+            mount_dir = "/"
+            artists_whitelist = [123]
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("artist"),
+            "Error should mention artist: {}",
+            err
+        );
+    }
+
+    // 15. vfs.genres_blacklist must be a list, not a string
+    #[test]
+    fn test_invalid_vfs_blacklist_type() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            [vfs]
+            mount_dir = "/"
+            genres_blacklist = "not a list"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string().contains("genres_blacklist"),
+            "Error should mention genres_blacklist: {}",
+            err
+        );
+    }
+
+    // 16. vfs.hide_descriptors_with_only_new_releases must be a bool
+    #[test]
+    fn test_invalid_vfs_hide_descriptors_type() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            [vfs]
+            mount_dir = "/"
+            hide_descriptors_with_only_new_releases = "not a bool"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string()
+                .contains("hide_descriptors_with_only_new_releases"),
+            "Error should mention hide_descriptors_with_only_new_releases: {}",
+            err
+        );
+    }
+
+    // 17. vfs.hide_labels_with_only_new_releases must be a bool
+    #[test]
+    fn test_invalid_vfs_hide_labels_type() {
+        let dir = TempDir::new().unwrap();
+        let path = write_config(
+            &dir,
+            r#"
+            music_source_dir = "/"
+            [vfs]
+            mount_dir = "/"
+            hide_labels_with_only_new_releases = "not a bool"
+            "#,
+        );
+        let err = Config::parse(Some(&path)).unwrap_err();
+        assert!(matches!(err, RoseError::InvalidConfigValue(_)));
+        assert!(
+            err.to_string()
+                .contains("hide_labels_with_only_new_releases"),
+            "Error should mention hide_labels_with_only_new_releases: {}",
+            err
+        );
+    }
 }

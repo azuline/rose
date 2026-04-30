@@ -1482,6 +1482,176 @@ mod tests {
         assert_eq!(result, "A et al.");
     }
 
+    // Test titlecase behavior for unknown release types.
+    // Rust's titlecase only capitalizes the first character, so "some_unknown_type"
+    // becomes "Some_unknown_type". Python's titlecase would produce "Some_Unknown_Type".
+    // This is an intentional divergence: Rust uses simple first-char capitalization.
+    #[test]
+    fn test_titlecase_unknown_releasetype() {
+        assert_eq!(
+            filter_releasetypefmt("some_unknown_type"),
+            "Some_unknown_type"
+        );
+        // Single word unknown type
+        assert_eq!(filter_releasetypefmt("bootleg"), "Bootleg");
+        // Empty string
+        assert_eq!(filter_releasetypefmt(""), "");
+    }
+
+    // Test artistsfmt with djmixer role produces "DJ pres. Main" format.
+    #[test]
+    fn test_artistsfmt_with_djmixer() {
+        let mut release = empty_release();
+        release.releasetitle = "Mix Album".into();
+        release.releasetype = "djmix".into();
+        release.releasedate = Some(RoseDate {
+            year: 2020,
+            month: None,
+            day: None,
+        });
+        release.releaseartists = ArtistMapping {
+            main: vec![Artist::new("Various Artists")],
+            djmixer: vec![Artist::new("Tiësto")],
+            ..Default::default()
+        };
+
+        let config = PathTemplateConfig::with_defaults();
+        let result = evaluate_release_template(&config.source.release, &release, None, None);
+        assert!(
+            result.contains("Tiësto pres. Various Artists"),
+            "Expected djmixer 'pres.' format, got: {result}"
+        );
+
+        // Also test via a direct custom template
+        let tmpl = PathTemplate::new("{{ releaseartists | artistsfmt }}");
+        let ctx = calc_release_variables(&release, None);
+        let rendered = tmpl.render(&ctx).unwrap();
+        assert_eq!(rendered, "Tiësto pres. Various Artists");
+    }
+
+    // Test that favorite=true renders [FAVORITE] in the default release template.
+    #[test]
+    fn test_favorite_flag_in_template() {
+        let mut release = empty_release();
+        release.releasetitle = "Best Of".into();
+        release.releasetype = "album".into();
+        release.releasedate = Some(RoseDate {
+            year: 2021,
+            month: None,
+            day: None,
+        });
+        release.favorite = true;
+        release.releaseartists = ArtistMapping {
+            main: vec![Artist::new("TestArtist")],
+            ..Default::default()
+        };
+
+        let config = PathTemplateConfig::with_defaults();
+        let result = evaluate_release_template(&config.source.release, &release, None, None);
+        assert!(
+            result.contains("[FAVORITE]"),
+            "Expected [FAVORITE] in output, got: {result}"
+        );
+        assert_eq!(result, "TestArtist - 2021. Best Of [FAVORITE]");
+
+        // When favorite=false, [FAVORITE] should not appear
+        release.favorite = false;
+        let result = evaluate_release_template(&config.source.release, &release, None, None);
+        assert!(
+            !result.contains("[FAVORITE]"),
+            "Expected no [FAVORITE] when favorite=false, got: {result}"
+        );
+    }
+
+    // Test all_tracks template evaluation includes both release and track info.
+    #[test]
+    fn test_all_tracks_template() {
+        let mut track = empty_track();
+        track.tracktitle = "My Song".into();
+        track.tracknumber = "3".into();
+        track.source_path = PathBuf::from("song.flac");
+        track.release.releasetitle = "My Album".into();
+        track.release.releasetype = "album".into();
+        track.release.releasedate = Some(RoseDate {
+            year: 2022,
+            month: None,
+            day: None,
+        });
+        track.trackartists = ArtistMapping {
+            main: vec![Artist::new("TrackArtist")],
+            ..Default::default()
+        };
+        track.release.releaseartists = ArtistMapping {
+            main: vec![Artist::new("ReleaseArtist")],
+            ..Default::default()
+        };
+
+        let config = PathTemplateConfig::with_defaults();
+        let result = evaluate_track_template(&config.source.all_tracks, &track, None, None);
+        // Default all_tracks template:
+        // "{{ trackartists | artistsfmt }} - {{ releasedate.year }}. {{ releasetitle }} - {{ tracktitle }}"
+        assert_eq!(result, "TrackArtist - 2022. My Album - My Song.flac");
+    }
+
+    // Test artistsarrayfmt filters out artists with alias=true.
+    #[test]
+    fn test_artistsarrayfmt_filters_aliases() {
+        let artists = ArtistMapping {
+            main: vec![
+                Artist::new("RealArtist"),
+                Artist {
+                    name: "AliasArtist".into(),
+                    alias: true,
+                },
+                Artist::new("AnotherReal"),
+            ],
+            ..Default::default()
+        };
+        let val = artist_mapping_to_value(&artists);
+        let tmpl = PathTemplate::new("{{ artists.main | artistsarrayfmt }}");
+        let ctx = Value::from(std::collections::BTreeMap::from([(
+            "artists".to_string(),
+            val,
+        )]));
+        let result = tmpl.render(&ctx).unwrap();
+        // AliasArtist should be excluded; only RealArtist & AnotherReal remain
+        assert_eq!(result, "RealArtist & AnotherReal");
+    }
+
+    // Test artistsfmt with >3 main artists triggers "et al." truncation.
+    #[test]
+    fn test_artistsfmt_et_al_main_artists() {
+        let mut release = empty_release();
+        release.releasetitle = "Collab".into();
+        release.releaseartists = ArtistMapping {
+            main: vec![
+                Artist::new("Alpha"),
+                Artist::new("Beta"),
+                Artist::new("Gamma"),
+                Artist::new("Delta"),
+            ],
+            ..Default::default()
+        };
+
+        let tmpl = PathTemplate::new("{{ releaseartists | artistsfmt }}");
+        let ctx = calc_release_variables(&release, None);
+        let rendered = tmpl.render(&ctx).unwrap();
+        assert_eq!(rendered, "Alpha et al.");
+
+        // With exactly 3 artists, no truncation
+        release.releaseartists = ArtistMapping {
+            main: vec![
+                Artist::new("Alpha"),
+                Artist::new("Beta"),
+                Artist::new("Gamma"),
+            ],
+            ..Default::default()
+        };
+        let ctx = calc_release_variables(&release, None);
+        let rendered = tmpl.render(&ctx).unwrap();
+        assert_eq!(rendered, "Alpha, Beta & Gamma");
+    }
+
     // Test released_on default template with or coalescing
     #[test]
     fn releases_released_on_template() {

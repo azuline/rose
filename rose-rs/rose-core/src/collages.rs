@@ -299,6 +299,20 @@ pub fn remove_release_from_collage(
 /// a `[uuid]` discriminator is appended so the user can distinguish them,
 /// matching the playlist editor behavior.
 pub fn edit_collage_in_editor(c: &Config, collage_name: &str) -> Result<(), RoseError> {
+    edit_collage_with_fn(c, collage_name, |text| {
+        open_editor_for_collage(text).ok().flatten()
+    })
+}
+
+/// Like [`edit_collage_in_editor`], but accepts an arbitrary editor callback.
+///
+/// `editor_fn` receives the current text (one release description per line) and
+/// returns `Some(edited_text)` to apply changes, or `None` to abort.
+pub fn edit_collage_with_fn(
+    c: &Config,
+    collage_name: &str,
+    editor_fn: impl FnOnce(&str) -> Option<String>,
+) -> Result<(), RoseError> {
     let path = collage_path(c, collage_name);
     if !path.exists() {
         return Err(RoseError::CollageDoesNotExist(format!(
@@ -361,7 +375,7 @@ pub fn edit_collage_in_editor(c: &Config, collage_name: &str) -> Result<(), Rose
     }
 
     let editor_text = lines_to_edit.join("\n");
-    let edited = open_editor_for_collage(&editor_text)?;
+    let edited = editor_fn(&editor_text);
 
     if edited.is_none() {
         tracing::info!("Aborting: metadata file not submitted.");
@@ -1041,6 +1055,129 @@ description_meta = "Same Name"
         match result.unwrap_err() {
             RoseError::CollageDoesNotExist(_) => {}
             other => panic!("Expected CollageDoesNotExist, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_edit_collage_reorder_via_editor() {
+        let (c, _tmp) = setup_test_env();
+        let filepath = c.music_source_dir.join("!collages").join("Rose Gold.toml");
+
+        // Call the editor function with a closure that reverses the lines.
+        edit_collage_with_fn(&c, "Rose Gold", |text| {
+            let reversed: Vec<&str> = text.lines().rev().collect();
+            Some(reversed.join("\n"))
+        })
+        .unwrap();
+
+        // Assert the TOML file has releases in reversed order.
+        let content = std::fs::read_to_string(&filepath).unwrap();
+        let data: toml::Value = content.parse().unwrap();
+        let releases = data["releases"].as_array().unwrap();
+        assert_eq!(releases.len(), 2);
+        assert_eq!(releases[0]["uuid"].as_str().unwrap(), "ilovenewjeans");
+        assert_eq!(releases[1]["uuid"].as_str().unwrap(), "ilovecarly");
+
+        // Assert cache reflects the new order.
+        let conn = connect(&c).unwrap();
+        let mut stmt = conn
+            .prepare(
+                "SELECT release_id FROM collages_releases \
+                 WHERE collage_name = 'Rose Gold' ORDER BY position",
+            )
+            .unwrap();
+        let ids: Vec<String> = stmt
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(ids, vec!["ilovenewjeans", "ilovecarly"]);
+    }
+
+    #[test]
+    fn test_edit_collage_remove_via_editor() {
+        let (c, _tmp) = setup_test_env();
+        let filepath = c.music_source_dir.join("!collages").join("Rose Gold.toml");
+
+        // Call the editor function with a closure that returns only the first line.
+        edit_collage_with_fn(&c, "Rose Gold", |text| {
+            Some(text.lines().next().unwrap_or("").to_string())
+        })
+        .unwrap();
+
+        // Assert only 1 release remains in the TOML.
+        let content = std::fs::read_to_string(&filepath).unwrap();
+        let data: toml::Value = content.parse().unwrap();
+        let releases = data["releases"].as_array().unwrap();
+        assert_eq!(releases.len(), 1);
+        assert_eq!(releases[0]["uuid"].as_str().unwrap(), "ilovecarly");
+
+        // Assert cache also has only 1 release.
+        let conn = connect(&c).unwrap();
+        let mut stmt = conn
+            .prepare(
+                "SELECT release_id FROM collages_releases \
+                 WHERE collage_name = 'Rose Gold'",
+            )
+            .unwrap();
+        let ids: Vec<String> = stmt
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(ids, vec!["ilovecarly"]);
+    }
+
+    #[test]
+    fn test_edit_collage_abort() {
+        let (c, _tmp) = setup_test_env();
+        let filepath = c.music_source_dir.join("!collages").join("Rose Gold.toml");
+
+        // Snapshot the file before editing.
+        let before = std::fs::read_to_string(&filepath).unwrap();
+
+        // Call the editor function with a closure that returns None (abort).
+        edit_collage_with_fn(&c, "Rose Gold", |_text| None).unwrap();
+
+        // Assert the collage is unchanged.
+        let after = std::fs::read_to_string(&filepath).unwrap();
+        assert_eq!(before, after);
+
+        // Assert cache is also unchanged (still 2 releases).
+        let conn = connect(&c).unwrap();
+        let mut stmt = conn
+            .prepare(
+                "SELECT release_id FROM collages_releases \
+                 WHERE collage_name = 'Rose Gold' ORDER BY position",
+            )
+            .unwrap();
+        let ids: Vec<String> = stmt
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(ids.len(), 2);
+    }
+
+    #[test]
+    fn test_edit_collage_description_mismatch() {
+        let (c, _tmp) = setup_test_env();
+
+        // Call the editor function with a closure that returns an unrecognized line.
+        let result = edit_collage_with_fn(&c, "Rose Gold", |_text| {
+            Some("THIS DOES NOT EXIST".to_string())
+        });
+
+        // Assert a DescriptionMismatch error is returned.
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            RoseError::DescriptionMismatch(msg) => {
+                assert!(
+                    msg.contains("THIS DOES NOT EXIST"),
+                    "Error message should contain the bad line: {msg}"
+                );
+            }
+            other => panic!("Expected DescriptionMismatch, got: {other:?}"),
         }
     }
 }
