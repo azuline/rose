@@ -44,8 +44,8 @@ This has some nice consequences:
 
 At its core, Rosé is a library that manages its state and exposes functions for managing music.
 Alongside the library are two frontends: a CLI and a Virtual Filesystem. These two frontends are
-organized to be consume the library but not be part of it. This is visible in Rosé's package
-structure: `rose`, `rose_cli`, and `rose_vfs`.
+organized to consume the library but not be part of it. This is visible in Rosé's crate structure:
+`rose-core`, `rose-cli`, and `rose-vfs`.
 
 Theoretically, other frontends can be built on top of the `rose` library in the future, such as a
 `mpd` daemon or a `subsonic` API.
@@ -73,7 +73,7 @@ freely modified. The only constraint is that each release must be a directory in
 
 # Virtual Filesystem
 
-We use the `llfuse` library for the virtual filesystem. `llfuse` is a fairly low-level library for
+The virtual filesystem uses the `fuser` crate (Rust). `fuser` is a fairly low-level library for
 FUSE, which leaves us to work with system-level concepts such as inodes.
 
 Though these concepts have much to do with filesystems, they have little to do with Rosé. Thus, we
@@ -136,9 +136,9 @@ individual characters.
 
 However, FTS is not designed to care about ordering, so a search query like `Rose` would match the
 substring `esoR`. This "feature" of FTS leads to false positives. So we introduce an additional
-fully-accurate Python filtering step on the results of the FTS query. The Python filtering isn't
-performant enough to run on all results, but it is sufficiently efficient to run on the subset of
-tracks returned from the FTS query.
+fully-accurate filtering step on the results of the FTS query. The filtering isn't performant enough
+to run on all results, but it is sufficiently efficient to run on the subset of tracks returned from
+the FTS query.
 
 In the very brief testing period, the FTS implementation was around a hundred times faster than the
 naive `LIKE` query. Queries that took multiple seconds with `LIKE` completed in tens of milliseconds
@@ -178,6 +178,19 @@ logging handler, which will print debug logs from other processes on failure.
 
 # Language Choice
 
-Python was chosen to make this a quick project, but it's ultimately too unperformant for a virtual
-filesystem. Bad choice. Thus we were forced to implement a handful of optimizations to keep
-performance reasonable. I do not have the time to port this to a more performant language.
+Rosé was originally written in Python, but Python proved too slow for a virtual filesystem. The
+project has been ported to Rust. The Rust implementation lives in `rose-rs/` as a Cargo workspace
+with the following crates:
+
+- **`rose-core`** — Core library: config, cache (SQLite via `rusqlite`), metadata (`lofty`),
+  templates (`minijinja`), rules engine, release/track/collage/playlist management.
+- **`rose-cli`** — CLI binary (`rose`) built with `clap`.
+- **`rose-vfs`** — FUSE virtual filesystem binary (`rose-vfs`) built with `fuser`.
+- **`rose-py`** — PyO3 extension module exposing the core library to Python for scripting.
+
+The Rust port preserves the same architecture and data flow described above. The key library changes:
+- Audio tags: `mutagen` (Python) -> `lofty` (Rust)
+- FUSE: `llfuse` (Python) -> `fuser` (Rust)
+- Templates: Jinja2 (Python) -> minijinja (Rust)
+- CLI: `click` (Python) -> `clap` (Rust)
+- Database: SQLite via `apsw` (Python) -> `rusqlite` with bundled SQLite (Rust)

@@ -1,0 +1,199 @@
+[
+  {
+    "catalognumber": "DN-420",
+    "compositiondate": "1984",
+    "descriptor": [
+      "Lush",
+      "Warm"
+    ],
+    "discnumber": "1",
+    "disctotal": 1,
+    "duration_sec": 2,
+    "edition": "Japan",
+    "genre": [
+      "Electronic",
+      "House"
+    ],
+    "id": null,
+    "label": [
+      "A Cool Label"
+    ],
+    "originaldate": "1990",
+    "path": "testdata/Tagger/track2.m4a",
+    "raw_custom_tags": {
+      "----:com.apple.iTunes:CATALOGNUMBER": [
+        {
+          "base64": "RE4tNDIw",
+          "decoded": "DN-420"
+        }
+      ],
+      "----:com.apple.iTunes:CONDUCTOR": [
+        {
+          "base64": "QXJ0aXN0IEdIO0FydGlzdCBISQ==",
+          "decoded": "Artist GH;Artist HI"
+        }
+      ],
+      "----:com.apple.iTunes:DJMIXER": [
+        {
+          "base64": "QXJ0aXN0IElKO0FydGlzdCBKSw==",
+          "decoded": "Artist IJ;Artist JK"
+        }
+      ],
+      "----:com.apple.iTunes:LABEL": [
+        {
+          "base64": "QSBDb29sIExhYmVs",
+          "decoded": "A Cool Label"
+        }
+      ],
+      "----:com.apple.iTunes:PRODUCER": [
+        {
+          "base64": "QXJ0aXN0IENEO0FydGlzdCBERQ==",
+          "decoded": "Artist CD;Artist DE"
+        }
+      ],
+      "----:com.apple.iTunes:RELEASETYPE": [
+        {
+          "base64": "QWxidW0=",
+          "decoded": "Album"
+        }
+      ],
+      "----:com.apple.iTunes:REMIXER": [
+        {
+          "base64": "QXJ0aXN0IEFCO0FydGlzdCBCQw==",
+          "decoded": "Artist AB;Artist BC"
+        }
+      ],
+      "----:net.sunsetglow.rose:COMPOSITIONDATE": [
+        {
+          "base64": "MTk4NA==",
+          "decoded": "1984"
+        }
+      ],
+      "----:net.sunsetglow.rose:DESCRIPTOR": [
+        {
+          "base64": "THVzaDtXYXJt",
+          "decoded": "Lush;Warm"
+        }
+      ],
+      "----:net.sunsetglow.rose:EDITION": [
+        {
+          "base64": "SmFwYW4=",
+          "decoded": "Japan"
+        }
+      ],
+      "----:net.sunsetglow.rose:ORIGINALDATE": [
+        {
+          "base64": "MTk5MA==",
+          "decoded": "1990"
+        }
+      ],
+      "----:net.sunsetglow.rose:SECONDARYGENRE": [
+        {
+          "base64": "TWluaW1hbDtBbWJpZW50",
+          "decoded": "Minimal;Ambient"
+        }
+      ]
+    },
+    "release_id": null,
+    "releaseartists": {
+      "composer": [],
+      "conductor": [],
+      "djmixer": [],
+      "guest": [],
+      "main": [
+        {
+          "alias": false,
+          "name": "Artist A"
+        },
+        {
+          "alias": false,
+          "name": "Artist B"
+        }
+      ],
+      "producer": [],
+      "remixer": []
+    },
+    "releasedate": "1990-02-05",
+    "releasetitle": "A Cool Album",
+    "releasetype": "album",
+    "secondarygenre": [
+      "Minimal",
+      "Ambient"
+    ],
+    "trackartists": {
+      "composer": [
+        {
+          "alias": false,
+          "name": "Artist EF"
+        },
+        {
+          "alias": false,
+          "name": "Artist FG"
+        }
+      ],
+      "conductor": [
+        {
+          "alias": false,
+          "name": "Artist GH"
+        },
+        {
+          "alias": false,
+          "name": "Artist HI"
+        }
+      ],
+      "djmixer": [
+        {
+          "alias": false,
+          "name": "Artist IJ"
+        },
+        {
+          "alias": false,
+          "name": "Artist JK"
+        }
+      ],
+      "guest": [
+        {
+          "alias": false,
+          "name": "Artist C"
+        },
+        {
+          "alias": false,
+          "name": "Artist D"
+        }
+      ],
+      "main": [
+        {
+          "alias": false,
+          "name": "Artist A"
+        },
+        {
+          "alias": false,
+          "name": "Artist B"
+        }
+      ],
+      "producer": [
+        {
+          "alias": false,
+          "name": "Artist CD"
+        },
+        {
+          "alias": false,
+          "name": "Artist DE"
+        }
+      ],
+      "remixer": [
+        {
+          "alias": false,
+          "name": "Artist AB"
+        },
+        {
+          "alias": false,
+          "name": "Artist BC"
+        }
+      ]
+    },
+    "tracknumber": "2",
+    "tracktitle": "Track 2",
+    "tracktotal": 5
+  }
+]
