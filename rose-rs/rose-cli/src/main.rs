@@ -881,7 +881,7 @@ fn main() -> Result<()> {
                 }
                 ReleasesCommands::Edit { release, resume } => {
                     let id = parse_release_argument(&release)?;
-                    releases::edit_release(&config, &id, resume.as_deref())?;
+                    releases::edit_release(&config, &id, resume.as_deref(), None)?;
                 }
                 ReleasesCommands::ToggleNew { release } => {
                     let id = parse_release_argument(&release)?;
@@ -1034,7 +1034,7 @@ fn main() -> Result<()> {
                     rose_core::playlists::remove_track_from_playlist(&config, &playlist, &id)?;
                 }
                 PlaylistsCommands::Edit { playlist } => {
-                    rose_core::playlists::edit_playlist_in_editor(&config, &playlist)?;
+                    rose_core::playlists::edit_playlist_in_editor(&config, &playlist, None)?;
                 }
                 PlaylistsCommands::Print { playlist } => {
                     println!("{}", dump::dump_playlist(&config, &playlist)?);
@@ -1189,4 +1189,121 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use tempfile::TempDir;
+
+    /// Return the repository root (two levels above CARGO_MANIFEST_DIR for rose-cli).
+    fn repo_root() -> PathBuf {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        // CARGO_MANIFEST_DIR = rose-rs/rose-cli → parent = rose-rs → parent = rose
+        manifest_dir
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    }
+
+    // =======================================================================
+    // UUID validation
+    // =======================================================================
+
+    #[test]
+    fn test_valid_uuid_accepts_valid() {
+        assert!(valid_uuid("550e8400-e29b-41d4-a716-446655440000"));
+    }
+
+    #[test]
+    fn test_valid_uuid_rejects_short() {
+        assert!(!valid_uuid("550e8400"));
+    }
+
+    #[test]
+    fn test_valid_uuid_rejects_no_dashes() {
+        assert!(!valid_uuid("550e8400e29b41d4a716446655440000"));
+    }
+
+    #[test]
+    fn test_valid_uuid_rejects_garbage() {
+        assert!(!valid_uuid("not-a-uuid-at-all"));
+    }
+
+    // =======================================================================
+    // Release argument parsing
+    // =======================================================================
+
+    #[test]
+    fn test_parse_release_uuid_passthrough() {
+        let uuid = "550e8400-e29b-41d4-a716-446655440000";
+        let result = parse_release_argument(uuid).unwrap();
+        assert_eq!(result, uuid);
+    }
+
+    #[test]
+    fn test_parse_release_from_source_path() {
+        let tmp = TempDir::new().unwrap();
+        let uuid = "550e8400-e29b-41d4-a716-446655440000";
+        let sidecar = tmp.path().join(format!(".rose.{uuid}.toml"));
+        std::fs::write(&sidecar, "").unwrap();
+
+        let result = parse_release_argument(tmp.path().to_str().unwrap()).unwrap();
+        assert_eq!(result, uuid);
+    }
+
+    #[test]
+    fn test_parse_release_nonexistent_path() {
+        let result = parse_release_argument("/tmp/nonexistent_rose_test_dir_999");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_release_no_sidecar() {
+        let tmp = TempDir::new().unwrap();
+        // Directory exists but has no .rose.*.toml file.
+        let result = parse_release_argument(tmp.path().to_str().unwrap());
+        assert!(result.is_err());
+    }
+
+    // =======================================================================
+    // Track argument parsing
+    // =======================================================================
+
+    #[test]
+    fn test_parse_track_uuid_passthrough() {
+        let uuid = "550e8400-e29b-41d4-a716-446655440000";
+        let result = parse_track_argument(uuid).unwrap();
+        assert_eq!(result, uuid);
+    }
+
+    #[test]
+    fn test_parse_track_from_file_path() {
+        let tmp = TempDir::new().unwrap();
+        let src = repo_root().join("testdata/Tagger/track1.flac");
+        let dst = tmp.path().join("track1.flac");
+        std::fs::copy(&src, &dst).unwrap();
+
+        // Read tags, set the Rose ID, and flush back to disk.
+        let track_uuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+        let mut tags = AudioTags::from_file(&dst).unwrap();
+        tags.id = Some(track_uuid.to_string());
+        tags.flush(false).unwrap();
+
+        let result = parse_track_argument(dst.to_str().unwrap()).unwrap();
+        assert_eq!(result, track_uuid);
+    }
+
+    #[test]
+    fn test_parse_track_nonexistent_path() {
+        let result = parse_track_argument("/tmp/nonexistent_rose_test_track_999.flac");
+        assert!(result.is_err());
+    }
 }
