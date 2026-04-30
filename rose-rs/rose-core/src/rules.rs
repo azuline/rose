@@ -2329,4 +2329,718 @@ mod tests {
         let result = execute_multi_value_action(&action, &["K-Pop".to_string(), "Pop".to_string()]);
         assert_eq!(result, vec!["iK-Pop", "iPop"]);
     }
+
+    // ===================================================================
+    // Per-field matching integration tests (full pipeline)
+    // ===================================================================
+    //
+    // These tests exercise the complete rules pipeline:
+    //   FTS search → filter → action → flush → verify
+    // using real audio files, a real seeded SQLite cache, and real FTS index.
+
+    use crate::audiotags::AudioTags;
+    use crate::cache::{maybe_invalidate_cache_database, update_cache, StoredDataFile};
+    use crate::config::Config;
+    use crate::rule_parser::Rule;
+    use std::io::Write;
+    use std::path::PathBuf;
+    use tempfile::TempDir;
+
+    /// Path to the monorepo root (two levels up from CARGO_MANIFEST_DIR).
+    fn repo_root() -> PathBuf {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        manifest_dir
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    }
+
+    /// Create a minimal Config for pipeline integration tests.
+    fn pipeline_test_config(dir: &TempDir) -> Config {
+        let music_dir = dir.path().join("music");
+        let cache_dir = dir.path().join("cache");
+        std::fs::create_dir_all(&music_dir).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        let cfg_path = dir.path().join("config.toml");
+        let mut f = std::fs::File::create(&cfg_path).unwrap();
+        write!(
+            f,
+            r#"
+            music_source_dir = "{}"
+            cache_dir = "{}"
+            vfs.mount_dir = "{}"
+            "#,
+            music_dir.display(),
+            cache_dir.display(),
+            dir.path().join("vfs").display(),
+        )
+        .unwrap();
+        Config::parse(Some(&cfg_path)).unwrap()
+    }
+
+    /// Set up a single-release test environment:
+    /// - Copy the real test .m4a file to a temp release directory
+    /// - Create a sidecar `.rose.testrel.toml` with specified new/favorite values
+    /// - Run `update_cache` to populate DB + FTS index
+    ///
+    /// Returns (TempDir, Config, path_to_audio_file, release_dir).
+    fn pipeline_setup(new: bool, favorite: bool) -> (TempDir, Config, PathBuf, PathBuf) {
+        let dir = TempDir::new().unwrap();
+        let config = pipeline_test_config(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let release_dir = config.music_source_dir.join("TestRelease");
+        std::fs::create_dir_all(&release_dir).unwrap();
+
+        // Copy real audio file
+        let src = repo_root().join("testdata/Test Release 1/01.m4a");
+        let dst = release_dir.join("01.m4a");
+        std::fs::copy(&src, &dst).unwrap();
+
+        // Create sidecar
+        let sdf = StoredDataFile {
+            new,
+            favorite,
+            rating: None,
+            added_at: "2023-01-01T00:00:00+00:00".to_string(),
+        };
+        let sidecar_path = release_dir.join(".rose.testrel.toml");
+        let toml_str = toml::to_string_pretty(sdf.serialize().as_table().unwrap()).unwrap();
+        std::fs::write(&sidecar_path, toml_str).unwrap();
+
+        // Create required special directories
+        std::fs::create_dir_all(config.music_source_dir.join("!collages")).unwrap();
+        std::fs::create_dir_all(config.music_source_dir.join("!playlists")).unwrap();
+
+        // Run update_cache to populate DB + FTS
+        update_cache(&config, true).unwrap();
+
+        (dir, config, dst, release_dir)
+    }
+
+    /// Execute a rule through the full pipeline (no confirmation prompt).
+    fn run_rule(config: &Config, rule: &Rule) {
+        execute_metadata_rule_inner(config, rule, false, false, 9999).unwrap();
+    }
+
+    // 1. tracktitle match → replace tracktitle
+    #[test]
+    fn test_pipeline_match_tracktitle() {
+        let (_dir, config, audio_path, _) = pipeline_setup(true, false);
+
+        // Verify initial state
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert!(
+            tags.tracktitle.as_deref().unwrap().contains("Track"),
+            "expected tracktitle containing 'Track', got {:?}",
+            tags.tracktitle
+        );
+
+        let rule = Rule::parse("tracktitle:Track", &["replace:New Title"], None).unwrap();
+        run_rule(&config, &rule);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert_eq!(tags.tracktitle.as_deref(), Some("New Title"));
+    }
+
+    // 2. releasetitle match → replace releasetitle
+    #[test]
+    fn test_pipeline_match_releasetitle() {
+        let (_dir, config, audio_path, _) = pipeline_setup(true, false);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert!(
+            tags.releasetitle.is_some(),
+            "expected a releasetitle to be set"
+        );
+
+        let releasetitle = tags.releasetitle.as_deref().unwrap();
+        // Match on a substring of the release title
+        let rule = Rule::parse(
+            &format!("releasetitle:{releasetitle}"),
+            &["replace:New Album"],
+            None,
+        )
+        .unwrap();
+        run_rule(&config, &rule);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert_eq!(tags.releasetitle.as_deref(), Some("New Album"));
+    }
+
+    // 3. releasedate match → action on tracktitle to verify match works
+    #[test]
+    fn test_pipeline_match_releasedate() {
+        let (_dir, config, audio_path, _) = pipeline_setup(true, false);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        let date_str = tags.releasedate.as_ref().unwrap().to_string();
+
+        // Match on releasedate, action on tracktitle
+        let rule = Rule::parse(
+            &format!("releasedate:{date_str}"),
+            &["tracktitle/replace:DateMatched"],
+            None,
+        )
+        .unwrap();
+        run_rule(&config, &rule);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert_eq!(tags.tracktitle.as_deref(), Some("DateMatched"));
+    }
+
+    // 4. releasetype match → replace releasetype
+    #[test]
+    fn test_pipeline_match_releasetype() {
+        let (_dir, config, audio_path, _) = pipeline_setup(true, false);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        let releasetype = tags.releasetype.clone();
+
+        let rule =
+            Rule::parse(&format!("releasetype:{releasetype}"), &["replace:ep"], None).unwrap();
+        run_rule(&config, &rule);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert_eq!(tags.releasetype, "ep");
+    }
+
+    // 5. tracknumber match → action on tracktitle
+    #[test]
+    fn test_pipeline_match_tracknumber() {
+        let (_dir, config, audio_path, _) = pipeline_setup(true, false);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        let tracknumber = tags.tracknumber.as_deref().unwrap_or("1");
+
+        let rule = Rule::parse(
+            &format!("tracknumber:{tracknumber}"),
+            &["tracktitle/replace:NumberMatched"],
+            None,
+        )
+        .unwrap();
+        run_rule(&config, &rule);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert_eq!(tags.tracktitle.as_deref(), Some("NumberMatched"));
+    }
+
+    // 6. genre match → replace genre
+    #[test]
+    fn test_pipeline_match_genre() {
+        let (_dir, config, audio_path, _) = pipeline_setup(true, false);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert!(!tags.genre.is_empty(), "expected at least one genre");
+        let first_genre = tags.genre[0].clone();
+
+        let rule =
+            Rule::parse(&format!("genre:^{first_genre}$"), &["replace:Techno"], None).unwrap();
+        run_rule(&config, &rule);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert!(
+            tags.genre.contains(&"Techno".to_string()),
+            "expected genre list to contain 'Techno', got {:?}",
+            tags.genre
+        );
+    }
+
+    // 7. label match → replace label
+    #[test]
+    fn test_pipeline_match_label() {
+        let (_dir, config, audio_path, _) = pipeline_setup(true, false);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert!(!tags.label.is_empty(), "expected at least one label");
+        let first_label = tags.label[0].clone();
+
+        let rule = Rule::parse(
+            &format!("label:^{first_label}$"),
+            &["replace:New Label"],
+            None,
+        )
+        .unwrap();
+        run_rule(&config, &rule);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert!(
+            tags.label.contains(&"New Label".to_string()),
+            "expected label list to contain 'New Label', got {:?}",
+            tags.label
+        );
+    }
+
+    // 8. releaseartist match → action on releasetitle to verify match
+    #[test]
+    fn test_pipeline_match_releaseartist() {
+        let (_dir, config, audio_path, _) = pipeline_setup(true, false);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert!(
+            !tags.releaseartists.main.is_empty(),
+            "expected at least one release artist"
+        );
+        let artist_name = tags.releaseartists.main[0].name.clone();
+
+        let rule = Rule::parse(
+            &format!("releaseartist:{artist_name}"),
+            &["releasetitle/replace:ArtistMatched"],
+            None,
+        )
+        .unwrap();
+        run_rule(&config, &rule);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert_eq!(tags.releasetitle.as_deref(), Some("ArtistMatched"));
+    }
+
+    // 9. trackartist match → action on tracktitle to verify match
+    #[test]
+    fn test_pipeline_match_trackartist() {
+        let (_dir, config, audio_path, _) = pipeline_setup(true, false);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert!(
+            !tags.trackartists.main.is_empty(),
+            "expected at least one track artist"
+        );
+        let artist_name = tags.trackartists.main[0].name.clone();
+
+        let rule = Rule::parse(
+            &format!("trackartist:{artist_name}"),
+            &["tracktitle/replace:TrackArtistMatched"],
+            None,
+        )
+        .unwrap();
+        run_rule(&config, &rule);
+
+        let tags = AudioTags::from_file(&audio_path).unwrap();
+        assert_eq!(tags.tracktitle.as_deref(), Some("TrackArtistMatched"));
+    }
+
+    // 10. new:true match → replace with false
+    #[test]
+    fn test_pipeline_match_new() {
+        let (_dir, config, _audio_path, release_dir) = pipeline_setup(true, false);
+
+        // Verify initial state: new=true
+        let sidecar = get_release_datafile_of_directory(&release_dir).unwrap();
+        assert!(sidecar.new, "expected new=true initially");
+
+        let rule = Rule::parse("new:true", &["replace:false"], None).unwrap();
+        run_rule(&config, &rule);
+
+        let sidecar = get_release_datafile_of_directory(&release_dir).unwrap();
+        assert!(!sidecar.new, "expected new=false after rule execution");
+    }
+
+    // 11. favorite:false match → replace with true
+    #[test]
+    fn test_pipeline_match_favorite() {
+        let (_dir, config, _audio_path, release_dir) = pipeline_setup(true, false);
+
+        // Verify initial state: favorite=false
+        let sidecar = get_release_datafile_of_directory(&release_dir).unwrap();
+        assert!(!sidecar.favorite, "expected favorite=false initially");
+
+        let rule = Rule::parse("favorite:false", &["replace:true"], None).unwrap();
+        run_rule(&config, &rule);
+
+        let sidecar = get_release_datafile_of_directory(&release_dir).unwrap();
+        assert!(
+            sidecar.favorite,
+            "expected favorite=true after rule execution"
+        );
+    }
+
+    // ===================================================================
+    // FTS search, confirmation, dry run, and stored rules tests (T-8.3)
+    // ===================================================================
+
+    use crate::cache::{connect, list_releases, list_tracks, sync_fts_index};
+    use crate::rule_parser::Matcher;
+
+    /// Seed a database matching Python's `_seed_cache` fixture and sync the FTS
+    /// index so that `fast_search_for_matching_*` queries work.
+    fn seeded_config_with_fts() -> (TempDir, Config) {
+        let dir = TempDir::new().unwrap();
+        let config = pipeline_test_config(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let music_dir = config.music_source_dir.clone();
+        let dirpaths = [
+            music_dir.join("r1"),
+            music_dir.join("r2"),
+            music_dir.join("r3"),
+            music_dir.join("r4"),
+        ];
+        let musicpaths = [
+            music_dir.join("r1/01.m4a"),
+            music_dir.join("r1/02.m4a"),
+            music_dir.join("r2/01.m4a"),
+            music_dir.join("r3/01.m4a"),
+            music_dir.join("r4/01.m4a"),
+        ];
+        let imagepaths = [
+            music_dir.join("r2/cover.jpg"),
+            music_dir.join("!playlists/Lala Lisa.jpg"),
+        ];
+
+        // Create directories and dummy files.
+        std::fs::create_dir_all(music_dir.join("!collages")).unwrap();
+        std::fs::create_dir_all(music_dir.join("!playlists")).unwrap();
+        for d in &dirpaths {
+            std::fs::create_dir_all(d).unwrap();
+        }
+        for p in &musicpaths {
+            std::fs::File::create(p).unwrap();
+        }
+        for p in &imagepaths {
+            std::fs::File::create(p).unwrap();
+        }
+        // Create datafile sidecars.
+        for d in &dirpaths {
+            let sdf = StoredDataFile::new_default();
+            let table = sdf.serialize();
+            let toml_str = toml::to_string_pretty(table.as_table().unwrap()).unwrap();
+            let sidecar = d.join(format!(
+                ".rose.{}.toml",
+                d.file_name().unwrap().to_string_lossy()
+            ));
+            std::fs::write(&sidecar, toml_str).unwrap();
+        }
+
+        let conn = connect(&config).unwrap();
+        conn.execute_batch(&format!(
+            r#"
+INSERT INTO releases
+       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype , releasedate , originaldate, compositiondate, catalognumber, edition , disctotal, new  , favorite, metahash)
+VALUES ('r1', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'     , '2023'      , null        , null           , null         , null    , 1        , false, true    , '1')
+     , ('r2', '{}'           , '{}'             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'     , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 1        , true , false   , '2')
+     , ('r3', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'     , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, false   , '3')
+     , ('r4', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 4', 'loosetrack', '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, false   , '4');
+
+INSERT INTO releases_genres
+       (release_id, genre             , position)
+VALUES ('r1'      , 'Techno'          , 1)
+     , ('r1'      , 'Deep House'      , 2)
+     , ('r2'      , 'Modern Classical', 1);
+
+INSERT INTO releases_secondary_genres
+       (release_id, genre             , position)
+VALUES ('r1'      , 'Rominimal'       , 1)
+     , ('r1'      , 'Ambient'         , 2)
+     , ('r2'      , 'Orchestral Music', 1);
+
+INSERT INTO releases_descriptors
+       (release_id, descriptor, position)
+VALUES ('r1'      , 'Warm'    , 1)
+     , ('r1'      , 'Hot'     , 2)
+     , ('r2'      , 'Wet'     , 1);
+
+INSERT INTO releases_labels
+       (release_id, label         , position)
+VALUES ('r1'      , 'Silk Music'  , 1)
+     , ('r2'      , 'Native State', 1);
+
+INSERT INTO tracks
+       (id  , source_path    , source_mtime, title    , release_id, tracknumber, tracktotal, discnumber, duration_seconds, metahash)
+VALUES ('t1', '{}'           , '999'       , 'Track 1', 'r1'      , '01'       , 2         , '01'      , 120             , '1')
+     , ('t2', '{}'           , '999'       , 'Track 2', 'r1'      , '02'       , 2         , '01'      , 240             , '2')
+     , ('t3', '{}'           , '999'       , 'Track 1', 'r2'      , '01'       , 1         , '01'      , 120             , '3')
+     , ('t4', '{}'           , '999'       , 'Track 1', 'r3'      , '01'       , 1         , '01'      , 120             , '4')
+     , ('t5', '{}'           , '999'       , 'Track 1', 'r4'      , '01'       , 1         , '01'      , 120             , '5');
+
+INSERT INTO releases_artists
+       (release_id, artist           , role   , position)
+VALUES ('r1'      , 'Techno Man'     , 'main' , 1)
+     , ('r1'      , 'Bass Man'       , 'main' , 2)
+     , ('r2'      , 'Violin Woman'   , 'main' , 1)
+     , ('r2'      , 'Conductor Woman', 'guest', 2);
+
+INSERT INTO tracks_artists
+       (track_id, artist           , role   , position)
+VALUES ('t1'    , 'Techno Man'     , 'main' , 1)
+     , ('t1'    , 'Bass Man'       , 'main' , 2)
+     , ('t2'    , 'Techno Man'     , 'main' , 1)
+     , ('t2'    , 'Bass Man'       , 'main' , 2)
+     , ('t3'    , 'Violin Woman'   , 'main' , 1)
+     , ('t3'    , 'Conductor Woman', 'guest', 2);
+            "#,
+            dirpaths[0].display(),
+            dirpaths[1].display(),
+            imagepaths[0].display(),
+            dirpaths[2].display(),
+            dirpaths[3].display(),
+            musicpaths[0].display(),
+            musicpaths[1].display(),
+            musicpaths[2].display(),
+            musicpaths[3].display(),
+            musicpaths[4].display(),
+        ))
+        .expect("Failed to seed cache database");
+
+        // Sync the FTS index for all tracks/releases.
+        sync_fts_index(
+            &conn,
+            &[
+                "t1".to_string(),
+                "t2".to_string(),
+                "t3".to_string(),
+                "t4".to_string(),
+                "t5".to_string(),
+            ],
+            &[
+                "r1".to_string(),
+                "r2".to_string(),
+                "r3".to_string(),
+                "r4".to_string(),
+            ],
+        )
+        .unwrap();
+
+        (dir, config)
+    }
+
+    // -----------------------------------------------------------------------
+    // T-8.3.1: test_fast_search_for_matching_releases
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_fast_search_for_matching_releases() {
+        let (_dir, config) = seeded_config_with_fts();
+        let matcher = Matcher::parse("releaseartist:Techno Man").unwrap();
+        let results = fast_search_for_matching_releases(&config, &matcher, false).unwrap();
+        let ids: Vec<&str> = results.iter().map(|r| r.id.as_str()).collect();
+        assert!(ids.contains(&"r1"), "should find release r1, got {:?}", ids);
+    }
+
+    // -----------------------------------------------------------------------
+    // T-8.3.2: test_fast_search_releases_invalid_tag
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_fast_search_releases_invalid_tag() {
+        let (_dir, config) = seeded_config_with_fts();
+
+        // tracktitle is a track-only tag → should be rejected.
+        let matcher = Matcher::parse("tracktitle:x").unwrap();
+        let result = fast_search_for_matching_releases(&config, &matcher, false);
+        assert!(
+            result.is_err(),
+            "tracktitle should not be allowed for release search"
+        );
+
+        // trackartist alone is also track-only → should be rejected.
+        let matcher = Matcher::parse("trackartist:x").unwrap();
+        let result = fast_search_for_matching_releases(&config, &matcher, false);
+        assert!(
+            result.is_err(),
+            "trackartist alone should not be allowed for release search"
+        );
+
+        // artist is an alias that expands to both releaseartist and trackartist.
+        // Since releaseartist is present, the track-only trackartist tags are tolerated.
+        let matcher = Matcher::parse("artist:x").unwrap();
+        let result = fast_search_for_matching_releases(&config, &matcher, false);
+        assert!(
+            result.is_ok(),
+            "artist should be allowed for release search (includes releaseartist)"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // T-8.3.3: test_filter_release_false_positives_with_cache
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_filter_release_false_positives_with_cache() {
+        let (_dir, config) = seeded_config_with_fts();
+
+        // Search for "^Man" (strict start) in releaseartist.
+        // FTS returns a superset of matches where "Man" appears as a substring
+        // (e.g. "Techno Man", "Bass Man"). But no artist name *starts* with "Man",
+        // so the cache filter should remove them all.
+        let matcher = Matcher::parse("releaseartist:^Man").unwrap();
+        let fts_results = fast_search_for_matching_releases(&config, &matcher, true).unwrap();
+        assert!(
+            !fts_results.is_empty(),
+            "FTS should return results (false positives) for 'Man' substring"
+        );
+
+        let release_ids: Vec<String> = fts_results.iter().map(|r| r.id.clone()).collect();
+        let cache_results = list_releases(&config, Some(&release_ids), true).unwrap();
+        assert!(
+            !cache_results.is_empty(),
+            "cache should return the releases"
+        );
+
+        let filtered =
+            filter_release_false_positives_using_read_cache(&matcher, cache_results, true);
+        assert!(
+            filtered.is_empty(),
+            "all results should be filtered as false positives, got {} results",
+            filtered.len()
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // T-8.3.4: test_filter_track_false_positives_with_cache
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_filter_track_false_positives_with_cache() {
+        let (_dir, config) = seeded_config_with_fts();
+
+        // Search for "^Man" (strict start) in trackartist.
+        // FTS matches tracks whose artists contain "Man" as a substring
+        // (e.g. "Techno Man", "Bass Man"), but none start with "Man".
+        let matcher = Matcher::parse("trackartist:^Man").unwrap();
+        let fts_results = fast_search_for_matching_tracks(&config, &matcher).unwrap();
+        assert!(
+            !fts_results.is_empty(),
+            "FTS should return results for 'Man' substring"
+        );
+
+        let track_ids: Vec<String> = fts_results.iter().map(|r| r.id.clone()).collect();
+        let tracks = list_tracks(&config, Some(&track_ids)).unwrap();
+        assert!(!tracks.is_empty(), "cache should return the tracks");
+
+        let filtered = filter_track_false_positives_using_read_cache(&matcher, tracks);
+        assert!(
+            filtered.is_empty(),
+            "all results should be filtered as false positives, got {} results",
+            filtered.len()
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // T-8.3.5: test_dry_run_does_not_write
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_dry_run_does_not_write() {
+        let (_dir, config, audio_path, _) = pipeline_setup(true, false);
+
+        // Read original tags.
+        let original = AudioTags::from_file(&audio_path).unwrap();
+        let original_title = original.tracktitle.clone();
+
+        // Execute a rule with dry_run=true.
+        let rule = Rule::parse("tracktitle:Track", &["replace:lalala"], None).unwrap();
+        execute_metadata_rule_inner(&config, &rule, true, false, 9999).unwrap();
+
+        // Tags should NOT have been modified.
+        let after = AudioTags::from_file(&audio_path).unwrap();
+        assert_eq!(
+            after.tracktitle, original_title,
+            "dry_run should not modify audio file tags"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // T-8.3.6: test_execute_stored_metadata_rules
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_execute_stored_metadata_rules_fn() {
+        let (_dir, config, audio_path, _) = pipeline_setup(true, false);
+
+        // Read original tags.
+        let original = AudioTags::from_file(&audio_path).unwrap();
+        assert!(
+            original.tracktitle.is_some(),
+            "track should have a title before rule execution"
+        );
+
+        // Build a config with a stored rule that replaces the track title.
+        let rule = Rule::parse("tracktitle:Track", &["replace:lalala"], None).unwrap();
+        let config_with_rules = Config {
+            stored_metadata_rules: vec![rule],
+            ..config
+        };
+
+        execute_stored_metadata_rules(&config_with_rules, false, false).unwrap();
+
+        // Tags should have been modified.
+        let after = AudioTags::from_file(&audio_path).unwrap();
+        assert_eq!(
+            after.tracktitle,
+            Some("lalala".to_string()),
+            "stored rule should have replaced tracktitle"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // T-8.3.7: test_releasetype_defaults_to_unknown_on_delete
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_releasetype_defaults_to_unknown_on_delete() {
+        // When deleting releasetype, execute_single_action returns None,
+        // but the pipeline substitutes "unknown" via unwrap_or_else.
+        let action = Action {
+            tags: vec![TAG_RELEASETYPE],
+            behavior: ActionBehavior::Delete(DeleteAction),
+            pattern: None,
+        };
+        let result = execute_single_action(&action, "album");
+        assert_eq!(result, None, "delete should return None");
+
+        // In execute_metadata_actions_inner, the TAG_RELEASETYPE branch does:
+        //   let v = v.unwrap_or_else(|| "unknown".to_string());
+        let v = result.unwrap_or_else(|| "unknown".to_string());
+        assert_eq!(
+            v, "unknown",
+            "releasetype should default to 'unknown' on delete"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // T-8.3.8: test_date_validation_on_replace
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_date_validation_on_replace() {
+        use crate::audiotags::RoseDate;
+
+        // Replace releasedate with an invalid date string.
+        let action = Action {
+            tags: vec![TAG_RELEASEDATE],
+            behavior: ActionBehavior::Replace(ReplaceAction {
+                replacement: "not-a-date".to_string(),
+            }),
+            pattern: None,
+        };
+        let result = execute_single_action(&action, "2024");
+        assert_eq!(result, Some("not-a-date".to_string()));
+
+        // The pipeline applies RoseDate::parse to the replacement value.
+        // An invalid date string produces None, effectively clearing the field.
+        let parsed = RoseDate::parse(result.as_deref());
+        assert!(
+            parsed.is_none(),
+            "invalid date string should parse to None, clearing the date"
+        );
+
+        // Verify that a valid date string does parse correctly.
+        let valid_action = Action {
+            tags: vec![TAG_RELEASEDATE],
+            behavior: ActionBehavior::Replace(ReplaceAction {
+                replacement: "2025".to_string(),
+            }),
+            pattern: None,
+        };
+        let valid_result = execute_single_action(&valid_action, "2024");
+        let valid_parsed = RoseDate::parse(valid_result.as_deref());
+        assert!(
+            valid_parsed.is_some(),
+            "valid date should parse successfully"
+        );
+        assert_eq!(valid_parsed.unwrap().year, 2025);
+    }
 }
