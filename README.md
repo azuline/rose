@@ -2,7 +2,9 @@
 
 Rosé is a music manager for Unix-based systems.
 
-At its core, Rosé is a Python library that provides an opinionated set of functions for managing a music library. On top of that, there are two thin frontends: a CLI and a virtual filesystem. It is not difficult to add a new frontend, but I only have use for these two.
+At its core, Rosé is a Rust library (`rose-core`) that provides an opinionated set of functions for managing a music library. On top of that, there are two thin frontends: a CLI and a FUSE virtual filesystem. A PyO3-based Python extension module (`rose-py`) also provides scripting access to the core library.
+
+> **Note:** Rosé was originally written in Python and has been ported to Rust for performance, particularly for the virtual filesystem. The Rust implementation lives in `rose-rs/`.
 
 The two current frontends are meant to be combined with a file browser (like nnn) and a media player (like mpv) to form a complete music playing system.
 
@@ -36,18 +38,31 @@ Rosé alone is not a full-featured music system, and _that's the point_. You sho
 
 # Installation
 
-Install Rosé with Nix Flakes. If you do not have Nix Flakes, you can install Nix Flakes with [this installer](https://github.com/DeterminateSystems/nix-installer).
+## Via Nix Flakes
 
-Then, to install the latest release of Rosé, run:
+If you have Nix Flakes (install with [this installer](https://github.com/DeterminateSystems/nix-installer) if needed):
 
 ```bash
 $ nix profile install github:azuline/rose/release
 ```
 
+This builds the Rust CLI binary (`rose`) and the VFS binary (`rose-vfs`).
+
 > [!NOTE]
 > The master branch tracks the unstable release, whose documentation may be more up-to-date than the latest release's documentation. You can view the latest release's documentation [here](https://github.com/azuline/rose/blob/release/README.md).
 
 Most users should install the latest release version of Rosé. However, if you wish to install the latest unstable version of Rosé, you can do so with the command `nix profile install github:azuline/rose/master`.
+
+## Via Cargo
+
+If you have a Rust toolchain installed:
+
+```bash
+$ cargo install --path rose-rs/rose-cli
+$ cargo install --path rose-rs/rose-vfs
+```
+
+You will need `pkg-config` and `libfuse-dev` (or equivalent) installed for the VFS binary.
 
 # Quickstart
 

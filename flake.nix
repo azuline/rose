@@ -16,6 +16,56 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
+
+        # ---- Rust binary builds (rose-cli, rose-vfs) ----
+        #
+        # We use rustPlatform.buildRustPackage. The workspace is at rose-rs/.
+        # rusqlite uses bundled SQLite (no external dep).
+        # fuser (rose-vfs) links against libfuse.
+        commonRustArgs = {
+          pname = "rose";
+          version = "0.5.0";
+          src = ./rose-rs;
+          cargoLock = {
+            lockFile = ./rose-rs/Cargo.lock;
+          };
+          nativeBuildInputs = [ pkgs.pkg-config ];
+          buildInputs = [ pkgs.fuse ] ++ pkgs.lib.optional pkgs.stdenv.isDarwin pkgs.macfuse-stubs;
+        };
+
+        rose-cli-rs = pkgs.rustPlatform.buildRustPackage (
+          commonRustArgs
+          // {
+            pname = "rose-cli";
+            cargoBuildFlags = [
+              "-p"
+              "rose-cli"
+            ];
+            cargoTestFlags = [
+              "-p"
+              "rose-cli"
+              "-p"
+              "rose-core"
+            ];
+          }
+        );
+
+        rose-vfs-rs = pkgs.rustPlatform.buildRustPackage (
+          commonRustArgs
+          // {
+            pname = "rose-vfs";
+            cargoBuildFlags = [
+              "-p"
+              "rose-vfs"
+            ];
+            cargoTestFlags = [
+              "-p"
+              "rose-vfs"
+            ];
+          }
+        );
+
+        # ---- Legacy Python builds (TODO: Remove after Python deletion — task 051) ----
         python-pin = pkgs.python313;
         version = nixpkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./rose-py/rose/.version);
         uuid6 = python-pin.pkgs.buildPythonPackage {
@@ -66,6 +116,7 @@
               echo "$path"
             }
             export ROSE_ROOT="$(find-up flake.nix)"
+            # Legacy Python paths (TODO: Remove after Python deletion — task 051)
             export PYTHONPATH="$ROSE_ROOT/rose-py:''${PYTHONPATH:-}"
             export PYTHONPATH="$ROSE_ROOT/rose-watch:$PYTHONPATH"
             export PYTHONPATH="$ROSE_ROOT/rose-vfs:$PYTHONPATH"
@@ -75,6 +126,7 @@
             (pkgs.buildEnv {
               name = "rose-devshell";
               paths = [
+                # Legacy Python tools (TODO: Remove after Python deletion — task 051)
                 pkgs.ruff
                 pkgs.nodePackages.prettier
                 pkgs.pyright
@@ -85,14 +137,22 @@
                 pkgs.rustfmt
                 pkgs.clippy
                 pkgs.rust-analyzer
+                # Native build deps for cargo build (fuser needs libfuse, pkg-config)
+                pkgs.pkg-config
               ];
             })
           ];
           propagatedBuildInputs = [
+            pkgs.fuse
             (pkgs.lib.optional pkgs.stdenv.isDarwin pkgs.macfuse-stubs)
           ];
         };
         packages = rec {
+          # ---- Rust packages ----
+          rose-cli = rose-cli-rs;
+          rose-vfs = rose-vfs-rs;
+
+          # ---- Legacy Python packages (TODO: Remove after Python deletion — task 051) ----
           rose-py = pkgs.callPackage ./rose-py { inherit version python-pin py-deps; };
           rose-watch = pkgs.callPackage ./rose-watch {
             inherit
@@ -102,7 +162,7 @@
               rose-py
               ;
           };
-          rose-vfs = pkgs.callPackage ./rose-vfs {
+          rose-vfs-py = pkgs.callPackage ./rose-vfs {
             inherit
               version
               python-pin
@@ -110,23 +170,22 @@
               rose-py
               ;
           };
-          rose-cli = pkgs.callPackage ./rose-cli {
+          rose-cli-py = pkgs.callPackage ./rose-cli {
             inherit
               version
               python-pin
               py-deps
               rose-py
-              rose-vfs
+              rose-vfs-py
               rose-watch
               ;
           };
+
           all = pkgs.buildEnv {
             name = "rose-all";
             paths = [
-              rose-py
-              rose-watch
-              rose-vfs
               rose-cli
+              rose-vfs
             ];
           };
         };

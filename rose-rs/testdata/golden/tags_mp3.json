@@ -1,0 +1,145 @@
+[
+  {
+    "catalognumber": "DN-420",
+    "compositiondate": "1984",
+    "descriptor": [
+      "Lush",
+      "Warm"
+    ],
+    "discnumber": "1",
+    "disctotal": 1,
+    "duration_sec": 1,
+    "edition": "Japan",
+    "genre": [
+      "Electronic",
+      "House"
+    ],
+    "id": null,
+    "label": [
+      "A Cool Label"
+    ],
+    "originaldate": "1990",
+    "path": "testdata/Tagger/track3.mp3",
+    "raw_custom_tags": {
+      "TXXX:CATALOGNUMBER": [
+        "DN-420"
+      ],
+      "TXXX:COMPOSITIONDATE": [
+        "1984"
+      ],
+      "TXXX:DESCRIPTOR": [
+        "Lush;Warm"
+      ],
+      "TXXX:EDITION": [
+        "Japan"
+      ],
+      "TXXX:RELEASETYPE": [
+        "Album"
+      ],
+      "TXXX:SECONDARYGENRE": [
+        "Minimal;Ambient"
+      ]
+    },
+    "release_id": null,
+    "releaseartists": {
+      "composer": [],
+      "conductor": [],
+      "djmixer": [],
+      "guest": [],
+      "main": [
+        {
+          "alias": false,
+          "name": "Artist A"
+        },
+        {
+          "alias": false,
+          "name": "Artist B"
+        }
+      ],
+      "producer": [],
+      "remixer": []
+    },
+    "releasedate": "1990-02-05",
+    "releasetitle": "A Cool Album",
+    "releasetype": "album",
+    "secondarygenre": [
+      "Minimal",
+      "Ambient"
+    ],
+    "trackartists": {
+      "composer": [
+        {
+          "alias": false,
+          "name": "Artist EF"
+        },
+        {
+          "alias": false,
+          "name": "Artist FG"
+        }
+      ],
+      "conductor": [
+        {
+          "alias": false,
+          "name": "Artist GH"
+        },
+        {
+          "alias": false,
+          "name": "Artist HI"
+        }
+      ],
+      "djmixer": [
+        {
+          "alias": false,
+          "name": "Artist IJ"
+        },
+        {
+          "alias": false,
+          "name": "Artist JK"
+        }
+      ],
+      "guest": [
+        {
+          "alias": false,
+          "name": "Artist C"
+        },
+        {
+          "alias": false,
+          "name": "Artist D"
+        }
+      ],
+      "main": [
+        {
+          "alias": false,
+          "name": "Artist A"
+        },
+        {
+          "alias": false,
+          "name": "Artist B"
+        }
+      ],
+      "producer": [
+        {
+          "alias": false,
+          "name": "Artist CD"
+        },
+        {
+          "alias": false,
+          "name": "Artist DE"
+        }
+      ],
+      "remixer": [
+        {
+          "alias": false,
+          "name": "Artist AB"
+        },
+        {
+          "alias": false,
+          "name": "Artist BC"
+        }
+      ]
+    },
+    "tracknumber": "3",
+    "tracktitle": "Track 3",
+    "tracktotal": 5
+  }
+]

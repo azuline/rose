@@ -6,23 +6,71 @@ jobs:
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
     steps:
-      - uses: actions/checkout@v3
-      - uses: cachix/install-nix-action@v20
-      - uses: cachix/cachix-action@v12
+      - uses: actions/checkout@v4
+
+      # ---- Nix setup ----
+      - uses: cachix/install-nix-action@v27
+      - uses: cachix/cachix-action@v15
         with:
           name: rose
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-      - name: Build Nix
+
+      # ---- Cargo caching ----
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rose-rs/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('rose-rs/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      # ---- System dependencies for fuser (libfuse) ----
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libfuse-dev
+
+      # ---- Nix dev shell build ----
+      - name: Build Nix dev shell
         run: nix build -j8 .#devShells.x86_64-linux.default
-      - name: Typecheck
-        if: success() || failure() # Means that we run all steps even if one fails.
-        run: nix develop --command make typecheck
-      - name: Test
+
+      # ---- Rust CI checks ----
+      - name: Rust format check
         if: success() || failure()
-        run: nix develop --command make test
-      - name: Lint
+        run: nix develop --command cargo fmt --all --check
+        working-directory: rose-rs
+
+      - name: Rust clippy
         if: success() || failure()
-        run: nix develop --command make lintcheck
-      - name: Build
+        run: nix develop --command cargo clippy --workspace -- -D warnings
+        working-directory: rose-rs
+
+      - name: Rust tests
         if: success() || failure()
-        run: nix build .#all
+        run: nix develop --command cargo test --workspace
+        working-directory: rose-rs
+
+      - name: E2E smoke test
+        if: success() || failure()
+        env:
+          ROSE_TEST_FUSE: "0"
+        run: nix develop --command bash tests/e2e_smoke.sh
+        working-directory: rose-rs
+
+      # ---- Nix package builds (Rust) ----
+      - name: Build rose-cli (Nix)
+        if: success() || failure()
+        run: nix build .#rose-cli
+
+      # ---- Legacy Python CI steps (TODO: Remove after Python code deletion — task 051) ----
+      # - name: Typecheck
+      #   if: success() || failure()
+      #   run: nix develop --command make typecheck
+      # - name: Test
+      #   if: success() || failure()
+      #   run: nix develop --command make test
+      # - name: Lint
+      #   if: success() || failure()
+      #   run: nix develop --command make lintcheck
+      # - name: Build (Python)
+      #   if: success() || failure()
+      #   run: nix build .#all
