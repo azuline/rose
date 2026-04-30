@@ -15,6 +15,10 @@ use crate::cache::{
 use crate::common::RoseError;
 use crate::config::Config;
 
+/// Callback type for the playlist editor: receives the editor text, returns
+/// `Some(edited)` to apply or `None` to abort.
+pub type EditorFn<'a> = Option<&'a dyn Fn(&str) -> Option<String>>;
+
 // ---------------------------------------------------------------------------
 // Path helper
 // ---------------------------------------------------------------------------
@@ -302,7 +306,16 @@ pub fn remove_track_from_playlist(
 ///
 /// When two tracks have the same `description_meta`, a `[uuid]` discriminator
 /// is appended so the user can distinguish them.
-pub fn edit_playlist_in_editor(c: &Config, playlist_name: &str) -> Result<(), RoseError> {
+///
+/// An optional `editor_fn` callback can be supplied (mainly for testing) to
+/// replace the interactive `$EDITOR` invocation.  The callback receives the
+/// editor text and returns `Some(edited_text)` to apply changes or `None` to
+/// abort.  When `editor_fn` is `None` the real `$EDITOR` is launched.
+pub fn edit_playlist_in_editor(
+    c: &Config,
+    playlist_name: &str,
+    editor_fn: EditorFn<'_>,
+) -> Result<(), RoseError> {
     let path = playlist_path(c, playlist_name);
     if !path.exists() {
         return Err(RoseError::PlaylistDoesNotExist(format!(
@@ -365,7 +378,11 @@ pub fn edit_playlist_in_editor(c: &Config, playlist_name: &str) -> Result<(), Ro
     }
 
     let editor_text = lines_to_edit.join("\n");
-    let edited = open_editor_for_playlist(&editor_text)?;
+    let edited = if let Some(f) = editor_fn {
+        f(&editor_text)
+    } else {
+        open_editor_for_playlist(&editor_text)?
+    };
 
     if edited.is_none() {
         tracing::info!("Aborting: metadata file not submitted.");
@@ -1248,5 +1265,222 @@ description_meta = "Same Name"
             RoseError::InvalidCoverArt(_) => {}
             other => panic!("Expected InvalidCoverArt, got: {other:?}"),
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Editor flow tests (using editor_fn callback)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_edit_playlist_remove_via_editor() {
+        let (c, _tmp) = setup_test_env();
+        let filepath = c.music_source_dir.join("!playlists").join("Lala Lisa.toml");
+
+        // Editor callback: return only the first line (removes the second track).
+        let editor_fn = |text: &str| -> Option<String> {
+            let first_line = text.split('\n').next().unwrap_or("").to_string();
+            Some(first_line)
+        };
+
+        edit_playlist_in_editor(&c, "Lala Lisa", Some(&editor_fn)).unwrap();
+
+        // Verify TOML file has only 1 track remaining.
+        let content = std::fs::read_to_string(&filepath).unwrap();
+        let data: toml::Value = content.parse().unwrap();
+        let tracks = data["tracks"].as_array().unwrap();
+        assert_eq!(tracks.len(), 1);
+        assert_eq!(tracks[0]["uuid"].as_str().unwrap(), "iloveloona");
+
+        // Verify cache also has only 1 track.
+        let conn = connect(&c).unwrap();
+        let mut stmt = conn
+            .prepare("SELECT track_id FROM playlists_tracks WHERE playlist_name = 'Lala Lisa'")
+            .unwrap();
+        let ids: Vec<String> = stmt
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(ids.len(), 1);
+        assert_eq!(ids[0], "iloveloona");
+    }
+
+    #[test]
+    fn test_edit_playlist_abort() {
+        let (c, _tmp) = setup_test_env();
+        let filepath = c.music_source_dir.join("!playlists").join("Lala Lisa.toml");
+
+        // Snapshot the file content before the edit.
+        let before = std::fs::read_to_string(&filepath).unwrap();
+
+        // Editor callback: return None to abort.
+        let editor_fn = |_text: &str| -> Option<String> { None };
+
+        edit_playlist_in_editor(&c, "Lala Lisa", Some(&editor_fn)).unwrap();
+
+        // Verify TOML file is unchanged.
+        let after = std::fs::read_to_string(&filepath).unwrap();
+        assert_eq!(before, after);
+
+        // Verify cache still has 2 tracks.
+        let conn = connect(&c).unwrap();
+        let mut stmt = conn
+            .prepare("SELECT track_id FROM playlists_tracks WHERE playlist_name = 'Lala Lisa'")
+            .unwrap();
+        let ids: HashSet<String> = stmt
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(
+            ids,
+            ["iloveloona", "ilovetwice"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect()
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Cover art cache verification tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_set_playlist_cover_art_updates_cache() {
+        let (c, _tmp) = setup_test_env();
+        let playlists_dir = c.music_source_dir.join("!playlists");
+
+        // Create a fake cover art image to set.
+        let img_path = _tmp.path().join("folder.png");
+        std::fs::write(&img_path, "lalala").unwrap();
+
+        set_playlist_cover_art(&c, "Lala Lisa", &img_path).unwrap();
+
+        // Verify the cover art file exists on disk.
+        let expected_cover = playlists_dir.join("Lala Lisa.png");
+        assert!(expected_cover.is_file());
+
+        // Verify cover_path in cache DB points to the new cover art file.
+        let conn = connect(&c).unwrap();
+        let cover_path: Option<String> = conn
+            .query_row(
+                "SELECT cover_path FROM playlists WHERE name = 'Lala Lisa'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(cover_path.is_some(), "cover_path should be set in cache");
+        assert_eq!(
+            PathBuf::from(cover_path.unwrap()),
+            expected_cover,
+            "cover_path should point to the new cover art file"
+        );
+    }
+
+    #[test]
+    fn test_delete_playlist_cover_art_updates_cache() {
+        let (c, _tmp) = setup_test_env();
+        let playlists_dir = c.music_source_dir.join("!playlists");
+
+        // First set cover art so there is something in the cache.
+        let img_path = _tmp.path().join("folder.png");
+        std::fs::write(&img_path, "lalala").unwrap();
+        set_playlist_cover_art(&c, "Lala Lisa", &img_path).unwrap();
+
+        // Verify cover_path is set.
+        {
+            let conn = connect(&c).unwrap();
+            let cover_path: Option<String> = conn
+                .query_row(
+                    "SELECT cover_path FROM playlists WHERE name = 'Lala Lisa'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert!(cover_path.is_some(), "cover_path should be set after set");
+        }
+
+        // Now delete the cover art.
+        delete_playlist_cover_art(&c, "Lala Lisa").unwrap();
+
+        // Verify cover art file is removed from disk.
+        assert!(!playlists_dir.join("Lala Lisa.png").exists());
+
+        // Verify cover_path is NULL in cache DB.
+        let conn = connect(&c).unwrap();
+        let cover_path: Option<String> = conn
+            .query_row(
+                "SELECT cover_path FROM playlists WHERE name = 'Lala Lisa'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(
+            cover_path.is_none(),
+            "cover_path should be NULL after deletion"
+        );
+    }
+
+    #[test]
+    fn test_rename_playlist_updates_cover_path_in_cache() {
+        let (c, _tmp) = setup_test_env();
+        let playlists_dir = c.music_source_dir.join("!playlists");
+
+        // Set cover art on the existing "Lala Lisa" playlist.
+        let img_path = _tmp.path().join("folder.jpg");
+        std::fs::write(&img_path, "lalala").unwrap();
+        set_playlist_cover_art(&c, "Lala Lisa", &img_path).unwrap();
+
+        // Verify cover_path is set before rename.
+        {
+            let conn = connect(&c).unwrap();
+            let cover_path: Option<String> = conn
+                .query_row(
+                    "SELECT cover_path FROM playlists WHERE name = 'Lala Lisa'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert!(cover_path.is_some());
+        }
+
+        // Rename the playlist.
+        rename_playlist(&c, "Lala Lisa", "Turtle Rabbit").unwrap();
+
+        // Verify the old name is gone and new name exists.
+        assert!(!playlists_dir.join("Lala Lisa.toml").exists());
+        assert!(!playlists_dir.join("Lala Lisa.jpg").exists());
+        assert!(playlists_dir.join("Turtle Rabbit.toml").exists());
+        assert!(playlists_dir.join("Turtle Rabbit.jpg").exists());
+
+        // Verify cover_path in cache DB points to the renamed cover art file.
+        let conn = connect(&c).unwrap();
+        let cover_path: Option<String> = conn
+            .query_row(
+                "SELECT cover_path FROM playlists WHERE name = 'Turtle Rabbit'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(
+            cover_path.is_some(),
+            "cover_path should be set after rename"
+        );
+        let expected_cover = playlists_dir.join("Turtle Rabbit.jpg");
+        assert_eq!(
+            PathBuf::from(cover_path.unwrap()),
+            expected_cover,
+            "cover_path should point to the renamed cover art file"
+        );
+
+        // Verify old playlist no longer exists in cache.
+        let exists_old: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT * FROM playlists WHERE name = 'Lala Lisa')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!exists_old);
     }
 }
