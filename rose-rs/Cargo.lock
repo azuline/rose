@@ -1348,8 +1348,10 @@ dependencies = [
  "libc",
  "rand 0.8.6",
  "rose-core",
+ "rusqlite",
  "tempfile",
  "thiserror",
+ "toml",
  "tracing",
  "tracing-subscriber",
 ]

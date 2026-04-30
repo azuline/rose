@@ -10407,4 +10407,700 @@ description_meta = "Some Track"
             "FTS should be populated after cache update, got {count}"
         );
     }
+
+    // -----------------------------------------------------------------------
+    // Rename-preserves-relations and same-path replacement tests (177–180)
+    // -----------------------------------------------------------------------
+
+    // 177. Renaming a release directory preserves its collage membership.
+    #[test]
+    fn test_release_rename_preserves_collage_membership() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let music_dir = &config.music_source_dir;
+
+        // Create a release with one track.
+        let r1 = music_dir.join("OriginalName");
+        std::fs::create_dir_all(&r1).unwrap();
+        copy_audio_file(&r1, "01.m4a");
+
+        // First update: get the release into the DB.
+        update_cache_for_releases(&config, None, false).unwrap();
+
+        // Get the release ID.
+        let releases = list_releases(&config, None, true).unwrap();
+        assert_eq!(releases.len(), 1);
+        let release_id = releases[0].id.clone();
+
+        // Create a collage referencing this release.
+        let collage_dir = music_dir.join("!collages");
+        std::fs::create_dir_all(&collage_dir).unwrap();
+        let collage_toml = collage_dir.join("RenameCollage.toml");
+        std::fs::write(
+            &collage_toml,
+            format!("[[releases]]\nuuid = \"{release_id}\"\ndescription_meta = \"old\"\n"),
+        )
+        .unwrap();
+
+        // Cache the collage.
+        update_cache_for_collages(&config, None, false).unwrap();
+
+        // Verify collage has the release and it's not missing.
+        let conn = connect(&config).unwrap();
+        let missing_before: bool = conn
+            .query_row(
+                "SELECT missing FROM collages_releases \
+                 WHERE collage_name = 'RenameCollage' AND release_id = ?1",
+                rusqlite::params![release_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            !missing_before,
+            "release should not be missing before rename"
+        );
+        drop(conn);
+
+        // Rename the release directory.
+        let r1_renamed = music_dir.join("RenamedRelease");
+        std::fs::rename(&r1, &r1_renamed).unwrap();
+
+        // Run a full cache update (release scan + eviction + collages + playlists).
+        update_cache(&config, false).unwrap();
+
+        // The release should still exist (same UUID, new path).
+        let releases_after = list_releases(&config, None, true).unwrap();
+        assert_eq!(releases_after.len(), 1);
+        assert_eq!(releases_after[0].id, release_id);
+
+        // The collage should still reference the release and it should not be missing.
+        let collage_releases = get_collage_releases(&config, "RenameCollage").unwrap();
+        assert_eq!(
+            collage_releases.len(),
+            1,
+            "collage should still have 1 release after rename"
+        );
+        assert_eq!(collage_releases[0].id, release_id);
+
+        // Also verify the DB flag is not missing.
+        let conn = connect(&config).unwrap();
+        let missing_after: bool = conn
+            .query_row(
+                "SELECT missing FROM collages_releases \
+                 WHERE collage_name = 'RenameCollage' AND release_id = ?1",
+                rusqlite::params![release_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            !missing_after,
+            "release should not be flagged missing after rename"
+        );
+    }
+
+    // 178. Renaming a release directory preserves its playlist membership.
+    #[test]
+    fn test_release_rename_preserves_playlist_membership() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let music_dir = &config.music_source_dir;
+
+        // Create a release with one track.
+        let r1 = music_dir.join("PlaylistOriginal");
+        std::fs::create_dir_all(&r1).unwrap();
+        copy_audio_file(&r1, "01.m4a");
+
+        // First update: get the release + tracks into the DB.
+        update_cache_for_releases(&config, None, false).unwrap();
+
+        // Get the track ID.
+        let tracks = list_tracks(&config, None).unwrap();
+        assert_eq!(tracks.len(), 1);
+        let track_id = tracks[0].id.clone();
+
+        // Create a playlist referencing this track.
+        let playlist_dir = music_dir.join("!playlists");
+        std::fs::create_dir_all(&playlist_dir).unwrap();
+        let playlist_toml = playlist_dir.join("RenamePlaylist.toml");
+        std::fs::write(
+            &playlist_toml,
+            format!("[[tracks]]\nuuid = \"{track_id}\"\ndescription_meta = \"old\"\n"),
+        )
+        .unwrap();
+
+        // Cache the playlist.
+        update_cache_for_playlists(&config, None, false).unwrap();
+
+        // Verify playlist has the track and it's not missing.
+        let conn = connect(&config).unwrap();
+        let missing_before: bool = conn
+            .query_row(
+                "SELECT missing FROM playlists_tracks \
+                 WHERE playlist_name = 'RenamePlaylist' AND track_id = ?1",
+                rusqlite::params![track_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(!missing_before, "track should not be missing before rename");
+        drop(conn);
+
+        // Rename the release directory.
+        let r1_renamed = music_dir.join("PlaylistRenamed");
+        std::fs::rename(&r1, &r1_renamed).unwrap();
+
+        // Run a full cache update.
+        update_cache(&config, false).unwrap();
+
+        // The track should still exist (same release UUID -> same track IDs).
+        let tracks_after = list_tracks(&config, None).unwrap();
+        assert_eq!(tracks_after.len(), 1);
+        assert_eq!(tracks_after[0].id, track_id);
+
+        // The playlist should still reference the track and it should not be missing.
+        let playlist_tracks = get_playlist_tracks(&config, "RenamePlaylist").unwrap();
+        assert_eq!(
+            playlist_tracks.len(),
+            1,
+            "playlist should still have 1 track after rename"
+        );
+        assert_eq!(playlist_tracks[0].id, track_id);
+
+        // Also verify the DB flag is not missing.
+        let conn = connect(&config).unwrap();
+        let missing_after: bool = conn
+            .query_row(
+                "SELECT missing FROM playlists_tracks \
+                 WHERE playlist_name = 'RenamePlaylist' AND track_id = ?1",
+                rusqlite::params![track_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            !missing_after,
+            "track should not be flagged missing after rename"
+        );
+    }
+
+    // 179. Playlist description_meta updated when a track's release is re-cached.
+    #[test]
+    fn test_playlist_description_meta_updated_on_release_change() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let music_dir = &config.music_source_dir;
+
+        // Create a release with one track.
+        let r1 = music_dir.join("MetaRelease");
+        std::fs::create_dir_all(&r1).unwrap();
+        copy_audio_file(&r1, "01.m4a");
+
+        // Initial cache update.
+        update_cache_for_releases(&config, None, false).unwrap();
+
+        let tracks = list_tracks(&config, None).unwrap();
+        assert_eq!(tracks.len(), 1);
+        let track_id = tracks[0].id.clone();
+        let original_title = tracks[0].tracktitle.clone();
+
+        // Create a playlist referencing the track.
+        let playlist_dir = music_dir.join("!playlists");
+        std::fs::create_dir_all(&playlist_dir).unwrap();
+        let playlist_toml = playlist_dir.join("MetaPlaylist.toml");
+        std::fs::write(
+            &playlist_toml,
+            format!("[[tracks]]\nuuid = \"{track_id}\"\ndescription_meta = \"old meta\"\n"),
+        )
+        .unwrap();
+
+        // Cache the playlist.
+        update_cache_for_playlists(&config, None, false).unwrap();
+
+        // Read back initial description_meta.
+        let toml_bytes = std::fs::read(&playlist_toml).unwrap();
+        let toml_str = String::from_utf8_lossy(&toml_bytes);
+        let data: toml::Value = toml_str.parse().unwrap();
+        let trks = data.get("tracks").unwrap().as_array().unwrap();
+        let initial_desc = trks[0]
+            .as_table()
+            .unwrap()
+            .get("description_meta")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(
+            initial_desc.contains(&original_title),
+            "initial description_meta should contain the original track title \
+             '{original_title}', got: {initial_desc}"
+        );
+
+        // Modify the track's title in the DB to simulate a tag change.
+        let conn = connect(&config).unwrap();
+        conn.execute(
+            "UPDATE tracks SET title = 'Brand New Title' WHERE id = ?1",
+            rusqlite::params![track_id],
+        )
+        .unwrap();
+        drop(conn);
+
+        // Force-update the playlist so it re-reads description_meta from DB.
+        update_cache_for_playlists(&config, None, true).unwrap();
+
+        // Read back updated description_meta.
+        let toml_bytes = std::fs::read(&playlist_toml).unwrap();
+        let toml_str = String::from_utf8_lossy(&toml_bytes);
+        let data: toml::Value = toml_str.parse().unwrap();
+        let trks = data.get("tracks").unwrap().as_array().unwrap();
+        let updated_desc = trks[0]
+            .as_table()
+            .unwrap()
+            .get("description_meta")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(
+            updated_desc.contains("Brand New Title"),
+            "updated description_meta should contain 'Brand New Title', got: {updated_desc}"
+        );
+        assert_ne!(
+            initial_desc, updated_desc,
+            "description_meta should have changed after track title update"
+        );
+    }
+
+    // 180. Replacing a release at the same path with a different UUID.
+    #[test]
+    fn test_same_path_release_replacement() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let music_dir = &config.music_source_dir;
+
+        // Create release A at a specific path.
+        let r1 = music_dir.join("ReplacedRelease");
+        std::fs::create_dir_all(&r1).unwrap();
+        copy_audio_file(&r1, "01.m4a");
+
+        // Create sidecar for release A with a known UUID.
+        let sdf_a = StoredDataFile::new_default();
+        let sidecar_a = r1.join(".rose.uuid-release-a.toml");
+        let table_a = sdf_a.serialize();
+        std::fs::write(
+            &sidecar_a,
+            toml::to_string(table_a.as_table().unwrap()).unwrap(),
+        )
+        .unwrap();
+
+        // Initial cache update — release A gets cached.
+        update_cache_for_releases(&config, None, false).unwrap();
+
+        let releases_a = list_releases(&config, None, true).unwrap();
+        assert_eq!(releases_a.len(), 1);
+        assert_eq!(releases_a[0].id, "uuid-release-a");
+
+        // Now replace: delete release A's sidecar, create release B's sidecar.
+        std::fs::remove_file(&sidecar_a).unwrap();
+
+        let sdf_b = StoredDataFile::new_default();
+        let sidecar_b = r1.join(".rose.uuid-release-b.toml");
+        let table_b = sdf_b.serialize();
+        std::fs::write(
+            &sidecar_b,
+            toml::to_string(table_b.as_table().unwrap()).unwrap(),
+        )
+        .unwrap();
+
+        // Run full cache update — should replace release A with release B
+        // without a unique constraint violation.
+        update_cache(&config, false).unwrap();
+
+        let releases_b = list_releases(&config, None, true).unwrap();
+        assert_eq!(
+            releases_b.len(),
+            1,
+            "should have exactly one release after replacement"
+        );
+        assert_eq!(
+            releases_b[0].id, "uuid-release-b",
+            "the new release should have the new UUID"
+        );
+
+        // Verify old release is gone from DB.
+        let conn = connect(&config).unwrap();
+        let old_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM releases WHERE id = 'uuid-release-a'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            old_count, 0,
+            "old release A should no longer exist in the DB"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Task 057 tests: alias resolution, eviction, and edge cases (181–185)
+    // -----------------------------------------------------------------------
+
+    // 181. get_release returns transitive artist aliases (A -> B -> C).
+    #[test]
+    fn test_get_release_returns_transitive_aliases() {
+        let dir = TempDir::new().unwrap();
+        let music_dir = dir.path().join("music");
+        let cache_dir = dir.path().join("cache");
+        std::fs::create_dir_all(&music_dir).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        let cfg_path = dir.path().join("config.toml");
+        let mut f = std::fs::File::create(&cfg_path).unwrap();
+        write!(
+            f,
+            r#"
+            music_source_dir = "{}"
+            cache_dir = "{}"
+            vfs.mount_dir = "{}"
+
+            [[artist_aliases]]
+            artist = "Hype Boy"
+            aliases = ["Bass Man"]
+
+            [[artist_aliases]]
+            artist = "Bubble Gum"
+            aliases = ["Hype Boy"]
+            "#,
+            music_dir.display(),
+            cache_dir.display(),
+            dir.path().join("vfs").display(),
+        )
+        .unwrap();
+        let config = Config::parse(Some(&cfg_path)).unwrap();
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        // Seed release r1 with "Techno Man" + "Bass Man" as main artists.
+        let r1_path = music_dir.join("r1");
+        let conn = connect(&config).unwrap();
+        conn.execute_batch(&format!(
+            r#"
+INSERT INTO releases
+       (id, source_path, added_at, datafile_mtime, title, releasetype, releasedate, disctotal, new, favorite, metahash)
+VALUES ('r1', '{}', '0000-01-01T00:00:00+00:00', '999', 'Release 1', 'album', '2023', 1, false, true, '1');
+
+INSERT INTO releases_artists (release_id, artist, role, position)
+VALUES ('r1', 'Techno Man', 'main', 1), ('r1', 'Bass Man', 'main', 2);
+
+INSERT INTO tracks (id, source_path, source_mtime, title, release_id, tracknumber, tracktotal, discnumber, duration_seconds, metahash)
+VALUES ('t1', '{}/01.m4a', '999', 'Track 1', 'r1', '01', 1, '01', 120, '1');
+
+INSERT INTO tracks_artists (track_id, artist, role, position)
+VALUES ('t1', 'Techno Man', 'main', 1), ('t1', 'Bass Man', 'main', 2);
+            "#,
+            r1_path.display(),
+            r1_path.display(),
+        ))
+        .expect("Failed to seed for alias test");
+        drop(conn);
+
+        let release = get_release(&config, "r1").unwrap().unwrap();
+        let main_names: Vec<&str> = release
+            .releaseartists
+            .main
+            .iter()
+            .map(|a| a.name.as_str())
+            .collect();
+
+        assert!(main_names.contains(&"Techno Man"));
+        assert!(main_names.contains(&"Bass Man"));
+        assert!(
+            main_names.contains(&"Hype Boy"),
+            "Hype Boy should appear as alias of Bass Man, got: {:?}",
+            main_names
+        );
+        assert!(
+            main_names.contains(&"Bubble Gum"),
+            "Bubble Gum should appear as transitive alias, got: {:?}",
+            main_names
+        );
+
+        let bass_man = release
+            .releaseartists
+            .main
+            .iter()
+            .find(|a| a.name == "Bass Man")
+            .unwrap();
+        assert!(!bass_man.alias, "Bass Man is original, not alias");
+
+        let hype_boy = release
+            .releaseartists
+            .main
+            .iter()
+            .find(|a| a.name == "Hype Boy")
+            .unwrap();
+        assert!(hype_boy.alias, "Hype Boy should be alias=true");
+
+        let bubble_gum = release
+            .releaseartists
+            .main
+            .iter()
+            .find(|a| a.name == "Bubble Gum")
+            .unwrap();
+        assert!(bubble_gum.alias, "Bubble Gum should be alias=true");
+    }
+
+    // 182. artist_exists returns true for alias name resolving to a real DB artist.
+    #[test]
+    fn test_artist_exists_with_alias() {
+        let dir = TempDir::new().unwrap();
+        let music_dir = dir.path().join("music");
+        let cache_dir = dir.path().join("cache");
+        std::fs::create_dir_all(&music_dir).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        let cfg_path = dir.path().join("config.toml");
+        let mut f = std::fs::File::create(&cfg_path).unwrap();
+        write!(
+            f,
+            r#"
+            music_source_dir = "{}"
+            cache_dir = "{}"
+            vfs.mount_dir = "{}"
+
+            [[artist_aliases]]
+            artist = "Hype Boy"
+            aliases = ["Bass Man"]
+            "#,
+            music_dir.display(),
+            cache_dir.display(),
+            dir.path().join("vfs").display(),
+        )
+        .unwrap();
+        let config = Config::parse(Some(&cfg_path)).unwrap();
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let conn = connect(&config).unwrap();
+        conn.execute_batch(&format!(
+            r#"
+INSERT INTO releases (id, source_path, added_at, datafile_mtime, title, releasetype, disctotal, new, favorite, metahash)
+VALUES ('r1', '{}/r1', '0000-01-01T00:00:00+00:00', '999', 'Release 1', 'album', 1, false, false, '1');
+
+INSERT INTO releases_artists (release_id, artist, role, position)
+VALUES ('r1', 'Bass Man', 'main', 1);
+            "#,
+            music_dir.display(),
+        ))
+        .expect("Failed to seed for artist_exists alias test");
+        drop(conn);
+
+        // "Hype Boy" resolves via artist_aliases_map to ["Bass Man"],
+        // and "Bass Man" exists in releases_artists.
+        assert!(
+            artist_exists(&config, "Hype Boy").unwrap(),
+            "artist_exists should return true for alias 'Hype Boy'"
+        );
+        assert!(
+            !artist_exists(&config, "Nobody At All").unwrap(),
+            "artist_exists should return false for unknown name"
+        );
+    }
+
+    // 183. Force-refresh evicts stale (spurious) relation rows.
+    #[test]
+    fn test_force_refresh_evicts_stale_relations() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let music_dir = &config.music_source_dir;
+        let r1 = music_dir.join("EvictRelations");
+        std::fs::create_dir_all(&r1).unwrap();
+        copy_audio_file(&r1, "01.m4a");
+
+        update_cache_for_releases(&config, None, false).unwrap();
+
+        let releases = list_releases(&config, None, true).unwrap();
+        assert_eq!(releases.len(), 1);
+        let release_id = releases[0].id.clone();
+
+        let conn = connect(&config).unwrap();
+        conn.execute(
+            "INSERT INTO releases_genres (release_id, genre, position) VALUES (?1, 'SpuriousGenre', 99)",
+            rusqlite::params![release_id],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO releases_labels (release_id, label, position) VALUES (?1, 'SpuriousLabel', 99)",
+            rusqlite::params![release_id],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO releases_artists (release_id, artist, role, position) VALUES (?1, 'SpuriousArtist', 'main', 99)",
+            rusqlite::params![release_id],
+        ).unwrap();
+
+        let has_spurious: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM releases_genres WHERE genre = 'SpuriousGenre')",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            has_spurious,
+            "spurious genre should exist before force refresh"
+        );
+        drop(conn);
+
+        update_cache_for_releases(&config, None, true).unwrap();
+
+        let conn = connect(&config).unwrap();
+        let g: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM releases_genres WHERE genre = 'SpuriousGenre')",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(!g, "spurious genre should be evicted after force refresh");
+
+        let l: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM releases_labels WHERE label = 'SpuriousLabel')",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(!l, "spurious label should be evicted after force refresh");
+
+        let a: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM releases_artists WHERE artist = 'SpuriousArtist')",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(!a, "spurious artist should be evicted after force refresh");
+    }
+
+    // 184. Clearing a multi-value tag (labels) to empty removes all rows from DB.
+    #[test]
+    fn test_empty_multi_value_tag_clears_db() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let music_dir = &config.music_source_dir;
+        let src_release = repo_root().join("testdata/Test Release 1");
+        let r1 = music_dir.join("EmptyLabels");
+        std::fs::create_dir_all(&r1).unwrap();
+        for entry in std::fs::read_dir(&src_release).unwrap() {
+            let entry = entry.unwrap();
+            if entry.path().is_file() {
+                std::fs::copy(entry.path(), r1.join(entry.file_name())).unwrap();
+            }
+        }
+
+        update_cache_for_releases(&config, None, false).unwrap();
+
+        let conn = connect(&config).unwrap();
+        let has_labels: bool = conn
+            .query_row("SELECT EXISTS(SELECT 1 FROM releases_labels)", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert!(has_labels, "release should have labels after initial cache");
+        drop(conn);
+
+        {
+            use crate::audiotags::AudioTags;
+            for fname in &["01.m4a", "02.m4a"] {
+                let fpath = r1.join(fname);
+                if fpath.exists() {
+                    let mut tags = AudioTags::from_file(&fpath).unwrap();
+                    tags.label = Vec::new();
+                    tags.flush(false).unwrap();
+                }
+            }
+        }
+
+        update_cache_for_releases(&config, None, false).unwrap();
+
+        let conn = connect(&config).unwrap();
+        let has_labels_after: bool = conn
+            .query_row("SELECT EXISTS(SELECT 1 FROM releases_labels)", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert!(
+            !has_labels_after,
+            "releases_labels should be empty after clearing label tags"
+        );
+    }
+
+    // 185. Legacy empty datafile (0 bytes) is upgraded with default values.
+    #[test]
+    fn test_legacy_datafile_upgrade() {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let music_dir = &config.music_source_dir;
+        let src_release = repo_root().join("testdata/Test Release 1");
+        let r1 = music_dir.join("LegacyDatafile");
+        std::fs::create_dir_all(&r1).unwrap();
+        for entry in std::fs::read_dir(&src_release).unwrap() {
+            let entry = entry.unwrap();
+            if entry.path().is_file() {
+                let fname = entry.file_name().to_string_lossy().to_string();
+                if fname.starts_with(".rose.") && fname.ends_with(".toml") {
+                    continue;
+                }
+                std::fs::copy(entry.path(), r1.join(entry.file_name())).unwrap();
+            }
+        }
+
+        // Create an empty (0 bytes) legacy datafile.
+        let datafile_path = r1.join(".rose.legacy-uuid-123.toml");
+        std::fs::write(&datafile_path, b"").unwrap();
+
+        update_cache_for_releases(&config, Some(vec![r1.clone()]), false).unwrap();
+
+        let conn = connect(&config).unwrap();
+        let (id, is_new, is_fav, added_at): (String, bool, bool, String) = conn
+            .query_row(
+                "SELECT id, new, favorite, added_at FROM releases WHERE id = 'legacy-uuid-123'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap_or_else(|e| panic!("Release 'legacy-uuid-123' should exist in DB: {e}"));
+
+        assert_eq!(id, "legacy-uuid-123");
+        assert!(is_new, "new should default to true");
+        assert!(!is_fav, "favorite should default to false");
+        assert!(!added_at.is_empty(), "added_at should be populated");
+        drop(conn);
+
+        let contents = std::fs::read_to_string(&datafile_path).unwrap();
+        assert!(
+            contents.contains("new = true"),
+            "should contain 'new = true', got: {contents}"
+        );
+        assert!(
+            contents.contains("added_at = "),
+            "should contain 'added_at = ', got: {contents}"
+        );
+        assert!(
+            contents.contains("favorite = false"),
+            "should contain 'favorite = false', got: {contents}"
+        );
+        assert!(
+            contents.contains("rating = -1"),
+            "should contain 'rating = -1', got: {contents}"
+        );
+    }
 }

@@ -2297,6 +2297,180 @@ mod tests {
 
     // --- Alt-role tags deleted ---
 
+    // --- Task 053: Format coverage tests ---
+
+    #[test]
+    fn id_survival_ogg_vorbis() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track4.vorbis.ogg");
+        let mut tags = AudioTags::from_file(&path).unwrap();
+        tags.id = Some("test-id-ogg-vorbis".to_string());
+        tags.release_id = Some("test-rid-ogg-vorbis".to_string());
+        tags.flush(false).unwrap();
+        let tags2 = AudioTags::from_file(&path).unwrap();
+        assert_eq!(tags2.id, Some("test-id-ogg-vorbis".to_string()));
+        assert_eq!(tags2.release_id, Some("test-rid-ogg-vorbis".to_string()));
+    }
+
+    #[test]
+    fn id_survival_ogg_opus() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track5.opus.ogg");
+        let mut tags = AudioTags::from_file(&path).unwrap();
+        tags.id = Some("test-id-ogg-opus".to_string());
+        tags.release_id = Some("test-rid-ogg-opus".to_string());
+        tags.flush(false).unwrap();
+        let tags2 = AudioTags::from_file(&path).unwrap();
+        assert_eq!(tags2.id, Some("test-id-ogg-opus".to_string()));
+        assert_eq!(tags2.release_id, Some("test-rid-ogg-opus".to_string()));
+    }
+
+    #[test]
+    fn ogg_vorbis_alt_role_tags_deleted() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track4.vorbis.ogg");
+        let mut tags = AudioTags::from_file(&path).unwrap();
+        tags.flush(false).unwrap();
+
+        let tagged_file = lofty::probe::Probe::open(&path)
+            .unwrap()
+            .guess_file_type()
+            .unwrap()
+            .read()
+            .unwrap();
+        let tag = tagged_file.tag(TagType::VorbisComments).unwrap();
+        assert!(
+            tag.get_string(&ItemKey::Remixer).is_none(),
+            "remixer should be gone"
+        );
+        assert!(
+            tag.get_string(&ItemKey::Producer).is_none(),
+            "producer should be gone"
+        );
+        assert!(
+            tag.get_string(&ItemKey::Composer).is_none(),
+            "composer should be gone"
+        );
+        assert!(
+            tag.get_string(&ItemKey::Conductor).is_none(),
+            "conductor should be gone"
+        );
+        assert!(
+            tag.get_string(&ItemKey::MixDj).is_none(),
+            "djmixer should be gone"
+        );
+    }
+
+    #[test]
+    fn ogg_opus_alt_role_tags_deleted() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track5.opus.ogg");
+        let mut tags = AudioTags::from_file(&path).unwrap();
+        tags.flush(false).unwrap();
+
+        let tagged_file = lofty::probe::Probe::open(&path)
+            .unwrap()
+            .guess_file_type()
+            .unwrap()
+            .read()
+            .unwrap();
+        let tag = tagged_file.tag(TagType::VorbisComments).unwrap();
+        assert!(
+            tag.get_string(&ItemKey::Remixer).is_none(),
+            "remixer should be gone"
+        );
+        assert!(
+            tag.get_string(&ItemKey::Producer).is_none(),
+            "producer should be gone"
+        );
+        assert!(
+            tag.get_string(&ItemKey::Composer).is_none(),
+            "composer should be gone"
+        );
+        assert!(
+            tag.get_string(&ItemKey::Conductor).is_none(),
+            "conductor should be gone"
+        );
+        assert!(
+            tag.get_string(&ItemKey::MixDj).is_none(),
+            "djmixer should be gone"
+        );
+    }
+
+    #[test]
+    fn artist_roundtrip_via_flush_mp3() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track3.mp3");
+        let orig_tags = AudioTags::from_file(&path).unwrap();
+        let orig_track_artists = orig_tags.trackartists.clone();
+        let orig_release_artists = orig_tags.releaseartists.clone();
+        let mut tags = orig_tags;
+        tags.flush(false).unwrap();
+        let tags2 = AudioTags::from_file(&path).unwrap();
+        assert_eq!(
+            tags2.trackartists, orig_track_artists,
+            "track artists roundtrip"
+        );
+        assert_eq!(
+            tags2.releaseartists, orig_release_artists,
+            "release artists roundtrip"
+        );
+    }
+
+    #[test]
+    fn artist_roundtrip_via_flush_m4a() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track2.m4a");
+        let orig_tags = AudioTags::from_file(&path).unwrap();
+        let orig_track_artists = orig_tags.trackartists.clone();
+        let orig_release_artists = orig_tags.releaseartists.clone();
+        let mut tags = orig_tags;
+        tags.flush(false).unwrap();
+        let tags2 = AudioTags::from_file(&path).unwrap();
+        assert_eq!(
+            tags2.trackartists, orig_track_artists,
+            "track artists roundtrip"
+        );
+        assert_eq!(
+            tags2.releaseartists, orig_release_artists,
+            "release artists roundtrip"
+        );
+    }
+
+    #[test]
+    fn artist_roundtrip_via_flush_ogg_vorbis() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track4.vorbis.ogg");
+        let orig_tags = AudioTags::from_file(&path).unwrap();
+        let orig_track_artists = orig_tags.trackartists.clone();
+        let orig_release_artists = orig_tags.releaseartists.clone();
+        let mut tags = orig_tags;
+        tags.flush(false).unwrap();
+        let tags2 = AudioTags::from_file(&path).unwrap();
+        assert_eq!(
+            tags2.trackartists, orig_track_artists,
+            "track artists roundtrip"
+        );
+        assert_eq!(
+            tags2.releaseartists, orig_release_artists,
+            "release artists roundtrip"
+        );
+    }
+
+    #[test]
+    fn artist_roundtrip_via_flush_ogg_opus() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track5.opus.ogg");
+        let orig_tags = AudioTags::from_file(&path).unwrap();
+        let orig_track_artists = orig_tags.trackartists.clone();
+        let orig_release_artists = orig_tags.releaseartists.clone();
+        let mut tags = orig_tags;
+        tags.flush(false).unwrap();
+        let tags2 = AudioTags::from_file(&path).unwrap();
+        assert_eq!(
+            tags2.trackartists, orig_track_artists,
+            "track artists roundtrip"
+        );
+        assert_eq!(
+            tags2.releaseartists, orig_release_artists,
+            "release artists roundtrip"
+        );
+    }
+
+    // --- Alt-role tag deletion (original tests) ---
+
     #[test]
     fn mp3_alt_role_tags_deleted() {
         let (_tmp, path) = copy_test_file("testdata/Tagger/track3.mp3");
