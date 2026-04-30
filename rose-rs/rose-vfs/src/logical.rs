@@ -2012,4 +2012,607 @@ VALUES ('t1'    , 'Techno Man'     , 'main' , 1)
             "non-whitelisted artist should not appear"
         );
     }
+
+    // -----------------------------------------------------------------------
+    // Mutation test helpers
+    // -----------------------------------------------------------------------
+
+    /// Set up a test environment with real on-disk collages and playlists
+    /// that work with the mutation functions (create/delete/rename etc).
+    /// Returns (TempDir, Config) — TempDir must be kept alive.
+    fn seeded_mutation_config() -> (TempDir, Config) {
+        let dir = TempDir::new().unwrap();
+        let music_dir = dir.path().join("music");
+        let cache_dir = dir.path().join("cache");
+        let vfs_dir = dir.path().join("vfs");
+        std::fs::create_dir_all(&music_dir).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        std::fs::create_dir_all(&vfs_dir).unwrap();
+
+        let cfg_path = dir.path().join("config.toml");
+        let mut f = std::fs::File::create(&cfg_path).unwrap();
+        write!(
+            f,
+            r#"
+music_source_dir = "{}"
+cache_dir = "{}"
+vfs.mount_dir = "{}"
+"#,
+            music_dir.display(),
+            cache_dir.display(),
+            vfs_dir.display(),
+        )
+        .unwrap();
+        let config = Config::parse(Some(&cfg_path)).unwrap();
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        // Create release source directories on disk.
+        let rel1_dir = music_dir.join("Release1");
+        let rel2_dir = music_dir.join("Release2");
+        std::fs::create_dir_all(&rel1_dir).unwrap();
+        std::fs::create_dir_all(&rel2_dir).unwrap();
+
+        // Create sidecar files.
+        std::fs::write(rel1_dir.join(".rose.ilovecarly.toml"), "").unwrap();
+        std::fs::write(rel2_dir.join(".rose.ilovenewjeans.toml"), "").unwrap();
+
+        // Create fake audio files so stat works.
+        std::fs::write(rel1_dir.join("track1.flac"), b"fake audio").unwrap();
+        std::fs::write(rel2_dir.join("track2.flac"), b"fake audio").unwrap();
+
+        // Insert releases and tracks into cache.
+        let conn = connect(&config).unwrap();
+        conn.execute_batch(&format!(
+            r#"
+INSERT INTO releases
+       (id, source_path, cover_image_path, added_at, datafile_mtime,
+        title, releasetype, releasedate, disctotal, new, favorite, metahash)
+VALUES ('ilovecarly', '{}', NULL, '2024-01-01T00:00:00+00:00', '0',
+        'Carly Rae Jepsen - 2015. E-MO-TION', 'album', '2024', 1, 1, 0, 'hash1'),
+       ('ilovenewjeans', '{}', NULL, '2024-01-01T00:00:00+00:00', '0',
+        'NewJeans - 2023. Get Up', 'album', '2023', 1, 1, 0, 'hash2');
+
+INSERT INTO releases_artists
+       (release_id, artist, role, position)
+VALUES ('ilovecarly', 'Carly Rae Jepsen', 'main', 0),
+       ('ilovenewjeans', 'NewJeans', 'main', 0);
+
+INSERT INTO tracks
+       (id, source_path, source_mtime, title, release_id,
+        tracknumber, tracktotal, discnumber, duration_seconds, metahash)
+VALUES ('trackA', '{}', '0', 'Track One', 'ilovecarly',
+        '1', 10, '1', 120, 'thash1'),
+       ('trackB', '{}', '0', 'Track Two', 'ilovenewjeans',
+        '1', 10, '1', 180, 'thash2');
+
+INSERT INTO tracks_artists
+       (track_id, artist, role, position)
+VALUES ('trackA', 'Carly Rae Jepsen', 'main', 0),
+       ('trackB', 'NewJeans', 'main', 0);
+"#,
+            rel1_dir.display(),
+            rel2_dir.display(),
+            rel1_dir.join("track1.flac").display(),
+            rel2_dir.join("track2.flac").display(),
+        ))
+        .expect("Failed to seed mutation test database");
+        drop(conn);
+
+        // Create collage "Rose Gold" with both releases.
+        let collages_dir = music_dir.join("!collages");
+        std::fs::create_dir_all(&collages_dir).unwrap();
+        std::fs::write(
+            collages_dir.join("Rose Gold.toml"),
+            r#"[[releases]]
+uuid = "ilovecarly"
+description_meta = "Carly Rae Jepsen - 2015. E-MO-TION"
+
+[[releases]]
+uuid = "ilovenewjeans"
+description_meta = "NewJeans - 2023. Get Up"
+"#,
+        )
+        .unwrap();
+        rose_core::cache::update_cache_for_collages(
+            &config,
+            Some(vec!["Rose Gold".to_string()]),
+            true,
+        )
+        .unwrap();
+
+        // Create playlist "Lala Lisa" with both tracks.
+        let playlists_dir = music_dir.join("!playlists");
+        std::fs::create_dir_all(&playlists_dir).unwrap();
+        std::fs::write(
+            playlists_dir.join("Lala Lisa.toml"),
+            r#"[[tracks]]
+uuid = "trackA"
+description_meta = "Carly Rae Jepsen - Track One"
+
+[[tracks]]
+uuid = "trackB"
+description_meta = "NewJeans - Track Two"
+"#,
+        )
+        .unwrap();
+        rose_core::cache::update_cache_for_playlists(
+            &config,
+            Some(vec!["Lala Lisa".to_string()]),
+            true,
+        )
+        .unwrap();
+
+        (dir, config)
+    }
+
+    // -----------------------------------------------------------------------
+    // Collage mutation tests
+    // -----------------------------------------------------------------------
+
+    // 13. mkdir at /Collages/New Collage creates a collage TOML on disk.
+    #[test]
+    fn test_mkdir_creates_collage() {
+        let (_dir, config) = seeded_mutation_config();
+        let mut core = RoseLogicalCore::new(config.clone());
+
+        let vp = VirtualPath {
+            view: Some(ViewType::Collages),
+            collage: Some("New Collage".to_string()),
+            artist: None,
+            genre: None,
+            descriptor: None,
+            label: None,
+            playlist: None,
+            release: None,
+            file: None,
+        };
+
+        core.mkdir(&vp).unwrap();
+
+        // Assert collage TOML file was created on disk.
+        let path = rose_core::collages::collage_path(&config, "New Collage");
+        assert!(path.exists(), "Collage TOML should exist at {:?}", path);
+
+        // Also verify it's in the cache.
+        let conn = connect(&config).unwrap();
+        let exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT * FROM collages WHERE name = 'New Collage')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(exists, "Collage should exist in cache");
+    }
+
+    // 14. rmdir at /Collages/{existing} deletes the collage.
+    #[test]
+    fn test_rmdir_deletes_collage() {
+        let (_dir, config) = seeded_mutation_config();
+        let mut core = RoseLogicalCore::new(config.clone());
+
+        let path = rose_core::collages::collage_path(&config, "Rose Gold");
+        assert!(path.exists(), "Collage should exist before deletion");
+
+        let vp = VirtualPath {
+            view: Some(ViewType::Collages),
+            collage: Some("Rose Gold".to_string()),
+            artist: None,
+            genre: None,
+            descriptor: None,
+            label: None,
+            playlist: None,
+            release: None,
+            file: None,
+        };
+
+        core.rmdir(&vp).unwrap();
+
+        assert!(!path.exists(), "Collage TOML should be deleted/trashed");
+
+        let conn = connect(&config).unwrap();
+        let exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT * FROM collages WHERE name = 'Rose Gold')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!exists, "Collage should not exist in cache after deletion");
+    }
+
+    // 15. rename /Collages/Old to /Collages/New renames the collage on disk.
+    #[test]
+    fn test_rename_collage() {
+        let (_dir, config) = seeded_mutation_config();
+        let mut core = RoseLogicalCore::new(config.clone());
+
+        let old_vp = VirtualPath {
+            view: Some(ViewType::Collages),
+            collage: Some("Rose Gold".to_string()),
+            artist: None,
+            genre: None,
+            descriptor: None,
+            label: None,
+            playlist: None,
+            release: None,
+            file: None,
+        };
+        let new_vp = VirtualPath {
+            view: Some(ViewType::Collages),
+            collage: Some("Silver".to_string()),
+            artist: None,
+            genre: None,
+            descriptor: None,
+            label: None,
+            playlist: None,
+            release: None,
+            file: None,
+        };
+
+        core.rename(&old_vp, &new_vp).unwrap();
+
+        let old_path = rose_core::collages::collage_path(&config, "Rose Gold");
+        let new_path = rose_core::collages::collage_path(&config, "Silver");
+        assert!(!old_path.exists(), "Old collage file should be gone");
+        assert!(new_path.exists(), "New collage file should exist");
+
+        let conn = connect(&config).unwrap();
+        let old_exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT * FROM collages WHERE name = 'Rose Gold')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let new_exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT * FROM collages WHERE name = 'Silver')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!old_exists, "Old collage should not be in cache");
+        assert!(new_exists, "New collage should be in cache");
+    }
+
+    // 16. open .rose.{uuid}.toml under a collage release adds release to collage.
+    #[test]
+    fn test_open_adds_release_to_collage() {
+        let (_dir, config) = seeded_mutation_config();
+
+        // Create a new empty collage for the test.
+        rose_core::collages::create_collage(&config, "TestAdd").unwrap();
+
+        let mut core = RoseLogicalCore::new(config.clone());
+
+        // Simulate the FUSE collage addition sequence:
+        // open a `.rose.{release_id}.toml` file under a collage/release path with O_CREAT.
+        let vp = VirtualPath {
+            view: Some(ViewType::Collages),
+            collage: Some("TestAdd".to_string()),
+            release: Some("SomeRelease".to_string()),
+            file: Some(".rose.ilovecarly.toml".to_string()),
+            artist: None,
+            genre: None,
+            descriptor: None,
+            label: None,
+            playlist: None,
+        };
+
+        let fh = core.open(&vp, libc::O_CREAT | libc::O_WRONLY).unwrap();
+        // The returned fh should be the dev_null sentinel for collage additions.
+        assert_eq!(fh, core.fhandler.dev_null);
+
+        // Assert the release was added to the collage TOML.
+        let filepath = rose_core::collages::collage_path(&config, "TestAdd");
+        let content = std::fs::read_to_string(&filepath).unwrap();
+        let data: toml::Value = content.parse().unwrap();
+        let releases = data["releases"].as_array().unwrap();
+        let uuids: Vec<&str> = releases
+            .iter()
+            .map(|r| r["uuid"].as_str().unwrap())
+            .collect();
+        assert!(
+            uuids.contains(&"ilovecarly"),
+            "Release should be added to collage TOML, got {:?}",
+            uuids
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Playlist mutation tests
+    // -----------------------------------------------------------------------
+
+    // 17. mkdir at /Playlists/New Playlist creates a playlist TOML on disk.
+    #[test]
+    fn test_mkdir_creates_playlist() {
+        let (_dir, config) = seeded_mutation_config();
+        let mut core = RoseLogicalCore::new(config.clone());
+
+        let vp = VirtualPath {
+            view: Some(ViewType::Playlists),
+            playlist: Some("New Playlist".to_string()),
+            artist: None,
+            genre: None,
+            descriptor: None,
+            label: None,
+            collage: None,
+            release: None,
+            file: None,
+        };
+
+        core.mkdir(&vp).unwrap();
+
+        let path = rose_core::playlists::playlist_path(&config, "New Playlist");
+        assert!(path.exists(), "Playlist TOML should exist at {:?}", path);
+
+        let conn = connect(&config).unwrap();
+        let exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT * FROM playlists WHERE name = 'New Playlist')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(exists, "Playlist should exist in cache");
+    }
+
+    // 18. rmdir at /Playlists/{existing} deletes the playlist.
+    #[test]
+    fn test_rmdir_deletes_playlist() {
+        let (_dir, config) = seeded_mutation_config();
+        let mut core = RoseLogicalCore::new(config.clone());
+
+        let path = rose_core::playlists::playlist_path(&config, "Lala Lisa");
+        assert!(path.exists(), "Playlist should exist before deletion");
+
+        let vp = VirtualPath {
+            view: Some(ViewType::Playlists),
+            playlist: Some("Lala Lisa".to_string()),
+            artist: None,
+            genre: None,
+            descriptor: None,
+            label: None,
+            collage: None,
+            release: None,
+            file: None,
+        };
+
+        core.rmdir(&vp).unwrap();
+
+        assert!(!path.exists(), "Playlist TOML should be deleted/trashed");
+
+        let conn = connect(&config).unwrap();
+        let exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT * FROM playlists WHERE name = 'Lala Lisa')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!exists, "Playlist should not exist in cache after deletion");
+    }
+
+    // 19. rename /Playlists/Old to /Playlists/New renames on disk.
+    #[test]
+    fn test_rename_playlist() {
+        let (_dir, config) = seeded_mutation_config();
+        let mut core = RoseLogicalCore::new(config.clone());
+
+        let old_vp = VirtualPath {
+            view: Some(ViewType::Playlists),
+            playlist: Some("Lala Lisa".to_string()),
+            artist: None,
+            genre: None,
+            descriptor: None,
+            label: None,
+            collage: None,
+            release: None,
+            file: None,
+        };
+        let new_vp = VirtualPath {
+            view: Some(ViewType::Playlists),
+            playlist: Some("Turtle Rabbit".to_string()),
+            artist: None,
+            genre: None,
+            descriptor: None,
+            label: None,
+            collage: None,
+            release: None,
+            file: None,
+        };
+
+        core.rename(&old_vp, &new_vp).unwrap();
+
+        let old_path = rose_core::playlists::playlist_path(&config, "Lala Lisa");
+        let new_path = rose_core::playlists::playlist_path(&config, "Turtle Rabbit");
+        assert!(!old_path.exists(), "Old playlist file should be gone");
+        assert!(new_path.exists(), "New playlist file should exist");
+
+        let conn = connect(&config).unwrap();
+        let old_exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT * FROM playlists WHERE name = 'Lala Lisa')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let new_exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT * FROM playlists WHERE name = 'Turtle Rabbit')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!old_exists, "Old playlist should not be in cache");
+        assert!(new_exists, "New playlist should be in cache");
+    }
+
+    // 20. unlink a track file under a playlist path removes it from the TOML.
+    #[test]
+    fn test_unlink_removes_track_from_playlist() {
+        let (_dir, config) = seeded_mutation_config();
+        let mut core = RoseLogicalCore::new(config.clone());
+
+        // Readdir on the playlist to populate the vnames cache.
+        let playlist_vp = VirtualPath {
+            view: Some(ViewType::Playlists),
+            playlist: Some("Lala Lisa".to_string()),
+            artist: None,
+            genre: None,
+            descriptor: None,
+            label: None,
+            collage: None,
+            release: None,
+            file: None,
+        };
+        let entries = core.readdir(&playlist_vp).unwrap();
+        let names = entry_names(&entries);
+
+        // Find the virtual file name for trackA (Track One).
+        let track_file = names
+            .iter()
+            .find(|name| name.contains("Track One"))
+            .expect("Should find Track One in playlist entries")
+            .clone();
+
+        // Unlink that track.
+        let unlink_vp = VirtualPath {
+            view: Some(ViewType::Playlists),
+            playlist: Some("Lala Lisa".to_string()),
+            file: Some(track_file),
+            artist: None,
+            genre: None,
+            descriptor: None,
+            label: None,
+            collage: None,
+            release: None,
+        };
+
+        core.unlink(&unlink_vp).unwrap();
+
+        // Assert track was removed from the playlist TOML.
+        let filepath = rose_core::playlists::playlist_path(&config, "Lala Lisa");
+        let content = std::fs::read_to_string(&filepath).unwrap();
+        let data: toml::Value = content.parse().unwrap();
+        let tracks = data["tracks"].as_array().unwrap();
+        let uuids: Vec<&str> = tracks.iter().map(|t| t["uuid"].as_str().unwrap()).collect();
+        assert!(
+            !uuids.contains(&"trackA"),
+            "trackA should be removed from playlist, got {:?}",
+            uuids
+        );
+        assert!(
+            uuids.contains(&"trackB"),
+            "trackB should still be in playlist"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Release mutation tests
+    // -----------------------------------------------------------------------
+
+    // 21. rmdir at /Releases/{release} trashes the release source directory.
+    #[test]
+    fn test_rmdir_deletes_release() {
+        let (_dir, config) = seeded_mutation_config();
+        let mut core = RoseLogicalCore::new(config.clone());
+
+        // Readdir /1. Releases to populate release name cache.
+        let releases_vp = VirtualPath::parse(Path::new("/1. Releases")).unwrap();
+        let entries = core.readdir(&releases_vp).unwrap();
+        let names = entry_names(&entries);
+
+        // Find the virtual name for "ilovecarly" (contains "E-MO-TION" or "Carly").
+        let release_name = names
+            .iter()
+            .find(|n| n.contains("Carly") || n.contains("E-MO-TION"))
+            .expect("Should find Carly Rae Jepsen release in readdir")
+            .clone();
+
+        let rmdir_vp = VirtualPath {
+            view: Some(ViewType::Releases),
+            release: Some(release_name),
+            artist: None,
+            genre: None,
+            descriptor: None,
+            label: None,
+            collage: None,
+            playlist: None,
+            file: None,
+        };
+
+        let rel_dir = config.music_source_dir.join("Release1");
+        assert!(
+            rel_dir.exists(),
+            "Release source dir should exist before rmdir"
+        );
+
+        core.rmdir(&rmdir_vp).unwrap();
+
+        assert!(
+            !rel_dir.exists(),
+            "Release source dir should be trashed after rmdir"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Cover art mutation tests
+    // -----------------------------------------------------------------------
+
+    // 22. Open, write, release cover art for a release creates the file.
+    #[test]
+    fn test_write_release_cover_art() {
+        let (_dir, config) = seeded_mutation_config();
+        let mut core = RoseLogicalCore::new(config.clone());
+
+        // Readdir /1. Releases to populate the release name cache.
+        let releases_vp = VirtualPath::parse(Path::new("/1. Releases")).unwrap();
+        let entries = core.readdir(&releases_vp).unwrap();
+        let names = entry_names(&entries);
+
+        let release_name = names
+            .iter()
+            .find(|n| n.contains("Carly") || n.contains("E-MO-TION"))
+            .expect("Should find release in readdir")
+            .clone();
+
+        // Open cover art for writing with O_CREAT.
+        let cover_vp = VirtualPath {
+            view: Some(ViewType::Releases),
+            release: Some(release_name),
+            file: Some("cover.jpg".to_string()),
+            artist: None,
+            genre: None,
+            descriptor: None,
+            label: None,
+            collage: None,
+            playlist: None,
+        };
+
+        let fh = core
+            .open(&cover_vp, libc::O_CREAT | libc::O_WRONLY)
+            .unwrap();
+
+        // Write some image data.
+        let fake_image_data = b"FAKE_JPEG_DATA_12345";
+        let written = core.write(fh, 0, fake_image_data).unwrap();
+        assert_eq!(written, fake_image_data.len() as u32);
+
+        // Release the handle — triggers the actual cover art copy.
+        core.release(fh).unwrap();
+
+        // Assert cover art was created in the release directory.
+        let cover_path = config.music_source_dir.join("Release1").join("cover.jpg");
+        assert!(
+            cover_path.exists(),
+            "Cover art should exist at {:?}",
+            cover_path
+        );
+
+        // Verify the contents match.
+        let contents = std::fs::read(&cover_path).unwrap();
+        assert_eq!(contents, fake_image_data);
+    }
 }
