@@ -469,4 +469,127 @@ mod tests {
             ]
         );
     }
+
+    // --- sanitize_filename diacritics ----------------------------------------
+
+    #[test]
+    fn test_sanitize_filename_diacritics() {
+        let out = sanitize_filename(240, "Préludes.flac", false, true);
+        assert_eq!(out, "Preludes.flac");
+    }
+
+    // --- ArtistMapping::dump() -----------------------------------------------
+
+    #[test]
+    fn test_artist_mapping_dump() {
+        let mapping = ArtistMapping {
+            main: vec![Artist::new("Alice"), Artist::new("Bob")],
+            guest: vec![Artist::new("Charlie")],
+            remixer: vec![Artist::new("Dave")],
+            producer: vec![Artist::new("Eve")],
+            composer: vec![],
+            conductor: vec![Artist::new("Frank")],
+            djmixer: vec![Artist::new("Grace")],
+        };
+        let dumped = mapping.dump();
+        let obj = dumped.as_object().expect("dump should return an object");
+
+        // All 7 role keys must be present.
+        for role in &[
+            "main",
+            "guest",
+            "remixer",
+            "producer",
+            "composer",
+            "conductor",
+            "djmixer",
+        ] {
+            assert!(obj.contains_key(*role), "missing role key: {role}");
+        }
+
+        // Spot-check artist names.
+        let main = obj["main"].as_array().unwrap();
+        let main_names: Vec<&str> = main.iter().map(|v| v["name"].as_str().unwrap()).collect();
+        assert_eq!(main_names, vec!["Alice", "Bob"]);
+
+        let guest = obj["guest"].as_array().unwrap();
+        assert_eq!(guest[0]["name"].as_str().unwrap(), "Charlie");
+
+        // Empty role should serialize as an empty array.
+        let composer = obj["composer"].as_array().unwrap();
+        assert!(composer.is_empty());
+    }
+
+    // --- RoseError::is_expected() --------------------------------------------
+
+    #[test]
+    fn test_rose_error_is_expected() {
+        // User-facing "expected" errors.
+        assert!(RoseError::CollageAlreadyExists("x".into()).is_expected());
+        assert!(RoseError::PlaylistDoesNotExist("y".into()).is_expected());
+        assert!(RoseError::UnsupportedFiletype("z".into()).is_expected());
+        assert!(RoseError::InvalidCoverArt("a".into()).is_expected());
+        assert!(RoseError::ConfigNotFound("b".into()).is_expected());
+        assert!(RoseError::InvalidPathTemplate {
+            key: "k".into(),
+            message: "m".into(),
+        }
+        .is_expected());
+
+        // Internal errors are NOT expected.
+        assert!(!RoseError::Internal("something broke".into()).is_expected());
+    }
+
+    // --- sha256_struct nested structure --------------------------------------
+
+    #[test]
+    fn test_sha256_nested_structure() {
+        #[derive(Serialize)]
+        struct Outer {
+            title: String,
+            artists: ArtistMapping,
+        }
+
+        let s1 = Outer {
+            title: "Album".into(),
+            artists: ArtistMapping {
+                main: vec![Artist::new("Alice")],
+                guest: vec![Artist::new("Bob")],
+                ..Default::default()
+            },
+        };
+
+        // Hash twice — must be identical (determinism).
+        let h1 = sha256_struct(&s1);
+        let h2 = sha256_struct(&s1);
+        assert_eq!(h1, h2);
+        assert_eq!(h1.len(), 64);
+
+        // Modify one field — hash must change.
+        let s2 = Outer {
+            title: "Different Album".into(),
+            artists: ArtistMapping {
+                main: vec![Artist::new("Alice")],
+                guest: vec![Artist::new("Bob")],
+                ..Default::default()
+            },
+        };
+        let h3 = sha256_struct(&s2);
+        assert_ne!(h1, h3);
+    }
+
+    // --- sha256 empty vs populated -------------------------------------------
+
+    #[test]
+    fn test_sha256_empty_vs_populated() {
+        let empty = ArtistMapping::default();
+        let populated = ArtistMapping {
+            main: vec![Artist::new("Alice")],
+            ..Default::default()
+        };
+
+        let h_empty = sha256_struct(&empty);
+        let h_populated = sha256_struct(&populated);
+        assert_ne!(h_empty, h_populated);
+    }
 }
