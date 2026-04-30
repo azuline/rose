@@ -423,3 +423,489 @@ pub fn dump_all_playlists(c: &Config) -> Result<String> {
     }
     Ok(serde_json::to_string(&out)?)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::TempDir;
+
+    use rose_core::cache::{connect, maybe_invalidate_cache_database};
+
+    /// Create a minimal config pointing at a temporary directory.
+    fn test_config(dir: &TempDir) -> Config {
+        let music_dir = dir.path().join("music");
+        let cache_dir = dir.path().join("cache");
+        std::fs::create_dir_all(&music_dir).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        let cfg_path = dir.path().join("config.toml");
+        let mut f = std::fs::File::create(&cfg_path).unwrap();
+        write!(
+            f,
+            r#"
+            music_source_dir = "{}"
+            cache_dir = "{}"
+            vfs.mount_dir = "{}"
+            "#,
+            music_dir.display(),
+            cache_dir.display(),
+            dir.path().join("vfs").display(),
+        )
+        .unwrap();
+        Config::parse(Some(&cfg_path)).unwrap()
+    }
+
+    /// Returns a Config whose cache database is fully populated with test data.
+    fn seeded_config() -> (TempDir, Config) {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let music_dir = config.music_source_dir.clone();
+
+        // Create directories and files so source_path references are valid.
+        let dirpaths = [
+            music_dir.join("r1"),
+            music_dir.join("r2"),
+            music_dir.join("r3"),
+            music_dir.join("r4"),
+        ];
+        for d in &dirpaths {
+            std::fs::create_dir_all(d).unwrap();
+        }
+        let musicpaths = [
+            music_dir.join("r1/01.m4a"),
+            music_dir.join("r1/02.m4a"),
+            music_dir.join("r2/01.m4a"),
+            music_dir.join("r3/01.m4a"),
+            music_dir.join("r4/01.m4a"),
+        ];
+        for p in &musicpaths {
+            std::fs::File::create(p).unwrap();
+        }
+        let imagepaths = [music_dir.join("r2/cover.jpg")];
+        for p in &imagepaths {
+            if let Some(parent) = p.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+            std::fs::File::create(p).unwrap();
+        }
+        // Create playlist cover image dir + file.
+        let playlist_dir = music_dir.join("!playlists");
+        std::fs::create_dir_all(&playlist_dir).unwrap();
+        let playlist_cover = playlist_dir.join("Lala Lisa.jpg");
+        std::fs::File::create(&playlist_cover).unwrap();
+
+        let conn = connect(&config).unwrap();
+        conn.execute_batch(&format!(
+            r#"
+INSERT INTO releases
+       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype , releasedate , originaldate, compositiondate, catalognumber, edition , disctotal, new  , favorite, metahash)
+VALUES ('r1', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'     , '2023'      , null        , null           , null         , null    , 1        , false, true    , '1')
+     , ('r2', '{}'           , '{}'             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'     , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 1        , true , false   , '2')
+     , ('r3', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'     , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, false   , '3')
+     , ('r4', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 4', 'loosetrack', '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, false   , '4');
+
+INSERT INTO releases_genres
+       (release_id, genre             , position)
+VALUES ('r1'      , 'Techno'          , 1)
+     , ('r1'      , 'Deep House'      , 2)
+     , ('r2'      , 'Modern Classical', 1);
+
+INSERT INTO releases_secondary_genres
+       (release_id, genre             , position)
+VALUES ('r1'      , 'Rominimal'       , 1)
+     , ('r1'      , 'Ambient'         , 2)
+     , ('r2'      , 'Orchestral Music', 1);
+
+INSERT INTO releases_descriptors
+       (release_id, descriptor, position)
+VALUES ('r1'      , 'Warm'    , 1)
+     , ('r1'      , 'Hot'     , 2)
+     , ('r2'      , 'Wet'     , 1);
+
+INSERT INTO releases_labels
+       (release_id, label         , position)
+VALUES ('r1'      , 'Silk Music'  , 1)
+     , ('r2'      , 'Native State', 1);
+
+INSERT INTO tracks
+       (id  , source_path    , source_mtime, title    , release_id, tracknumber, tracktotal, discnumber, duration_seconds, metahash)
+VALUES ('t1', '{}'           , '999'       , 'Track 1', 'r1'      , '01'       , 2         , '01'      , 120             , '1')
+     , ('t2', '{}'           , '999'       , 'Track 2', 'r1'      , '02'       , 2         , '01'      , 240             , '2')
+     , ('t3', '{}'           , '999'       , 'Track 1', 'r2'      , '01'       , 1         , '01'      , 120             , '3')
+     , ('t4', '{}'           , '999'       , 'Track 1', 'r3'      , '01'       , 1         , '01'      , 120             , '4')
+     , ('t5', '{}'           , '999'       , 'Track 1', 'r4'      , '01'       , 1         , '01'      , 120             , '5');
+
+INSERT INTO releases_artists
+       (release_id, artist           , role   , position)
+VALUES ('r1'      , 'Techno Man'     , 'main' , 1)
+     , ('r1'      , 'Bass Man'       , 'main' , 2)
+     , ('r2'      , 'Violin Woman'   , 'main' , 1)
+     , ('r2'      , 'Conductor Woman', 'guest', 2);
+
+INSERT INTO tracks_artists
+       (track_id, artist           , role   , position)
+VALUES ('t1'    , 'Techno Man'     , 'main' , 1)
+     , ('t1'    , 'Bass Man'       , 'main' , 2)
+     , ('t2'    , 'Techno Man'     , 'main' , 1)
+     , ('t2'    , 'Bass Man'       , 'main' , 2)
+     , ('t3'    , 'Violin Woman'   , 'main' , 1)
+     , ('t3'    , 'Conductor Woman', 'guest', 2);
+
+INSERT INTO collages
+       (name       , source_mtime)
+VALUES ('Rose Gold', '999')
+     , ('Ruby Red' , '999');
+
+INSERT INTO collages_releases
+       (collage_name, release_id, position, missing)
+VALUES ('Rose Gold' , 'r1'      , 1       , false)
+     , ('Rose Gold' , 'r2'      , 2       , false);
+
+INSERT INTO playlists
+       (name           , source_mtime, cover_path)
+VALUES ('Lala Lisa'    , '999'       , '{}')
+     , ('Turtle Rabbit', '999'       , null);
+
+INSERT INTO playlists_tracks
+       (playlist_name, track_id, position, missing)
+VALUES ('Lala Lisa'  , 't1'    , 1       , false)
+     , ('Lala Lisa'  , 't3'    , 2       , false);
+            "#,
+            dirpaths[0].display(),
+            dirpaths[1].display(), imagepaths[0].display(),
+            dirpaths[2].display(),
+            dirpaths[3].display(),
+            musicpaths[0].display(),
+            musicpaths[1].display(),
+            musicpaths[2].display(),
+            musicpaths[3].display(),
+            musicpaths[4].display(),
+            playlist_cover.display(),
+        ))
+        .expect("Failed to seed cache database");
+
+        (dir, config)
+    }
+
+    // -----------------------------------------------------------------------
+    // Release dumps
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_dump_release() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_release(&config, "r1").unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let obj = v.as_object().unwrap();
+
+        // Top-level release keys.
+        assert_eq!(obj["id"], "r1");
+        assert!(obj.contains_key("source_path"));
+        assert_eq!(obj["releasetitle"], "Release 1");
+        assert_eq!(obj["releasetype"], "album");
+        assert_eq!(obj["releasedate"], "2023");
+        assert_eq!(obj["genres"], json!(["Techno", "Deep House"]));
+        assert_eq!(obj["labels"], json!(["Silk Music"]));
+        assert!(obj["favorite"].as_bool().unwrap());
+        assert!(!obj["new"].as_bool().unwrap());
+
+        // Release artists present.
+        let artists = obj["releaseartists"].as_object().unwrap();
+        assert!(artists.contains_key("main"));
+
+        // Tracks array embedded.
+        let tracks = obj["tracks"].as_array().unwrap();
+        assert_eq!(tracks.len(), 2);
+        assert_eq!(tracks[0]["tracktitle"], "Track 1");
+        assert_eq!(tracks[1]["tracktitle"], "Track 2");
+    }
+
+    #[test]
+    fn test_dump_all_releases() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_all_releases(&config, None).unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let arr = v.as_array().unwrap();
+        // 4 releases seeded (r1, r2, r3, r4).
+        assert_eq!(arr.len(), 4);
+        // Each entry should have tracks.
+        for entry in arr {
+            assert!(entry.as_object().unwrap().contains_key("tracks"));
+        }
+    }
+
+    #[test]
+    fn test_dump_releases_with_matcher() {
+        let (_dir, config) = seeded_config();
+        // Match releases by artist "Violin Woman" (strict lookup, optimized path).
+        let m = Matcher::from_expandable(
+            &["artist"],
+            Pattern::new("Violin Woman", true, false, false, false),
+        );
+        let json_str = dump_all_releases(&config, Some(&m)).unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let arr = v.as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0]["releasetitle"], "Release 2");
+    }
+
+    // -----------------------------------------------------------------------
+    // Track dumps
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_dump_track() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_track(&config, "t1").unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let obj = v.as_object().unwrap();
+
+        assert_eq!(obj["id"], "t1");
+        assert!(obj.contains_key("source_path"));
+        assert_eq!(obj["tracktitle"], "Track 1");
+        assert_eq!(obj["tracknumber"], "01");
+        assert_eq!(obj["tracktotal"], 2);
+        assert_eq!(obj["discnumber"], "01");
+        assert_eq!(obj["duration_seconds"], 120);
+
+        // Release info should be present (with_release_info = true).
+        assert_eq!(obj["release_id"], "r1");
+        assert_eq!(obj["releasetitle"], "Release 1");
+        assert_eq!(obj["releasetype"], "album");
+        assert!(obj.contains_key("releaseartists"));
+        assert!(obj.contains_key("genres"));
+        assert!(obj.contains_key("labels"));
+    }
+
+    #[test]
+    fn test_dump_all_tracks() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_all_tracks(&config, None).unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let arr = v.as_array().unwrap();
+        // 5 tracks seeded (t1-t5).
+        assert_eq!(arr.len(), 5);
+        for entry in arr {
+            let obj = entry.as_object().unwrap();
+            assert!(obj.contains_key("id"));
+            assert!(obj.contains_key("tracktitle"));
+            // Each track should carry release info.
+            assert!(obj.contains_key("release_id"));
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Entity dumps -- Artist
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_dump_artist() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_artist(&config, "Techno Man").unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let obj = v.as_object().unwrap();
+
+        assert_eq!(obj["name"], "Techno Man");
+        let roles = obj["roles"].as_object().unwrap();
+        // Techno Man is a main artist on r1.
+        let main = roles["main"].as_array().unwrap();
+        assert_eq!(main.len(), 1);
+        assert_eq!(main[0]["id"], "r1");
+        // Other role buckets should exist (possibly empty).
+        assert!(roles.contains_key("guest"));
+        assert!(roles.contains_key("remixer"));
+        assert!(roles.contains_key("producer"));
+        assert!(roles.contains_key("composer"));
+        assert!(roles.contains_key("conductor"));
+        assert!(roles.contains_key("djmixer"));
+    }
+
+    #[test]
+    fn test_dump_all_artists() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_all_artists(&config).unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let arr = v.as_array().unwrap();
+        // Seeded artists: Techno Man, Bass Man, Violin Woman, Conductor Woman.
+        assert_eq!(arr.len(), 4);
+        let names: Vec<&str> = arr.iter().map(|a| a["name"].as_str().unwrap()).collect();
+        assert!(names.contains(&"Techno Man"));
+        assert!(names.contains(&"Bass Man"));
+        assert!(names.contains(&"Violin Woman"));
+        assert!(names.contains(&"Conductor Woman"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Entity dumps -- Genre
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_dump_genre() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_genre(&config, "Techno").unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let obj = v.as_object().unwrap();
+
+        assert_eq!(obj["name"], "Techno");
+        let releases = obj["releases"].as_array().unwrap();
+        // r1 has genre "Techno".
+        assert!(!releases.is_empty());
+        assert!(releases.iter().any(|r| r["id"] == "r1"));
+    }
+
+    #[test]
+    fn test_dump_all_genres() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_all_genres(&config).unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let arr = v.as_array().unwrap();
+        // Seeded genres: Techno, Deep House, Modern Classical (primaries only
+        // in the genres table). Count may vary due to parent genre expansion,
+        // but there should be at least 3.
+        assert!(arr.len() >= 3);
+        for entry in arr {
+            let obj = entry.as_object().unwrap();
+            assert!(obj.contains_key("name"));
+            assert!(obj.contains_key("releases"));
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Entity dumps -- Label
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_dump_label() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_label(&config, "Silk Music").unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let obj = v.as_object().unwrap();
+
+        assert_eq!(obj["name"], "Silk Music");
+        let releases = obj["releases"].as_array().unwrap();
+        assert_eq!(releases.len(), 1);
+        assert_eq!(releases[0]["id"], "r1");
+    }
+
+    #[test]
+    fn test_dump_all_labels() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_all_labels(&config).unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let arr = v.as_array().unwrap();
+        // Seeded labels: Silk Music, Native State.
+        assert_eq!(arr.len(), 2);
+        let names: Vec<&str> = arr.iter().map(|l| l["name"].as_str().unwrap()).collect();
+        assert!(names.contains(&"Silk Music"));
+        assert!(names.contains(&"Native State"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Entity dumps -- Descriptor
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_dump_descriptor() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_descriptor(&config, "Warm").unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let obj = v.as_object().unwrap();
+
+        assert_eq!(obj["name"], "Warm");
+        let releases = obj["releases"].as_array().unwrap();
+        assert_eq!(releases.len(), 1);
+        assert_eq!(releases[0]["id"], "r1");
+    }
+
+    #[test]
+    fn test_dump_all_descriptors() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_all_descriptors(&config).unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let arr = v.as_array().unwrap();
+        // Seeded descriptors: Warm, Hot, Wet.
+        assert_eq!(arr.len(), 3);
+        let names: Vec<&str> = arr.iter().map(|d| d["name"].as_str().unwrap()).collect();
+        assert!(names.contains(&"Warm"));
+        assert!(names.contains(&"Hot"));
+        assert!(names.contains(&"Wet"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Collection dumps -- Collage
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_dump_collage() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_collage(&config, "Rose Gold").unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let obj = v.as_object().unwrap();
+
+        assert_eq!(obj["name"], "Rose Gold");
+        let releases = obj["releases"].as_array().unwrap();
+        assert_eq!(releases.len(), 2);
+        // Positions should be 1-indexed.
+        assert_eq!(releases[0]["position"], 1);
+        assert_eq!(releases[1]["position"], 2);
+        // Release data present.
+        assert_eq!(releases[0]["id"], "r1");
+        assert_eq!(releases[1]["id"], "r2");
+    }
+
+    #[test]
+    fn test_dump_all_collages() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_all_collages(&config).unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let arr = v.as_array().unwrap();
+        // Seeded collages: Rose Gold, Ruby Red.
+        assert_eq!(arr.len(), 2);
+        let names: Vec<&str> = arr.iter().map(|c| c["name"].as_str().unwrap()).collect();
+        assert!(names.contains(&"Rose Gold"));
+        assert!(names.contains(&"Ruby Red"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Collection dumps -- Playlist
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_dump_playlist() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_playlist(&config, "Lala Lisa").unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let obj = v.as_object().unwrap();
+
+        assert_eq!(obj["name"], "Lala Lisa");
+        // cover_image_path should be non-null for Lala Lisa.
+        assert!(obj["cover_image_path"].is_string());
+        let tracks = obj["tracks"].as_array().unwrap();
+        assert_eq!(tracks.len(), 2);
+        // Positions should be 1-indexed.
+        assert_eq!(tracks[0]["position"], 1);
+        assert_eq!(tracks[1]["position"], 2);
+        // Track data present with release info.
+        assert_eq!(tracks[0]["id"], "t1");
+        assert!(tracks[0].as_object().unwrap().contains_key("release_id"));
+    }
+
+    #[test]
+    fn test_dump_all_playlists() {
+        let (_dir, config) = seeded_config();
+        let json_str = dump_all_playlists(&config).unwrap();
+        let v: Value = serde_json::from_str(&json_str).unwrap();
+        let arr = v.as_array().unwrap();
+        // Seeded playlists: Lala Lisa, Turtle Rabbit.
+        assert_eq!(arr.len(), 2);
+        let names: Vec<&str> = arr.iter().map(|p| p["name"].as_str().unwrap()).collect();
+        assert!(names.contains(&"Lala Lisa"));
+        assert!(names.contains(&"Turtle Rabbit"));
+        // Turtle Rabbit has no cover.
+        let turtle = arr.iter().find(|p| p["name"] == "Turtle Rabbit").unwrap();
+        assert!(turtle["cover_image_path"].is_null());
+    }
+}

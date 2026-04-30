@@ -2453,4 +2453,310 @@ mod tests {
         assert_eq!(tags2.id, Some(id));
         assert_eq!(tags2.release_id, Some(rid));
     }
+
+    // -----------------------------------------------------------------------
+    // Preservation and error handling tests (Task 055)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn mp3_txxx_preservation() {
+        use lofty::id3::v2::{ExtendedTextFrame, Frame, Id3v2Tag};
+        use lofty::tag::TagExt;
+
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track3.mp3");
+
+        // First, do a normal AudioTags flush so the file has a clean Id3v2 tag
+        // written by Rose.
+        let mut tags = AudioTags::from_file(&path).unwrap();
+        tags.flush(false).unwrap();
+
+        // Now inject a custom TXXX frame that Rose does not manage. We use a
+        // description that lofty does not map to a known ItemKey, so it stays
+        // as ItemKey::Unknown and exercises the preservation code path.
+        {
+            let tagged_file = lofty::probe::Probe::open(&path)
+                .unwrap()
+                .guess_file_type()
+                .unwrap()
+                .read()
+                .unwrap();
+            let mut id3 = Id3v2Tag::from(tagged_file.tag(TagType::Id3v2).unwrap().clone());
+            id3.insert(Frame::UserText(ExtendedTextFrame::new(
+                lofty::TextEncoding::UTF8,
+                "MY_CUSTOM_TAG".to_string(),
+                "custom value 123".to_string(),
+            )));
+            id3.save_to_path(&path, lofty::config::WriteOptions::default())
+                .unwrap();
+        }
+
+        // Verify the custom frame is present before flush.
+        {
+            let tagged_file = lofty::probe::Probe::open(&path)
+                .unwrap()
+                .guess_file_type()
+                .unwrap()
+                .read()
+                .unwrap();
+            let tag = tagged_file.tag(TagType::Id3v2).unwrap();
+            let val = id3_get_unknown_tag(Some(tag), "MY_CUSTOM_TAG");
+            assert_eq!(
+                val,
+                Some("custom value 123".to_string()),
+                "custom TXXX present before flush"
+            );
+        }
+
+        // Flush via AudioTags (modifying a Rose field).
+        let mut tags = AudioTags::from_file(&path).unwrap();
+        tags.tracktitle = Some("Modified Title".to_string());
+        tags.flush(false).unwrap();
+
+        // Re-read raw ID3 tag and verify the custom TXXX frame survived.
+        let tagged_file = lofty::probe::Probe::open(&path)
+            .unwrap()
+            .guess_file_type()
+            .unwrap()
+            .read()
+            .unwrap();
+        let tag = tagged_file.tag(TagType::Id3v2).unwrap();
+        let val = id3_get_unknown_tag(Some(tag), "MY_CUSTOM_TAG");
+        assert_eq!(
+            val,
+            Some("custom value 123".to_string()),
+            "custom TXXX frame should survive flush"
+        );
+
+        // Also verify the Rose field was actually modified.
+        let tags2 = AudioTags::from_file(&path).unwrap();
+        assert_eq!(tags2.tracktitle, Some("Modified Title".to_string()));
+    }
+
+    #[test]
+    fn vorbis_vendor_string_preservation() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track1.flac");
+
+        // Record the original vendor string.
+        let original_vendor = {
+            let tagged_file = lofty::probe::Probe::open(&path)
+                .unwrap()
+                .guess_file_type()
+                .unwrap()
+                .read()
+                .unwrap();
+            let tag = tagged_file.tag(TagType::VorbisComments).unwrap();
+            tag.get_string(&ItemKey::EncoderSoftware)
+                .map(String::from)
+                .unwrap_or_default()
+        };
+        assert!(
+            !original_vendor.is_empty(),
+            "test file should have a vendor string"
+        );
+
+        // Flush via AudioTags (modifying a Rose field).
+        let mut tags = AudioTags::from_file(&path).unwrap();
+        tags.tracktitle = Some("Vendor Test".to_string());
+        tags.flush(false).unwrap();
+
+        // Re-read and verify vendor string is unchanged.
+        let tagged_file = lofty::probe::Probe::open(&path)
+            .unwrap()
+            .guess_file_type()
+            .unwrap()
+            .read()
+            .unwrap();
+        let tag = tagged_file.tag(TagType::VorbisComments).unwrap();
+        let after_vendor = tag
+            .get_string(&ItemKey::EncoderSoftware)
+            .map(String::from)
+            .unwrap_or_default();
+        assert_eq!(
+            after_vendor, original_vendor,
+            "vendor string should be preserved after flush"
+        );
+    }
+
+    #[test]
+    fn corrupted_file_returns_error() {
+        let tmp = tempfile::tempdir().expect("create temp dir");
+        let path = tmp.path().join("garbage.flac");
+        std::fs::write(&path, b"this is not a valid FLAC file at all").expect("write garbage file");
+
+        let result = AudioTags::from_file(&path);
+        assert!(
+            result.is_err(),
+            "corrupted file should return an error, not panic"
+        );
+    }
+
+    #[test]
+    fn genre_parent_raw_encoding() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track1.flac");
+        let mut tags = AudioTags::from_file(&path).unwrap();
+        tags.genre = vec!["Deep House".to_string()];
+        tags.flush(true).unwrap();
+
+        // Read the raw Vorbis comment GENRE value (not via AudioTags).
+        let tagged_file = lofty::probe::Probe::open(&path)
+            .unwrap()
+            .guess_file_type()
+            .unwrap()
+            .read()
+            .unwrap();
+        let tag = tagged_file.tag(TagType::VorbisComments).unwrap();
+
+        // Get the raw GENRE string via ItemKey::Genre.
+        let raw_genre = tag
+            .get_string(&ItemKey::Genre)
+            .map(String::from)
+            .expect("GENRE tag should exist");
+
+        // The raw value should start with the base genre.
+        assert!(
+            raw_genre.starts_with("Deep House"),
+            "raw genre should start with 'Deep House', got: {raw_genre}"
+        );
+        // Should contain the \\PARENTS:\\ delimiter.
+        assert!(
+            raw_genre.contains("\\\\PARENTS:\\\\"),
+            "raw genre should contain \\\\PARENTS:\\\\ delimiter, got: {raw_genre}"
+        );
+        // After the delimiter, parent genres should be present.
+        // Deep House's parents include "House".
+        let parents_section = raw_genre
+            .split("\\\\PARENTS:\\\\")
+            .nth(1)
+            .expect("should have a parents section");
+        assert!(
+            parents_section.contains("House"),
+            "parents should contain 'House', got: {parents_section}"
+        );
+
+        // Verify that reading back via AudioTags strips the parents.
+        let tags2 = AudioTags::from_file(&path).unwrap();
+        assert_eq!(tags2.genre, vec!["Deep House".to_string()]);
+    }
+
+    // -----------------------------------------------------------------------
+    // Mutation, normalization, and edge case tests (Task 054)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn mutate_artist_role_then_flush() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track1.flac");
+        let mut tags = AudioTags::from_file(&path).unwrap();
+        // Replace djmixer with a new artist.
+        tags.trackartists.djmixer = vec![Artist {
+            name: "New DJ".to_string(),
+            alias: false,
+        }];
+        tags.flush(false).unwrap();
+
+        let tags2 = AudioTags::from_file(&path).unwrap();
+        // The new djmixer should be present.
+        assert_eq!(tags2.trackartists.djmixer.len(), 1);
+        assert_eq!(tags2.trackartists.djmixer[0].name, "New DJ");
+    }
+
+    #[test]
+    fn mutate_date_then_flush() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track1.flac");
+        let mut tags = AudioTags::from_file(&path).unwrap();
+        tags.originaldate = Some(RoseDate {
+            year: 1990,
+            month: Some(4),
+            day: Some(20),
+        });
+        tags.flush(false).unwrap();
+
+        let tags2 = AudioTags::from_file(&path).unwrap();
+        let od = tags2.originaldate.expect("originaldate should be set");
+        assert_eq!(od.year, 1990);
+        assert_eq!(od.month, Some(4));
+        assert_eq!(od.day, Some(20));
+        assert_eq!(od.to_string(), "1990-04-20");
+    }
+
+    #[test]
+    fn releasetype_normalization_on_read() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track1.flac");
+        // Write an invalid releasetype directly to the FLAC Vorbis Comments.
+        {
+            use lofty::ogg::VorbisComments;
+            use lofty::tag::TagExt;
+
+            let mut vc = VorbisComments::new();
+            vc.insert("RELEASETYPE".to_string(), "BOGUS".to_string());
+            vc.insert("TITLE".to_string(), "Test".to_string());
+            vc.save_to_path(&path, lofty::config::WriteOptions::default())
+                .unwrap();
+        }
+        let tags = AudioTags::from_file(&path).unwrap();
+        assert_eq!(tags.releasetype, "unknown");
+    }
+
+    #[test]
+    fn releasetype_case_insensitive_on_read() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track1.flac");
+        // Write "ALBUM" (uppercase) as releasetype.
+        {
+            use lofty::ogg::VorbisComments;
+            use lofty::tag::TagExt;
+
+            let mut vc = VorbisComments::new();
+            vc.insert("RELEASETYPE".to_string(), "ALBUM".to_string());
+            vc.insert("TITLE".to_string(), "Test".to_string());
+            vc.save_to_path(&path, lofty::config::WriteOptions::default())
+                .unwrap();
+        }
+        let tags = AudioTags::from_file(&path).unwrap();
+        assert_eq!(tags.releasetype, "album");
+    }
+
+    #[test]
+    fn tag_splits_on_vs() {
+        let result = split_tag(Some("a vs. b"));
+        assert_eq!(result, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn tag_splits_on_slash() {
+        let result = split_tag(Some("a / b"));
+        assert_eq!(result, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn artist_deduplication_across_sources() {
+        // "A pres. B" extracts A as djmixer and B as main.
+        // Passing dj=Some("A") adds another "A" to djmixer.
+        // Deduplication (via `uniq`) should ensure only one "A" in djmixer.
+        let mapping = parse_artist_string(Some("A pres. B"), None, None, None, None, Some("A"));
+        assert_eq!(
+            mapping.djmixer.len(),
+            1,
+            "djmixer should be deduplicated: {:?}",
+            mapping.djmixer
+        );
+        assert_eq!(mapping.djmixer[0].name, "A");
+        assert_eq!(mapping.main[0].name, "B");
+    }
+
+    #[test]
+    fn m4a_none_string_tracknumber() {
+        let (_tmp, path) = copy_test_file("testdata/Tagger/track2.m4a");
+        let mut tags = AudioTags::from_file(&path).unwrap();
+        tags.tracknumber = Some("None".to_string());
+        // flush should not error — "None" is handled gracefully.
+        tags.flush(false).unwrap();
+
+        let tags2 = AudioTags::from_file(&path).unwrap();
+        // "None" is treated as unparseable -> 0 written to the trkn atom.
+        // lofty reads trkn=0 back as None (no track number).
+        assert!(
+            tags2.tracknumber.is_none() || tags2.tracknumber.as_deref() == Some("0"),
+            "tracknumber should be None or \"0\", got: {:?}",
+            tags2.tracknumber
+        );
+    }
 }

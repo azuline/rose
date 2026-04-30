@@ -254,4 +254,290 @@ mod tests {
         assert!(err.to_string().contains("nonexistent-id"));
         assert!(err.to_string().contains("does not exist"));
     }
+
+    // -----------------------------------------------------------------------
+    // Integration tests: seeded DB + real audio files
+    // -----------------------------------------------------------------------
+
+    use std::collections::HashSet;
+    use std::io::Write;
+    use std::path::PathBuf;
+    use tempfile::TempDir;
+
+    use crate::cache::{connect, maybe_invalidate_cache_database, sync_fts_index};
+
+    /// Path to the repository root (two levels above CARGO_MANIFEST_DIR).
+    fn repo_root() -> PathBuf {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        manifest_dir
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf()
+    }
+
+    /// Copy a real audio file from testdata into `dest_dir/filename`.
+    fn copy_audio_file(dest_dir: &std::path::Path, filename: &str) -> PathBuf {
+        let src = repo_root().join("testdata/Test Release 1/01.m4a");
+        let dst = dest_dir.join(filename);
+        std::fs::copy(&src, &dst)
+            .unwrap_or_else(|e| panic!("copy {} -> {}: {e}", src.display(), dst.display()));
+        dst
+    }
+
+    /// Create a minimal config pointing at a temporary directory.
+    fn test_config(dir: &TempDir) -> Config {
+        let music_dir = dir.path().join("music");
+        let cache_dir = dir.path().join("cache");
+        std::fs::create_dir_all(&music_dir).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+
+        let cfg_path = dir.path().join("config.toml");
+        let mut f = std::fs::File::create(&cfg_path).unwrap();
+        write!(
+            f,
+            r#"
+            music_source_dir = "{}"
+            cache_dir = "{}"
+            vfs.mount_dir = "{}"
+            "#,
+            music_dir.display(),
+            cache_dir.display(),
+            dir.path().join("vfs").display(),
+        )
+        .unwrap();
+        Config::parse(Some(&cfg_path)).unwrap()
+    }
+
+    /// Build a seeded config with real audio files on disk and a populated
+    /// FTS index, matching the standard seed data from `conftest.py`.
+    ///
+    /// Returns `(TempDir, Config)` — the `TempDir` must be held alive for the
+    /// duration of the test to prevent cleanup.
+    fn seeded_config_with_audio() -> (TempDir, Config) {
+        let dir = TempDir::new().unwrap();
+        let config = test_config(&dir);
+        maybe_invalidate_cache_database(&config).unwrap();
+
+        let music_dir = config.music_source_dir.clone();
+
+        // Create release directories.
+        let dirpaths = [
+            music_dir.join("r1"),
+            music_dir.join("r2"),
+            music_dir.join("r3"),
+            music_dir.join("r4"),
+        ];
+        for d in &dirpaths {
+            std::fs::create_dir_all(d).unwrap();
+        }
+
+        // Copy real audio files into the release directories.
+        let musicpaths = [
+            copy_audio_file(&dirpaths[0], "01.m4a"),
+            copy_audio_file(&dirpaths[0], "02.m4a"),
+            copy_audio_file(&dirpaths[1], "01.m4a"),
+            copy_audio_file(&dirpaths[2], "01.m4a"),
+            copy_audio_file(&dirpaths[3], "01.m4a"),
+        ];
+
+        // Create .rose.{id}.toml sidecar files (needed by run_actions for
+        // datafile lookups when modifying new/favorite/rating tags).
+        for (d, id) in dirpaths.iter().zip(["r1", "r2", "r3", "r4"]) {
+            let sidecar = d.join(format!(".rose.{id}.toml"));
+            std::fs::write(&sidecar, "").unwrap();
+        }
+
+        // Create image placeholders.
+        let imagepaths = [
+            music_dir.join("r2/cover.jpg"),
+            music_dir.join("!playlists/Lala Lisa.jpg"),
+        ];
+        std::fs::create_dir_all(music_dir.join("!playlists")).unwrap();
+        for p in &imagepaths {
+            std::fs::write(p, b"").unwrap();
+        }
+
+        // Seed the database with the standard test data.
+        let conn = connect(&config).unwrap();
+        conn.execute_batch(&format!(
+            r#"
+INSERT INTO releases
+       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype , releasedate , originaldate, compositiondate, catalognumber, edition , disctotal, new  , favorite, metahash)
+VALUES ('r1', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'     , '2023'      , null        , null           , null         , null    , 1        , false, true    , '1')
+     , ('r2', '{}'           , '{}'             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'     , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 1        , true , false   , '2')
+     , ('r3', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'     , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, false   , '3')
+     , ('r4', '{}'           , null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 4', 'loosetrack', '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, false   , '4');
+
+INSERT INTO releases_genres
+       (release_id, genre             , position)
+VALUES ('r1'      , 'Techno'          , 1)
+     , ('r1'      , 'Deep House'      , 2)
+     , ('r2'      , 'Modern Classical', 1);
+
+INSERT INTO releases_secondary_genres
+       (release_id, genre             , position)
+VALUES ('r1'      , 'Rominimal'       , 1)
+     , ('r1'      , 'Ambient'         , 2)
+     , ('r2'      , 'Orchestral Music', 1);
+
+INSERT INTO releases_descriptors
+       (release_id, descriptor, position)
+VALUES ('r1'      , 'Warm'    , 1)
+     , ('r1'      , 'Hot'     , 2)
+     , ('r2'      , 'Wet'     , 1);
+
+INSERT INTO releases_labels
+       (release_id, label         , position)
+VALUES ('r1'      , 'Silk Music'  , 1)
+     , ('r2'      , 'Native State', 1);
+
+INSERT INTO tracks
+       (id  , source_path    , source_mtime, title    , release_id, tracknumber, tracktotal, discnumber, duration_seconds, metahash)
+VALUES ('t1', '{}'           , '999'       , 'Track 1', 'r1'      , '01'       , 2         , '01'      , 120             , '1')
+     , ('t2', '{}'           , '999'       , 'Track 2', 'r1'      , '02'       , 2         , '01'      , 240             , '2')
+     , ('t3', '{}'           , '999'       , 'Track 1', 'r2'      , '01'       , 1         , '01'      , 120             , '3')
+     , ('t4', '{}'           , '999'       , 'Track 1', 'r3'      , '01'       , 1         , '01'      , 120             , '4')
+     , ('t5', '{}'           , '999'       , 'Track 1', 'r4'      , '01'       , 1         , '01'      , 120             , '5');
+
+INSERT INTO releases_artists
+       (release_id, artist           , role   , position)
+VALUES ('r1'      , 'Techno Man'     , 'main' , 1)
+     , ('r1'      , 'Bass Man'       , 'main' , 2)
+     , ('r2'      , 'Violin Woman'   , 'main' , 1)
+     , ('r2'      , 'Conductor Woman', 'guest', 2);
+
+INSERT INTO tracks_artists
+       (track_id, artist           , role   , position)
+VALUES ('t1'    , 'Techno Man'     , 'main' , 1)
+     , ('t1'    , 'Bass Man'       , 'main' , 2)
+     , ('t2'    , 'Techno Man'     , 'main' , 1)
+     , ('t2'    , 'Bass Man'       , 'main' , 2)
+     , ('t3'    , 'Violin Woman'   , 'main' , 1)
+     , ('t3'    , 'Conductor Woman', 'guest', 2);
+            "#,
+            dirpaths[0].display(),
+            dirpaths[1].display(), imagepaths[0].display(),
+            dirpaths[2].display(),
+            dirpaths[3].display(),
+            musicpaths[0].display(),
+            musicpaths[1].display(),
+            musicpaths[2].display(),
+            musicpaths[3].display(),
+            musicpaths[4].display(),
+        ))
+        .expect("Failed to seed cache database");
+
+        // Populate the FTS index (needed for substring/fallback searches).
+        sync_fts_index(
+            &conn,
+            &[
+                "t1".to_string(),
+                "t2".to_string(),
+                "t3".to_string(),
+                "t4".to_string(),
+                "t5".to_string(),
+            ],
+            &[
+                "r1".to_string(),
+                "r2".to_string(),
+                "r3".to_string(),
+                "r4".to_string(),
+            ],
+        )
+        .expect("Failed to sync FTS index");
+
+        (dir, config)
+    }
+
+    // 1. End-to-end: run_actions_on_track replaces the track title in audio tags.
+    #[test]
+    fn test_run_actions_on_track_e2e() {
+        let (_dir, config) = seeded_config_with_audio();
+        let track_id = "t3";
+
+        // Parse "tracktitle/replace:Bop" — sets the track title to "Bop".
+        let action = Action::parse("tracktitle/replace:Bop", None, None).unwrap();
+        run_actions_on_track(&config, track_id, &[action], false, false).unwrap();
+
+        // Re-read the audio file and verify the title was changed.
+        let track = get_track(&config, track_id).unwrap().unwrap();
+        let tags = AudioTags::from_file(&track.source_path).unwrap();
+        assert_eq!(tags.tracktitle.as_deref(), Some("Bop"));
+    }
+
+    // 2. Strict artist match returns the correct track set (optimized path).
+    #[test]
+    fn test_find_tracks_matching_rule_strict_artist() {
+        let (_dir, config) = seeded_config_with_audio();
+        let m = Matcher::parse("artist:^Techno Man$").unwrap();
+        let tracks = find_tracks_matching_rule(&config, &m).unwrap();
+        let ids: HashSet<String> = tracks.into_iter().map(|t| t.id).collect();
+        assert_eq!(ids, HashSet::from(["t1".into(), "t2".into()]));
+    }
+
+    // 3. Strict genre match returns the correct track set (optimized path).
+    #[test]
+    fn test_find_tracks_matching_rule_strict_genre() {
+        let (_dir, config) = seeded_config_with_audio();
+        let m = Matcher::parse("genre:^Deep House$").unwrap();
+        let tracks = find_tracks_matching_rule(&config, &m).unwrap();
+        let ids: HashSet<String> = tracks.into_iter().map(|t| t.id).collect();
+        assert_eq!(ids, HashSet::from(["t1".into(), "t2".into()]));
+    }
+
+    // 4. Strict label match returns the correct track set (optimized path).
+    #[test]
+    fn test_find_tracks_matching_rule_strict_label() {
+        let (_dir, config) = seeded_config_with_audio();
+        let m = Matcher::parse("label:^Native State$").unwrap();
+        let tracks = find_tracks_matching_rule(&config, &m).unwrap();
+        let ids: HashSet<String> = tracks.into_iter().map(|t| t.id).collect();
+        assert_eq!(ids, HashSet::from(["t3".into()]));
+    }
+
+    // 5. Strict descriptor match returns the correct track set (optimized path).
+    #[test]
+    fn test_find_tracks_matching_rule_strict_descriptor() {
+        let (_dir, config) = seeded_config_with_audio();
+        let m = Matcher::parse("descriptor:^Wet$").unwrap();
+        let tracks = find_tracks_matching_rule(&config, &m).unwrap();
+        let ids: HashSet<String> = tracks.into_iter().map(|t| t.id).collect();
+        assert_eq!(ids, HashSet::from(["t3".into()]));
+    }
+
+    // 6. Non-strict (substring) matcher uses the FTS fallback path.
+    #[test]
+    fn test_find_tracks_matching_rule_substring_fallback() {
+        let (_dir, config) = seeded_config_with_audio();
+        let m = Matcher::parse("tracktitle:Track").unwrap();
+        let tracks = find_tracks_matching_rule(&config, &m).unwrap();
+        let ids: HashSet<String> = tracks.into_iter().map(|t| t.id).collect();
+        // All five tracks have titles starting with "Track".
+        assert_eq!(
+            ids,
+            HashSet::from([
+                "t1".into(),
+                "t2".into(),
+                "t3".into(),
+                "t4".into(),
+                "t5".into(),
+            ])
+        );
+    }
+
+    // 7. run_actions_on_track with a nonexistent track ID returns an error.
+    #[test]
+    fn test_run_actions_on_nonexistent_track_e2e() {
+        let (_dir, config) = seeded_config_with_audio();
+        let action = Action::parse("tracktitle/replace:Nope", None, None).unwrap();
+        let result = run_actions_on_track(&config, "bogus-track-id", &[action], false, false);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("does not exist"),
+            "Expected 'does not exist' in error, got: {err_msg}"
+        );
+    }
 }
