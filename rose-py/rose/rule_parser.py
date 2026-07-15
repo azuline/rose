@@ -766,13 +766,13 @@ class Action:
                     index=idx,
                     feedback="Source tag not found: must specify a tag to copy from. Example: copy:tracktitle",
                 )
-            if source_str not in COPYABLE_TAGS:
+            source = next((t for t in COPYABLE_TAGS if t == source_str), None)
+            if source is None:
                 raise RuleSyntaxError(
                     **err,
                     index=idx,
                     feedback=f"Invalid source tag: must be one of {{{', '.join(COPYABLE_TAGS)}}}.",
                 )
-            source = source_str
             # Parse the optional sed transform, which mirrors the sed action's grammar.
             sed: SedAction | None = None
             if idx < len(raw):
