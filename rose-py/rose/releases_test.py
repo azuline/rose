@@ -19,6 +19,7 @@ from rose.cache import (
 from rose.common import Artist, ArtistMapping
 from rose.config import Config
 from rose.releases import (
+    MetadataRelease,
     ReleaseEditFailedError,
     create_single_release,
     delete_release,
@@ -274,6 +275,32 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             release=release,
         ),
     ]
+
+
+def test_edit_release_reads_audio_tags(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+    release_path = source_dir / TEST_RELEASE_1.name
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(release_path),))
+        release_id = cursor.fetchone()["id"]
+
+    release = get_release(config, release_id)
+    assert release is not None
+    tracks = get_tracks_of_release(config, release)
+    tags = AudioTags.from_file(tracks[0].source_path)
+    tags.releasetitle = "Changed on disk"
+    tags.tracktitle = "Track changed on disk"
+    tags.flush(config)
+
+    monkeypatch.setattr("rose.releases.update_cache_for_releases", lambda *_, **__: None)
+
+    def editfn(toml: str, **_: Any) -> str:
+        metadata = MetadataRelease.from_toml(toml)
+        assert metadata.title == "Changed on disk"
+        assert metadata.tracks[tracks[0].id].title == "Track changed on disk"
+        return toml
+
+    monkeypatch.setattr("rose.collages.click.edit", editfn)
+    edit_release(config, release_id)
 
 
 def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, source_dir: Path) -> None:
