@@ -59,6 +59,20 @@ artist_aliases = [
   { artist = "tripleS", aliases = ["EVOLution", "LOVElution", "+(KR)ystal Eyes", "Acid Angel From Asia", "Acid Eyes"] },
 ]
 
+# Label aliases: Grouping multiple names for the same label together.
+#
+# This mirrors `artist_aliases`, but for record labels. Labels are sometimes
+# renamed or run sublabels; this configuration option makes the releases of
+# "aliased" labels also appear under the main label in the Labels browsing
+# view.
+#
+# Relationships are followed transitively. This means that if A is an alias of
+# B, and B is an alias of C, then A will appear under C.
+label_aliases = [
+  { label = "Anjunabeats", aliases = ["Anjunadeep"] },
+  { label = "Warp", aliases = ["Warp Records", "Arbeit"] },
+]
+
 # Artists, genres, descriptors, and labels to show in their respective
 # top-level virtual filesystem directories. By default, all artists, genres,
 # and labels are shown. However, if this configuration parameter is specified,

@@ -1840,13 +1840,16 @@ def filter_releases(
             """
             args.append(descriptor_filter)
         if label_filter:
-            query += """
+            labels: list[str] = [label_filter]
+            for alias in _get_all_label_aliases(c, label_filter):
+                labels.append(alias)
+            query += f"""
                 AND EXISTS (
                     SELECT * FROM releases_labels
-                    WHERE release_id = id AND label = ?
+                    WHERE release_id = id AND label IN ({",".join(["?"] * len(labels))})
                 )
             """
-            args.append(label_filter)
+            args.extend(labels)
         if release_type_filter:
             query += " AND rv.releasetype = ?"
             args.append(release_type_filter)
@@ -1945,13 +1948,16 @@ def filter_tracks(
             """
             args.append(descriptor_filter)
         if label_filter:
-            query += """
+            labels: list[str] = [label_filter]
+            for alias in _get_all_label_aliases(c, label_filter):
+                labels.append(alias)
+            query += f"""
                 AND EXISTS (
                     SELECT * FROM releases_labels rl
-                    WHERE rl.release_id = tv.release_id AND rl.label = ?
+                    WHERE rl.release_id = tv.release_id AND rl.label IN ({",".join(["?"] * len(labels))})
                 )
             """
-            args.append(label_filter)
+            args.extend(labels)
         if new is not None:
             query += " AND new = ?"
             args.append(new)
@@ -2445,10 +2451,18 @@ def list_labels(c: Config) -> list[LabelEntry]:
 
 
 def label_exists(c: Config, label: str) -> bool:
+    args: list[str] = [label]
+    for alias in _get_all_label_aliases(c, label):
+        args.append(alias)
     with connect(c) as conn:
         cursor = conn.execute(
-            "SELECT EXISTS(SELECT * FROM releases_labels WHERE label = ?)",
-            (label,),
+            f"""
+            SELECT EXISTS(
+                SELECT * FROM releases_labels
+                WHERE label IN ({",".join(["?"] * len(args))})
+            )
+            """,
+            args,
         )
         return bool(cursor.fetchone()[0])
 
@@ -2498,6 +2512,19 @@ def _get_all_artist_aliases(c: Config, x: str) -> list[str]:
             continue
         aliases.add(cur)
         unvisited.update(c.artist_aliases_map.get(cur, []))
+    return list(aliases)
+
+
+def _get_all_label_aliases(c: Config, x: str) -> list[str]:
+    """Includes transitive aliases."""
+    aliases: set[str] = set()
+    unvisited: set[str] = {x}
+    while unvisited:
+        cur = unvisited.pop()
+        if cur in aliases:
+            continue
+        aliases.add(cur)
+        unvisited.update(c.label_aliases_map.get(cur, []))
     return list(aliases)
 
 
