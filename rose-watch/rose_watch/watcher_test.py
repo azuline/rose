@@ -1,3 +1,4 @@
+import multiprocessing
 import shutil
 import time
 from collections.abc import Iterator
@@ -13,10 +14,14 @@ from rose_watch.watcher import start_watchdog
 
 @contextmanager
 def start_watcher(c: Config) -> Iterator[None]:
-    process = Process(target=start_watchdog, args=[c])
+    # Wait until the observer is actually watching before yielding. With the spawn start method
+    # (used on macOS) process startup is not instantaneous, and any file mutations made before the
+    # observer is listening would be silently missed.
+    ready = multiprocessing.Event()
+    process = Process(target=start_watchdog, args=[c, ready])
     try:
         process.start()
-        time.sleep(0.05)
+        assert ready.wait(timeout=30), "timed out waiting for watchdog to start"
         yield
     finally:
         process.terminate()

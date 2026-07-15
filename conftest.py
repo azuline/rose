@@ -2,8 +2,10 @@ import dataclasses
 import hashlib
 import logging
 import multiprocessing
+import os
 import shutil
 import sqlite3
+import sys
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -28,8 +30,15 @@ TEST_TAGGER = TESTDATA / "Tagger"
 
 @pytest.fixture(autouse=True)
 def multiprocessing_set_start_method() -> None:
-    # Force fork on MacOS, spawn is too unperformant.
-    multiprocessing.set_start_method("fork", force=True)
+    # On Linux we use fork because spawn is too unperformant. On macOS we must use spawn: forking a
+    # multi-threaded process (e.g. a pytest-xdist worker) and then touching CoreFoundation APIs (as
+    # watchdog's FSEvents observer does) segfaults the child.
+    method = "spawn" if sys.platform == "darwin" else "fork"
+    multiprocessing.set_start_method(method, force=True)
+    # Propagate test mode to child processes. With the spawn start method (macOS), children do not
+    # inherit imported modules, so code that detects tests via `"pytest" in sys.modules` needs this
+    # environment variable (which spawned children do inherit) to know it is running under a test.
+    os.environ["ROSE_IN_TEST"] = "1"
 
 
 @pytest.fixture(autouse=True)
