@@ -10,6 +10,7 @@ import re
 import shlex
 import shutil
 import tomllib
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
@@ -366,12 +367,17 @@ class MetadataRelease:
 FAILED_RELEASE_EDIT_FILENAME_REGEX = re.compile(r"failed-release-edit\.([^.]+)\.toml")
 
 
+def _edit_toml(toml: str) -> str | None:
+    return click.edit(toml, extension=".toml")
+
+
 def edit_release(
     c: Config,
     release_id: str,
     *,
     # Will use this file as the starting TOML instead of reading the cache.
     resume_file: Path | None = None,
+    editor_fn: Callable[[str], str | None] = _edit_toml,
 ) -> None:
     release = get_release(c, release_id)
     if not release:
@@ -400,7 +406,7 @@ def edit_release(
             original_metadata = MetadataRelease.from_audiotags(release, tracks, audiotags)
             original_toml = original_metadata.serialize()
 
-        toml = click.edit(original_toml, extension=".toml") or original_toml
+        toml = editor_fn(original_toml) or original_toml
         if original_toml == toml and not resume_file:
             logger.info("Aborting manual release edit: no metadata change detected.")
             return

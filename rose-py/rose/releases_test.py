@@ -277,7 +277,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
     ]
 
 
-def test_edit_release_reads_audio_tags(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_edit_release_reads_audio_tags(config: Config, source_dir: Path) -> None:
     release_path = source_dir / TEST_RELEASE_1.name
     with connect(config) as conn:
         cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(release_path),))
@@ -291,16 +291,21 @@ def test_edit_release_reads_audio_tags(monkeypatch: Any, config: Config, source_
     tags.tracktitle = "Track changed on disk"
     tags.flush(config)
 
-    monkeypatch.setattr("rose.releases.update_cache_for_releases", lambda *_, **__: None)
+    metadata = MetadataRelease.from_audiotags(
+        release,
+        tracks,
+        [AudioTags.from_file(track.source_path) for track in tracks],
+    )
+    assert metadata.title == "Changed on disk"
+    assert metadata.tracks[tracks[0].id].title == "Track changed on disk"
 
-    def editfn(toml: str, **_: Any) -> str:
+    def editfn(toml: str) -> str:
         metadata = MetadataRelease.from_toml(toml)
         assert metadata.title == "Changed on disk"
         assert metadata.tracks[tracks[0].id].title == "Track changed on disk"
         return toml
 
-    monkeypatch.setattr("rose.collages.click.edit", editfn)
-    edit_release(config, release_id)
+    edit_release(config, release_id, editor_fn=editfn)
 
 
 def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, source_dir: Path) -> None:
