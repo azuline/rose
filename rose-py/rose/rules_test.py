@@ -349,6 +349,66 @@ def test_action_no_pattern(config: Config, source_dir: Path) -> None:
     assert af.genre == ["K-Bop", "Bop"]
 
 
+def test_copy_action_single_to_single(config: Config, source_dir: Path) -> None:
+    rule = Rule.parse("tracktitle:Track", ["edition/copy:releasetitle"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.edition == "I Love Blackpink"
+
+
+def test_copy_action_single_to_multi(config: Config, source_dir: Path) -> None:
+    rule = Rule.parse("tracktitle:Track", ["label/copy:tracktitle"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.label == ["Track 1"]
+
+
+def test_copy_action_multi_to_multi_overwrites(config: Config, source_dir: Path) -> None:
+    # The destination list is overwritten wholesale (label was ["A Cool Label"]).
+    rule = Rule.parse("tracktitle:Track", ["label/copy:genre"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.label == ["K-Pop", "Pop"]
+
+
+def test_copy_action_into_empty_multi(config: Config, source_dir: Path) -> None:
+    # descriptor starts empty; copy must still populate it.
+    rule = Rule.parse("tracktitle:Track", ["descriptor/copy:genre"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.descriptor == ["K-Pop", "Pop"]
+
+
+def test_copy_action_with_sed_single(config: Config, source_dir: Path) -> None:
+    rule = Rule.parse("tracktitle:Track", ["edition/copy:releasetitle:sed:Blackpink:BLACKPINK"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.edition == "I Love BLACKPINK"
+
+
+def test_copy_action_with_sed_multi(config: Config, source_dir: Path) -> None:
+    rule = Rule.parse("tracktitle:Track", ["descriptor/copy:genre:sed:Pop:Rock"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.descriptor == ["K-Rock", "Rock"]
+
+
+def test_copy_action_pattern_filters_source(config: Config, source_dir: Path) -> None:
+    # Only source values matching the action pattern are copied.
+    rule = Rule.parse("tracktitle:Track", ["descriptor:^Pop$/copy:genre"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.descriptor == ["Pop"]
+
+
+def test_copy_action_from_datafile_source(config: Config, source_dir: Path) -> None:
+    # New releases default to new=true; copying reads the datafile value.
+    rule = Rule.parse("tracktitle:Track", ["edition/copy:new"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.edition == "true"
+
+
 def test_chained_action(config: Config, source_dir: Path) -> None:
     rule = Rule.parse(
         "label:A Cool Label",

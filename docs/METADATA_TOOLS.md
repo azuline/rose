@@ -387,7 +387,7 @@ restricts the modified tags to those matched by the track matcher. However, `pat
 default to the track matcher's pattern if `tags != matched`. In those cases, `pattern` defaults to
 null, which matches all values.
 
-`kind` determines which action is taken on the pattern-matched tags. There are five kinds of
+`kind` determines which action is taken on the pattern-matched tags. There are six kinds of
 actions, each of which has _kind-specific args_:
 
 - `replace`: Replace the tag value. Has one argument: `replacement`. For
@@ -398,6 +398,41 @@ actions, each of which has _kind-specific args_:
 - `add`: Adds a value to the tag. Has one argument: `value`. This action is only applicable to
   multi-value tags.
 - `delete`: Deletes the matched tag value. Takes no arguments.
+- `copy`: Copies the value of another tag into the tag(s) being acted upon. Has one required
+  argument, `source`, which is the tag to copy from, and an optional `sed` transform applied to the
+  copied value. See [The Copy Action](#the-copy-action) for the full semantics.
+
+### The Copy Action
+
+The `copy` action duplicates the value of a `source` tag into the tag(s) being acted upon (the
+destination). It is written as `copy:{source}` or, with an optional sed transform applied to the
+copied value, `copy:{source}:sed:{pattern}:{replacement}`. For example:
+
+- `edition/copy:catalognumber` sets the `edition` tag to the value of the `catalognumber` tag.
+- `edition/copy:releasetitle:sed:Deluxe:Standard` copies `releasetitle` into `edition`, replacing
+  `Deluxe` with `Standard` along the way.
+
+The `source` may be any tag, including tags that are not otherwise modifiable (such as `tracktotal`),
+since the source tag is only ever read from.
+
+Unlike the other actions, the copy action overwrites the destination tag(s) _wholesale_ with the
+source value rather than transforming the destination's existing value. This means it also works
+when the destination is empty (e.g. copying `genre` into an empty `descriptor` tag).
+
+The copy action handles multi-value tags as follows:
+
+- A single-value source copied into a single-value destination copies the string.
+- A multi-value source copied into a multi-value destination copies the list of values.
+- A single-value source copied into a multi-value destination becomes a single-element list.
+- A multi-value source copied into a single-value destination is rejected as an error, since it
+  would corrupt the single-value tag.
+
+Because the destination is overwritten wholesale, the action's `pattern` filters the _source_
+values (the values being copied) rather than the destination values. For example,
+`descriptor:^Pop$/copy:genre` copies only the `genre` values that exactly equal `Pop` into
+`descriptor`. The `sed` transform, if present, is applied to each copied value using the same
+semantics as the standalone `sed` action (including `;`-splitting and empty-value removal for
+multi-value destinations).
 
 ### Multi-Value Tags
 
@@ -444,6 +479,8 @@ kinds. And `kind_args` are colon-delimited arguments for the specific kind of ac
 - `split: / `
 - `add:Loony`
 - `delete`
+- `copy:catalognumber`
+- `copy:releasetitle:sed:Deluxe:Standard`
 - `genre/replace:K-Pop;Dance-Pop` _(pattern is optional)_
 - `matched:new-pattern/replace:Hi` _(but tags must be specified if pattern is specified)_
 - `matched:new-pattern:i/replace:Hi`
@@ -466,12 +503,13 @@ The formal syntax is defined by the following grammar:
 
 <action>            ::= <action-tagmatcher> '::' <subaction> | <subaction>
 <action-tagmatcher> ::= <tags> | <tags> ':' <pattern> | <tags> ':' <pattern> ':' <flags>
-<subaction>         ::= <replace-action> | <sed-action> | <split-action> | <add-action> | <delete-action>
+<subaction>         ::= <replace-action> | <sed-action> | <split-action> | <add-action> | <delete-action> | <copy-action>
 <replace-action>    ::= 'replace' ':' string
 <sed-action>        ::= 'sed' ':' string ':' string
 <split-action>      ::= 'split' ':' string
 <add-action>        ::= 'add' ':' string
 <delete-action>     ::= 'delete'
+<copy-action>       ::= 'copy' ':' <tag> | 'copy' ':' <tag> ':' 'sed' ':' string ':' string
 ```
 
 ## Ignoring Tracks
