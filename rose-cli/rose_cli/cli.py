@@ -21,6 +21,7 @@ from rose import (
     AudioTags,
     Config,
     Matcher,
+    MetadataMutationPlan,
     Rule,
     UnsupportedFiletypeError,
     add_release_to_collage,
@@ -33,9 +34,6 @@ from rose import (
     delete_playlist_cover_art,
     delete_release,
     delete_release_cover_art,
-    edit_collage_in_editor,
-    edit_playlist_in_editor,
-    edit_release,
     execute_metadata_rule,
     execute_stored_metadata_rules,
     maybe_invalidate_cache_database,
@@ -45,12 +43,18 @@ from rose import (
     rename_playlist,
     run_actions_on_release,
     run_actions_on_track,
+    serialize_collage,
+    serialize_playlist,
+    serialize_release_metadata,
     set_playlist_cover_art,
     set_release_cover_art,
     set_release_rating,
     toggle_release_favorite,
     toggle_release_new,
     update_cache,
+    upsert_collage,
+    upsert_playlist,
+    upsert_release_metadata,
 )
 
 from rose_cli.dump import (
@@ -92,6 +96,40 @@ class InvalidTrackArgError(CliExpectedError):
 
 class DaemonAlreadyRunningError(CliExpectedError):
     pass
+
+
+def _preview_changes(plan: MetadataMutationPlan, c: Config) -> None:
+    """Display a colored diff of the metadata changes the rules engine intends to write."""
+    for pathtext, changes in plan.describe(c):
+        click.secho(pathtext, underline=True)
+        for name, old, new in changes:
+            click.echo(f"      {name}: ", nl=False)
+            click.secho(old, fg="red", nl=False)
+            click.echo(" -> ", nl=False)
+            click.secho(new, fg="green", bold=True)
+
+
+def _confirm_changes(num_changes: int, *, enter_number_to_confirm_above_count: int = 25) -> bool:
+    """Prompt the user to confirm writing `num_changes` changes. Returns whether to proceed."""
+    click.echo()
+    if num_changes > enter_number_to_confirm_above_count:
+        while True:
+            userconfirmation = click.prompt(
+                f"Write changes to {num_changes} tracks? Enter {click.style(num_changes, bold=True)} to confirm (or 'no' to abort)"
+            )
+            if userconfirmation == "no":
+                return False
+            if userconfirmation == str(num_changes):
+                click.echo()
+                return True
+    if not click.confirm(
+        f"Write changes to {click.style(num_changes, bold=True)} tracks?",
+        default=True,
+        prompt_suffix="",
+    ):
+        return False
+    click.echo()
+    return True
 
 
 @dataclass
@@ -247,7 +285,12 @@ def print_all_releases(ctx: Context, matcher: str | None) -> None:
 def edit_release_cmd(ctx: Context, release: str, resume: Path | None) -> None:
     """Edit a release's metadata in $EDITOR. Accepts a release's UUID/path."""
     release = parse_release_argument(release)
-    edit_release(ctx.config, release, resume_file=resume)
+    original_toml = serialize_release_metadata(ctx.config, release, resume_file=resume)
+    toml = click.edit(original_toml, extension=".toml") or original_toml
+    if original_toml == toml and not resume:
+        logger.info("Aborting manual release edit: no metadata change detected.")
+        return
+    upsert_release_metadata(ctx.config, release, toml, resume_file=resume)
 
 
 @releases.command()
@@ -331,6 +374,8 @@ def run_rule(ctx: Context, release: str, actions: list[str], dry_run: bool, yes:
         parsed_actions,
         dry_run=dry_run,
         confirm_yes=not yes,
+        preview=_preview_changes,
+        confirm=_confirm_changes,
     )
 
 
@@ -385,6 +430,8 @@ def run_rule_track(ctx: Context, track: str, actions: list[str], dry_run: bool, 
         parsed_actions,
         dry_run=dry_run,
         confirm_yes=not yes,
+        preview=_preview_changes,
+        confirm=_confirm_changes,
     )
 
 
@@ -443,7 +490,11 @@ def remove_release(ctx: Context, collage: str, release: str) -> None:
 @click.pass_obj
 def edit(ctx: Context, collage: str) -> None:
     """Edit (reorder/remove releases from) a collage in $EDITOR. Accepts a collage's name."""
-    edit_collage_in_editor(ctx.config, collage)
+    edited_descriptions = click.edit(serialize_collage(ctx.config, collage))
+    if edited_descriptions is None:
+        logger.info("Aborting: metadata file not submitted.")
+        return
+    upsert_collage(ctx.config, collage, edited_descriptions)
 
 
 @collages.command(name="print")
@@ -519,7 +570,11 @@ def edit_playlist(ctx: Context, playlist: str) -> None:
     Edit a playlist in $EDITOR. Reorder lines to update the ordering of tracks. Delete lines to
     delete tracks from the playlist.
     """
-    edit_playlist_in_editor(ctx.config, playlist)
+    edited_descriptions = click.edit(serialize_playlist(ctx.config, playlist))
+    if edited_descriptions is None:
+        logger.info("Aborting: metadata file not submitted.")
+        return
+    upsert_playlist(ctx.config, playlist, edited_descriptions)
 
 
 @playlists.command(name="print")
@@ -661,7 +716,9 @@ def run(
         logger.info("No-Op: No actions passed")
         return
     rule = Rule.parse(matcher, actions, ignore)
-    execute_metadata_rule(ctx.config, rule, dry_run=dry_run, confirm_yes=not yes)
+    execute_metadata_rule(
+        ctx.config, rule, dry_run=dry_run, confirm_yes=not yes, preview=_preview_changes, confirm=_confirm_changes
+    )
 
 
 @rules.command()
@@ -670,7 +727,9 @@ def run(
 @click.pass_obj
 def run_stored(ctx: Context, dry_run: bool, yes: bool) -> None:
     """Run the rules stored in the config."""
-    execute_stored_metadata_rules(ctx.config, dry_run=dry_run, confirm_yes=not yes)
+    execute_stored_metadata_rules(
+        ctx.config, dry_run=dry_run, confirm_yes=not yes, preview=_preview_changes, confirm=_confirm_changes
+    )
 
 
 def parse_release_argument(r: str) -> str:

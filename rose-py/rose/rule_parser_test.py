@@ -57,7 +57,9 @@ def test_rule_parse_matcher() -> None:
     def test_err(rule: str, err: str) -> None:
         with pytest.raises(RuleSyntaxError) as exc:
             Matcher.parse(rule)
-        assert click.unstyle(str(exc.value)) == err
+        # The plain `str` form has no styling; the `str_click` form styles the same message.
+        assert str(exc.value) == err
+        assert click.unstyle(exc.value.str_click) == err
 
     test_err(
         "tracknumber^Track$",
@@ -217,7 +219,9 @@ def test_rule_parse_action() -> None:
     def test_err(rule: str, err: str, matcher: Matcher | None = None) -> None:
         with pytest.raises(RuleSyntaxError) as exc:
             Action.parse(rule, 1, matcher)
-        assert click.unstyle(str(exc.value)) == err
+        # The plain `str` form has no styling; the `str_click` form styles the same message.
+        assert str(exc.value) == err
+        assert click.unstyle(exc.value.str_click) == err
 
     test_err(
         "tracktitle:hello/:delete",

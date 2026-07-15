@@ -19,9 +19,9 @@ import re
 import shlex
 import time
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 
-import click
 import tomli_w
 
 from rose.audiotags import AudioTags, RoseDate
@@ -66,10 +66,12 @@ def execute_stored_metadata_rules(
     *,
     dry_run: bool = False,
     confirm_yes: bool = False,
+    preview: "ChangesPreviewer | None" = None,
+    confirm: "ChangesConfirmer | None" = None,
 ) -> None:
     for rule in c.stored_metadata_rules:
-        click.secho(f"Executing stored metadata rule {rule}", dim=True)
-        execute_metadata_rule(c, rule, dry_run=dry_run, confirm_yes=confirm_yes)
+        logger.info(f"Executing stored metadata rule {rule}")
+        execute_metadata_rule(c, rule, dry_run=dry_run, confirm_yes=confirm_yes, preview=preview, confirm=confirm)
 
 
 def execute_metadata_rule(
@@ -78,7 +80,8 @@ def execute_metadata_rule(
     *,
     dry_run: bool = False,
     confirm_yes: bool = False,
-    enter_number_to_confirm_above_count: int = 25,
+    preview: "ChangesPreviewer | None" = None,
+    confirm: "ChangesConfirmer | None" = None,
 ) -> None:
     """
     This function executes a metadata update rule. It runs in five parts:
@@ -89,15 +92,13 @@ def execute_metadata_rule(
     2. Read the files returned from the search query and remove all false positives.
     3. We then run the actions on each valid matched file and store all the intended changes
        in-memory. No changes are written to disk.
-    4. We then prompt the user to confirm the changes, assuming confirm_yes is True.
+    4. We then prompt the user to confirm the changes, assuming confirm_yes is True. Presentation
+       and confirmation are delegated to the frontend via the `preview` and `confirm` callbacks.
     5. We then flush the intended changes to disk.
     """
-    # Newline for appearance.
-    click.echo()
     fast_search_results = fast_search_for_matching_tracks(c, rule.matcher)
     if not fast_search_results:
-        click.secho("No matching tracks found", dim=True, italic=True)
-        click.echo()
+        logger.info("No matching tracks found")
         return
     # If there are more than 400 tracks matched, first filter the matched tracks using the cache,
     # has a sublinear time complexity (but higher baseline). Only then run the tag filter, which has
@@ -110,8 +111,7 @@ def execute_metadata_rule(
         track_ids = {x.id for x in tracks}
         fast_search_results = [t for t in fast_search_results if t.id in track_ids]
     if not fast_search_results:
-        click.secho("No matching tracks found", dim=True, italic=True)
-        click.echo()
+        logger.info("No matching tracks found")
         return
 
     matcher_audiotags = filter_track_false_positives_using_tags(
@@ -120,8 +120,7 @@ def execute_metadata_rule(
         rule.ignore,
     )
     if not matcher_audiotags:
-        click.secho("No matching tracks found", dim=True, italic=True)
-        click.echo()
+        logger.info("No matching tracks found")
         return
 
     execute_metadata_actions(
@@ -130,7 +129,8 @@ def execute_metadata_rule(
         matcher_audiotags,
         dry_run=dry_run,
         confirm_yes=confirm_yes,
-        enter_number_to_confirm_above_count=enter_number_to_confirm_above_count,
+        preview=preview,
+        confirm=confirm,
     )
 
 
@@ -341,6 +341,43 @@ Changes = tuple[
 ]
 
 
+@dataclasses.dataclass
+class MetadataMutationPlan:
+    """The set of computed-but-not-yet-written metadata changes produced by the rules engine."""
+
+    actionable_audiotags: list[tuple[AudioTags, list[Changes]]]
+    # Map from parent directory to (representative tags, datafile, changes).
+    actionable_datafiles: dict[str, tuple[AudioTags, StoredDataFile, list[Changes]]]
+
+    def __bool__(self) -> bool:
+        return bool(self.actionable_audiotags or self.actionable_datafiles)
+
+    @property
+    def num_changes(self) -> int:
+        return len(self.actionable_audiotags) + len(self.actionable_datafiles)
+
+    def describe(self, c: Config) -> list[tuple[str, list[Changes]]]:
+        """Produce a per-path list of (display path, changes) tuples suitable for presentation."""
+        todisplay: list[tuple[str, list[Changes]]] = []
+        for tags, tag_changes in self.actionable_audiotags:
+            pathtext = str(tags.path).removeprefix(str(c.music_source_dir) + "/")
+            if len(pathtext) >= 120:
+                pathtext = pathtext[:59] + ".." + pathtext[-59:]
+            todisplay.append((pathtext, tag_changes))
+        for path, (_, _, datafile_changes) in self.actionable_datafiles.items():
+            pathtext = path.removeprefix(str(c.music_source_dir) + "/")
+            if len(pathtext) >= 120:
+                pathtext = pathtext[:59] + ".." + pathtext[-59:]
+            todisplay.append((pathtext, datafile_changes))
+        return todisplay
+
+
+# Presents the computed change plan to the user (e.g. a colored diff). Called before confirmation.
+ChangesPreviewer = Callable[[MetadataMutationPlan, Config], None]
+# Asks the user to confirm writing `num_changes` changes; returns whether to proceed.
+ChangesConfirmer = Callable[[int], bool]
+
+
 def execute_metadata_actions(
     c: Config,
     actions: list[Action],
@@ -348,11 +385,14 @@ def execute_metadata_actions(
     *,
     dry_run: bool = False,
     confirm_yes: bool = False,
-    enter_number_to_confirm_above_count: int = 25,
+    preview: ChangesPreviewer | None = None,
+    confirm: ChangesConfirmer | None = None,
 ) -> None:
     """
     This function executes steps 3-5 of the rule executor. See that function's docstring. This is
-    split out to enable running actions on known releases/tracks.
+    split out to enable running actions on known releases/tracks. Presentation of the computed
+    changes and confirmation are delegated to the frontend via the `preview` and `confirm`
+    callbacks.
     """
     # === Step 3: Prepare updates on in-memory tags ===
 
@@ -563,71 +603,27 @@ def execute_metadata_actions(
         if not tag_changes and not (datafile and potential_datafile_changes):
             logger.debug(f"Skipping matched track {tags.path}: no changes calculated off tags and datafile")
 
-    if not actionable_audiotags and not actionable_datafiles:
-        click.secho("No matching tracks found", dim=True, italic=True)
-        click.echo()
+    plan = MetadataMutationPlan(actionable_audiotags, actionable_datafiles)
+    if not plan:
+        logger.info("No matching tracks found")
         return
 
     # === Step 4: Display changes and ask for user confirmation ===
 
-    # Compute the text to display:
-    todisplay: list[tuple[str, list[Changes]]] = []
-    maxpathwidth = 0
-    for tags, tag_changes in actionable_audiotags:
-        pathtext = str(tags.path).removeprefix(str(c.music_source_dir) + "/")
-        if len(pathtext) >= 120:
-            pathtext = pathtext[:59] + ".." + pathtext[-59:]
-        maxpathwidth = max(maxpathwidth, len(pathtext))
-        todisplay.append((pathtext, tag_changes))
-    for path, (_, _, datafile_changes) in actionable_datafiles.items():
-        pathtext = path.removeprefix(str(c.music_source_dir) + "/")
-        if len(pathtext) >= 120:
-            pathtext = pathtext[:59] + ".." + pathtext[-59:]
-        maxpathwidth = max(maxpathwidth, len(pathtext))
-        todisplay.append((pathtext, datafile_changes))
-
-    # And then display it.
-    for pathtext, tag_changes in todisplay:
-        click.secho(pathtext, underline=True)
-        for name, old, new in tag_changes:
-            click.echo(f"      {name}: ", nl=False)
-            click.secho(old, fg="red", nl=False)
-            click.echo(" -> ", nl=False)
-            click.secho(new, fg="green", bold=True)
+    # Presentation is a frontend concern; delegate rendering to the caller.
+    if preview is not None:
+        preview(plan, c)
 
     # If we're dry-running, then abort here.
     if dry_run:
-        click.echo()
-        click.secho(
-            f"This is a dry run, aborting. {len(actionable_audiotags)} tracks would have been modified.",
-            dim=True,
-        )
+        logger.info(f"This is a dry run, aborting. {len(actionable_audiotags)} tracks would have been modified.")
         return
 
     # And then let's go for the confirmation.
-    num_changes = len(actionable_audiotags) + len(actionable_datafiles)
-    if confirm_yes:
-        click.echo()
-        if num_changes > enter_number_to_confirm_above_count:
-            while True:
-                userconfirmation = click.prompt(
-                    f"Write changes to {num_changes} tracks? Enter {click.style(num_changes, bold=True)} to confirm (or 'no' to abort)"
-                )
-                if userconfirmation == "no":
-                    logger.debug("Aborting planned tag changes after user confirmation")
-                    return
-                if userconfirmation == str(num_changes):
-                    click.echo()
-                    break
-        else:
-            if not click.confirm(
-                f"Write changes to {click.style(num_changes, bold=True)} tracks?",
-                default=True,
-                prompt_suffix="",
-            ):
-                logger.debug("Aborting planned tag changes after user confirmation")
-                return
-            click.echo()
+    num_changes = plan.num_changes
+    if confirm_yes and confirm is not None and not confirm(num_changes):
+        logger.debug("Aborting planned tag changes after user confirmation")
+        return
 
     # === Step 5: Flush writes to disk ===
 
@@ -656,12 +652,10 @@ def execute_metadata_actions(
                 tomli_w.dump(datafile.serialize(), fp)
         logger.info(f"Wrote datafile changes to {pathtext}")
 
-    click.echo()
-    click.echo(f"Applied tag changes to {num_changes} tracks!")
+    logger.info(f"Applied tag changes to {num_changes} tracks!")
 
     # == Step 6: Trigger cache update ===
 
-    click.echo()
     source_paths = [r.source_path for r in list_releases(c, list(changed_release_ids))]
     update_cache_for_releases(c, source_paths)
 
