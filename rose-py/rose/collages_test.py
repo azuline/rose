@@ -1,15 +1,15 @@
 import tomllib
 from pathlib import Path
-from typing import Any
 
 from rose.cache import connect, update_cache
 from rose.collages import (
     add_release_to_collage,
     create_collage,
     delete_collage,
-    edit_collage_in_editor,
     remove_release_from_collage,
     rename_collage,
+    serialize_collage,
+    upsert_collage,
 )
 from rose.config import Config
 
@@ -105,10 +105,10 @@ def test_rename_collage(config: Config, source_dir: Path) -> None:
         assert not cursor.fetchone()[0]
 
 
-def test_edit_collages_ordering(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_edit_collages_ordering(config: Config, source_dir: Path) -> None:
     filepath = source_dir / "!collages" / "Rose Gold.toml"
-    monkeypatch.setattr("rose.collages.click.edit", lambda x: "\n".join(reversed(x.split("\n"))))
-    edit_collage_in_editor(config, "Rose Gold")
+    original = serialize_collage(config, "Rose Gold")
+    upsert_collage(config, "Rose Gold", "\n".join(reversed(original.split("\n"))))
 
     with filepath.open("rb") as fp:
         data = tomllib.load(fp)
@@ -116,10 +116,10 @@ def test_edit_collages_ordering(monkeypatch: Any, config: Config, source_dir: Pa
     assert data["releases"][1]["uuid"] == "ilovecarly"
 
 
-def test_edit_collages_remove_release(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_edit_collages_remove_release(config: Config, source_dir: Path) -> None:
     filepath = source_dir / "!collages" / "Rose Gold.toml"
-    monkeypatch.setattr("rose.collages.click.edit", lambda x: x.split("\n")[0])
-    edit_collage_in_editor(config, "Rose Gold")
+    original = serialize_collage(config, "Rose Gold")
+    upsert_collage(config, "Rose Gold", original.split("\n")[0])
 
     with filepath.open("rb") as fp:
         data = tomllib.load(fp)
