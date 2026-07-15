@@ -1,6 +1,8 @@
 import dataclasses
+import glob
 import shutil
 import subprocess
+import sys
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -19,8 +21,17 @@ R3_VNAME = "Unknown Artists - 2021. Release 3"
 R4_VNAME = "Unknown Artists - 2021. Release 4"
 
 
+def _macfuse_available() -> bool:
+    # macFUSE exposes /dev/macfuse* (older osxfuse: /dev/osxfuse*) devices once its kernel extension
+    # is loaded. Loading a kext on Apple Silicon requires interactive approval and a reboot, which
+    # is impossible on hosted CI runners, so the mount can never succeed there.
+    return bool(glob.glob("/dev/macfuse*") or glob.glob("/dev/osxfuse*"))
+
+
 @contextmanager
 def start_virtual_fs(c: Config) -> Iterator[None]:
+    if sys.platform == "darwin" and not _macfuse_available():
+        pytest.skip("macFUSE kernel extension is not loaded; cannot mount a FUSE filesystem")
     p = Process(target=mount_virtualfs, args=[c, True])
     try:
         p.start()
