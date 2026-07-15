@@ -52,6 +52,10 @@ def test_config_full() -> None:
                   {{ artist = "Abakus", aliases = ["Cinnamon Chasers"] }},
                   {{ artist = "tripleS", aliases = ["EVOLution", "LOVElution", "+(KR)ystal Eyes", "Acid Angel From Asia", "Acid Eyes"] }},
                 ]
+                label_aliases = [
+                  {{ label = "Anjunabeats", aliases = ["Anjunadeep"] }},
+                  {{ label = "Warp", aliases = ["Warp Records", "Arbeit"] }},
+                ]
 
                 cover_art_stems = [ "aa", "bb" ]
                 valid_art_exts = [ "tiff" ]
@@ -137,6 +141,15 @@ def test_config_full() -> None:
                 "+(KR)ystal Eyes": ["tripleS"],
                 "Acid Angel From Asia": ["tripleS"],
                 "Acid Eyes": ["tripleS"],
+            },
+            label_aliases_map={
+                "Anjunabeats": ["Anjunadeep"],
+                "Warp": ["Warp Records", "Arbeit"],
+            },
+            label_aliases_parents_map={
+                "Anjunadeep": ["Anjunabeats"],
+                "Warp Records": ["Warp"],
+                "Arbeit": ["Warp"],
             },
             cover_art_stems=["aa", "bb"],
             valid_art_exts=["tiff"],
@@ -376,6 +389,44 @@ def test_config_value_validation() -> None:
             == f"Invalid value for artist_aliases in configuration file ({path}): must be a list of {{ artist = str, aliases = list[str] }} records"
         )
         config += '\nartist_aliases = [{artist="tripleS", aliases=["EVOLution"]}]'
+
+        # label_aliases
+        write(config + '\nlabel_aliases = "lalala"')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for label_aliases in configuration file ({path}): must be a list of {{ label = str, aliases = list[str] }} records"
+        )
+        write(config + '\nlabel_aliases = ["lalala"]')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for label_aliases in configuration file ({path}): must be a list of {{ label = str, aliases = list[str] }} records"
+        )
+        write(config + '\nlabel_aliases = [["lalala"]]')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for label_aliases in configuration file ({path}): must be a list of {{ label = str, aliases = list[str] }} records"
+        )
+        write(config + '\nlabel_aliases = [{label="lalala", aliases="lalala"}]')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for label_aliases in configuration file ({path}): must be a list of {{ label = str, aliases = list[str] }} records"
+        )
+        write(config + '\nlabel_aliases = [{label="lalala", aliases=[123]}]')
+        with pytest.raises(InvalidConfigValueError) as excinfo:
+            Config.parse(config_path_override=path)
+        assert (
+            str(excinfo.value)
+            == f"Invalid value for label_aliases in configuration file ({path}): must be a list of {{ label = str, aliases = list[str] }} records"
+        )
+        config += '\nlabel_aliases = [{label="Warp", aliases=["Arbeit"]}]'
 
         # cover_art_stems
         write(config + '\ncover_art_stems = "lalala"')

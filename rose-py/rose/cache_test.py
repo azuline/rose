@@ -23,6 +23,7 @@ from rose.cache import (
     artist_exists,
     connect,
     descriptor_exists,
+    filter_releases,
     genre_exists,
     get_collage,
     get_collage_releases,
@@ -1914,6 +1915,39 @@ def test_descriptor_exists(config: Config) -> None:
 def test_label_exists(config: Config) -> None:
     assert label_exists(config, "Silk Music")
     assert not label_exists(config, "Cotton Music")
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_label_exists_with_alias(config: Config) -> None:
+    config = dataclasses.replace(
+        config,
+        label_aliases_map={"Modern Silk": ["Silk Music"]},
+        label_aliases_parents_map={"Silk Music": ["Modern Silk"]},
+    )
+    assert label_exists(config, "Modern Silk")
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_label_exists_with_alias_transient(config: Config) -> None:
+    config = dataclasses.replace(
+        config,
+        label_aliases_map={"Modern Silk": ["Silk Music"], "Silk Group": ["Modern Silk"]},
+        label_aliases_parents_map={"Silk Music": ["Modern Silk"], "Modern Silk": ["Silk Group"]},
+    )
+    assert label_exists(config, "Silk Group")
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_filter_releases_applies_label_aliases(config: Config) -> None:
+    # Without aliases, only the release tagged "Silk Music" matches.
+    assert {r.id for r in filter_releases(config, label_filter="Silk Music")} == {"r1"}
+    # A parent label alias transitively expands to its sublabels when filtering.
+    config = dataclasses.replace(
+        config,
+        label_aliases_map={"Modern Silk": ["Silk Music"], "Silk Group": ["Modern Silk"]},
+        label_aliases_parents_map={"Silk Music": ["Modern Silk"], "Modern Silk": ["Silk Group"]},
+    )
+    assert {r.id for r in filter_releases(config, label_filter="Silk Group")} == {"r1"}
 
 
 def test_unpack() -> None:

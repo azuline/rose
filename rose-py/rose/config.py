@@ -289,6 +289,11 @@ class Config:
     # A map from subartist -> parent artists.
     artist_aliases_parents_map: dict[str, list[str]]
 
+    # A map from parent label -> sublabels.
+    label_aliases_map: dict[str, list[str]]
+    # A map from sublabel -> parent labels.
+    label_aliases_parents_map: dict[str, list[str]]
+
     path_templates: PathTemplateConfig
     stored_metadata_rules: list[Rule]
 
@@ -360,6 +365,26 @@ class Config:
         except (ValueError, TypeError, KeyError) as e:
             raise InvalidConfigValueError(
                 f"Invalid value for artist_aliases in configuration file ({cfgpath}): must be a list of {{ artist = str, aliases = list[str] }} records"
+            ) from e
+
+        label_aliases_map: dict[str, list[str]] = defaultdict(list)
+        label_aliases_parents_map: dict[str, list[str]] = defaultdict(list)
+        try:
+            for entry in data.get("label_aliases", []):
+                if not isinstance(entry["label"], str):
+                    raise ValueError(f"Labels must be of type str: got {type(entry['label'])}")
+                label_aliases_map[entry["label"]] = entry["aliases"]
+                if not isinstance(entry["aliases"], list):
+                    raise ValueError(f"Aliases must be of type list[str]: got {type(entry['aliases'])}")
+                for s in entry["aliases"]:
+                    if not isinstance(s, str):
+                        raise ValueError(f"Each alias must be of type str: got {type(s)}")
+                    label_aliases_parents_map[s].append(entry["label"])
+            with contextlib.suppress(KeyError):
+                del data["label_aliases"]
+        except (ValueError, TypeError, KeyError) as e:
+            raise InvalidConfigValueError(
+                f"Invalid value for label_aliases in configuration file ({cfgpath}): must be a list of {{ label = str, aliases = list[str] }} records"
             ) from e
 
         try:
@@ -575,6 +600,8 @@ class Config:
             max_proc=max_proc,
             artist_aliases_map=artist_aliases_map,
             artist_aliases_parents_map=artist_aliases_parents_map,
+            label_aliases_map=label_aliases_map,
+            label_aliases_parents_map=label_aliases_parents_map,
             cover_art_stems=cover_art_stems,
             valid_art_exts=valid_art_exts,
             write_parent_genres=write_parent_genres,

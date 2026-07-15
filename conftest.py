@@ -82,6 +82,8 @@ def config(isolated_dir: Path) -> Config:
         max_proc=2,
         artist_aliases_map={},
         artist_aliases_parents_map={},
+        label_aliases_map={},
+        label_aliases_parents_map={},
         cover_art_stems=["cover", "folder", "art", "front"],
         valid_art_exts=["jpg", "jpeg", "png"],
         write_parent_genres=False,
