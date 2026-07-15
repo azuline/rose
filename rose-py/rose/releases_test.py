@@ -2,7 +2,6 @@ import re
 import shutil
 import tomllib
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -23,12 +22,13 @@ from rose.releases import (
     create_single_release,
     delete_release,
     delete_release_cover_art,
-    edit_release,
     find_releases_matching_rule,
     run_actions_on_release,
+    serialize_release_metadata,
     set_release_cover_art,
     toggle_release_favorite,
     toggle_release_new,
+    upsert_release_metadata,
 )
 from rose.rule_parser import Action, Matcher
 
@@ -155,7 +155,7 @@ def test_remove_release_cover_art(config: Config) -> None:
         assert not cursor.fetchone()["cover_image_path"]
 
 
-def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_edit_release(config: Config, source_dir: Path) -> None:
     release_path = source_dir / TEST_RELEASE_1.name
     with connect(config) as conn:
         cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(release_path),))
@@ -209,9 +209,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             {{ name = "JISOO", role = "main" }},
         ]
     """
-    monkeypatch.setattr("rose.collages.click.edit", lambda *_, **__: new_toml)
-
-    edit_release(config, release_id)
+    upsert_release_metadata(config, release_id, new_toml)
     release = get_release(config, release_id)
     assert release is not None
     assert release == Release(
@@ -276,7 +274,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
     ]
 
 
-def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_edit_release_failure_and_resume(config: Config, source_dir: Path) -> None:
     release_path = source_dir / TEST_RELEASE_1.name
     with connect(config) as conn:
         cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(release_path),))
@@ -326,10 +324,8 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
             {{ name = "JISOO", role = "main" }},
         ]
     """
-    monkeypatch.setattr("rose.collages.click.edit", lambda *_, **__: bad_toml)
-
     with pytest.raises(ReleaseEditFailedError) as exc:
-        edit_release(config, release_id)
+        upsert_release_metadata(config, release_id, bad_toml)
     errmsg = str(exc.value)
     match = re.search(r"--resume ([^ ]+)", errmsg)
     assert match is not None
@@ -376,12 +372,8 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
         ]
     """
 
-    def editfn(text: str, **_: Any) -> str:
-        assert text == bad_toml
-        return correct_toml
-
-    monkeypatch.setattr("rose.collages.click.edit", editfn)
-    edit_release(config, release_id, resume_file=resume_file)
+    assert serialize_release_metadata(config, release_id, resume_file=resume_file) == bad_toml
+    upsert_release_metadata(config, release_id, correct_toml, resume_file=resume_file)
 
     # Assert the file got deleted.
     assert not resume_file.exists()

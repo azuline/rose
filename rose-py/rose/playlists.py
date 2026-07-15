@@ -9,7 +9,6 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-import click
 import tomli_w
 from send2trash import send2trash
 
@@ -146,35 +145,52 @@ def add_track_to_playlist(
     update_cache_for_playlists(c, [playlist_name], force=True)
 
 
-def edit_playlist_in_editor(c: Config, playlist_name: str) -> None:
+def _playlist_line_mapping(raw_tracks: list[dict[str, Any]]) -> tuple[list[str], dict[str, str]]:
+    # Because tracks are not globally unique, we append the UUID if there are any conflicts as a
+    # discriminator.
+    lines: list[str] = []
+    uuid_mapping: dict[str, str] = {}
+    line_occurrences = Counter([r["description_meta"] for r in raw_tracks])
+    for r in raw_tracks:
+        if line_occurrences[r["description_meta"]] > 1:
+            line = f"{r['description_meta']} [{r['uuid']}]"
+        else:
+            line = r["description_meta"]
+        lines.append(line)
+        uuid_mapping[line] = r["uuid"]
+    return lines, uuid_mapping
+
+
+def serialize_playlist(c: Config, playlist_name: str) -> str:
+    """
+    Serialize a playlist's track list into a newline-delimited string of track descriptions,
+    suitable for editing. The frontend is responsible for presenting this to the user and passing
+    the edited result to `upsert_playlist`.
+    """
+    path = playlist_path(c, playlist_name)
+    if not path.exists():
+        raise PlaylistDoesNotExistError(f"Playlist {playlist_name} does not exist")
+    with path.open("rb") as fp:
+        data = tomllib.load(fp)
+    lines, _ = _playlist_line_mapping(data.get("tracks", []))
+    return "\n".join(lines)
+
+
+def upsert_playlist(c: Config, playlist_name: str, edited_descriptions: str) -> None:
+    """
+    Apply an edited newline-delimited string of track descriptions (see `serialize_playlist`) to a
+    playlist, reordering/removing tracks to match.
+    """
     path = playlist_path(c, playlist_name)
     if not path.exists():
         raise PlaylistDoesNotExistError(f"Playlist {playlist_name} does not exist")
     with lock(c, playlist_lock_name(playlist_name), timeout=60.0):
         with path.open("rb") as fp:
             data = tomllib.load(fp)
-        raw_tracks = data.get("tracks", [])
-
-        # Because tracks are not globally unique, we append the UUID if there are any conflicts.
-        # discriminator.
-        lines_to_edit: list[str] = []
-        uuid_mapping: dict[str, str] = {}
-        line_occurrences = Counter([r["description_meta"] for r in raw_tracks])
-        for r in raw_tracks:
-            if line_occurrences[r["description_meta"]] > 1:
-                line = f"{r['description_meta']} [{r['uuid']}]"
-            else:
-                line = r["description_meta"]
-            lines_to_edit.append(line)
-            uuid_mapping[line] = r["uuid"]
-
-        edited_track_descriptions = click.edit("\n".join(lines_to_edit))
-        if edited_track_descriptions is None:
-            logger.info("Aborting: metadata file not submitted.")
-            return
+        _, uuid_mapping = _playlist_line_mapping(data.get("tracks", []))
 
         edited_tracks: list[dict[str, Any]] = []
-        for desc in edited_track_descriptions.strip().split("\n"):
+        for desc in edited_descriptions.strip().split("\n"):
             try:
                 uuid = uuid_mapping[desc]
             except KeyError as e:

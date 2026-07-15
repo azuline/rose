@@ -7,7 +7,6 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-import click
 import tomli_w
 from send2trash import send2trash
 
@@ -134,7 +133,26 @@ def add_release_to_collage(
     update_cache_for_collages(c, [collage_name], force=True)
 
 
-def edit_collage_in_editor(c: Config, collage_name: str) -> None:
+def serialize_collage(c: Config, collage_name: str) -> str:
+    """
+    Serialize a collage's release list into a newline-delimited string of release descriptions,
+    suitable for editing. The frontend is responsible for presenting this to the user and passing
+    the edited result to `upsert_collage`.
+    """
+    path = collage_path(c, collage_name)
+    if not path.exists():
+        raise CollageDoesNotExistError(f"Collage {collage_name} does not exist")
+    with path.open("rb") as fp:
+        data = tomllib.load(fp)
+    raw_releases = data.get("releases", [])
+    return "\n".join([r["description_meta"] for r in raw_releases])
+
+
+def upsert_collage(c: Config, collage_name: str, edited_descriptions: str) -> None:
+    """
+    Apply an edited newline-delimited string of release descriptions (see `serialize_collage`) to a
+    collage, reordering/removing releases to match.
+    """
     path = collage_path(c, collage_name)
     if not path.exists():
         raise CollageDoesNotExistError(f"Collage {collage_name} does not exist")
@@ -142,14 +160,10 @@ def edit_collage_in_editor(c: Config, collage_name: str) -> None:
         with path.open("rb") as fp:
             data = tomllib.load(fp)
         raw_releases = data.get("releases", [])
-        edited_release_descriptions = click.edit("\n".join([r["description_meta"] for r in raw_releases]))
-        if edited_release_descriptions is None:
-            logger.info("Aborting: metadata file not submitted.")
-            return
         uuid_mapping = {r["description_meta"]: r["uuid"] for r in raw_releases}
 
         edited_releases: list[dict[str, Any]] = []
-        for desc in edited_release_descriptions.strip().split("\n"):
+        for desc in edited_descriptions.strip().split("\n"):
             try:
                 uuid = uuid_mapping[desc]
             except KeyError as e:
