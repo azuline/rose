@@ -1,7 +1,5 @@
 import dataclasses
 from pathlib import Path
-from typing import Any
-from unittest.mock import Mock
 
 import pytest
 
@@ -366,34 +364,48 @@ def test_chained_action(config: Config, source_dir: Path) -> None:
 
 
 @pytest.mark.timeout(2)
-def test_confirmation_yes(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_confirmation_yes(config: Config, source_dir: Path) -> None:
     rule = Rule.parse("tracktitle:Track", ["replace:lalala"])
-    monkeypatch.setattr("rose.rules.click.confirm", lambda *_, **__: True)
-    execute_metadata_rule(config, rule, confirm_yes=True)
+    execute_metadata_rule(config, rule, confirm_yes=True, confirm_fn=lambda *_, **__: True)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.tracktitle == "lalala"
 
 
 @pytest.mark.timeout(2)
-def test_confirmation_no(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_confirmation_no(config: Config, source_dir: Path) -> None:
     rule = Rule.parse("tracktitle:Track", ["replace:lalala"])
-    monkeypatch.setattr("rose.rules.click.confirm", lambda *_, **__: False)
-    execute_metadata_rule(config, rule, confirm_yes=True)
+    execute_metadata_rule(config, rule, confirm_yes=True, confirm_fn=lambda *_, **__: False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.tracktitle != "lalala"
 
 
 @pytest.mark.timeout(2)
-def test_confirmation_count(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_confirmation_count(config: Config, source_dir: Path) -> None:
     rule = Rule.parse("tracktitle:Track", ["replace:lalala"])
-    monkeypatch.setattr("rose.rules.click.prompt", Mock(side_effect=["no", "8", "6"]))
+    responses = iter(["no", "8", "6"])
+
+    def prompt_fn(*_: object, **__: object) -> str:
+        return next(responses)
+
     # Abort.
-    execute_metadata_rule(config, rule, confirm_yes=True, enter_number_to_confirm_above_count=1)
+    execute_metadata_rule(
+        config,
+        rule,
+        confirm_yes=True,
+        enter_number_to_confirm_above_count=1,
+        prompt_fn=prompt_fn,
+    )
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.tracktitle != "lalala"
 
     # Success in two arguments.
-    execute_metadata_rule(config, rule, confirm_yes=True, enter_number_to_confirm_above_count=1)
+    execute_metadata_rule(
+        config,
+        rule,
+        confirm_yes=True,
+        enter_number_to_confirm_above_count=1,
+        prompt_fn=prompt_fn,
+    )
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.tracktitle == "lalala"
 

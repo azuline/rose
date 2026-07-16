@@ -6,6 +6,7 @@ import logging
 import shutil
 import tomllib
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,10 @@ class PlaylistDoesNotExistError(RoseExpectedError):
 
 class PlaylistAlreadyExistsError(RoseExpectedError):
     pass
+
+
+def _edit_toml(toml: str) -> str | None:
+    return click.edit(toml)
 
 
 def create_playlist(c: Config, name: str) -> None:
@@ -146,7 +151,12 @@ def add_track_to_playlist(
     update_cache_for_playlists(c, [playlist_name], force=True)
 
 
-def edit_playlist_in_editor(c: Config, playlist_name: str) -> None:
+def edit_playlist_in_editor(
+    c: Config,
+    playlist_name: str,
+    *,
+    editor_fn: Callable[[str], str | None] = _edit_toml,
+) -> None:
     path = playlist_path(c, playlist_name)
     if not path.exists():
         raise PlaylistDoesNotExistError(f"Playlist {playlist_name} does not exist")
@@ -168,7 +178,7 @@ def edit_playlist_in_editor(c: Config, playlist_name: str) -> None:
             lines_to_edit.append(line)
             uuid_mapping[line] = r["uuid"]
 
-        edited_track_descriptions = click.edit("\n".join(lines_to_edit))
+        edited_track_descriptions = editor_fn("\n".join(lines_to_edit))
         if edited_track_descriptions is None:
             logger.info("Aborting: metadata file not submitted.")
             return

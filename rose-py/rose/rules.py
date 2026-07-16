@@ -19,7 +19,9 @@ import re
 import shlex
 import time
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import click
 import tomli_w
@@ -53,6 +55,14 @@ from rose.rule_parser import (
 logger = logging.getLogger(__name__)
 
 
+def _confirm(prompt: str, **kwargs: Any) -> bool:
+    return click.confirm(prompt, **kwargs)
+
+
+def _prompt(prompt: str, **kwargs: Any) -> str:
+    return str(click.prompt(prompt, **kwargs))
+
+
 class TrackTagNotAllowedError(RoseExpectedError):
     pass
 
@@ -66,10 +76,19 @@ def execute_stored_metadata_rules(
     *,
     dry_run: bool = False,
     confirm_yes: bool = False,
+    confirm_fn: Callable[..., bool] = _confirm,
+    prompt_fn: Callable[..., str] = _prompt,
 ) -> None:
     for rule in c.stored_metadata_rules:
         click.secho(f"Executing stored metadata rule {rule}", dim=True)
-        execute_metadata_rule(c, rule, dry_run=dry_run, confirm_yes=confirm_yes)
+        execute_metadata_rule(
+            c,
+            rule,
+            dry_run=dry_run,
+            confirm_yes=confirm_yes,
+            confirm_fn=confirm_fn,
+            prompt_fn=prompt_fn,
+        )
 
 
 def execute_metadata_rule(
@@ -79,6 +98,8 @@ def execute_metadata_rule(
     dry_run: bool = False,
     confirm_yes: bool = False,
     enter_number_to_confirm_above_count: int = 25,
+    confirm_fn: Callable[..., bool] = _confirm,
+    prompt_fn: Callable[..., str] = _prompt,
 ) -> None:
     """
     This function executes a metadata update rule. It runs in five parts:
@@ -131,6 +152,8 @@ def execute_metadata_rule(
         dry_run=dry_run,
         confirm_yes=confirm_yes,
         enter_number_to_confirm_above_count=enter_number_to_confirm_above_count,
+        confirm_fn=confirm_fn,
+        prompt_fn=prompt_fn,
     )
 
 
@@ -349,6 +372,8 @@ def execute_metadata_actions(
     dry_run: bool = False,
     confirm_yes: bool = False,
     enter_number_to_confirm_above_count: int = 25,
+    confirm_fn: Callable[..., bool] = _confirm,
+    prompt_fn: Callable[..., str] = _prompt,
 ) -> None:
     """
     This function executes steps 3-5 of the rule executor. See that function's docstring. This is
@@ -610,7 +635,7 @@ def execute_metadata_actions(
         click.echo()
         if num_changes > enter_number_to_confirm_above_count:
             while True:
-                userconfirmation = click.prompt(
+                userconfirmation = prompt_fn(
                     f"Write changes to {num_changes} tracks? Enter {click.style(num_changes, bold=True)} to confirm (or 'no' to abort)"
                 )
                 if userconfirmation == "no":
@@ -620,7 +645,7 @@ def execute_metadata_actions(
                     click.echo()
                     break
         else:
-            if not click.confirm(
+            if not confirm_fn(
                 f"Write changes to {click.style(num_changes, bold=True)} tracks?",
                 default=True,
                 prompt_suffix="",

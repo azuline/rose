@@ -2,7 +2,6 @@ import re
 import shutil
 import tomllib
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -156,7 +155,7 @@ def test_remove_release_cover_art(config: Config) -> None:
         assert not cursor.fetchone()["cover_image_path"]
 
 
-def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_edit_release(config: Config, source_dir: Path) -> None:
     release_path = source_dir / TEST_RELEASE_1.name
     with connect(config) as conn:
         cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(release_path),))
@@ -210,9 +209,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
             {{ name = "JISOO", role = "main" }},
         ]
     """
-    monkeypatch.setattr("rose.collages.click.edit", lambda *_, **__: new_toml)
-
-    edit_release(config, release_id)
+    edit_release(config, release_id, editor_fn=lambda _: new_toml)
     release = get_release(config, release_id)
     assert release is not None
     assert release == Release(
@@ -308,7 +305,7 @@ def test_edit_release_reads_audio_tags(config: Config, source_dir: Path) -> None
     edit_release(config, release_id, editor_fn=editfn)
 
 
-def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_edit_release_failure_and_resume(config: Config, source_dir: Path) -> None:
     release_path = source_dir / TEST_RELEASE_1.name
     with connect(config) as conn:
         cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(release_path),))
@@ -358,10 +355,8 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
             {{ name = "JISOO", role = "main" }},
         ]
     """
-    monkeypatch.setattr("rose.collages.click.edit", lambda *_, **__: bad_toml)
-
     with pytest.raises(ReleaseEditFailedError) as exc:
-        edit_release(config, release_id)
+        edit_release(config, release_id, editor_fn=lambda _: bad_toml)
     errmsg = str(exc.value)
     match = re.search(r"--resume ([^ ]+)", errmsg)
     assert match is not None
@@ -408,12 +403,11 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
         ]
     """
 
-    def editfn(text: str, **_: Any) -> str:
+    def editfn(text: str) -> str:
         assert text == bad_toml
         return correct_toml
 
-    monkeypatch.setattr("rose.collages.click.edit", editfn)
-    edit_release(config, release_id, resume_file=resume_file)
+    edit_release(config, release_id, resume_file=resume_file, editor_fn=editfn)
 
     # Assert the file got deleted.
     assert not resume_file.exists()
