@@ -2,6 +2,7 @@ import dataclasses
 import hashlib
 import logging
 import multiprocessing
+import os
 import shutil
 import sqlite3
 import time
@@ -30,6 +31,11 @@ TEST_TAGGER = TESTDATA / "Tagger"
 def multiprocessing_set_start_method() -> None:
     # Force fork on MacOS, spawn is too unperformant.
     multiprocessing.set_start_method("fork", force=True)
+    # Propagate test mode to child processes. Children created with the spawn start method (e.g. the
+    # watchdog watcher, which must use spawn on macOS — see watcher_test.start_watcher) do not
+    # inherit imported modules, so code that detects tests via `"pytest" in sys.modules` needs this
+    # environment variable (which spawned children do inherit) to know it is running under a test.
+    os.environ["ROSE_IN_TEST"] = "1"
 
 
 @pytest.fixture(autouse=True)

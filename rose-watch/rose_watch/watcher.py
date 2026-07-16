@@ -22,9 +22,11 @@ Process
 import asyncio
 import contextlib
 import logging
+import os
 import sys
 import time
 from dataclasses import dataclass
+from multiprocessing.synchronize import Event as EventClass
 from pathlib import Path
 from queue import Empty, Queue
 from typing import Literal, cast
@@ -48,8 +50,10 @@ from watchdog.observers import Observer
 logger = logging.getLogger(__name__)
 
 # Shorten wait times if we are in a test. This way a test runs faster. This is wasteful in
-# production though.
-WAIT_DIVIDER = 1 if "pytest" not in sys.modules else 10
+# production though. We check an environment variable in addition to `sys.modules` because the
+# watcher may run in a child process spawned via the "spawn" start method (used on macOS), which
+# does not inherit the parent's imported modules and therefore would not see `pytest`.
+WAIT_DIVIDER = 1 if ("pytest" not in sys.modules and not os.environ.get("ROSE_IN_TEST")) else 10
 
 
 EventType = Literal["created", "deleted", "modified", "moved"]
@@ -180,12 +184,17 @@ async def event_processor(c: Config, queue: Queue[WatchdogEvent]) -> None:  # pr
         asyncio.create_task(handle_event(c, event, 2))
 
 
-def start_watchdog(c: Config) -> None:  # pragma: no cover
+def start_watchdog(c: Config, ready: EventClass | None = None) -> None:  # pragma: no cover
     queue: Queue[WatchdogEvent] = Queue()
     observer = Observer()
     event_handler = EventHandler(c, queue)
     observer.schedule(event_handler, str(c.music_source_dir), recursive=True)
     logger.info("Starting watchdog filesystem event listener")
     observer.start()
+    # Signal that the observer is now watching. Callers that start this in a separate process (e.g.
+    # with the spawn start method, where startup is not instantaneous) can wait on this to avoid
+    # racing file mutations against an observer that isn't listening yet.
+    if ready is not None:
+        ready.set()
     logger.info("Starting watchdog asynchronous event processor")
     asyncio.run(event_processor(c, queue))

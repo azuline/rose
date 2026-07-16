@@ -1,8 +1,8 @@
+import multiprocessing
 import shutil
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
-from multiprocessing import Process
 
 from rose import Config
 from rose.cache import connect
@@ -13,10 +13,18 @@ from rose_watch.watcher import start_watchdog
 
 @contextmanager
 def start_watcher(c: Config) -> Iterator[None]:
-    process = Process(target=start_watchdog, args=[c])
+    # Use the spawn start method rather than the (globally configured) fork method. Forking a
+    # multi-threaded process — e.g. a pytest-xdist worker — and then starting watchdog's FSEvents
+    # observer, which touches CoreFoundation, segfaults the child on macOS.
+    ctx = multiprocessing.get_context("spawn")
+    # Wait until the observer is actually watching before yielding. Spawned process startup is not
+    # instantaneous, and any file mutations made before the observer is listening would be silently
+    # missed.
+    ready = ctx.Event()
+    process = ctx.Process(target=start_watchdog, args=[c, ready])
     try:
         process.start()
-        time.sleep(0.05)
+        assert ready.wait(timeout=30), "timed out waiting for watchdog to start"
         yield
     finally:
         process.terminate()
