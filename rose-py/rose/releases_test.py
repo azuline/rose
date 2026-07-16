@@ -481,6 +481,58 @@ def test_extract_single_release_with_trailing_space(config: Config) -> None:
     assert (source_path / "01. Trailing Space.m4a").is_file()
 
 
+def test_extract_single_release_update_references(config: Config) -> None:
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    update_cache(config)
+    # Get the track ID of the track we're about to extract.
+    track_path = config.music_source_dir / TEST_RELEASE_1.name / "02.m4a"
+    af = AudioTags.from_file(track_path)
+    old_track_id = af.id
+    assert old_track_id is not None
+    # Create a playlist containing that track.
+    playlists_dir = config.music_source_dir / "!playlists"
+    playlists_dir.mkdir(parents=True, exist_ok=True)
+    playlist_toml = playlists_dir / "Test Playlist.toml"
+    import tomli_w
+
+    with playlist_toml.open("wb") as fp:
+        tomli_w.dump({"tracks": [{"uuid": old_track_id, "description_meta": "test track"}]}, fp)
+    update_cache(config)
+    # Create single with update_references=True.
+    create_single_release(config, track_path, update_references=True)
+    # Read the playlist TOML and assert the track reference was updated.
+    with playlist_toml.open("rb") as fp:
+        data = tomllib.load(fp)
+    assert len(data["tracks"]) == 1
+    new_track_id = data["tracks"][0]["uuid"]
+    assert new_track_id != old_track_id
+    # Verify the new track ID corresponds to the newly created single's track.
+    source_path = config.music_source_dir / "BLACKPINK - 1990. Track 2"
+    new_af = AudioTags.from_file(source_path / "01. Track 2.m4a")
+    assert new_af.id == new_track_id
+
+
+def test_extract_single_release_update_references_no_match(config: Config) -> None:
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    update_cache(config)
+    track_path = config.music_source_dir / TEST_RELEASE_1.name / "02.m4a"
+    # Create a playlist with a different track UUID.
+    playlists_dir = config.music_source_dir / "!playlists"
+    playlists_dir.mkdir(parents=True, exist_ok=True)
+    playlist_toml = playlists_dir / "Test Playlist.toml"
+    import tomli_w
+
+    with playlist_toml.open("wb") as fp:
+        tomli_w.dump({"tracks": [{"uuid": "some-other-uuid", "description_meta": "other track"}]}, fp)
+    update_cache(config)
+    # Create single with update_references=True. Playlist should be unchanged.
+    create_single_release(config, track_path, update_references=True)
+    with playlist_toml.open("rb") as fp:
+        data = tomllib.load(fp)
+    assert len(data["tracks"]) == 1
+    assert data["tracks"][0]["uuid"] == "some-other-uuid"
+
+
 def test_run_action_on_release(config: Config, source_dir: Path) -> None:
     action = Action.parse("tracktitle/replace:Bop")
     run_actions_on_release(config, "ilovecarly", [action])

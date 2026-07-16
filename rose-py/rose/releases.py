@@ -29,6 +29,7 @@ from rose.cache import (
     list_releases,
     lock,
     make_release_logtext,
+    playlist_lock_name,
     release_lock_name,
     update_cache_evict_nonexistent_releases,
     update_cache_for_collages,
@@ -585,6 +586,7 @@ def create_single_release(
     track_path: Path,
     *,
     releasetype: Literal["single", "loosetrack"] = "single",
+    update_references: bool = False,
 ) -> None:
     """Takes a track and copies it into a brand new "single" release with only that track."""
     if not track_path.is_file():
@@ -592,6 +594,7 @@ def create_single_release(
 
     # Step 1. Compute the new directory name for the single.
     af = AudioTags.from_file(track_path)
+    old_track_id = af.id
     title = (af.tracktitle or "Unknown Title").strip()
 
     dirname = f"{artistsfmt(af.trackartists)} - "
@@ -626,7 +629,6 @@ def create_single_release(
     af.release_id = None
     af.id = None
     af.flush(c)
-    af = AudioTags.from_file(new_track_path)
     logger.info(f"Created phony single release {source_path.name}")
     # Step 4: Update the cache!
     c_tmp = dataclasses.replace(c, rename_source_files=False)
@@ -639,3 +641,41 @@ def create_single_release(
     else:
         raise RoseError(f"Impossible: Failed to parse release ID from newly created single directory {source_path}")
     toggle_release_new(c, release_id)
+    # Step 6: If update_references is set, update all playlist references from the old track to
+    # the new track. Read the new track ID after cache update, since the cache assigns IDs.
+    if update_references and old_track_id:
+        af = AudioTags.from_file(new_track_path)
+        new_track_id = af.id
+        if new_track_id:
+            _update_playlist_references(c, old_track_id, new_track_id)
+
+
+def _update_playlist_references(c: Config, old_track_id: str, new_track_id: str) -> None:
+    """Scan all playlists and replace references to old_track_id with new_track_id."""
+    playlists_dir = c.music_source_dir / "!playlists"
+    if not playlists_dir.exists():
+        return
+    updated_playlists: list[str] = []
+    for playlist_file in playlists_dir.iterdir():
+        if playlist_file.suffix != ".toml":
+            continue
+        playlist_name = playlist_file.stem
+        with lock(c, playlist_lock_name(playlist_name)):
+            with playlist_file.open("rb") as fp:
+                data = tomllib.load(fp)
+            tracks = data.get("tracks", [])
+            modified = False
+            for entry in tracks:
+                if entry.get("uuid") == old_track_id:
+                    entry["uuid"] = new_track_id
+                    modified = True
+            if modified:
+                data["tracks"] = tracks
+                with playlist_file.open("wb") as fp:
+                    tomli_w.dump(data, fp)
+                updated_playlists.append(playlist_name)
+                logger.info(
+                    f"Updated playlist {playlist_name}: replaced track reference {old_track_id} -> {new_track_id}"
+                )
+    if updated_playlists:
+        update_cache_for_playlists(c, updated_playlists, force=True)
