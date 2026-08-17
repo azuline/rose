@@ -6,6 +6,7 @@ import pytest
 from rose.rule_parser import (
     Action,
     AddAction,
+    CopyAction,
     DeleteAction,
     InvalidRuleError,
     Matcher,
@@ -214,6 +215,34 @@ def test_rule_parse_action() -> None:
         pattern=Pattern("haha"),
     )
 
+    # Copy action: source only.
+    assert Action.parse("edition/copy:releasetitle") == Action(
+        behavior=CopyAction(source="releasetitle"),
+        tags=["edition"],
+        pattern=None,
+    )
+    # Copy action: source with sed transform.
+    assert Action.parse("genre/copy:label:sed:lala:haha") == Action(
+        behavior=CopyAction(source="label", sed=SedAction(src=re.compile("lala"), dst="haha")),
+        tags=["genre"],
+        pattern=None,
+    )
+    # Copy action: inherits the matched tags and pattern.
+    assert Action.parse(
+        "copy:releasetitle",
+        matcher=Matcher(tags=["edition"], pattern=Pattern("haha")),
+    ) == Action(
+        behavior=CopyAction(source="releasetitle"),
+        tags=["edition"],
+        pattern=Pattern("haha"),
+    )
+    # Copy action: source may be a non-modifiable tag, since we only read it.
+    assert Action.parse("edition/copy:tracktotal") == Action(
+        behavior=CopyAction(source="tracktotal"),
+        tags=["edition"],
+        pattern=None,
+    )
+
     def test_err(rule: str, err: str, matcher: Matcher | None = None) -> None:
         with pytest.raises(RuleSyntaxError) as exc:
             Action.parse(rule, 1, matcher)
@@ -226,7 +255,7 @@ Failed to parse action 1, invalid syntax:
 
     tracktitle:hello/:delete
                      ^
-                     Invalid action kind: must be one of {replace, sed, split, add, delete}.
+                     Invalid action kind: must be one of {replace, sed, split, add, delete, copy}.
 """,
     )
 
@@ -259,7 +288,7 @@ Failed to parse action 1, invalid syntax:
 
     tracktitle:haha:delete
     ^
-    Invalid action kind: must be one of {replace, sed, split, add, delete}. If this is pointing at your pattern, you forgot to put a `/` between the matcher section and the action section.
+    Invalid action kind: must be one of {replace, sed, split, add, delete, copy}. If this is pointing at your pattern, you forgot to put a `/` between the matcher section and the action section.
 """,
         matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
@@ -282,7 +311,7 @@ Failed to parse action 1, invalid syntax:
 
     hahaha
     ^
-    Invalid action kind: must be one of {replace, sed, split, add, delete}.
+    Invalid action kind: must be one of {replace, sed, split, add, delete, copy}.
 """,
         matcher=Matcher(tags=["genre"], pattern=Pattern("haha")),
     )
@@ -454,6 +483,50 @@ Failed to parse action 1, invalid syntax:
     )
 
     test_err(
+        "genre/copy",
+        """\
+Failed to parse action 1, invalid syntax:
+
+    genre/copy
+              ^
+              Source tag not found: must specify a tag to copy from. Example: copy:tracktitle
+""",
+    )
+
+    test_err(
+        "genre/copy:bogus",
+        """\
+Failed to parse action 1, invalid syntax:
+
+    genre/copy:bogus
+                    ^
+                    Invalid source tag: must be one of {tracktitle, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, tracktotal, discnumber, disctotal, releasetitle, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, genre, secondarygenre, descriptor, label, new, favorite, rating}.
+""",
+    )
+
+    test_err(
+        "genre/copy:label:foo",
+        """\
+Failed to parse action 1, invalid syntax:
+
+    genre/copy:label:foo
+                     ^
+                     Unsupported transform: the only transform supported after the source tag is `sed`. Example: copy:tracktitle:sed:pattern:replacement
+""",
+    )
+
+    test_err(
+        "genre/copy:label:sed:foo",
+        """\
+Failed to parse action 1, invalid syntax:
+
+    genre/copy:label:sed:foo
+                            ^
+                            Sed replacement not found: must specify a sed replacement section. Example: genre/copy:label:sed:foo:replacement.
+""",
+    )
+
+    test_err(
         "tracktotal/replace:1",
         """\
 Failed to parse action 1, invalid syntax:
@@ -501,6 +574,9 @@ def test_rule_parsing_end_to_end_2(matcher: str, action: str) -> None:
     [
         ("tracktitle:Track", "genre:lala/replace:lalala"),
         ("tracktitle,genre,trackartist:Track", "tracktitle,genre,artist/delete"),
+        ("tracktitle:Track", "edition/copy:releasetitle"),
+        ("tracktitle:Track", "genre/copy:label:sed:lala:haha"),
+        ("tracktitle:Track", "genre/copy:label:sed:l//a:h::a"),
     ],
 )
 def test_rule_parsing_end_to_end_3(matcher: str, action: str) -> None:
@@ -520,6 +596,17 @@ def test_rule_parsing_multi_value_validation() -> None:
     with pytest.raises(InvalidRuleError):
         Rule.parse("genre:h", ["split:y", "tracktitle/split:x"])
     assert str(e.value) == "Single valued tags tracktitle cannot be modified by multi-value action split"
+
+
+def test_rule_parsing_copy_source_validation() -> None:
+    # A multi-valued source cannot be copied into a single-valued destination.
+    with pytest.raises(InvalidRuleError) as e:
+        Rule.parse("edition:h", ["copy:genre"])
+    assert str(e.value) == "Cannot copy multi-valued source tag genre into single-valued tag(s) edition"
+    with pytest.raises(InvalidRuleError):
+        Rule.parse("genre:h", ["edition/copy:label"])
+    # A single-valued source may be copied into a multi-valued destination.
+    Rule.parse("genre:h", ["copy:releasetitle"])
 
 
 def test_rule_parsing_defaults() -> None:

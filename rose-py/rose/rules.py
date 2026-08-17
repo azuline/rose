@@ -41,6 +41,7 @@ from rose.rule_parser import (
     RELEASE_TAGS,
     Action,
     AddAction,
+    CopyAction,
     DeleteAction,
     Matcher,
     Pattern,
@@ -48,6 +49,7 @@ from rose.rule_parser import (
     Rule,
     SedAction,
     SplitAction,
+    Tag,
 )
 
 logger = logging.getLogger(__name__)
@@ -392,13 +394,21 @@ def execute_metadata_actions(
         potential_datafile_changes: list[Changes] = []
         for act in actions:
             fields_to_update = act.tags
+            # For copy actions, resolve the source tag's value once per track. The destination
+            # tag(s) are then overwritten with this value. Datafile source fields require opening
+            # the datafile.
+            copy_source: str | list[str] | None = None
+            if isinstance(act.behavior, CopyAction):
+                if act.behavior.source in ("new", "favorite", "rating"):
+                    datafile = datafile or open_datafile(tags.path)
+                copy_source = _resolve_copy_source_value(act.behavior.source, tags, datafile)
             for field in fields_to_update:
                 # Datafile actions.
                 # Only read the datafile if it's necessary; we don't want to pay the extra cost
                 # every time for rarer fields. Store the opened datafiles in opened_datafiles.
                 if field == "new":
                     datafile = datafile or open_datafile(tags.path)
-                    v = execute_single_action(act, datafile.new)
+                    v = execute_single_action(act, copy_source, datafile.new)
                     if v != "true" and v != "false":
                         raise InvalidReplacementValueError(
                             f"Failed to assign new value {v} to new: value must be string `true` or `false`"
@@ -409,7 +419,7 @@ def execute_metadata_actions(
                         potential_datafile_changes.append(("new", orig_value, datafile.new))
                 if field == "favorite":
                     datafile = datafile or open_datafile(tags.path)
-                    v = execute_single_action(act, datafile.favorite)
+                    v = execute_single_action(act, copy_source, datafile.favorite)
                     if v != "true" and v != "false":
                         raise InvalidReplacementValueError(
                             f"Failed to assign new value {v} to favorite: value must be string `true` or `false`"
@@ -420,7 +430,9 @@ def execute_metadata_actions(
                         potential_datafile_changes.append(("favorite", orig_value, datafile.favorite))
                 if field == "rating":
                     datafile = datafile or open_datafile(tags.path)
-                    v = execute_single_action(act, str(datafile.rating) if datafile.rating is not None else "")
+                    v = execute_single_action(
+                        act, copy_source, str(datafile.rating) if datafile.rating is not None else ""
+                    )
                     if v is None or v == "":
                         new_rating: int | None = None
                     else:
@@ -442,10 +454,10 @@ def execute_metadata_actions(
                 # AudioTag Actions
                 # fmt: off
                 if field == "tracktitle":
-                    tags.tracktitle = execute_single_action(act, tags.tracktitle)
+                    tags.tracktitle = execute_single_action(act, copy_source, tags.tracktitle)
                     potential_audiotag_changes.append(("title", origtags.tracktitle, tags.tracktitle))
                 elif field == "releasedate":
-                    v = execute_single_action(act, tags.releasedate)
+                    v = execute_single_action(act, copy_source, tags.releasedate)
                     try:
                         tags.releasedate = RoseDate.parse(v)
                     except ValueError as e:
@@ -454,7 +466,7 @@ def execute_metadata_actions(
                         ) from e
                     potential_audiotag_changes.append(("releasedate", origtags.releasedate, tags.releasedate))
                 elif field == "originaldate":
-                    v = execute_single_action(act, tags.originaldate)
+                    v = execute_single_action(act, copy_source, tags.originaldate)
                     try:
                         tags.originaldate = RoseDate.parse(v)
                     except ValueError as e:
@@ -463,7 +475,7 @@ def execute_metadata_actions(
                         ) from e
                     potential_audiotag_changes.append(("originaldate", origtags.originaldate, tags.originaldate))
                 elif field == "compositiondate":
-                    v = execute_single_action(act, tags.compositiondate)
+                    v = execute_single_action(act, copy_source, tags.compositiondate)
                     try:
                         tags.compositiondate = RoseDate.parse(v)
                     except ValueError as e:
@@ -472,76 +484,76 @@ def execute_metadata_actions(
                         ) from e
                     potential_audiotag_changes.append(("compositiondate", origtags.compositiondate, tags.compositiondate))
                 elif field == "edition":
-                    tags.edition = execute_single_action(act, tags.edition)
+                    tags.edition = execute_single_action(act, copy_source, tags.edition)
                     potential_audiotag_changes.append(("edition", origtags.edition, tags.edition))
                 elif field == "catalognumber":
-                    tags.catalognumber = execute_single_action(act, tags.catalognumber)
+                    tags.catalognumber = execute_single_action(act, copy_source, tags.catalognumber)
                     potential_audiotag_changes.append(("catalognumber", origtags.catalognumber, tags.catalognumber))
                 elif field == "tracknumber":
-                    tags.tracknumber = execute_single_action(act, tags.tracknumber)
+                    tags.tracknumber = execute_single_action(act, copy_source, tags.tracknumber)
                     potential_audiotag_changes.append(("tracknumber", origtags.tracknumber, tags.tracknumber))
                 elif field == "discnumber":
-                    tags.discnumber = execute_single_action(act, tags.discnumber)
+                    tags.discnumber = execute_single_action(act, copy_source, tags.discnumber)
                     potential_audiotag_changes.append(("discnumber", origtags.discnumber, tags.discnumber))
                 elif field == "releasetitle":
-                    tags.releasetitle = execute_single_action(act, tags.releasetitle)
+                    tags.releasetitle = execute_single_action(act, copy_source, tags.releasetitle)
                     potential_audiotag_changes.append(("release", origtags.releasetitle, tags.releasetitle))
                 elif field == "releasetype":
-                    tags.releasetype = execute_single_action(act, tags.releasetype) or "unknown"
+                    tags.releasetype = execute_single_action(act, copy_source, tags.releasetype) or "unknown"
                     potential_audiotag_changes.append(("releasetype", origtags.releasetype, tags.releasetype))
                 elif field == "genre":
-                    tags.genre = execute_multi_value_action(act, tags.genre)
+                    tags.genre = execute_multi_value_action(act, copy_source, tags.genre)
                     potential_audiotag_changes.append(("genre", origtags.genre, tags.genre))
                 elif field == "secondarygenre":
-                    tags.secondarygenre = execute_multi_value_action(act, tags.secondarygenre)
+                    tags.secondarygenre = execute_multi_value_action(act, copy_source, tags.secondarygenre)
                     potential_audiotag_changes.append(("secondarygenre", origtags.secondarygenre, tags.secondarygenre))
                 elif field == "descriptor":
-                    tags.descriptor = execute_multi_value_action(act, tags.descriptor)
+                    tags.descriptor = execute_multi_value_action(act, copy_source, tags.descriptor)
                     potential_audiotag_changes.append(("descriptor", origtags.descriptor, tags.descriptor))
                 elif field == "label":
-                    tags.label = execute_multi_value_action(act, tags.label)
+                    tags.label = execute_multi_value_action(act, copy_source, tags.label)
                     potential_audiotag_changes.append(("label", origtags.label, tags.label))
                 elif field == "trackartist[main]":
-                    tags.trackartists.main = artists(execute_multi_value_action(act, names(tags.trackartists.main)))
+                    tags.trackartists.main = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.main)))
                     potential_audiotag_changes.append(("trackartist[main]", names(origtags.trackartists.main), names(tags.trackartists.main)))
                 elif field == "trackartist[guest]":
-                    tags.trackartists.guest = artists(execute_multi_value_action(act, names(tags.trackartists.guest)))
+                    tags.trackartists.guest = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.guest)))
                     potential_audiotag_changes.append(("trackartist[guest]", names(origtags.trackartists.guest), names(tags.trackartists.guest)))
                 elif field == "trackartist[remixer]":
-                    tags.trackartists.remixer = artists(execute_multi_value_action(act, names(tags.trackartists.remixer)))
+                    tags.trackartists.remixer = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.remixer)))
                     potential_audiotag_changes.append(("trackartist[remixer]", names(origtags.trackartists.remixer), names(tags.trackartists.remixer)))
                 elif field == "trackartist[producer]":
-                    tags.trackartists.producer = artists(execute_multi_value_action(act, names(tags.trackartists.producer)))
+                    tags.trackartists.producer = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.producer)))
                     potential_audiotag_changes.append(("trackartist[producer]", names(origtags.trackartists.producer), names(tags.trackartists.producer)))
                 elif field == "trackartist[composer]":
-                    tags.trackartists.composer = artists(execute_multi_value_action(act, names(tags.trackartists.composer)))
+                    tags.trackartists.composer = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.composer)))
                     potential_audiotag_changes.append(("trackartist[composer]", names(origtags.trackartists.composer), names(tags.trackartists.composer)))
                 elif field == "trackartist[conductor]":
-                    tags.trackartists.conductor = artists(execute_multi_value_action(act, names(tags.trackartists.conductor)))
+                    tags.trackartists.conductor = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.conductor)))
                     potential_audiotag_changes.append(("trackartist[conductor]", names(origtags.trackartists.conductor), names(tags.trackartists.conductor)))
                 elif field == "trackartist[djmixer]":
-                    tags.trackartists.djmixer = artists(execute_multi_value_action(act, names(tags.trackartists.djmixer)))
+                    tags.trackartists.djmixer = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.djmixer)))
                     potential_audiotag_changes.append(("trackartist[djmixer]", names(origtags.trackartists.djmixer), names(tags.trackartists.djmixer)))
                 elif field == "releaseartist[main]":
-                    tags.releaseartists.main = artists(execute_multi_value_action(act, names(tags.releaseartists.main)))
+                    tags.releaseartists.main = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.main)))
                     potential_audiotag_changes.append(("releaseartist[main]", names(origtags.releaseartists.main), names(tags.releaseartists.main)))
                 elif field == "releaseartist[guest]":
-                    tags.releaseartists.guest = artists(execute_multi_value_action(act, names(tags.releaseartists.guest)))
+                    tags.releaseartists.guest = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.guest)))
                     potential_audiotag_changes.append(("releaseartist[guest]", names(origtags.releaseartists.guest), names(tags.releaseartists.guest)))
                 elif field == "releaseartist[remixer]":
-                    tags.releaseartists.remixer = artists(execute_multi_value_action(act, names(tags.releaseartists.remixer)))
+                    tags.releaseartists.remixer = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.remixer)))
                     potential_audiotag_changes.append(("releaseartist[remixer]", names(origtags.releaseartists.remixer), names(tags.releaseartists.remixer)))
                 elif field == "releaseartist[producer]":
-                    tags.releaseartists.producer = artists(execute_multi_value_action(act, names(tags.releaseartists.producer)))
+                    tags.releaseartists.producer = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.producer)))
                     potential_audiotag_changes.append(("releaseartist[producer]", names(origtags.releaseartists.producer), names(tags.releaseartists.producer)))
                 elif field == "releaseartist[composer]":
-                    tags.releaseartists.composer = artists(execute_multi_value_action(act, names(tags.releaseartists.composer)))
+                    tags.releaseartists.composer = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.composer)))
                     potential_audiotag_changes.append(("releaseartist[composer]", names(origtags.releaseartists.composer), names(tags.releaseartists.composer)))
                 elif field == "releaseartist[conductor]":
-                    tags.releaseartists.conductor = artists(execute_multi_value_action(act, names(tags.releaseartists.conductor)))
+                    tags.releaseartists.conductor = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.conductor)))
                     potential_audiotag_changes.append(("releaseartist[conductor]", names(origtags.releaseartists.conductor), names(tags.releaseartists.conductor)))
                 elif field == "releaseartist[djmixer]":
-                    tags.releaseartists.djmixer = artists(execute_multi_value_action(act, names(tags.releaseartists.djmixer)))
+                    tags.releaseartists.djmixer = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.djmixer)))
                     potential_audiotag_changes.append(("releaseartist[djmixer]", names(origtags.releaseartists.djmixer), names(tags.releaseartists.djmixer)))
                 # fmt: on
 
@@ -695,15 +707,111 @@ def matches_pattern(pattern: Pattern, value: str | int | bool | RoseDate | None)
     return needle in haystack
 
 
+def _resolve_copy_source_value(
+    field: Tag,
+    tags: AudioTags,
+    datafile: StoredDataFile | None,
+) -> str | list[str]:
+    """
+    Read the natural value of a source tag for a copy action. Single-value tags are returned as a
+    string; multi-value tags are returned as a list of strings.
+    """
+    # Single-value audio tags.
+    if field == "tracktitle":
+        return value_to_str(tags.tracktitle)
+    if field == "releasedate":
+        return value_to_str(tags.releasedate)
+    if field == "originaldate":
+        return value_to_str(tags.originaldate)
+    if field == "compositiondate":
+        return value_to_str(tags.compositiondate)
+    if field == "edition":
+        return value_to_str(tags.edition)
+    if field == "catalognumber":
+        return value_to_str(tags.catalognumber)
+    if field == "tracknumber":
+        return value_to_str(tags.tracknumber)
+    if field == "tracktotal":
+        return value_to_str(tags.tracktotal)
+    if field == "discnumber":
+        return value_to_str(tags.discnumber)
+    if field == "disctotal":
+        return value_to_str(tags.disctotal)
+    if field == "releasetitle":
+        return value_to_str(tags.releasetitle)
+    if field == "releasetype":
+        return value_to_str(tags.releasetype)
+    # Multi-value audio tags.
+    if field == "genre":
+        return list(tags.genre)
+    if field == "secondarygenre":
+        return list(tags.secondarygenre)
+    if field == "descriptor":
+        return list(tags.descriptor)
+    if field == "label":
+        return list(tags.label)
+    if field == "trackartist[main]":
+        return [x.name for x in tags.trackartists.main]
+    if field == "trackartist[guest]":
+        return [x.name for x in tags.trackartists.guest]
+    if field == "trackartist[remixer]":
+        return [x.name for x in tags.trackartists.remixer]
+    if field == "trackartist[producer]":
+        return [x.name for x in tags.trackartists.producer]
+    if field == "trackartist[composer]":
+        return [x.name for x in tags.trackartists.composer]
+    if field == "trackartist[conductor]":
+        return [x.name for x in tags.trackartists.conductor]
+    if field == "trackartist[djmixer]":
+        return [x.name for x in tags.trackartists.djmixer]
+    if field == "releaseartist[main]":
+        return [x.name for x in tags.releaseartists.main]
+    if field == "releaseartist[guest]":
+        return [x.name for x in tags.releaseartists.guest]
+    if field == "releaseartist[remixer]":
+        return [x.name for x in tags.releaseartists.remixer]
+    if field == "releaseartist[producer]":
+        return [x.name for x in tags.releaseartists.producer]
+    if field == "releaseartist[composer]":
+        return [x.name for x in tags.releaseartists.composer]
+    if field == "releaseartist[conductor]":
+        return [x.name for x in tags.releaseartists.conductor]
+    if field == "releaseartist[djmixer]":
+        return [x.name for x in tags.releaseartists.djmixer]
+    # Datafile fields. The caller is responsible for opening the datafile before calling us.
+    if field == "new":
+        assert datafile is not None
+        return value_to_str(datafile.new)
+    if field == "favorite":
+        assert datafile is not None
+        return value_to_str(datafile.favorite)
+    if field == "rating":
+        assert datafile is not None
+        return value_to_str(datafile.rating)
+    raise RoseError(f"Impossible: unknown copy source field {field}")  # pragma: no cover
+
+
 # Factor out the logic for executing an action on a single-value tag and a multi-value tag.
 def execute_single_action(
     action: Action,
+    copy_source: str | list[str] | None,
     value: str | int | bool | RoseDate | None,
 ) -> str | None:
+    bhv = action.behavior
+
+    # The copy action ignores the destination value entirely: it writes the (optionally
+    # sed-transformed) source value. The pattern, if set, filters the source value.
+    if isinstance(bhv, CopyAction):
+        source = copy_source if isinstance(copy_source, str) else "; ".join(copy_source or [])
+        if action.pattern and not matches_pattern(action.pattern, source):
+            return value_to_str(value)
+        if bhv.sed is not None:
+            return bhv.sed.src.sub(bhv.sed.dst, source)
+        return source
+
     if action.pattern and not matches_pattern(action.pattern, value):
         return value_to_str(value)
 
-    bhv = action.behavior
     strvalue = value_to_str(value)
 
     if isinstance(bhv, ReplaceAction):
@@ -719,9 +827,28 @@ def execute_single_action(
 
 def execute_multi_value_action(
     action: Action,
+    copy_source: str | list[str] | None,
     values: list[str],
 ) -> list[str]:
     bhv = action.behavior
+
+    # The copy action overwrites the destination list wholesale with the source value. A
+    # single-value source becomes a single-element list; a multi-value source is copied as a list.
+    # The pattern, if set, filters which source values are copied.
+    if isinstance(bhv, CopyAction):
+        source_values = [copy_source] if isinstance(copy_source, str) else list(copy_source or [])
+        copied: list[str] = []
+        for v in source_values:
+            if action.pattern and not matches_pattern(action.pattern, v):
+                continue
+            newvals = [v]
+            if bhv.sed is not None:
+                newvals = bhv.sed.src.sub(bhv.sed.dst, v).split(";")
+            for nv in newvals:
+                nv = nv.strip()
+                if nv:
+                    copied.append(nv)
+        return uniq(copied)
 
     # If match_pattern is specified, check which values match. And if none match, bail out.
     matching_idx = list(range(len(values)))

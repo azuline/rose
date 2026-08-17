@@ -280,6 +280,27 @@ class DeleteAction:
     """
 
 
+@dataclasses.dataclass
+class CopyAction:
+    """
+    Copies the value of the `source` tag into the tag(s) being acted upon. Optionally applies a sed
+    substitution to the copied value before writing it to the destination tag(s).
+
+    Unlike other actions, the copy action overwrites the destination tag(s) wholesale with the
+    source tag's value. When a pattern is set on the action, it filters the source values (the
+    values being copied), since the destination is fully overwritten.
+    """
+
+    source: Tag
+    sed: SedAction | None = None
+
+
+# All concrete (non-alias) tags. These are the tags that may be used as a copy action's source. We
+# allow all of them, including non-modifiable tags such as `tracktotal`, since we only read from
+# the source tag.
+COPYABLE_TAGS: list[Tag] = uniq([rt for resolved in ALL_TAGS.values() for rt in resolved])
+
+
 @dataclasses.dataclass(slots=True)
 class Pattern:
     # Substring match with support for `^$` strict start / strict end matching.
@@ -437,7 +458,7 @@ class Action:
     # The tags to apply the action on. Defaults to the tag that the pattern matched.
     tags: list[Tag]
     # The behavior of the action, along with behavior-specific parameters.
-    behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction
+    behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction | CopyAction
     # Only apply the action on values that match this pattern. None means that all values are acted
     # upon.
     pattern: Pattern | None = None
@@ -445,7 +466,7 @@ class Action:
     def __init__(
         self,
         tags: Sequence[ExpandableTag],
-        behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction,
+        behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction | CopyAction,
         pattern: Pattern | None = None,
     ) -> None:
         _tags: list[Tag] = []
@@ -473,6 +494,8 @@ class Action:
             r += "add"
         elif isinstance(self.behavior, DeleteAction):
             r += "delete"
+        elif isinstance(self.behavior, CopyAction):
+            r += "copy"
 
         if isinstance(self.behavior, ReplaceAction):
             r += ":" + self.behavior.replacement
@@ -482,6 +505,12 @@ class Action:
             r += escape(self.behavior.dst)
         elif isinstance(self.behavior, SplitAction):
             r += ":" + self.behavior.delimiter
+        elif isinstance(self.behavior, CopyAction):
+            r += ":" + self.behavior.source
+            if self.behavior.sed is not None:
+                r += ":sed:" + escape(str(self.behavior.sed.src.pattern))
+                r += ":"
+                r += escape(self.behavior.sed.dst)
         return r
 
     @classmethod
@@ -616,6 +645,7 @@ class Action:
             "split",
             "add",
             "delete",
+            "copy",
         ]
         for va in valid_actions:
             if raw[idx:].startswith(va + ":"):
@@ -641,7 +671,7 @@ class Action:
                 )
 
         # And then parse each action kind separately.
-        behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction
+        behavior: ReplaceAction | SedAction | SplitAction | AddAction | DeleteAction | CopyAction
         if action_kind == "replace":
             replacement, fwd = take(raw[idx:], ":", consume_until=False)
             idx += fwd
@@ -727,6 +757,76 @@ class Action:
                     feedback="Found another section after the action kind, but the delete action has no parameters. Please remove this section.",
                 )
             behavior = DeleteAction()
+        elif action_kind == "copy":
+            source_str, fwd = take(raw[idx:], ":", consume_until=False)
+            idx += fwd
+            if source_str == "":
+                raise RuleSyntaxError(
+                    **err,
+                    index=idx,
+                    feedback="Source tag not found: must specify a tag to copy from. Example: copy:tracktitle",
+                )
+            source = next((t for t in COPYABLE_TAGS if t == source_str), None)
+            if source is None:
+                raise RuleSyntaxError(
+                    **err,
+                    index=idx,
+                    feedback=f"Invalid source tag: must be one of {{{', '.join(COPYABLE_TAGS)}}}.",
+                )
+            # Parse the optional sed transform, which mirrors the sed action's grammar.
+            sed: SedAction | None = None
+            if idx < len(raw):
+                # There is more input; it must be a sed section. The character at idx is the colon
+                # that terminated the source tag.
+                idx += 1
+                if not raw[idx:].startswith("sed:"):
+                    raise RuleSyntaxError(
+                        **err,
+                        index=idx,
+                        feedback="Unsupported transform: the only transform supported after the source tag is `sed`. Example: copy:tracktitle:sed:pattern:replacement",
+                    )
+                idx += len("sed:")
+                sed_src_str, fwd = take(raw[idx:], ":", consume_until=False)
+                if sed_src_str == "":
+                    raise RuleSyntaxError(
+                        **err,
+                        index=idx,
+                        feedback=f"Empty sed pattern found: must specify a non-empty pattern. Example: {raw}:pattern:replacement",
+                    )
+                try:
+                    sed_src = re.compile(sed_src_str)
+                except re.error as e:
+                    raise RuleSyntaxError(
+                        **err,
+                        index=idx,
+                        feedback=f"Failed to compile the sed pattern regex: invalid pattern: {e}",
+                    ) from e
+                idx += fwd
+                if len(raw) == idx or raw[idx] != ":":
+                    raise RuleSyntaxError(
+                        **err,
+                        index=idx,
+                        feedback=f"Sed replacement not found: must specify a sed replacement section. Example: {raw}:replacement.",
+                    )
+                idx += 1
+                sed_dst, fwd = take(raw[idx:], ":", consume_until=False)
+                idx += fwd
+                if raw[idx:]:
+                    raise RuleSyntaxError(
+                        **err,
+                        index=idx,
+                        feedback="Found another section after the sed replacement, but the sed replacement must be the last section. Perhaps you meant to escape this colon?",
+                    )
+                sed = SedAction(src=sed_src, dst=sed_dst)
+            # Copying a multi-valued source into a single-valued destination would corrupt data, so
+            # reject it with a helpful error.
+            if source not in SINGLE_VALUE_TAGS:
+                single_valued_tags = [t for t in tags if t in SINGLE_VALUE_TAGS]
+                if single_valued_tags:
+                    raise InvalidRuleError(
+                        f"Cannot copy multi-valued source tag {source} into single-valued tag(s) {', '.join(single_valued_tags)}"
+                    )
+            behavior = CopyAction(source=source, sed=sed)
         else:  # pragma: no cover
             raise RoseError(f"Impossible: unknown action_kind {action_kind=}")
 

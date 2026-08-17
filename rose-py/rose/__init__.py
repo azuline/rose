@@ -115,6 +115,7 @@ from rose.releases import (
 from rose.rule_parser import (
     Action,
     AddAction,
+    CopyAction,
     DeleteAction,
     InvalidRuleError,
     Matcher,
@@ -191,6 +192,7 @@ __all__ = [
     "SplitAction",
     "AddAction",
     "DeleteAction",
+    "CopyAction",
     "execute_metadata_rule",
     "execute_stored_metadata_rules",
     "run_actions_on_release",
