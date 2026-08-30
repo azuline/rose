@@ -4,6 +4,7 @@ The collages module provides functions for interacting with collages.
 
 import logging
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,10 @@ class CollageDoesNotExistError(RoseExpectedError):
 
 class CollageAlreadyExistsError(RoseExpectedError):
     pass
+
+
+def _edit_toml(toml: str) -> str | None:
+    return click.edit(toml)
 
 
 def create_collage(c: Config, name: str) -> None:
@@ -134,7 +139,12 @@ def add_release_to_collage(
     update_cache_for_collages(c, [collage_name], force=True)
 
 
-def edit_collage_in_editor(c: Config, collage_name: str) -> None:
+def edit_collage_in_editor(
+    c: Config,
+    collage_name: str,
+    *,
+    editor_fn: Callable[[str], str | None] = _edit_toml,
+) -> None:
     path = collage_path(c, collage_name)
     if not path.exists():
         raise CollageDoesNotExistError(f"Collage {collage_name} does not exist")
@@ -142,7 +152,7 @@ def edit_collage_in_editor(c: Config, collage_name: str) -> None:
         with path.open("rb") as fp:
             data = tomllib.load(fp)
         raw_releases = data.get("releases", [])
-        edited_release_descriptions = click.edit("\n".join([r["description_meta"] for r in raw_releases]))
+        edited_release_descriptions = editor_fn("\n".join([r["description_meta"] for r in raw_releases]))
         if edited_release_descriptions is None:
             logger.info("Aborting: metadata file not submitted.")
             return
