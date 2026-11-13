@@ -6,6 +6,7 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+import tomli_w
 
 from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
@@ -487,8 +488,16 @@ def test_writes_take_release_locks(monkeypatch: Any, config: Config, source_dir:
         flushed_under_lock[str(self.path)] = f"release-{self.release_id}" in held
         orig_flush(self, c, validate=validate)
 
+    datafile_writes_held: list[set[str]] = []
+    orig_dump = tomli_w.dump
+
+    def fake_dump(obj: Any, fp: Any) -> None:
+        datafile_writes_held.append(set(held))
+        orig_dump(obj, fp)
+
     monkeypatch.setattr("rose.rules.lock", fake_lock)
     monkeypatch.setattr(AudioTags, "flush", fake_flush)
+    monkeypatch.setattr("rose.rules.tomli_w.dump", fake_dump)
 
     # Per matched release: one track tag write and one datafile write.
     rule = Rule.parse("tracktitle:^Track 1$", ["replace:lalala", "new/replace:false"])
@@ -500,6 +509,8 @@ def test_writes_take_release_locks(monkeypatch: Any, config: Config, source_dir:
     assert af.release_id is not None
     assert flushed_under_lock[str(path)]
     assert all(flushed_under_lock.values())
+    # The rules engine's datafile write comes first; the cache update may rewrite it afterwards.
+    assert datafile_writes_held[0] == {f"release-{af.release_id}"}
     assert not held
     # Once for the track write, once for the datafile write.
     assert acquired.count(f"release-{af.release_id}") == 2
