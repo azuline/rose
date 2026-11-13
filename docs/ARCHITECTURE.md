@@ -1,6 +1,6 @@
 # Architecture
 
-Rosé's data flow is architected in a simple uni-directional loop.
+Rose's data flow is architected in a simple uni-directional loop.
 
 ```mermaid
 flowchart BT
@@ -26,25 +26,25 @@ flowchart BT
    directly, which in turn refreshes the read cache.
 
 This architecture takes care to ensure that there is a single source of truth and uni-directional
-mutations. This means that Rosé and the source files always have the same metadata. If the source
+mutations. This means that Rose and the source files always have the same metadata. If the source
 files change, `rose cache update` is guaranteed to rebuild the cache such that it fully matches the
 source files. And if `rose cache watch` is running, the cache updates should happen automatically.
 
 This has some nice consequences:
 
-- External tag editing tools do not conflict with Rosé. If an external tool modifies the audio tags,
-  Rosé will not overwrite those changes.
-- Rosé is easily synchronized across machines, for example with a tool like Syncthing. As long as
-  the source files are in-sync, Rosé's read cache will match.
-- Rosé has no ambiguous conflict resolution between audio tags and its own state, because the audio
+- External tag editing tools do not conflict with Rose. If an external tool modifies the audio tags,
+  Rose will not overwrite those changes.
+- Rose is easily synchronized across machines, for example with a tool like Syncthing. As long as
+  the source files are in-sync, Rose's read cache will match.
+- Rose has no ambiguous conflict resolution between audio tags and its own state, because the audio
   tags _are_ the state. Regardless of how the cache drifts from source files, that drift can always
   be automatically resolved simply by rebuilding the cache.
 
 # Frontends
 
-At its core, Rosé is a library that manages its state and exposes functions for managing music.
+At its core, Rose is a library that manages its state and exposes functions for managing music.
 Alongside the library are two frontends: a CLI and a Virtual Filesystem. These two frontends are
-organized to be consume the library but not be part of it. This is visible in Rosé's package
+organized to be consume the library but not be part of it. This is visible in Rose's package
 structure: `rose`, `rose_cli`, and `rose_vfs`.
 
 Theoretically, other frontends can be built on top of the `rose` library in the future, such as a
@@ -52,7 +52,7 @@ Theoretically, other frontends can be built on top of the `rose` library in the 
 
 # Release & Track Identifiers
 
-Rosé assigns a stable UUID to each release and track in order to identify them. The UUIDs are also
+Rose assigns a stable UUID to each release and track in order to identify them. The UUIDs are also
 used to track membership in collages and playlists.
 
 These UUIDs are persisted to the source files:
@@ -65,8 +65,8 @@ These UUIDs are persisted to the source files:
 - Each track has a nonstandard `roseid` audio tag that contains the track UUID. This tag is written
   to the source audio file.
 
-Therefore, provided that other programs do not erase the UUID, Rosé will be able to identify
-releases and tracks across arbitrarily drastic directory and file renames and tag changes. Rosé does
+Therefore, provided that other programs do not erase the UUID, Rose will be able to identify
+releases and tracks across arbitrarily drastic directory and file renames and tag changes. Rose does
 not depend on the source directory's filenames or tags remaining static; the source directory can be
 freely modified. The only constraint is that each release must be a directory in the root of the
 `music_source_dir`.
@@ -76,12 +76,12 @@ freely modified. The only constraint is that each release must be a directory in
 We use the `llfuse` library for the virtual filesystem. `llfuse` is a fairly low-level library for
 FUSE, which leaves us to work with system-level concepts such as inodes.
 
-Though these concepts have much to do with filesystems, they have little to do with Rosé. Thus, we
+Though these concepts have much to do with filesystems, they have little to do with Rose. Thus, we
 have split the Virtual Filesystem code into two main layers:
 
-1. `RoseLogicalCore`: A logical core of Rosé's domain logic, which exposes syscall-like functions at
+1. `RoseLogicalCore`: A logical core of Rose's domain logic, which exposes syscall-like functions at
    a higher semantic level.
-2. `VirtualFS`: A wrapper around `RoseLogicalFS` that translates syscalls into Rosé's semantics,
+2. `VirtualFS`: A wrapper around `RoseLogicalFS` that translates syscalls into Rose's semantics,
    manages inodes, caches for performance, and "lies" a little so that user tools work
    transparently.
 
@@ -91,7 +91,7 @@ We favor composition over inheritance ^.~
 
 ## Ghost Files
 
-Some of Rosé operations break the conventional expectations of a filesystem. Most operations are
+Some of Rose operations break the conventional expectations of a filesystem. Most operations are
 still _decent_, but the following two diverge pretty heavily:
 
 1. Adding a release to a collage
@@ -129,7 +129,7 @@ The naive implementation has us searching the SQLite database with `LIKE` querie
 performant. Regex is even less so, which is why we do not support regex matchers (but we support
 regex actions!).
 
-In Rosé, we instead index all tags into SQLite's Full Text Search (FTS). Every character in a tag is
+In Rose, we instead index all tags into SQLite's Full Text Search (FTS). Every character in a tag is
 treated as a word, which grants us substring search, at the expense of a twice-as-large read cache.
 Note that this is _not_ the typical way a FTS engine is used: words are typically words, not
 individual characters.
@@ -167,13 +167,13 @@ Logs are written to stderr. Logs are also written to disk: to
 MacOS. Logs are configured to rotate once the log file reaches 20MB. The previous 10 rotations are
 kept; all older rotations are deleted.
 
-Debug logging can be turned on with the `--verbose/-v` option. Rosé is heavily instrumented with
+Debug logging can be turned on with the `--verbose/-v` option. Rose is heavily instrumented with
 debug logging. If you stumble upon a bug that you can reproduce, reproduce it with debug logging
 enabled.
 
 In tests, due to our use of multiple processes for testing the virtual filesystem, some logs may not
 be displayed by default by pytest. By default, we do not register a logging handler in tests, since
-pytest registers its own. However, if you run tests with `LOG_TEST=1`, Rosé will attach its own
+pytest registers its own. However, if you run tests with `LOG_TEST=1`, Rose will attach its own
 logging handler, which will print debug logs from other processes on failure.
 
 # Language Choice

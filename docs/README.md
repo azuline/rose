@@ -1,4 +1,4 @@
-For an introduction to Rosé, please visit the [README](../README.md).
+For an introduction to Rose, please visit the [README](../README.md).
 
 For more detailed documentation, please visit the following files:
 
