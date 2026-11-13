@@ -254,6 +254,9 @@ class RuleRelease:
     source_path: Path
     # The tracks of the release, as a map of track ID to path, ordered by path.
     track_paths: dict[str, Path]
+    # The number of discs is computed by the read cache from the tracks of the release. The
+    # `disctotal` embedded in the audio files is not a source of truth.
+    disctotal: int
     _tags: AudioTags | None = None
     _datafile: tuple[Path, StoredDataFile] | None = None
 
@@ -288,6 +291,8 @@ class RuleRelease:
         if tag in DATAFILE_TAGS:
             value: AnyTagValue = getattr(self.datafile, tag)
             return value
+        if tag == "disctotal":
+            return self.disctotal
         return _get_audiotags_value(self.tags, tag)
 
     def set(self, tag: Tag, value: AnyTagValue) -> None:
@@ -302,10 +307,16 @@ def _fetch_releases_of_tracks(c: Config, track_ids: list[str]) -> dict[str, Rule
     """Fetch the releases of the given tracks from the read cache, as a map of track ID to release."""
     rows_by_release: dict[str, list[tuple[Path, str]]] = {}
     release_paths: dict[str, Path] = {}
+    release_disctotals: dict[str, int] = {}
     with connect(c) as conn:
         cursor = conn.execute(
             f"""
-            SELECT t.id AS track_id, t.source_path AS track_path, r.id AS release_id, r.source_path AS release_path
+            SELECT
+                t.id AS track_id
+              , t.source_path AS track_path
+              , r.id AS release_id
+              , r.source_path AS release_path
+              , r.disctotal
             FROM tracks t
             JOIN releases r ON r.id = t.release_id
             WHERE t.release_id IN (
@@ -316,6 +327,7 @@ def _fetch_releases_of_tracks(c: Config, track_ids: list[str]) -> dict[str, Rule
         )
         for row in cursor:
             release_paths[row["release_id"]] = Path(row["release_path"])
+            release_disctotals[row["release_id"]] = row["disctotal"]
             rows_by_release.setdefault(row["release_id"], []).append((Path(row["track_path"]), row["track_id"]))
 
     rval: dict[str, RuleRelease] = {}
@@ -326,6 +338,7 @@ def _fetch_releases_of_tracks(c: Config, track_ids: list[str]) -> dict[str, Rule
             id=release_id,
             source_path=release_paths[release_id],
             track_paths={track_id: path for path, track_id in sorted(rows)},
+            disctotal=release_disctotals[release_id],
         )
         for track_id in release.track_paths:
             if track_id in requested:
@@ -563,25 +576,27 @@ def _plan_release_changes(
     }
 
     for act in actions:
-        # A copy action reads its source tag once, before any of its destination tags are written.
+        # A copy action reads its source tag once, before any of its destination tags are written,
+        # so that a destination that is also the source does not feed into the other destinations.
         # A release tag cannot be copied from several tracks at once, so when a track tag is copied
         # to a release tag, the source is read from the first matched track.
-        def copy_source(tags: AudioTags, act: Action = act) -> str | list[str] | None:
-            if not isinstance(act.behavior, CopyAction):
-                return None
-            source = act.behavior.source
-            value = release.get(source) if source in RELEASE_TAGS else _get_audiotags_value(tags, source)
-            return value if isinstance(value, list) else value_to_str(value)
+        copy_sources: dict[str, str | list[str] | None] = dict.fromkeys(matched_tracks)
+        if isinstance(act.behavior, CopyAction):
+            source_tag = act.behavior.source
+            for track_id, tags in matched_tracks.items():
+                value = (
+                    release.get(source_tag) if source_tag in RELEASE_TAGS else _get_audiotags_value(tags, source_tag)
+                )
+                copy_sources[track_id] = value if isinstance(value, list) else value_to_str(value)
 
-        if act_release_tags := [t for t in act.tags if t in RELEASE_TAGS]:
-            source = copy_source(next(iter(matched_tracks.values())))
-            for tag in act_release_tags:
+        for tag in act.tags:
+            if tag in RELEASE_TAGS:
+                source = next(iter(copy_sources.values()))
                 release.set(tag, execute_action(act, tag, source, release.get(tag)))
-        if act_track_tags := [t for t in act.tags if t not in RELEASE_TAGS]:
-            for tags in matched_tracks.values():
-                source = copy_source(tags)
-                for tag in act_track_tags:
-                    _set_audiotags_value(tags, tag, execute_action(act, tag, source, _get_audiotags_value(tags, tag)))
+                continue
+            for track_id, tags in matched_tracks.items():
+                value = execute_action(act, tag, copy_sources[track_id], _get_audiotags_value(tags, tag))
+                _set_audiotags_value(tags, tag, value)
 
     # Compute real changes by diffing the tags.
     release_changes: list[Changes] = [

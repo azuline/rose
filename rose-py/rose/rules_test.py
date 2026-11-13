@@ -615,3 +615,31 @@ def test_ignore_values_on_another_tag(config: Config, source_dir: Path) -> None:
     execute_metadata_rule(config, rule, confirm_yes=False)
     assert AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a").tracktitle == "Track 1"
     assert AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a").tracktitle == "lalala"
+
+
+def test_copy_to_release_and_track_tags_reads_source_once(config: Config, source_dir: Path) -> None:
+    # The source is also one of the destinations. The track artist must be copied from the release
+    # artist as it was before the action, not from the release artist that the action just wrote.
+    rule = Rule.parse("artist:^BLACKPINK$", ["copy:releaseartist[main]:sed:BLACKPINK:BLACKPINK2"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    for f in ["01.m4a", "02.m4a"]:
+        af = AudioTags.from_file(source_dir / "Test Release 1" / f)
+        assert af.releaseartists.main == [Artist("BLACKPINK2")]
+        assert af.trackartists.main == [Artist("BLACKPINK2")]
+
+
+def test_disctotal_matches_on_cached_count(config: Config, source_dir: Path) -> None:
+    # The first track has a stale embedded disctotal, but the release has two discs.
+    af1 = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    af1.disctotal = 1
+    af1.flush(config)
+    af2 = AudioTags.from_file(source_dir / "Test Release 1" / "02.m4a")
+    af2.discnumber = "2"
+    af2.flush(config)
+    update_cache(config)
+
+    rule = Rule.parse("disctotal:^2$", ["tracktitle/replace:lalala"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    for f in ["01.m4a", "02.m4a"]:
+        assert AudioTags.from_file(source_dir / "Test Release 1" / f).tracktitle == "lalala"
+    assert AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a").tracktitle == "Track 1"
