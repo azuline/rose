@@ -36,6 +36,7 @@ from rose.releases import (
     toggle_release_new,
 )
 from rose.rule_parser import Action, Matcher
+from rose.templates import PathTemplate
 
 
 def test_delete_release(config: Config) -> None:
@@ -496,6 +497,39 @@ def test_reflush_releases_rename_source_files(config: Config) -> None:
             expected_dir / "01. Track 1.m4a",
             expected_dir / "02. Track 2.m4a",
         }
+
+
+def test_reflush_releases_rename_ignores_artist_aliases(config: Config) -> None:
+    """Test that artist aliases do not leak into the source path templates."""
+    config = dataclasses.replace(
+        config,
+        rename_source_files=True,
+        artist_aliases_map={"Alias Group": ["BLACKPINK"]},
+        artist_aliases_parents_map={"BLACKPINK": ["Alias Group"]},
+        path_templates=dataclasses.replace(
+            config.path_templates,
+            source=dataclasses.replace(
+                config.path_templates.source,
+                release=PathTemplate(
+                    "{{ releaseartists.main | map(attribute='name') | join(', ') }} - {{ releasetitle }}"
+                ),
+                track=PathTemplate(
+                    "{{ trackartists.main | map(attribute='name') | join(', ') }} - {{ tracktitle }}"
+                    " ({{ releaseartists.main | length }})"
+                ),
+            ),
+        ),
+    )
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    update_cache(config)
+    reflush_releases(config)
+
+    expected_dir = config.music_source_dir / "BLACKPINK - I Love Blackpink"
+    assert expected_dir.is_dir()
+    assert {p.name for p in expected_dir.iterdir() if p.suffix == ".m4a"} == {
+        "BLACKPINK - Track 1 (1).m4a",
+        "BLACKPINK - Track 2 (1).m4a",
+    }
 
 
 def test_reflush_releases_rename_source_files_nested_file_directories(config: Config) -> None:

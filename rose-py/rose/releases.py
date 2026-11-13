@@ -631,10 +631,21 @@ def reflush_releases(
     renamed_dirs: list[Path] = []
     for release in list_releases(c, [r.id for r in releases]):
         with lock(c, release_lock_name(release.id), timeout=900.0):
-            if _rename_release_source_files(c, release, get_tracks_of_release(c, release)):
+            tracks = get_tracks_of_release(c, release)
+            # The source path templates are evaluated without artist aliases.
+            _strip_artist_aliases(release.releaseartists)
+            for track in tracks:
+                _strip_artist_aliases(track.trackartists)
+                _strip_artist_aliases(track.release.releaseartists)
+            if _rename_release_source_files(c, release, tracks):
                 renamed_dirs.append(release.source_path)
     if renamed_dirs:
         update_cache_for_releases(c, renamed_dirs)
+
+
+def _strip_artist_aliases(mapping: ArtistMapping) -> None:
+    for _, artists in mapping.items():
+        artists[:] = [a for a in artists if not a.alias]
 
 
 def _rename_release_source_files(c: Config, release: Release, tracks: list[Track]) -> bool:
