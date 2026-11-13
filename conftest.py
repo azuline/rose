@@ -150,11 +150,11 @@ def _seed_cache(config: Config, mkfiles: bool) -> None:
         conn.executescript(
             f"""\
 INSERT INTO releases
-       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype , releasedate , originaldate, compositiondate, catalognumber, edition , disctotal, new  , favorite, metahash)
-VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'     , '2023'      , null        , null           , null         , null    , 1        , false, true    , '1')
-     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'     , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 1        , true , false   , '2')
-     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'     , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, false   , '3')
-     , ('r4', '{dirpaths[3]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 4', 'loosetrack', '2021-04-20', null        , '1780'         , 'DG-002'     , null    , 1        , false, false   , '4');
+       (id  , source_path    , cover_image_path , added_at                   , datafile_mtime, title      , releasetype , releasedate , originaldate, compositiondate, catalognumber, edition , media, disctotal, new  , favorite, metahash)
+VALUES ('r1', '{dirpaths[0]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 1', 'album'     , '2023'      , null        , null           , null         , null    , null , 1        , false, true    , '1')
+     , ('r2', '{dirpaths[1]}', '{imagepaths[0]}', '0000-01-01T00:00:00+00:00', '999'         , 'Release 2', 'album'     , '2021'      , '2019'      , null           , 'DG-001'     , 'Deluxe', 'CD' , 1        , true , false   , '2')
+     , ('r3', '{dirpaths[2]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 3', 'album'     , '2021-04-20', null        , '1780'         , 'DG-002'     , null    , null , 1        , false, false   , '3')
+     , ('r4', '{dirpaths[3]}', null             , '0000-01-01T00:00:00+00:00', '999'         , 'Release 4', 'loosetrack', '2021-04-20', null        , '1780'         , 'DG-002'     , null    , null , 1        , false, false   , '4');
 
 INSERT INTO releases_genres
        (release_id, genre             , position)
@@ -239,6 +239,7 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
               , originaldate
               , compositiondate
               , catalognumber
+              , media
               , edition
               , releasetype
               , genre
@@ -260,6 +261,7 @@ VALUES ('Lala Lisa'  , 't1'    , 1       , false)
               , process_string_for_fts(r.originaldate) AS originaldate
               , process_string_for_fts(r.compositiondate) AS compositiondate
               , process_string_for_fts(r.catalognumber) AS catalognumber
+              , process_string_for_fts(r.media) AS media
               , process_string_for_fts(r.edition) AS edition
               , process_string_for_fts(r.releasetype) AS releasetype
               , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, ' '), '')) AS genre

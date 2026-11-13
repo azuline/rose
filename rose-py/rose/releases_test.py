@@ -178,6 +178,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         ]
         catalognumber = "Lalala"
         edition = "Blabla"
+        media = "Vinyl"
         labels = [
             "YG Entertainment",
         ]
@@ -226,6 +227,7 @@ def test_edit_release(monkeypatch: Any, config: Config, source_dir: Path) -> Non
         originaldate=RoseDate(2000),
         compositiondate=RoseDate(1800),
         catalognumber="Lalala",
+        media="Vinyl",
         edition="Blabla",
         new=False,
         favorite=False,
@@ -299,6 +301,7 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
             {{ name = "JISOO", role = "main" }},
         ]
         catalognumber = ""
+        media = ""
         edition = ""
         labels = [
             "YG Entertainment",
@@ -348,6 +351,7 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
             {{ name = "JISOO", role = "main" }},
         ]
         catalognumber = ""
+        media = ""
         edition = ""
         labels = [
             "YG Entertainment",
@@ -400,6 +404,7 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
         originaldate=None,
         compositiondate=None,
         catalognumber=None,
+        media=None,
         edition=None,
         new=False,
         favorite=False,

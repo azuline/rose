@@ -71,6 +71,7 @@ labels = [
 ]
 edition = ""
 catalognumber = "WMED0709"
+media = "CD"
 artists = [
     { name = "LOOΠΔ ODD EYE CIRCLE", role = "main" },
 ]
@@ -328,6 +329,7 @@ The rules engine supports matching and acting on the following tags:
 - `label`
 - `catalognumber`
 - `edition`
+- `media`
 - `new`
 - `favorite`
 

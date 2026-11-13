@@ -158,6 +158,19 @@ def test_rules_fields_match_disctotal(config: Config, source_dir: Path) -> None:
     assert af.tracktitle == "8"
 
 
+def test_rules_fields_media(config: Config, source_dir: Path) -> None:
+    # Write the tag with one rule, then match on it with a second rule, which reads from the cache.
+    rule = Rule.parse("releasetitle:Love Blackpink", ["media/replace:CD"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.media == "CD"
+
+    rule = Rule.parse("media:^CD$", ["media/replace:Vinyl"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.media == "Vinyl"
+
+
 def test_rules_fields_match_releasetitle(config: Config, source_dir: Path) -> None:
     rule = Rule.parse("releasetitle:Love Blackpink", ["replace:8"])
     execute_metadata_rule(config, rule, confirm_yes=False)

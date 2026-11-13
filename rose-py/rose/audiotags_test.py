@@ -41,6 +41,7 @@ def test_getters(filename: str, track_num: str, duration: int) -> None:
     assert af.label == ["A Cool Label"]
     assert af.catalognumber == "DN-420"
     assert af.edition == "Japan"
+    assert af.media == "CD"
     assert af.releaseartists.main == [Artist("Artist A"), Artist("Artist B")]
 
     assert af.tracknumber == track_num
@@ -81,9 +82,12 @@ def test_flush(config: Config, isolated_dir: Path, filename: str, track_num: str
     af.trackartists.djmixer = [Artist("New")]
     # Also test date writing.
     af.originaldate = RoseDate(1990, 4, 20)
+    assert af.media == "CD"
+    af.media = "Vinyl"
     af.flush(config)
     af = AudioTags.from_file(fpath)
 
+    assert af.media == "Vinyl"
     assert af.releasetitle == "A Cool Album"
     assert af.releasetype == "album"
     assert af.releasedate == RoseDate(1990, 2, 5)

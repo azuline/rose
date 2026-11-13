@@ -224,6 +224,7 @@ class Release:
     compositiondate: RoseDate | None
     edition: str | None
     catalognumber: str | None
+    media: str | None
     new: bool
     favorite: bool
     rating: int | None
@@ -253,6 +254,7 @@ def cached_release_from_view(c: Config, row: dict[str, Any], aliases: bool = Tru
         originaldate=RoseDate.parse(row["originaldate"]),
         compositiondate=RoseDate.parse(row["compositiondate"]),
         catalognumber=row["catalognumber"],
+        media=row["media"],
         edition=row["edition"],
         disctotal=row["disctotal"],
         new=bool(row["new"]),
@@ -620,6 +622,7 @@ def _update_cache_for_releases_executor(
                 originaldate=None,
                 compositiondate=None,
                 catalognumber=None,
+                media=None,
                 edition=None,
                 new=True,
                 favorite=False,
@@ -810,6 +813,11 @@ def _update_cache_for_releases_executor(
                     release.catalognumber = tags.catalognumber
                     release_dirty = True
 
+                if tags.media != release.media:
+                    logger.debug(f"Release media change detected for {source_path}, updating")
+                    release.media = tags.media
+                    release_dirty = True
+
                 if tags.genre != release.genres:
                     logger.debug(f"Release genre change detected for {source_path}, updating")
                     release.genres = uniq(tags.genre)
@@ -992,6 +1000,7 @@ def _update_cache_for_releases_executor(
                 str(release.compositiondate) if release.compositiondate else None,
                 release.edition,
                 release.catalognumber,
+                release.media,
                 release.disctotal,
                 release.new,
                 release.favorite,
@@ -1075,12 +1084,13 @@ def _update_cache_for_releases_executor(
                   , compositiondate
                   , edition
                   , catalognumber
+                  , media
                   , disctotal
                   , new
                   , favorite
                   , rating
                   , metahash
-                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
+                ) VALUES {",".join(["(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"] * len(upd_release_args))}
                 ON CONFLICT (id) DO UPDATE SET
                     source_path      = excluded.source_path
                   , cover_image_path = excluded.cover_image_path
@@ -1093,6 +1103,7 @@ def _update_cache_for_releases_executor(
                   , compositiondate  = excluded.compositiondate
                   , edition          = excluded.edition
                   , catalognumber    = excluded.catalognumber
+                  , media            = excluded.media
                   , disctotal        = excluded.disctotal
                   , new              = excluded.new
                   , favorite         = excluded.favorite
@@ -1257,6 +1268,7 @@ def _update_cache_for_releases_executor(
                   , compositiondate
                   , edition
                   , catalognumber
+                  , media
                   , releasetype
                   , genre
                   , secondarygenre
@@ -1281,6 +1293,7 @@ def _update_cache_for_releases_executor(
                   , process_string_for_fts(r.compositiondate) AS compositiondate
                   , process_string_for_fts(r.edition) AS edition
                   , process_string_for_fts(r.catalognumber) AS catalognumber
+                  , process_string_for_fts(r.media) AS media
                   , process_string_for_fts(r.releasetype) AS releasetype
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(rg.genre, ' '), '')) AS genre
                   , process_string_for_fts(COALESCE(GROUP_CONCAT(rs.genre, ' '), '')) AS secondarygenre
