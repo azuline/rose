@@ -36,16 +36,25 @@ An example of the release's TOML representation:
 title = "Mix & Match"
 new = false
 favorite = true
+rating = 90
 releasetype = "ep"
-releasedate = 2017
-originaldate = 2017
-compositiondate = -9999
+releasedate = "2017"
+originaldate = "2017"
+compositiondate = ""
+artists = [
+    { name = "LOOΠΔ ODD EYE CIRCLE", role = "main" },
+]
+edition = ""
+catalognumber = "WMED0709"
+labels = [
+    "BlockBerryCreative",
+]
 genres = [
     "K-Pop",
     "Dance-Pop",
     "Future Bass",
 ]
-secondarygenres = [
+secondary_genres = [
     "Electropop",
     "Alternative R&B",
     "Synthpop",
@@ -65,14 +74,6 @@ descriptors = [
     "warm",
     "urban",
     "uplifting",
-]
-labels = [
-    "BlockBerryCreative",
-]
-edition = ""
-catalognumber = "WMED0709"
-artists = [
-    { name = "LOOΠΔ ODD EYE CIRCLE", role = "main" },
 ]
 
 [tracks.018b6514-6fb8-729f-bf86-7590187ff377]
@@ -116,14 +117,34 @@ artists = [
 ]
 ```
 
+The date fields (`releasedate`, `originaldate`, and `compositiondate`) are strings formatted as
+either `YYYY` or `YYYY-MM-DD`. An empty string means that the date is not set; likewise for `edition`
+and `catalognumber`. `rating` is an integer between 1 and 100, and `-1` means that the release is
+unrated. See [Managing Releases](./RELEASES.md) for more on ratings.
+
+## Resuming a Failed Edit
+
+If the edited TOML cannot be applied (for example, because of a syntax error or an invalid value),
+Rosé does not discard your edits. The submitted TOML is saved to
+`$cache_dir/failed-release-edit.{release_id}.toml`, and the error message prints a command to resume
+the edit:
+
+```bash
+$ rose releases edit --resume ~/.cache/rose/failed-release-edit.018b4ff1-acdf-7ff1-bcd6-67757aea0fed.toml 018b4ff1-acdf-7ff1-bcd6-67757aea0fed
+```
+
+The `--resume/-r` flag reopens the saved file in your `$EDITOR` instead of the release's current
+metadata, so that you can fix the mistake and try again. The resume file must belong to the release
+being edited, and it is deleted once the edit succeeds.
+
 # Rules Engine
 
 Rosé's rule engine allows you to update metadata in bulk across your library.
 
 Rules consist of a _track matcher_, which matches against tracks in your library, and one or more
-_actions_, which modify the metadata of the matched tracks. The 5 available actions let you
+_actions_, which modify the metadata of the matched tracks. The 6 available actions let you
 _replace_ values, apply a regex substitution (_sed_), _split_ one value into multiple values,
-_delete_ values, and _add_ new values.
+_delete_ values, _add_ new values, and _copy_ values from one tag to another.
 
 To run an ad hoc rule from the command line, use the following command:
 
@@ -321,22 +342,25 @@ The rules engine supports matching and acting on the following tags:
 - `originaldate`
 - `compositiondate`
 - `genre`
-- `parentgenre`
 - `secondarygenre`
-- `parentsecondarygenre`
 - `descriptor`
 - `label`
 - `catalognumber`
 - `edition`
 - `new`
 - `favorite`
+- `rating`
 
-The `trackartist[*]`, `releaseartist[*]`, `genre` (& parents), `secondarygenre` (& parents),
+The `trackartist[*]`, `releaseartist[*]`, `genre`, `secondarygenre`,
 `descriptor`, and `label` tags are _multi-value_ tags, which have a slightly different behavior from
 single-value tags for some of the actions. We'll explore this difference in the [Actions](#actions)
 section.
 
 The `new` and `favorite` tags will always be the string `true` or `false`.
+
+The `rating` tag is the release's rating as a string (e.g. `90`), or the empty string if the release
+is unrated. Ratings are matched as strings, not compared as numbers: `rating:^90$` matches releases
+rated exactly 90. Setting the rating to an empty value or deleting it clears the rating.
 
 For convenience, the rules parser also allows you to specify _tag aliases_ in
 place of the above tags, which expand to multiple tags when matching. The
@@ -471,7 +495,7 @@ is a string. For example:
 - `tracktitle:Hello:i`
 
 Actions are specified as `tags:pattern/kind:{kind_args}`. `tags` and `pattern` are optional, as
-they default to the matcher's `tags` and `pattern`. `kind` is one of the five supported action
+they default to the matcher's `tags` and `pattern`. `kind` is one of the six supported action
 kinds. And `kind_args` are colon-delimited arguments for the specific kind of action. For example:
 
 - `replace:Hi`
@@ -501,7 +525,7 @@ The formal syntax is defined by the following grammar:
 <pattern>      ::= string | '^' string | string '$' | '^' string '$'
 <flags>        ::= 'i' | ''
 
-<action>            ::= <action-tagmatcher> '::' <subaction> | <subaction>
+<action>            ::= <action-tagmatcher> '/' <subaction>  | <subaction>
 <action-tagmatcher> ::= <tags> | <tags> ':' <pattern> | <tags> ':' <pattern> ':' <flags>
 <subaction>         ::= <replace-action> | <sed-action> | <split-action> | <add-action> | <delete-action> | <copy-action>
 <replace-action>    ::= 'replace' ':' string

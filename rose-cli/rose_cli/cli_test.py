@@ -12,10 +12,13 @@ from rose_cli.cli import (
     Context,
     InvalidReleaseArgError,
     InvalidTrackArgError,
+    collages,
     parse_collage_argument,
     parse_playlist_argument,
     parse_release_argument,
     parse_track_argument,
+    playlists,
+    releases,
     unwatch,
     watch,
 )
@@ -92,6 +95,37 @@ def test_parse_playlist_name_from_path(config: Config, source_dir: Path) -> None
         assert parse_playlist_argument(path) == "Lala Lisa"
         # Name is no-opped.
         assert parse_playlist_argument("Lala Lisa") == "Lala Lisa"
+
+
+def test_release_cover_command_names() -> None:
+    assert "set-cover" in releases.commands
+    assert "delete-cover" in releases.commands
+    assert "set-cover-release" not in releases.commands
+    assert "delete-cover-release" not in releases.commands
+
+
+def test_collage_commands_resolve_path_arguments(config: Config, source_dir: Path) -> None:
+    ctx = Context(config=config)
+    runner = CliRunner()
+    toml_path = source_dir / "!collages" / "Rose Gold.toml"
+    res = runner.invoke(collages, ["print", str(toml_path)], obj=ctx)
+    assert res.exit_code == 0, res.output
+    assert '"name": "Rose Gold"' in res.output
+    res = runner.invoke(collages, ["delete", str(toml_path)], obj=ctx)
+    assert res.exit_code == 0, res.output
+    assert not toml_path.exists()
+
+
+def test_playlist_commands_resolve_path_arguments(config: Config, source_dir: Path) -> None:
+    ctx = Context(config=config)
+    runner = CliRunner()
+    toml_path = source_dir / "!playlists" / "Lala Lisa.toml"
+    res = runner.invoke(playlists, ["print", str(toml_path)], obj=ctx)
+    assert res.exit_code == 0, res.output
+    assert '"name": "Lala Lisa"' in res.output
+    res = runner.invoke(playlists, ["delete", str(toml_path)], obj=ctx)
+    assert res.exit_code == 0, res.output
+    assert not toml_path.exists()
 
 
 def test_cache_watch_unwatch(monkeypatch: Any, config: Config) -> None:
