@@ -83,18 +83,28 @@ def test_parse_collage_name_from_path(config: Config, source_dir: Path) -> None:
         assert parse_collage_argument(path) == "Rose Gold"
         # Name is no-opped.
         assert parse_collage_argument("Rose Gold") == "Rose Gold"
+        # Directories that are not collages are not resolved to a collage name.
+        path = str(config.vfs.mount_dir / "8. Playlists" / "Lala Lisa")
+        assert parse_collage_argument(path) == path
+        path = str(source_dir / "Test Release 1")
+        assert parse_collage_argument(path) == path
 
 
 def test_parse_playlist_name_from_path(config: Config, source_dir: Path) -> None:
     with start_virtual_fs(config):
         # Directory path is resolved.
         path = str(config.vfs.mount_dir / "8. Playlists" / "Lala Lisa")
-        assert parse_playlist_argument(path)
+        assert parse_playlist_argument(path) == "Lala Lisa"
         # File path is resolved.
         path = str(source_dir / "!playlists" / "Lala Lisa.toml")
         assert parse_playlist_argument(path) == "Lala Lisa"
         # Name is no-opped.
         assert parse_playlist_argument("Lala Lisa") == "Lala Lisa"
+        # Directories that are not playlists are not resolved to a playlist name.
+        path = str(config.vfs.mount_dir / "7. Collages" / "Rose Gold")
+        assert parse_playlist_argument(path) == path
+        path = str(source_dir / "Test Release 1")
+        assert parse_playlist_argument(path) == path
 
 
 def test_release_cover_command_names() -> None:

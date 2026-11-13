@@ -750,8 +750,10 @@ Track arguments must be one of:
 def parse_collage_argument(c: str) -> str:
     """Takes in a collage argument and normalizes it to the collage name."""
     path = Path(c).resolve()
-    # Handle the case where the argument is a path to a directory.
-    if path.exists() and path.is_dir():
+    # Handle the case where the argument is a path to a directory in the virtual filesystem. Other
+    # directories are not accepted, so that a path to something else is never mistaken for a
+    # collage that happens to have the same name.
+    if path.exists() and path.is_dir() and path.parent.name == "7. Collages":
         return path.name
     # Then handle the case where the argument is a path to the TOML file.
     if path.exists() and path.is_file() and path.parent.name == "!collages":
@@ -763,8 +765,10 @@ def parse_collage_argument(c: str) -> str:
 def parse_playlist_argument(p: str) -> str:
     """Takes in a playlist argument and normalizes it to the playlist name."""
     path = Path(p).resolve()
-    # Handle the case where the argument is a path to a directory.
-    if path.exists() and path.is_dir():
+    # Handle the case where the argument is a path to a directory in the virtual filesystem. Other
+    # directories are not accepted, so that a path to something else is never mistaken for a
+    # playlist that happens to have the same name.
+    if path.exists() and path.is_dir() and path.parent.name == "8. Playlists":
         return path.name
     # Then handle the case where the argument is a path to the TOML file.
     if path.exists() and path.is_file() and path.parent.name == "!playlists":
