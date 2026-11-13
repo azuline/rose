@@ -433,6 +433,229 @@ def test_update_cache_releases_source_path_renamed(config: Config) -> None:
         assert row["new"]
 
 
+def _release_rows(config: Config) -> list[tuple[str, str]]:
+    with connect(config) as conn:
+        return [(r["id"], r["source_path"]) for r in conn.execute("SELECT id, source_path FROM releases ORDER BY id")]
+
+
+def _track_rows(config: Config) -> list[tuple[str, str]]:
+    with connect(config) as conn:
+        return [(r["id"], r["source_path"]) for r in conn.execute("SELECT id, source_path FROM tracks ORDER BY id")]
+
+
+def test_update_cache_releases_multiple_datafiles(config: Config, caplog: pytest.LogCaptureFixture) -> None:
+    """Test that the alphanumerically first datafile wins and that the other one is ignored."""
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    update_cache_for_releases(config, [release_dir])
+    release_id = _release_rows(config)[0][0]
+    # Write datafiles that sort before and after the existing one.
+    (release_dir / ".rose.zzzz.toml").write_text('new = false\nadded_at = "2020-01-01T00:00:00+00:00"\n')
+    update_cache_for_releases(config, [release_dir])
+    assert _release_rows(config) == [(release_id, str(release_dir))]
+    assert "multiple datafiles" in caplog.text
+    assert "ignoring .rose.zzzz.toml" in caplog.text
+
+    (release_dir / ".rose.0000.toml").write_text('new = false\nadded_at = "2020-01-01T00:00:00+00:00"\n')
+    update_cache_for_releases(config, [release_dir])
+    assert _release_rows(config) == [("0000", str(release_dir))]
+    release = get_release(config, "0000")
+    assert release is not None
+    assert not release.new
+    assert len(get_tracks_of_release(config, release)) == 2
+    for f in release_dir.glob("*.m4a"):
+        assert AudioTags.from_file(f).release_id == "0000"
+    # Nothing is deleted.
+    assert {f.name for f in release_dir.glob(".rose.*.toml")} == {
+        ".rose.0000.toml",
+        f".rose.{release_id}.toml",
+        ".rose.zzzz.toml",
+    }
+
+
+@pytest.mark.parametrize("winner_first", [True, False])
+def test_update_cache_releases_duplicate_release_id(
+    config: Config,
+    caplog: pytest.LogCaptureFixture,
+    winner_first: bool,
+) -> None:
+    """Test that the alphanumerically first directory wins when two directories share a release ID."""
+    winner = config.music_source_dir / "a"
+    loser = config.music_source_dir / "b"
+    first, second = (winner, loser) if winner_first else (loser, winner)
+    shutil.copytree(TEST_RELEASE_1, first)
+    update_cache_for_releases(config, [first])
+    release_id = _release_rows(config)[0][0]
+    # Copying the directory duplicates the release ID and the track IDs.
+    shutil.copytree(first, second)
+    # And give the loser an extra track with its own ID, which must not leak into the winner.
+    shutil.copyfile(TEST_RELEASE_2 / "01.m4a", loser / "03.m4a")
+
+    for release_dirs in [[second], [first], None, [loser, winner], [winner, loser]]:
+        caplog.clear()
+        update_cache_for_releases(config, release_dirs)
+        assert _release_rows(config) == [(release_id, str(winner))]
+        assert sorted(p for _, p in _track_rows(config)) == [str(winner / "01.m4a"), str(winner / "02.m4a")]
+        if release_dirs is None or loser in release_dirs:
+            assert f"Ignoring release directory {loser}" in caplog.text
+        assert f"Ignoring release directory {winner}" not in caplog.text
+    # The loser is untouched on disk.
+    assert sorted(f.name for f in loser.iterdir()) == sorted([*(f.name for f in winner.iterdir()), "03.m4a"])
+
+    # Once the winner is gone, the loser takes over the release ID.
+    shutil.rmtree(winner)
+    update_cache(config)
+    assert _release_rows(config) == [(release_id, str(loser))]
+    assert len(_track_rows(config)) == 3
+
+
+def test_update_cache_releases_duplicate_release_id_from_scratch(config: Config) -> None:
+    """Test that duplicate release IDs resolve the same way when nothing is cached yet."""
+    shutil.copytree(TEST_RELEASE_2, config.music_source_dir / "b")
+    update_cache_for_releases(config, [config.music_source_dir / "b"])
+    shutil.copytree(config.music_source_dir / "b", config.music_source_dir / "a")
+    for release_dirs in [["a", "b"], ["b", "a"]]:
+        config.cache_database_path.unlink()
+        maybe_invalidate_cache_database(config)
+        update_cache_for_releases(config, [config.music_source_dir / d for d in release_dirs])
+        assert _release_rows(config) == [("ilovecarly", str(config.music_source_dir / "a"))]
+        assert {p for _, p in _track_rows(config)} == {
+            str(config.music_source_dir / "a" / "01.m4a"),
+            str(config.music_source_dir / "a" / "02.m4a"),
+        }
+
+
+@pytest.mark.parametrize("winner_first", [True, False])
+def test_update_cache_releases_duplicate_ids_across_processes(config: Config, winner_first: bool) -> None:
+    """Test that duplicate IDs resolve deterministically when the paths are scanned by different processes."""
+    winner = config.music_source_dir / "a"
+    loser = config.music_source_dir / "b"
+    shutil.copytree(TEST_RELEASE_1, winner)
+    update_cache_for_releases(config, [winner])
+    release_id = _release_rows(config)[0][0]
+    shutil.copytree(winner, loser)
+    # Two other releases, in different batches, share a track ID.
+    track_winner = config.music_source_dir / "c"
+    track_loser = config.music_source_dir / "d"
+    shutil.copytree(TEST_RELEASE_2, track_winner)
+    shutil.copytree(TEST_RELEASE_3, track_loser)
+    update_cache_for_releases(config, [track_winner])
+    shutil.copyfile(track_winner / "01.m4a", track_loser / "01.m4a")
+    track_id = AudioTags.from_file(track_winner / "01.m4a").id
+    assert track_id is not None
+
+    fillers = [config.music_source_dir / f"filler {i}" for i in range(98)]
+    for f in fillers:
+        shutil.copytree(TEST_RELEASE_1, f)
+    # 102 directories split into two batches of 52 and 50.
+    first, second = ([winner, track_winner], [loser, track_loser])
+    if not winner_first:
+        first, second = second, first
+    release_dirs = [*first, *fillers[:50], *second, *fillers[50:]]
+
+    config.cache_database_path.unlink()
+    maybe_invalidate_cache_database(config)
+    update_cache_for_releases(config, release_dirs, force_multiprocessing=True)
+
+    assert (release_id, str(winner)) in _release_rows(config)
+    assert len(_release_rows(config)) == 101
+    track_rows = _track_rows(config)
+    assert (track_id, str(track_winner / "01.m4a")) in track_rows
+    assert not any(p.startswith(f"{loser}/") for _, p in track_rows)
+    assert str(track_loser / "01.m4a") not in [p for _, p in track_rows]
+    assert len(track_rows) == 2 + 2 + 1 + 98 * 2
+
+
+def test_update_cache_releases_duplicate_track_id_same_release(
+    config: Config,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that the alphanumerically first file wins when two files in a release share a track ID."""
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    update_cache_for_releases(config, [release_dir])
+    track_id = AudioTags.from_file(release_dir / "02.m4a").id
+    assert track_id is not None
+
+    # A copy that sorts after the original is ignored.
+    shutil.copyfile(release_dir / "02.m4a", release_dir / "03.m4a")
+    update_cache_for_releases(config, [release_dir])
+    assert (track_id, str(release_dir / "02.m4a")) in _track_rows(config)
+    assert len(_track_rows(config)) == 2
+    assert f"Ignoring track {release_dir / '03.m4a'}: its track ID {track_id} is already used by" in caplog.text
+    track = get_track(config, track_id)
+    assert track is not None
+    assert track.tracktotal == 2
+
+    # A copy that sorts before the original takes over the ID.
+    caplog.clear()
+    shutil.copyfile(release_dir / "02.m4a", release_dir / "00.m4a")
+    update_cache_for_releases(config, [release_dir])
+    assert (track_id, str(release_dir / "00.m4a")) in _track_rows(config)
+    assert len(_track_rows(config)) == 2
+    assert f"Ignoring track {release_dir / '02.m4a'}" in caplog.text
+    assert f"Ignoring track {release_dir / '03.m4a'}" in caplog.text
+
+    # And the result is the same when rebuilding from scratch.
+    for force in [True, False]:
+        if not force:
+            config.cache_database_path.unlink()
+            maybe_invalidate_cache_database(config)
+        update_cache_for_releases(config, [release_dir], force=force)
+        assert (track_id, str(release_dir / "00.m4a")) in _track_rows(config)
+        assert len(_track_rows(config)) == 2
+    # Nothing is deleted.
+    assert {f.name for f in release_dir.glob("*.m4a")} == {"00.m4a", "01.m4a", "02.m4a", "03.m4a"}
+
+
+@pytest.mark.parametrize("winner_first", [True, False])
+def test_update_cache_releases_duplicate_track_id_across_releases(
+    config: Config,
+    caplog: pytest.LogCaptureFixture,
+    winner_first: bool,
+) -> None:
+    """Test that the alphanumerically first file wins when files in two releases share a track ID."""
+    winner_dir = config.music_source_dir / "a"
+    loser_dir = config.music_source_dir / "b"
+    first, second = (winner_dir, loser_dir) if winner_first else (loser_dir, winner_dir)
+    shutil.copytree(TEST_RELEASE_1, first)
+    shutil.copytree(TEST_RELEASE_3, second)
+    update_cache_for_releases(config, [first, second])
+    track_id = AudioTags.from_file(first / "01.m4a").id
+    assert track_id is not None
+    # 09.m4a is a new file in the second release with the track ID of a track in the first release.
+    shutil.copyfile(first / "01.m4a", second / "09.m4a")
+    winner = winner_dir / ("01.m4a" if winner_first else "09.m4a")
+    loser = loser_dir / ("09.m4a" if winner_first else "01.m4a")
+
+    def check(loser_rescanned: bool = True) -> None:
+        track_rows = _track_rows(config)
+        assert (track_id, str(winner)) in track_rows
+        assert str(loser) not in [p for _, p in track_rows]
+        assert len(track_rows) == 4
+        # The ignored track does not count towards its release's track total. The track total is
+        # only recomputed once the release that lost the track is rescanned.
+        if not loser_rescanned:
+            return
+        tracktotals = {winner_dir: 2, loser_dir: 2} if winner_first else {winner_dir: 3, loser_dir: 1}
+        for t in list_tracks(config):
+            assert t.tracktotal == tracktotals[t.release.source_path]
+
+    for release_dirs in [[second], [first], None, [loser_dir, winner_dir], [winner_dir, loser_dir]]:
+        caplog.clear()
+        update_cache_for_releases(config, release_dirs)
+        check(loser_rescanned=release_dirs != [winner_dir])
+        if release_dirs is None or loser_dir in release_dirs:
+            assert f"Ignoring track {loser}: its track ID {track_id} is already used by {winner}" in caplog.text
+
+    for release_dirs in [[loser_dir, winner_dir], [winner_dir, loser_dir]]:
+        config.cache_database_path.unlink()
+        maybe_invalidate_cache_database(config)
+        update_cache_for_releases(config, release_dirs)
+        check()
+    assert loser.is_file()
+
+
 def test_update_cache_releases_delete_nonexistent(config: Config) -> None:
     """Test that deleted releases that are no longer on disk are cleared from cache."""
     with connect(config) as conn:
