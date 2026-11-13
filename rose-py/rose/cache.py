@@ -57,6 +57,7 @@ from rose.common import (
     VERSION,
     Artist,
     ArtistMapping,
+    RoseError,
     flatten,
     sanitize_dirname,
     sanitize_filename,
@@ -372,7 +373,20 @@ def _loses_duplicate_id(candidate: Path, holder: Path, holder_exists: bool) -> b
 
 
 def _release_dir_has_id(release_dir: Path, release_id: str) -> bool:
-    return (release_dir / f".rose.{release_id}.toml").is_file()
+    """Whether the release directory still claims the release ID with the datafile it is read by."""
+    try:
+        datafile = find_release_datafile(release_dir)
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    return datafile is not None and datafile.name == f".rose.{release_id}.toml"
+
+
+def _track_file_has_id(track_path: Path, track_id: str) -> bool:
+    """Whether the track file still claims the track ID in its tags."""
+    try:
+        return AudioTags.from_file(track_path).id == track_id
+    except (FileNotFoundError, RoseError):
+        return False
 
 
 def update_cache(
@@ -842,7 +856,9 @@ def _update_cache_for_releases_executor(
                     if track_lookup is None:
                         track_lookup = track_lookup_conn.enter_context(connect(c))
                     row = track_lookup.execute("SELECT source_path FROM tracks WHERE id = ?", (tags.id,)).fetchone()
-                    if row and _loses_duplicate_id(f, Path(row["source_path"]), os.path.isfile(row["source_path"])):
+                    if row and _loses_duplicate_id(
+                        f, Path(row["source_path"]), _track_file_has_id(Path(row["source_path"]), tags.id)
+                    ):
                         winner = Path(row["source_path"])
                 if winner:
                     logger.warning(f"Ignoring track {f}: its track ID {tags.id} is already used by {winner}")
@@ -1168,7 +1184,7 @@ def _update_cache_for_releases_executor(
                 continue
             new_path = new_track_paths[row["id"]]
             old_path = Path(row["source_path"])
-            if _loses_duplicate_id(new_path, old_path, old_path.is_file()):
+            if _loses_duplicate_id(new_path, old_path, _track_file_has_id(old_path, row["id"])):
                 logger.warning(f"Ignoring track {new_path}: its track ID {row['id']} is already used by {old_path}")
                 lost_track_ids.add(row["id"])
         if lost_release_ids:

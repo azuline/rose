@@ -656,6 +656,44 @@ def test_update_cache_releases_duplicate_track_id_across_releases(
     assert loser.is_file()
 
 
+def test_update_cache_releases_duplicate_release_id_holder_changes_id(config: Config) -> None:
+    """Test that a directory that no longer selects a release ID does not keep other directories off of it."""
+    holder = config.music_source_dir / "a"
+    other = config.music_source_dir / "b"
+    shutil.copytree(TEST_RELEASE_2, holder)
+    shutil.copytree(TEST_RELEASE_3, other)
+    (other / ".rose.ilovecarly.toml").write_text('new = false\nadded_at = "2020-01-01T00:00:00+00:00"\n')
+    update_cache(config)
+    assert _release_rows(config) == [("ilovecarly", str(holder))]
+
+    # The holder gains a datafile that sorts before its old one, so it moves to a new release ID. The
+    # old datafile is still on disk, but ignored, so the other directory takes the old ID.
+    (holder / ".rose.0000.toml").write_text('new = false\nadded_at = "2020-01-01T00:00:00+00:00"\n')
+    update_cache(config)
+    assert _release_rows(config) == [("0000", str(holder)), ("ilovecarly", str(other))]
+    assert (holder / ".rose.ilovecarly.toml").is_file()
+
+
+def test_update_cache_releases_duplicate_track_id_holder_changes_id(config: Config) -> None:
+    """Test that a file that no longer has a track ID does not keep other files off of it."""
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    update_cache_for_releases(config, [release_dir])
+    track_id = AudioTags.from_file(release_dir / "01.m4a").id
+    assert track_id is not None
+
+    # 03.m4a keeps the track ID, while 01.m4a is given a new one.
+    shutil.copyfile(release_dir / "01.m4a", release_dir / "03.m4a")
+    af = AudioTags.from_file(release_dir / "01.m4a")
+    af.id = "0000"
+    af.flush(config)
+    update_cache_for_releases(config, [release_dir])
+    track_rows = _track_rows(config)
+    assert ("0000", str(release_dir / "01.m4a")) in track_rows
+    assert (track_id, str(release_dir / "03.m4a")) in track_rows
+    assert len(track_rows) == 3
+
+
 def test_update_cache_releases_delete_nonexistent(config: Config) -> None:
     """Test that deleted releases that are no longer on disk are cleared from cache."""
     with connect(config) as conn:
