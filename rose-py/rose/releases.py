@@ -292,10 +292,12 @@ class MetadataRelease:
     def from_audiotags(cls, release: Release, tracks: list[Track], audiotags: list[AudioTags]) -> MetadataRelease:
         """
         Build the editable metadata from the audio tags on disk. Release-level tags are read from
-        the first track, as in the cache update. `new`, `favorite`, and `rating` live in the
-        datafile rather than in the tags, so they are taken from `release`.
+        the first audio file in source path order, which is the file that the cache update reads
+        them from. `tracks` is ordered by disc and track number, so its first element may be a
+        different file. `new`, `favorite`, and `rating` live in the datafile rather than in the
+        tags, so they are taken from `release`.
         """
-        first_tags = audiotags[0]
+        _, first_tags = min(zip(tracks, audiotags, strict=True), key=lambda x: x[0].source_path)
         return MetadataRelease(
             title=first_tags.releasetitle or "",
             new=release.new,
@@ -394,8 +396,10 @@ def serialize_release_metadata(
         with resume_file.open("r") as fp:
             return fp.read()
 
-    # Trigger a quick cache update to ensure we are reading the liveliest data.
-    update_cache_for_releases(c, [release.source_path])
+    # Refresh the cache so that the source paths are current. The update is forced so that the
+    # cache rereads the release tags from the same file that we read them from below. An unforced
+    # update takes them from the first file whose mtime changed.
+    update_cache_for_releases(c, [release.source_path], force=True)
     # Reload release in case any source paths changed.
     release = get_release(c, release_id)
     assert release is not None

@@ -14,6 +14,7 @@ from rose.cache import (
     get_release,
     get_tracks_of_release,
     update_cache,
+    update_cache_for_releases,
 )
 from rose.common import Artist, ArtistMapping
 from rose.config import Config
@@ -298,6 +299,48 @@ def test_serialize_release_metadata_reads_audio_tags(config: Config, source_dir:
     metadata = MetadataRelease.from_toml(serialize_release_metadata(config, release_id))
     assert metadata.title == "Changed on disk"
     assert metadata.tracks[tracks[0].id].title == "Track changed on disk"
+
+
+def test_serialize_release_metadata_mismatched_release_tags(config: Config, source_dir: Path) -> None:
+    """
+    When release tags differ between tracks, the TOML takes them from the same file as the cache,
+    so that applying an unrelated edit does not replace the release tags shown in the cache.
+    """
+    release_path = source_dir / TEST_RELEASE_1.name
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(release_path),))
+        release_id = cursor.fetchone()["id"]
+
+    # Make the first file in path order the last track in track number order.
+    first_file, second_file = sorted(p for p in release_path.iterdir() if p.suffix == ".m4a")
+    tags = AudioTags.from_file(first_file)
+    tags.releasetitle = "Original"
+    tags.tracknumber = "2"
+    tags.flush(config)
+    # Touch only the second file afterwards, so that an unforced cache update rereads it alone.
+    update_cache_for_releases(config, [release_path])
+    tags = AudioTags.from_file(second_file)
+    tags.releasetitle = "Alternate"
+    tags.tracknumber = "1"
+    tags.flush(config)
+
+    toml = serialize_release_metadata(config, release_id)
+    metadata = MetadataRelease.from_toml(toml)
+    release = get_release(config, release_id)
+    assert release is not None
+    tracks = get_tracks_of_release(config, release)
+    assert [t.source_path for t in tracks] == [second_file, first_file]
+    assert metadata.title == "Original"
+    assert release.releasetitle == "Original"
+
+    # An edit to a track title alone keeps the release title that the cache displayed.
+    metadata.tracks[tracks[0].id].title = "New Title"
+    upsert_release_metadata(config, release_id, metadata.serialize())
+    release = get_release(config, release_id)
+    assert release is not None
+    assert release.releasetitle == "Original"
+    assert AudioTags.from_file(first_file).releasetitle == "Original"
+    assert AudioTags.from_file(second_file).tracktitle == "New Title"
 
 
 def test_edit_release_failure_and_resume(config: Config, source_dir: Path) -> None:
