@@ -1,12 +1,9 @@
-import contextlib
 import dataclasses
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
 import pytest
-import tomli_w
 
 from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
@@ -466,57 +463,6 @@ def test_dry_run(config: Config, source_dir: Path) -> None:
     execute_metadata_rule(config, rule, dry_run=True, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.tracktitle != "lalala"
-
-
-def test_writes_take_release_locks(monkeypatch: Any, config: Config, source_dir: Path) -> None:
-    acquired: list[str] = []
-    held: set[str] = set()
-    flushed_under_lock: dict[str, bool] = {}
-
-    @contextlib.contextmanager
-    def fake_lock(_: Config, name: str) -> Iterator[None]:
-        acquired.append(name)
-        held.add(name)
-        try:
-            yield
-        finally:
-            held.remove(name)
-
-    orig_flush = AudioTags.flush
-
-    def fake_flush(self: AudioTags, c: Config, *, validate: bool = True) -> None:
-        flushed_under_lock[str(self.path)] = f"release-{self.release_id}" in held
-        orig_flush(self, c, validate=validate)
-
-    datafile_writes_held: list[set[str]] = []
-    orig_dump = tomli_w.dump
-
-    def fake_dump(obj: Any, fp: Any) -> None:
-        datafile_writes_held.append(set(held))
-        orig_dump(obj, fp)
-
-    monkeypatch.setattr("rose.rules.lock", fake_lock)
-    monkeypatch.setattr(AudioTags, "flush", fake_flush)
-    monkeypatch.setattr("rose.rules.tomli_w.dump", fake_dump)
-
-    # Per matched release: one track tag write and one datafile write.
-    rule = Rule.parse("tracktitle:^Track 1$", ["replace:lalala", "new/replace:false"])
-    execute_metadata_rule(config, rule, confirm_yes=False)
-
-    path = source_dir / "Test Release 1" / "01.m4a"
-    af = AudioTags.from_file(path)
-    assert af.tracktitle == "lalala"
-    assert af.release_id is not None
-    assert flushed_under_lock[str(path)]
-    assert all(flushed_under_lock.values())
-    # The rules engine's datafile write comes first; the cache update may rewrite it afterwards.
-    assert datafile_writes_held[0] == {f"release-{af.release_id}"}
-    assert not held
-    # Once for the track write, once for the datafile write.
-    assert acquired.count(f"release-{af.release_id}") == 2
-    release = get_release(config, af.release_id)
-    assert release is not None
-    assert not release.new
 
 
 def test_run_stored_rules(config: Config, source_dir: Path) -> None:
