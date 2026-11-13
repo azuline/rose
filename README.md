@@ -1,16 +1,16 @@
-# Rose
+# Music
 
-Rose is a music manager for Unix-based systems.
+Music is a music manager for Unix-based systems.
 
-At its core, Rose is a Python library that provides an opinionated set of functions for managing a music library. On top of that, there are two thin frontends: a CLI and a virtual filesystem. It is not difficult to add a new frontend, but I only have use for these two.
+At its core, Music is a Python library that provides an opinionated set of functions for managing a music library. On top of that, there are two thin frontends: a CLI and a virtual filesystem. It is not difficult to add a new frontend, but I only have use for these two.
 
 The two current frontends are meant to be combined with a file browser (like nnn) and a media player (like mpv) to form a complete music playing system.
 
-Rose is a personal pet project and is provided as-is. Bug fix PRs are welcome; new feature PRs are not.
+Music is a personal pet project and is provided as-is. Bug fix PRs are welcome; new feature PRs are not.
 
 # Requirements
 
-Rose has the following requirements:
+Music has the following requirements:
 
 - Music files are present on the computer in a single music directory.
 - All releases are immediate children of the music directory root.
@@ -18,47 +18,47 @@ Rose has the following requirements:
 - All files in the music directory can be safely written to.
 
 > [!NOTE]
-> Rose modifies the managed audio files on the first scan. If you do not want to modify your audio files, for example because they are seeding in a bittorrent client, then you should not use Rose.
+> Music modifies the managed audio files on the first scan. If you do not want to modify your audio files, for example because they are seeding in a bittorrent client, then you should not use Music.
 
 # Design
 
-Rose is designed in response to my dislike of [beets](https://github.com/beetbox/beets). Key design decisions and features are:
+Music is designed in response to my dislike of [beets](https://github.com/beetbox/beets). Key design decisions and features are:
 
-- The audio tags are the single source of truth for metadata. Rose's internal database is a readonly cache. This ensures that audio files can never desync from their metadata, because they are one and the same.
+- The audio tags are the single source of truth for metadata. Music's internal database is a readonly cache. This ensures that audio files can never desync from their metadata, because they are one and the same.
 - Comprehensive yet opinionated tag semantics following What.CD/Redacted and RateYourMusic conventions.
-- Support for playlists, collages, ratings, and other music player metadata, as Rose is meant to be a complete state-keeping backend component of a music system.
+- Support for playlists, collages, ratings, and other music player metadata, as Music is meant to be a complete state-keeping backend component of a music system.
 - A metadata editing system that supports editing releases as text files and supports queries (rules) for bulk updates.
 
-Rose alone is not a full-featured music system, and _that's the point_. You should compose Rose with other great tools to create the music system that works best for you. We recommend pairing Rose with:
+Music alone is not a full-featured music system, and _that's the point_. You should compose Music with other great tools to create the music system that works best for you. We recommend pairing Music with:
 
 1. A file manager, such as [nnn](https://github.com/jarun/nnn), [mc](https://midnight-commander.org/), or [ranger](https://github.com/ranger/ranger).
 2. A media player, such as [mpv](https://mpv.io/).
 
 # Installation
 
-Install Rose with Nix Flakes. If you do not have Nix Flakes, you can install Nix Flakes with [this installer](https://github.com/DeterminateSystems/nix-installer).
+Install Music with Nix Flakes. If you do not have Nix Flakes, you can install Nix Flakes with [this installer](https://github.com/DeterminateSystems/nix-installer).
 
-Then, to install the latest release of Rose, run:
+Then, to install the latest release of Music, run:
 
 ```bash
-$ nix profile install github:azuline/rose/release
+$ nix profile install github:azuline/music/release
 ```
 
 > [!NOTE]
-> The master branch tracks the unstable release, whose documentation may be more up-to-date than the latest release's documentation. You can view the latest release's documentation [here](https://github.com/azuline/rose/blob/release/README.md).
+> The master branch tracks the unstable release, whose documentation may be more up-to-date than the latest release's documentation. You can view the latest release's documentation [here](https://github.com/azuline/music/blob/release/README.md).
 
-Most users should install the latest release version of Rose. However, if you wish to install the latest unstable version of Rose, you can do so with the command `nix profile install github:azuline/rose/master`.
+Most users should install the latest release version of Music. However, if you wish to install the latest unstable version of Music, you can do so with the command `nix profile install github:azuline/music/master`.
 
 # Quickstart
 
-Let's now get Rose up and running!
+Let's now get Music up and running!
 
-Once Rose is installed, let's first confirm that `rose` exists and is accessible:
+Once Music is installed, let's first confirm that `music` exists and is accessible:
 
 ```bash
-$ rose
+$ music
 
-Usage: rose [OPTIONS] COMMAND [ARGS]...
+Usage: music [OPTIONS] COMMAND [ARGS]...
 
   A music manager with a virtual filesystem.
 
@@ -71,7 +71,7 @@ Commands:
   artists      Manage artists.
   cache        Manage the read cache.
   collages     Manage collages.
-  config       Utilites for configuring Rose.
+  config       Utilites for configuring Music.
   descriptors  Manage descriptors.
   fs           Manage the virtual filesystem.
   genres       Manage genres.
@@ -84,17 +84,17 @@ Commands:
 ```
 
 > [!NOTE]
-> This quickstart assumes you have a local "source directory" of music releases for Rose to manage. Each music release must be an immediate child subdirectory of the "source directory."
+> This quickstart assumes you have a local "source directory" of music releases for Music to manage. Each music release must be an immediate child subdirectory of the "source directory."
 
-Great! Next, we'll (1) configure Rose, (2) mount the virtual filesystem, and finally (3) play music!
+Great! Next, we'll (1) configure Music, (2) mount the virtual filesystem, and finally (3) play music!
 
-1. Rose requires a configuration file. On Linux, the configuration file is located at `$XDG_CONFIG_HOME/rose/config.toml`, which is typically `~/.config/rose/.config.toml`. On MacOS, the configuration file is located at `~/Library/Preferences/rose/config.toml`.
+1. Music requires a configuration file. On Linux, the configuration file is located at `$XDG_CONFIG_HOME/rose/config.toml`, which is typically `~/.config/rose/.config.toml`. On MacOS, the configuration file is located at `~/Library/Preferences/rose/config.toml`.
 
    Only two configuration options are required:
 
    ```toml
    # The directory of music to manage.
-   # WARNING: The files in this directory WILL be modified by Rose!
+   # WARNING: The files in this directory WILL be modified by Music!
    music_source_dir = "~/.music-source"
    # The mountpoint for the virtual filesystem.
    vfs.mount_dir = "~/music"
@@ -105,7 +105,7 @@ Great! Next, we'll (1) configure Rose, (2) mount the virtual filesystem, and fin
 2. Now let's mount the virtual filesystem:
 
    ```bash
-   $ rose fs mount
+   $ music fs mount
    [15:41:13] INFO: Updating cache for release BLACKPINK - 2016. SQUARE TWO
    [15:41:13] INFO: Updating cache for release BLACKPINK - 2016. SQUARE ONE
    [15:41:13] INFO: Updating cache for release LOOΠΔ - 2017. Kim Lip
@@ -115,9 +115,9 @@ Great! Next, we'll (1) configure Rose, (2) mount the virtual filesystem, and fin
    [15:41:13] INFO: Updating cache for playlist Shower
    ```
 
-   Rose emits log lines whenever something significant is occurring. This is expected! The log lines above come from the `rose fs mount` command indexing the `music_source_dir` at startup, in order to populate the read cache.
+   Music emits log lines whenever something significant is occurring. This is expected! The log lines above come from the `music fs mount` command indexing the `music_source_dir` at startup, in order to populate the read cache.
 
-   The virtual filesystem uses the read cache to determine the available music and its metadata. It's possible for the cache to get out of sync from the source music files. If that happens, the `rose cache update` is guaranteed to resynchronize them. See [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md) for additional documentation on cache updates and synchronization.
+   The virtual filesystem uses the read cache to determine the available music and its metadata. It's possible for the cache to get out of sync from the source music files. If that happens, the `music cache update` is guaranteed to resynchronize them. See [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md) for additional documentation on cache updates and synchronization.
 
    Now that the virtual filesystem is mounted, let's go take a look! Navigate to the configured `vfs.mount_dir`, and you should see your music available in the virtual filesystem!
 
@@ -160,7 +160,7 @@ Great! Next, we'll (1) configure Rose, (2) mount the virtual filesystem, and fin
    AO: [pipewire] 48000Hz stereo 2ch floatp
    ```
 
-And that's it! If desired, you can unmount the virtual filesystem with the `rose fs unmount` command.
+And that's it! If desired, you can unmount the virtual filesystem with the `music fs unmount` command.
 
 # Learn More
 
