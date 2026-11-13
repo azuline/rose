@@ -120,6 +120,12 @@ def test_releases(rose: Rose, isolated_dir: Path) -> None:
     rose("releases", "delete-cover-release", rid)
     assert _json(rose("releases", "print", rid))["cover_image_path"] is None
 
+    # The test release's tracks have an embedded PNG cover art.
+    rose("releases", "extract-covers", "--dry-run")
+    assert _json(rose("releases", "print", rid))["cover_image_path"] is None
+    rose("releases", "extract-covers", rid)
+    assert _json(rose("releases", "print", rid))["cover_image_path"] == str(Path(rpath) / "cover.png")
+
     rose("releases", "run-rule", "--dry-run", rid, "releasetitle/replace:Dry Run")
     assert _json(rose("releases", "print", rid))["releasetitle"] == "I Love Blackpink"
     rose("releases", "run-rule", "--yes", rid, "releasetitle/replace:I Love Rosé")

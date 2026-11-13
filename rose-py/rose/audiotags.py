@@ -8,6 +8,7 @@ normalization, artist formatting, and enum validation.
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import logging
 import re
@@ -472,6 +473,119 @@ class AudioTags:
             return
 
         raise RoseError(f"Impossible: unknown mutagen type: {type(m)=} ({repr(m)=})")
+
+
+# ID3 and FLAC share the same picture type enum, where 3 is the front cover.
+_FRONT_COVER_PICTURE_TYPE = 3
+
+
+def _sort_front_cover_first(pictures: list[tuple[int, bytes]]) -> list[bytes]:
+    return [data for _, data in sorted(pictures, key=lambda x: x[0] != _FRONT_COVER_PICTURE_TYPE)]
+
+
+@no_type_check
+def read_embedded_arts(p: Path) -> list[bytes]:
+    """
+    Read the images embedded in an audio file. The front cover is returned first if the file marks
+    one; the other images follow in their on-disk order.
+    """
+    import mutagen
+    import mutagen.flac
+    import mutagen.mp3
+    import mutagen.mp4
+    import mutagen.oggopus
+    import mutagen.oggvorbis
+
+    try:
+        m = mutagen.File(p)
+    except mutagen.MutagenError as e:
+        raise UnsupportedFiletypeError(f"Failed to open file: {e}") from e
+    if isinstance(m, mutagen.mp3.MP3):
+        if m.tags is None:
+            return []
+        return _sort_front_cover_first([(f.type, f.data) for f in m.tags.getall("APIC")])
+    if isinstance(m, mutagen.flac.FLAC):
+        return _sort_front_cover_first([(pic.type, pic.data) for pic in m.pictures])
+    if isinstance(m, mutagen.oggvorbis.OggVorbis | mutagen.oggopus.OggOpus):
+        pictures = []
+        for encoded in (m.tags or {}).get("metadata_block_picture", []):
+            with contextlib.suppress(Exception):
+                pic = mutagen.flac.Picture(base64.b64decode(encoded))
+                pictures.append((pic.type, pic.data))
+        return _sort_front_cover_first(pictures)
+    if isinstance(m, mutagen.mp4.MP4):
+        return [bytes(x) for x in (m.tags or {}).get("covr", [])]
+    raise UnsupportedFiletypeError(f"{p} is not a supported audio file")
+
+
+@no_type_check
+def remove_embedded_arts(p: Path, arts: list[bytes]) -> bool:
+    """
+    Remove the embedded images whose bytes equal one of `arts` from an audio file. Other embedded
+    images are kept. Returns whether the file was modified.
+    """
+    import mutagen
+    import mutagen.flac
+    import mutagen.mp3
+    import mutagen.mp4
+    import mutagen.oggopus
+    import mutagen.oggvorbis
+
+    try:
+        m = mutagen.File(p)
+    except mutagen.MutagenError as e:
+        raise UnsupportedFiletypeError(f"Failed to open file: {e}") from e
+    if isinstance(m, mutagen.mp3.MP3):
+        if m.tags is None:
+            return False
+        frames = m.tags.getall("APIC")
+        keep = [f for f in frames if f.data not in arts]
+        if len(keep) == len(frames):
+            return False
+        m.tags.delall("APIC")
+        for f in keep:
+            m.tags.add(f)
+    elif isinstance(m, mutagen.flac.FLAC):
+        pictures = m.pictures
+        keep = [pic for pic in pictures if pic.data not in arts]
+        if len(keep) == len(pictures):
+            return False
+        m.clear_pictures()
+        for pic in keep:
+            m.add_picture(pic)
+    elif isinstance(m, mutagen.oggvorbis.OggVorbis | mutagen.oggopus.OggOpus):
+        if m.tags is None:
+            return False
+        encodeds = m.tags.get("metadata_block_picture", [])
+        keep = []
+        for encoded in encodeds:
+            try:
+                if mutagen.flac.Picture(base64.b64decode(encoded)).data in arts:
+                    continue
+            except Exception:
+                pass
+            keep.append(encoded)
+        if len(keep) == len(encodeds):
+            return False
+        if keep:
+            m.tags["metadata_block_picture"] = keep
+        else:
+            del m.tags["metadata_block_picture"]
+    elif isinstance(m, mutagen.mp4.MP4):
+        if m.tags is None:
+            return False
+        covers = m.tags.get("covr", [])
+        keep = [x for x in covers if bytes(x) not in arts]
+        if len(keep) == len(covers):
+            return False
+        if keep:
+            m.tags["covr"] = keep
+        else:
+            del m.tags["covr"]
+    else:
+        raise UnsupportedFiletypeError(f"{p} is not a supported audio file")
+    m.save()
+    return True
 
 
 def _split_tag(t: str | None) -> list[str]:

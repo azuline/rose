@@ -38,6 +38,8 @@ from rose import (
     edit_release,
     execute_metadata_rule,
     execute_stored_metadata_rules,
+    extract_all_release_cover_arts,
+    extract_release_cover_art,
     maybe_invalidate_cache_database,
     remove_release_from_collage,
     remove_track_from_playlist,
@@ -313,6 +315,26 @@ def delete_cover_release(ctx: Context, release: str) -> None:
     """Delete the cover art of a release."""
     release = parse_release_argument(release)
     delete_release_cover_art(ctx.config, release)
+
+
+@releases.command(name="extract-covers")
+@click.argument("release", type=click.Path(), nargs=1, required=False)
+@click.option("--dry-run", "-d", is_flag=True, help="Log the changes without applying them.")
+@click.pass_obj
+def extract_covers(ctx: Context, release: str | None, dry_run: bool) -> None:
+    """
+    Move embedded cover arts into external cover art files. Accepts an optional release's UUID/path;
+    without one, runs on all releases.
+
+    A release's embedded cover art is written to cover.{ext} if the release has no external cover
+    art. Embedded cover arts identical to the external cover art are then removed from the tracks.
+    Embedded cover arts that differ from the external cover art are left alone, with a warning.
+    """
+    if release is None:
+        extract_all_release_cover_arts(ctx.config, dry_run=dry_run)
+        return
+    release = parse_release_argument(release)
+    extract_release_cover_art(ctx.config, release, dry_run=dry_run)
 
 
 @releases.command()
