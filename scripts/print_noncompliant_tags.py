@@ -35,7 +35,8 @@ def find_noncompliant_tags(
     known_descriptors: Iterable[str],
 ) -> dict[str, dict[str, list[Release]]]:
     """Returns field -> noncompliant value -> releases."""
-    known = {"genre": set(known_genres), "secondary genre": set(known_genres), "descriptor": set(known_descriptors)}
+    genres = set(known_genres)
+    known = {"genre": genres, "secondary genre": genres, "descriptor": set(known_descriptors)}
     rval: dict[str, dict[str, list[Release]]] = {f: defaultdict(list) for f in known}
     for r in releases:
         tags = {"genre": r.genres, "secondary genre": r.secondary_genres, "descriptor": r.descriptors}

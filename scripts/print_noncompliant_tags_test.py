@@ -46,6 +46,22 @@ def test_find_noncompliant_tags(config: Config) -> None:
     )
 
 
+@pytest.mark.usefixtures("seeded_cache")
+def test_find_noncompliant_tags_accepts_generators(config: Config) -> None:
+    # The known values may be one-shot iterables: `Ambient` and `Orchestral Music` are secondary
+    # genres in the cache and must not be reported after the genre check has consumed the input.
+    noncompliant = find_noncompliant_tags(
+        list_releases(config),
+        (g for g in KNOWN_GENRES),
+        (d for d in ["Warm", "Hot", "Wet"]),
+    )
+    assert {f: sorted(vs) for f, vs in noncompliant.items()} == {
+        "genre": [],
+        "secondary genre": ["Rominimal"],
+        "descriptor": [],
+    }
+
+
 def test_read_rym_descriptors(tmp_path: Path) -> None:
     path = tmp_path / "rym.txt"
     path.write_text("""\
