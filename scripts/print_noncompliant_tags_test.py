@@ -3,7 +3,12 @@ from pathlib import Path
 import pytest
 from rose import Config, list_releases
 
-from scripts.print_noncompliant_tags import find_noncompliant_tags, format_report, read_descriptors_file
+from scripts.print_noncompliant_tags import (
+    find_noncompliant_tags,
+    format_report,
+    read_descriptors_file,
+    read_rym_descriptors,
+)
 
 KNOWN_GENRES = ["Techno", "Deep House", "Ambient", "Orchestral Music", "Modern Classical"]
 
@@ -41,13 +46,27 @@ def test_find_noncompliant_tags(config: Config) -> None:
     )
 
 
-@pytest.mark.usefixtures("seeded_cache")
-def test_find_noncompliant_tags_without_descriptors(config: Config) -> None:
-    noncompliant = find_noncompliant_tags(list_releases(config), [*KNOWN_GENRES, "Rominimal"], None)
-    assert noncompliant == {"genre": {}, "secondary genre": {}}
-    assert (
-        format_report(noncompliant, KNOWN_GENRES, None) == "0 noncompliant genres\n\n0 noncompliant secondary genres\n"
-    )
+def test_read_rym_descriptors(tmp_path: Path) -> None:
+    path = tmp_path / "rym.txt"
+    path.write_text("""\
+Descriptors
+    Atmosphere
+        Dark
+            Dark::mood
+            Gothic::mood
+    Mood
+        Dark::mood
+        Warm::mood
+Genres
+    Ambient
+        Ambient::genre
+""")
+    assert read_rym_descriptors(path) == ["Dark", "Gothic", "Warm"]
+    # The vendored dump parses and contains only descriptors.
+    descriptors = read_rym_descriptors()
+    assert "Melancholic" in descriptors
+    assert "Atmosphere" not in descriptors
+    assert "Ambient Americana" not in descriptors
 
 
 def test_read_descriptors_file(tmp_path: Path) -> None:
