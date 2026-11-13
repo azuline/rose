@@ -1,5 +1,6 @@
 import dataclasses
 import glob
+import os
 import shutil
 import subprocess
 import sys
@@ -250,6 +251,31 @@ def test_virtual_filesystem_write_files(
         assert path.is_file()
         af = AudioTags.from_file(path)
         assert af.tracktitle == "Hahahaha!!"
+
+
+def test_virtual_filesystem_close_duplicated_fd_of_unfinished_write(
+    config: Config,
+    source_dir: Path,  # noqa: ARG001
+) -> None:
+    """Assert that closing one duplicate of a file descriptor mid-write does not fail."""
+    root = config.vfs.mount_dir
+    path = root / "1. Releases" / "BLACKPINK - 1990. I Love Blackpink [NEW]" / "01. Track 1.m4a"
+    with start_virtual_fs(config):
+        data = path.read_bytes()
+        fd1 = os.open(path, os.O_WRONLY)
+        fd2 = os.dup(fd1)
+        try:
+            # The file is not a valid audio file when the first descriptor is closed.
+            os.write(fd1, b"\x00" * len(data))
+        finally:
+            os.close(fd1)
+        try:
+            os.lseek(fd2, 0, os.SEEK_SET)
+            os.write(fd2, data)
+        finally:
+            os.close(fd2)
+        assert path.read_bytes() == data
+        assert AudioTags.from_file(path).tracktitle == "Track 1"
 
 
 @pytest.mark.usefixtures("seeded_cache")

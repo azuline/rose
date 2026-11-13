@@ -1526,7 +1526,14 @@ class RoseLogicalCore:
 
     def flush(self, fh: int) -> None:
         logger.debug(f"LOGICAL: Received flush for {fh=}")
-        self._update_cache_for_written_fh(fh, "flush")
+        # Flush can arrive while another duplicate of the file descriptor is still writing, in which
+        # case the file may not be parseable yet. Failing here would fail the caller's close(), so
+        # leave the update pending for a later flush or the release.
+        try:
+            self._update_cache_for_written_fh(fh, "flush")
+        except Exception as e:
+            logger.debug(f"LOGICAL: Deferring cache update for {fh=} after failure on flush: {e}")
+            self.fhs_pending_cache_update.add(fh)
 
     def _update_cache_for_written_fh(self, fh: int, syscall: str) -> None:
         if fh not in self.fhs_pending_cache_update:
