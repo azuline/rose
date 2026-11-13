@@ -10,6 +10,7 @@ import re
 import shlex
 import shutil
 import tomllib
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
@@ -288,31 +289,37 @@ class MetadataRelease:
     tracks: dict[str, MetadataTrack]
 
     @classmethod
-    def from_cache(cls, release: Release, tracks: list[Track]) -> MetadataRelease:
+    def from_audiotags(
+        cls,
+        release: Release,
+        tracks: list[Track],
+        audiotags: list[AudioTags],
+    ) -> MetadataRelease:
+        first_tags = audiotags[0]
         return MetadataRelease(
-            title=release.releasetitle,
+            title=first_tags.releasetitle or "",
             new=release.new,
             favorite=release.favorite,
             rating=release.rating,
-            releasetype=release.releasetype,
-            releasedate=release.releasedate,
-            originaldate=release.originaldate,
-            compositiondate=release.compositiondate,
-            edition=release.edition,
-            catalognumber=release.catalognumber,
-            labels=release.labels,
-            genres=release.genres,
-            secondary_genres=release.secondary_genres,
-            descriptors=release.descriptors,
-            artists=MetadataArtist.from_mapping(release.releaseartists),
+            releasetype=first_tags.releasetype,
+            releasedate=first_tags.releasedate,
+            originaldate=first_tags.originaldate,
+            compositiondate=first_tags.compositiondate,
+            edition=first_tags.edition,
+            catalognumber=first_tags.catalognumber,
+            labels=first_tags.label,
+            genres=first_tags.genre,
+            secondary_genres=first_tags.secondarygenre,
+            descriptors=first_tags.descriptor,
+            artists=MetadataArtist.from_mapping(first_tags.releaseartists),
             tracks={
                 t.id: MetadataTrack(
-                    discnumber=t.discnumber,
-                    tracknumber=t.tracknumber,
-                    title=t.tracktitle,
-                    artists=MetadataArtist.from_mapping(t.trackartists),
+                    discnumber=tags.discnumber or "1",
+                    tracknumber=tags.tracknumber or "1",
+                    title=tags.tracktitle or "",
+                    artists=MetadataArtist.from_mapping(tags.trackartists),
                 )
-                for t in tracks
+                for t, tags in zip(tracks, audiotags, strict=True)
             },
         )
 
@@ -361,12 +368,17 @@ class MetadataRelease:
 FAILED_RELEASE_EDIT_FILENAME_REGEX = re.compile(r"failed-release-edit\.([^.]+)\.toml")
 
 
+def _edit_toml(toml: str) -> str | None:
+    return click.edit(toml, extension=".toml")
+
+
 def edit_release(
     c: Config,
     release_id: str,
     *,
     # Will use this file as the starting TOML instead of reading the cache.
     resume_file: Path | None = None,
+    editor_fn: Callable[[str], str | None] = _edit_toml,
 ) -> None:
     release = get_release(c, release_id)
     if not release:
@@ -391,10 +403,11 @@ def edit_release(
             with resume_file.open("r") as fp:
                 original_toml = fp.read()
         else:
-            original_metadata = MetadataRelease.from_cache(release, tracks)
+            audiotags = [AudioTags.from_file(t.source_path) for t in tracks]
+            original_metadata = MetadataRelease.from_audiotags(release, tracks, audiotags)
             original_toml = original_metadata.serialize()
 
-        toml = click.edit(original_toml, extension=".toml") or original_toml
+        toml = editor_fn(original_toml) or original_toml
         if original_toml == toml and not resume_file:
             logger.info("Aborting manual release edit: no metadata change detected.")
             return

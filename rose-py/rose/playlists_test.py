@@ -1,7 +1,6 @@
 import shutil
 import tomllib
 from pathlib import Path
-from typing import Any
 
 from conftest import TEST_PLAYLIST_1, TEST_RELEASE_1
 from rose.cache import connect, update_cache
@@ -111,10 +110,9 @@ def test_rename_playlist(config: Config, source_dir: Path) -> None:
         assert not cursor.fetchone()[0]
 
 
-def test_edit_playlists_ordering(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_edit_playlists_ordering(config: Config, source_dir: Path) -> None:
     filepath = source_dir / "!playlists" / "Lala Lisa.toml"
-    monkeypatch.setattr("rose.playlists.click.edit", lambda x: "\n".join(reversed(x.split("\n"))))
-    edit_playlist_in_editor(config, "Lala Lisa")
+    edit_playlist_in_editor(config, "Lala Lisa", editor_fn=lambda x: "\n".join(reversed(x.split("\n"))))
 
     with filepath.open("rb") as fp:
         data = tomllib.load(fp)
@@ -122,17 +120,16 @@ def test_edit_playlists_ordering(monkeypatch: Any, config: Config, source_dir: P
     assert data["tracks"][1]["uuid"] == "iloveloona"
 
 
-def test_edit_playlists_remove_track(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+def test_edit_playlists_remove_track(config: Config, source_dir: Path) -> None:
     filepath = source_dir / "!playlists" / "Lala Lisa.toml"
-    monkeypatch.setattr("rose.playlists.click.edit", lambda x: x.split("\n")[0])
-    edit_playlist_in_editor(config, "Lala Lisa")
+    edit_playlist_in_editor(config, "Lala Lisa", editor_fn=lambda x: x.split("\n")[0])
 
     with filepath.open("rb") as fp:
         data = tomllib.load(fp)
     assert len(data["tracks"]) == 1
 
 
-def test_edit_playlists_duplicate_track_name(monkeypatch: Any, config: Config) -> None:
+def test_edit_playlists_duplicate_track_name(config: Config) -> None:
     """
     When there are duplicate virtual filenames, we append UUID. Check that it works by asserting on
     the seen text and checking that reversing the order works.
@@ -159,8 +156,7 @@ def test_edit_playlists_duplicate_track_name(monkeypatch: Any, config: Config) -
         seen = x
         return "\n".join(reversed(x.split("\n")))
 
-    monkeypatch.setattr("rose.playlists.click.edit", editfn)
-    edit_playlist_in_editor(config, "You & Me")
+    edit_playlist_in_editor(config, "You & Me", editor_fn=editfn)
 
     assert seen == "\n".join([f"[1990-02-05] BLACKPINK - Track 1 [{tid}]" for tid in track_ids])
 
