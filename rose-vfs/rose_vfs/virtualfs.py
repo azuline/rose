@@ -891,9 +891,17 @@ class RoseLogicalCore:
         self.file_creation_special_ops: dict[int, tuple[FileCreationSpecialOp, Any, str, bytearray]] = {}
         # We want to trigger a cache update whenever we notice that a file has been updated through
         # the virtual filesystem. To do this, we insert the file handle and release ID on open, and
-        # then trigger the cache update on release. We use this variable to transport that state
+        # then trigger the cache update on flush. We use this variable to transport that state
         # between the two syscalls.
+        #
+        # The update happens on flush and not on release because the kernel waits for flush to
+        # complete before returning from close(), whereas release is sent asynchronously. Updating
+        # in release means that the caller can observe the stale cache after closing the file.
         self.update_release_on_fh_close: dict[int, str] = {}
+        # The file handles in the above map that have not had a cache update since they were opened
+        # or last written to. Flush is called once per close() of a duplicated file descriptor, and
+        # may not be called at all, so release updates the cache for the handles that remain here.
+        self.fhs_pending_cache_update: set[int] = set()
         super().__init__()
 
     @staticmethod
@@ -1406,6 +1414,7 @@ class RoseLogicalCore:
                 fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
                 if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
                     self.update_release_on_fh_close[fh] = track.release.id
+                    self.fhs_pending_cache_update.add(fh)
                 return fh
             raise llfuse.FUSEError(err)
         if (
@@ -1419,6 +1428,7 @@ class RoseLogicalCore:
                 fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
                 if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
                     self.update_release_on_fh_close[fh] = release.id
+                    self.fhs_pending_cache_update.add(fh)
                 return fh
             # If the file is the datafile, pass it through.
             if p.file == f".rose.{release.id}.toml":
@@ -1482,6 +1492,7 @@ class RoseLogicalCore:
                 fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
                 if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
                     self.update_release_on_fh_close[fh] = track.release.id
+                    self.fhs_pending_cache_update.add(fh)
                 return fh
             if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
                 return self.fhandler.wrap_host(os.open(playlist.cover_path, flags))
@@ -1507,9 +1518,24 @@ class RoseLogicalCore:
             del b[offset:]
             b.extend(data)
             return len(data)
+        if fh in self.update_release_on_fh_close:
+            self.fhs_pending_cache_update.add(fh)
         fh = self.fhandler.unwrap_host(fh)
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, data)
+
+    def flush(self, fh: int) -> None:
+        logger.debug(f"LOGICAL: Received flush for {fh=}")
+        self._update_cache_for_written_fh(fh, "flush")
+
+    def _update_cache_for_written_fh(self, fh: int, syscall: str) -> None:
+        if fh not in self.fhs_pending_cache_update:
+            return
+        self.fhs_pending_cache_update.discard(fh)
+        release_id = self.update_release_on_fh_close[fh]
+        logger.debug(f"LOGICAL: Triggering cache update for release {release_id} after {syscall} syscall")
+        if release := get_release(self.config, release_id):
+            update_cache_for_releases(self.config, [release.source_path])
 
     def release(self, fh: int) -> None:
         logger.debug(f"LOGICAL: Received release for {fh=}")
@@ -1558,10 +1584,8 @@ class RoseLogicalCore:
                     del self.file_creation_special_ops[fh]
                     return
             raise RoseError(f"Impossible: unknown file creation special op: {operation=} {ident=}")
-        if release_id := self.update_release_on_fh_close.get(fh, None):
-            logger.debug(f"LOGICAL: Triggering cache update for release {release_id} after release syscall")
-            if release := get_release(self.config, release_id):
-                update_cache_for_releases(self.config, [release.source_path])
+        self._update_cache_for_written_fh(fh, "release")
+        self.update_release_on_fh_close.pop(fh, None)
         fh = self.fhandler.unwrap_host(fh)
         os.close(fh)
 
@@ -2026,7 +2050,13 @@ class VirtualFS(llfuse.Operations):  # type: ignore
 
     def flush(self, fh: int) -> None:
         logger.debug(f"FUSE: Received flush for {fh=}")
-        pass
+        if fh == self.fhandler.dev_null:
+            logger.debug(f"FUSE: Matched {fh=} to /dev/null sentinel")
+            return
+        try:
+            self.rose.flush(fh)
+        except OSError as e:
+            raise llfuse.FUSEError(e.errno) from e
 
     def setattr(
         self,
