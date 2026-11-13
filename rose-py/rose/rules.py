@@ -59,6 +59,10 @@ class TrackTagNotAllowedError(RoseExpectedError):
     pass
 
 
+class MissingConfirmerError(RoseError):
+    pass
+
+
 class InvalidReplacementValueError(RoseExpectedError):
     pass
 
@@ -396,6 +400,9 @@ def execute_metadata_actions(
     changes and confirmation are delegated to the frontend via the `preview` and `confirm`
     callbacks.
     """
+    if confirm_yes and confirm is None and not dry_run:
+        raise MissingConfirmerError("confirm_yes requires a confirm callback: refusing to write without confirmation")
+
     # === Step 3: Prepare updates on in-memory tags ===
 
     def names(xs: list[Artist]) -> list[str]:

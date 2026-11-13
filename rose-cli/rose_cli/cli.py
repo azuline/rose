@@ -328,7 +328,8 @@ def edit_release_cmd(
     toml = _edit_text(original_toml, print_only=print_only, apply_from=apply_from, extension=".toml")
     if print_only:
         return
-    toml = toml or original_toml
+    if toml is None:
+        toml = original_toml
     if original_toml == toml and not resume:
         logger.info("Aborting manual release edit: no metadata change detected.")
         return

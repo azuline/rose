@@ -15,6 +15,7 @@ from rose.config import Config
 from rose.rule_parser import Matcher, Rule
 from rose.rules import (
     FastSearchResult,
+    MissingConfirmerError,
     TrackTagNotAllowedError,
     execute_metadata_rule,
     execute_stored_metadata_rules,
@@ -429,6 +430,14 @@ def test_confirmation_yes(config: Config, source_dir: Path) -> None:
     execute_metadata_rule(config, rule, confirm_yes=True, confirm=lambda _: True)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.tracktitle == "lalala"
+
+
+def test_confirmation_without_confirmer(config: Config, source_dir: Path) -> None:
+    rule = Rule.parse("tracktitle:Track", ["replace:lalala"])
+    with pytest.raises(MissingConfirmerError):
+        execute_metadata_rule(config, rule, confirm_yes=True)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.tracktitle != "lalala"
 
 
 @pytest.mark.timeout(2)
