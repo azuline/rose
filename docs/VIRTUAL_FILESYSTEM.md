@@ -1,8 +1,8 @@
 # Browsing the Virtual Filesystem
 
-The virtual filesystem is the primary "User Interface" of Rosé. It exposes a meaningful music
+The virtual filesystem is the primary "User Interface" of Rose. It exposes a meaningful music
 library organization as the filesystem. Since the filesystem is a foundational API, other programs
-can trivially integrate with Rosé. For example, Rosé can used with a file manager like
+can trivially integrate with Rose. For example, Rose can used with a file manager like
 [nnn](https://github.com/jarun/nnn) and a media player like [mpv](https://mpv.io/).
 
 # Mounting & Unmounting
@@ -16,7 +16,7 @@ if the virtual filesystem is currently in use, unmounting command will fail.
 
 # Directory Structure
 
-Rosé has 12 top-level directories, each of which is a different view into the library. They are:
+Rose has 12 top-level directories, each of which is a different view into the library. They are:
 
 1. `Releases`
 2. `Releases - New`
@@ -68,31 +68,31 @@ templates.
 
 # Directory and File Names
 
-Rosé constructs a "virtual" directory name for each release and "virtual" file name for each track.
-These filenames are different from the release's filenames in the source directory. Rosé uses the
+Rose constructs a "virtual" directory name for each release and "virtual" file name for each track.
+These filenames are different from the release's filenames in the source directory. Rose uses the
 source directory's metadata tags to generate the virtual names. Therefore, when the music tags
 change, the virtual names auto-update in response.
 
 The directory and file names are configurable. See [Directory & Filename Templates](./TEMPLATES.md)
 for details.
 
-Rosé also exposes all cover art under the filename `cover.{ext}`, regardless of the filename in the
-source directory. Rosé also exposes the `.rose.{uuid}.toml` datafile in the virtual filesystem.
+Rose also exposes all cover art under the filename `cover.{ext}`, regardless of the filename in the
+source directory. Rose also exposes the `.rose.{uuid}.toml` datafile in the virtual filesystem.
 
 # Hiding Artists, Genres, and Labels
 
-Rosé supports hiding individual artists, genres, and labels in their view directories (`Artists`,
+Rose supports hiding individual artists, genres, and labels in their view directories (`Artists`,
 `Genres`, and `Labels`) with the `vfs.x_blacklist` and `vfs.x_whitelist` configuration parameters.
 See [Configuration](./CONFIGURATION.md) for additional documentation on configuring the blacklist or
 whitelist.
 
 # Operations
 
-Rosé allows you to modify the library through the virtual filesystem.
+Rose allows you to modify the library through the virtual filesystem.
 
 Modifying files in the virtual filesystem is passed through to the underlying file. Other
 operations, such as creating files and directories, renaming them, and deleting them translate into
-specific Rosé actions.
+specific Rose actions.
 
 See [Managing Releases](./RELEASES.md) and [Managing Playlists & Collages](./PLAYLISTS_COLLAGES.md)
 for documentation on the supported virtual filesystem operations.

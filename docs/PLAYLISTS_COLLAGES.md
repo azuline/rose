@@ -1,9 +1,9 @@
 # Managing Playlists & Collages
 
-Rosé supports the creation and management of collages (lists of releases) and playlists (lists of
+Rose supports the creation and management of collages (lists of releases) and playlists (lists of
 tracks).
 
-As Rosé implements playlists and collages in almost the same way, except that one tracks releases
+As Rose implements playlists and collages in almost the same way, except that one tracks releases
 and the other tracks tracks, we discuss both collages and playlists together.
 
 # Storage Format
@@ -46,10 +46,10 @@ uuid = "018b6514-72e7-7321-832d-1a524dbf1a3b"
 description_meta = "BLACKPINK - PLAYING WITH FIRE.opus"
 ```
 
-These files contain the UUIDs assigned to each release/track by Rosé. Since UUIDs are not
+These files contain the UUIDs assigned to each release/track by Rose. Since UUIDs are not
 meaningful, the files also contain a `description_meta` field. The `description_meta` field is set
 to the virtual directory/file name. The `description_meta` field is updated to the latest values
-during Rosé's cache update, so that they remain meaningful.
+during Rose's cache update, so that they remain meaningful.
 
 The ordering of the releases/tracks is meaningful: they represent the ordering of releases/tracks in
 the collage/playlist.
@@ -59,10 +59,10 @@ example, `Shower.toml`'s cover art would be located at `Shower.jpg` (or `.png`).
 treat as images are configurable. See [Configuration](./CONFIGURATION.md).
 
 > [!NOTE]
-> When a release or track is deleted from the source directory, Rosé does not autoremove that
-> release/track from the collages and playlists that it belongs to. Rosé instead flags the
+> When a release or track is deleted from the source directory, Rose does not autoremove that
+> release/track from the collages and playlists that it belongs to. Rose instead flags the
 > release/track as "missing," which prevents it from appearing in the virtual filesystem. If the
-> release/track is re-added to the source directory, Rosé will remove the missing flag, and the
+> release/track is re-added to the source directory, Rose will remove the missing flag, and the
 > release/track will "regain" its lost position in the collage/playlist.
 >
 > We do this because we do not know if a missing release or a missing track is transient or not. For
@@ -70,8 +70,8 @@ treat as images are configurable. See [Configuration](./CONFIGURATION.md).
 
 # Printing Metadata
 
-Rosé supports printing collage and playlist metadata from the command line in JSON format, which can
-be used in scripts and to compose your own commands. Rosé provides four commands:
+Rose supports printing collage and playlist metadata from the command line in JSON format, which can
+be used in scripts and to compose your own commands. Rose provides four commands:
 
 ```
 $ rose collages print 'Collage Name'
@@ -81,15 +81,15 @@ $ rose playlists print-all
 ```
 
 The `print` commands print a single JSON object representing one playlist/collage. The `print-all`
-commands print an array of JSON objects, one per collage/playlist tracked by Rosé.
+commands print an array of JSON objects, one per collage/playlist tracked by Rose.
 
 # Operations
 
-However, working with this file directly is quite annoying, so Rosé allows you to manage collages
+However, working with this file directly is quite annoying, so Rose allows you to manage collages
 and playlists via the command line and the virtual filesystem. In the rest of this document, we'll
 demonstrate the supported operations.
 
-Note: Rosé supports passing playlists and collages by both their name and their path. The path of
+Note: Rose supports passing playlists and collages by both their name and their path. The path of
 their source `.toml` file and the path of their virtual directory are both supported. For example, the following commands are equivalent:
 
 ```bash
@@ -136,7 +136,7 @@ $ tree "8. Playlists/"
 
 Command line:
 
-_Releases and tracks can be added by UUID or path. Rosé accepts both source directory paths and
+_Releases and tracks can be added by UUID or path. Rose accepts both source directory paths and
 virtual filesystem paths._
 
 ```bash
@@ -182,7 +182,7 @@ $ tree "8. Playlists/Evening/"
 
 Command line:
 
-_Releases and tracks can be removed by UUID or path. Rosé accepts both source directory paths and
+_Releases and tracks can be removed by UUID or path. Rose accepts both source directory paths and
 virtual filesystem paths._
 
 ```bash
