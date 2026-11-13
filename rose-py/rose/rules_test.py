@@ -560,10 +560,10 @@ def test_filter_track_noops_with_read_cache(config: Config, source_dir: Path) ->
     assert _noop_filter(config, source_dir, "label:Cool", ["releasetype/replace:album"]) == []
     assert _noop_filter(config, source_dir, "label:Cool", ["edition/delete"]) == []
     # Multi-value tags.
-    assert _noop_filter(config, source_dir, "label:Cool", ["genre/add:K-Pop"]) == r2
     assert _noop_filter(config, source_dir, "label:Cool", ["genre:^Dream Pop$/delete"]) == r2
-    assert _noop_filter(config, source_dir, "label:Cool", ["genre:^R&B$/replace:R&B"]) == []
     assert _noop_filter(config, source_dir, "label:Cool", ["genre:^R&B$/replace:Rhythm;Blues"]) == r3
+    assert _noop_filter(config, source_dir, "label:Cool", ["genre:^Shoegaze$/replace:Dream Pop"]) == []
+    assert _noop_filter(config, source_dir, "label:Cool", ["trackartist[main]/add:BLACKPINK"]) == [*r2, *r3]
     assert _noop_filter(config, source_dir, "label:Cool", ["trackartist/split: & "]) == []
     assert _noop_filter(config, source_dir, "label:Cool", ["trackartist:^BLACKPINK$/replace:BP"]) == r1
     # Datafile tags.
@@ -571,10 +571,14 @@ def test_filter_track_noops_with_read_cache(config: Config, source_dir: Path) ->
     assert _noop_filter(config, source_dir, "label:Cool", ["rating/delete"]) == []
     assert _noop_filter(config, source_dir, "label:Cool", ["rating/replace:5"]) == all_tracks
     # Copy actions.
-    assert _noop_filter(config, source_dir, "label:Cool", ["label/copy:label"]) == []
+    assert _noop_filter(config, source_dir, "label:Cool", ["tracktitle/copy:tracktitle"]) == []
+    assert _noop_filter(config, source_dir, "label:Cool", ["trackartist[main]/copy:trackartist[main]"]) == []
     assert _noop_filter(config, source_dir, "label:Cool", ["descriptor/copy:genre"]) == all_tracks
     # If any action in a chain changes a tag, the track is kept.
-    assert _noop_filter(config, source_dir, "label:Cool", ["genre/add:K-Pop", "new/replace:false"]) == [*r1, *r2]
+    assert _noop_filter(config, source_dir, "label:Cool", ["genre:^Dream Pop$/delete", "new/replace:false"]) == [
+        *r1,
+        *r2,
+    ]
 
 
 def test_filter_track_noops_with_read_cache_keeps_undeterminable(config: Config, source_dir: Path) -> None:
@@ -591,6 +595,32 @@ def test_filter_track_noops_with_read_cache_keeps_undeterminable(config: Config,
     af.flush(config)
     update_cache(config)
     assert _noop_filter(config, source_dir, "label:Cool", ["tracktitle/replace:Unknown Title"]) == all_tracks
+
+
+def test_filter_track_noops_keeps_tags_deduplicated_by_cache(config: Config, source_dir: Path) -> None:
+    all_tracks = [f"Test Release {r}/0{t}.m4a" for r in [1, 2, 3] for t in [1, 2]]
+    r2 = ["Test Release 2/01.m4a", "Test Release 2/02.m4a"]
+    # The cache drops duplicate values, so it cannot prove that an action which rewrites one of
+    # these tags leaves the on-disk values unchanged.
+    assert _noop_filter(config, source_dir, "label:Cool", ["genre/add:K-Pop"]) == all_tracks
+    assert _noop_filter(config, source_dir, "label:Cool", ["genre:^Dream Pop$/replace:Dream Pop"]) == r2
+    assert _noop_filter(config, source_dir, "label:Cool", ["label/copy:label"]) == all_tracks
+    # An action whose pattern matches none of the values returns them untouched, duplicates included.
+    assert _noop_filter(config, source_dir, "label:Cool", ["genre:^Shoegaze$/replace:K-Pop"]) == []
+
+
+def test_rules_execution_deduplicates_tags_hidden_by_cache(monkeypatch: Any, config: Config, source_dir: Path) -> None:
+    monkeypatch.setattr(rules, "READ_CACHE_FILTER_THRESHOLD", 0)
+    path = source_dir / "Test Release 1" / "01.m4a"
+    af = AudioTags.from_file(path)
+    af.genre = ["K-Pop", "K-Pop", "Pop"]
+    af.flush(config)
+    assert AudioTags.from_file(path).genre == ["K-Pop", "K-Pop", "Pop"]
+    update_cache(config)
+
+    # The cached genres already contain K-Pop, yet the write must still deduplicate the tag.
+    execute_metadata_rule(config, Rule.parse("label:Cool", ["genre/add:K-Pop"]), confirm_yes=False)
+    assert AudioTags.from_file(path).genre == ["K-Pop", "Pop"]
 
 
 def test_filter_track_noops_ignores_artist_aliases(config: Config, source_dir: Path) -> None:

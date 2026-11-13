@@ -1053,6 +1053,10 @@ def filter_release_false_positives_using_read_cache(
 _CACHE_NORMALIZED_TAGS: set[Tag] = {"tracknumber", "tracktotal", "discnumber", "disctotal"}
 # Titles are only defaulted when missing: the cached value is trustworthy unless it is the default.
 _CACHE_DEFAULT_TITLES: dict[Tag, str] = {"tracktitle": "Unknown Title", "releasetitle": "Unknown Release"}
+# Tags whose duplicate values are dropped on the way into the cache. The actions deduplicate the
+# values they touch, so an action that touches one of these tags may rewrite duplicated on-disk
+# values even if the cached values come out unchanged.
+_CACHE_DEDUPLICATED_TAGS: set[Tag] = {"genre", "secondarygenre", "descriptor", "label"}
 
 
 def filter_track_noops_using_read_cache(
@@ -1114,6 +1118,13 @@ def _cached_tag_values(t: Track) -> dict[Tag, str | list[str]]:
     }
 
 
+def _action_touches_values(action: Action, values: list[str]) -> bool:
+    """Whether execute_multi_value_action rewrites the values instead of returning them as they are."""
+    if isinstance(action.behavior, CopyAction) or not action.pattern:
+        return True
+    return any(matches_pattern(action.pattern, v) for v in values)
+
+
 def _actions_may_change_cached_track(actions: list[Action], t: Track) -> bool:
     """
     Mirror execute_metadata_actions on the cached values. Returns False only if the actions are
@@ -1136,6 +1147,8 @@ def _actions_may_change_cached_track(actions: list[Action], t: Track) -> bool:
             old = values[field]
             new: str | list[str]
             if isinstance(old, list):
+                if field in _CACHE_DEDUPLICATED_TAGS and _action_touches_values(act, old):
+                    return True
                 new = execute_multi_value_action(act, copy_source, old)
             else:
                 v = execute_single_action(act, copy_source, old)
