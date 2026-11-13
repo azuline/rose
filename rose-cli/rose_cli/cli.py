@@ -120,7 +120,7 @@ def version() -> None:
 
 @cli.group()
 def config() -> None:
-    """Utilites for configuring Rosé."""
+    """Utilites for configuring Rose."""
 
 
 @config.command()
@@ -303,7 +303,7 @@ def delete_release_cmd(ctx: Context, release: str) -> None:
 @click.pass_obj
 def reflush(ctx: Context, release: str | None, rename: bool | None) -> None:
     """
-    Rewrite the tags of a release's tracks in Rosé's canonical format and rename its source directory
+    Rewrite the tags of a release's tracks in Rose's canonical format and rename its source directory
     and files per the source path templates. Accepts a release's UUID/path. If no release is
     specified, all releases are reflushed.
     """

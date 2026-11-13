@@ -1,6 +1,6 @@
 # Configuration
 
-Rosé is configured by a TOML file.
+Rose is configured by a TOML file.
 
 The configuration, by default, is located at `${XDG_CONFIG_HOME:-$HOME/.config}/rose/config.toml` on
 Linux and `~/Library/Preferences/rose/config.toml` on MacOS. The `--config/-c` flag can be specified
@@ -13,15 +13,15 @@ The configuration parameters, with examples, are:
 # === Required values ===
 # =======================
 
-# The directory containing the music to manage. Rosé has strong expectations
+# The directory containing the music to manage. Rose has strong expectations
 # towards the organization of this directory.
 #
 # All releases must be immediate child directories of the music_source_dir. And
-# Rosé expects that all tracks belong to a "release" (meaning an album, single,
+# Rose expects that all tracks belong to a "release" (meaning an album, single,
 # EP, etc.). Therefore, loose audio files at the top-level of the source
 # directory will be ignored.
 #
-# Rosé also writes collages and playlists to this directory, as `!collages` and
+# Rose also writes collages and playlists to this directory, as `!collages` and
 # `!playlists` subdirectories.
 music_source_dir = "~/.music-source"
 
@@ -33,7 +33,7 @@ vfs.mount_dir = "~/music"
 # =======================
 
 # If true, the `rose releases reflush` command renames the directories and
-# files in the source directory based on their tags. Rosé never renames source
+# files in the source directory based on their tags. Rose never renames source
 # files at any other time; the cache update does not move anything. This
 # option only sets the command's default: pass `--rename` or `--no-rename` to
 # override it for one run.
@@ -106,18 +106,18 @@ vfs.hide_genres_with_only_new_releases = true
 vfs.hide_descriptors_with_only_new_releases = true
 vfs.hide_labels_with_only_new_releases = true
 
-# When Rosé scans a release directory, it looks for cover art that matches:
+# When Rose scans a release directory, it looks for cover art that matches:
 #
 # 1. A supported file "stem" (the filename excluding the extension).
 # 2. A supported file "extension" (the file type basically).
 #
-# And when Rosé scans the playlists directory, it looks for art files that
+# And when Rose scans the playlists directory, it looks for art files that
 # match a supported file extension (but not the name, as the name should match
 # the playlist name).
 #
-# By default, Rosé matches the stems "folder", "cover", "art", and "front"; and
+# By default, Rose matches the stems "folder", "cover", "art", and "front"; and
 # the extensions "jpg", "jpeg", and "png". Comparisons are case insensitive,
-# meaning Rosé will also match FOLDER.PNG.
+# meaning Rose will also match FOLDER.PNG.
 #
 # If you wish to recognize additional file stems and/or extensions, you can set
 # the below two variables.
@@ -130,10 +130,10 @@ valid_art_exts = [ "jpg", "jpeg", "png" ]
 max_filename_bytes = 180
 
 # You may have some directories in your music source directory that should not
-# be treated like releases. You can make Rosé ignore them by adding the
+# be treated like releases. You can make Rose ignore them by adding the
 # directory names to this configuration variable. For example, if you use
 # Syncthing versioning, the `.stversions` directory will contain music files,
-# but Rosé should not scan them.
+# but Rose should not scan them.
 #
 # By default, `!collages` and # `!playlists` are ignored. You do not need to
 # add them to your ignore list: they will be ignored regardless of this
@@ -177,13 +177,13 @@ actions = ["replace:K-Pop"]
 
 # Reloading
 
-After changing the configuration file, you may need to restart the active Rosé processes. If you
+After changing the configuration file, you may need to restart the active Rose processes. If you
 have a running Virtual Filesystem or Cache Watcher, they will not use the new configuration file
 until they are restarted.
 
 # Shell Completion
 
-Rosé supports optional shell completion for the `bash`, `zsh`, and `fish` shells. The following
+Rose supports optional shell completion for the `bash`, `zsh`, and `fish` shells. The following
 commands enable shell completion:
 
 ```bash
@@ -205,9 +205,9 @@ By default, the `rose fs mount` and `rose cache watch` commands spawn daemons th
 background.
 
 However, these daemons do not recover from failure or start on boot. If you would like them to, you
-can manage Rosé's processes with a service manager such as systemd.
+can manage Rose's processes with a service manager such as systemd.
 
-A sample systemd service file for managing Rosé is:
+A sample systemd service file for managing Rose is:
 
 ```ini
 [Install]
