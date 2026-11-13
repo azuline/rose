@@ -338,6 +338,7 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
     assert match is not None
     resume_file = Path(match[1])
 
+    # The corrected TOML omits `media`: resume files from before the field existed must still load.
     correct_toml = f"""
         title = "I Really Love Blackpink"
         new = false
@@ -351,7 +352,6 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
             {{ name = "JISOO", role = "main" }},
         ]
         catalognumber = ""
-        media = ""
         edition = ""
         labels = [
             "YG Entertainment",

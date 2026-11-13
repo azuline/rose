@@ -175,6 +175,10 @@ def fast_search_for_matching_tracks(
         WHERE rules_engine_fts MATCH '{ftsquery}'
         ORDER BY t.source_path
     """
+    # An empty needle (e.g. `^$`, which matches unset tags) has no tokens to search for, so the FTS
+    # index cannot narrow it down. Fetch every track and let the false positive filters do the work.
+    if not matcher.pattern.needle:
+        query = "SELECT t.id, t.source_path FROM tracks t ORDER BY t.source_path"
     logger.debug(f"Constructed matching query {query}")
     # And then execute the SQL query. Note that we don't pull the tag values here. This query is
     # only used to identify the matching tracks. Afterwards, we will read each track's tags from
@@ -923,6 +927,8 @@ def fast_search_for_matching_releases(
         JOIN releases r ON r.id = t.release_id
         WHERE rules_engine_fts MATCH '{ftsquery}'
     """
+    if not matcher.pattern.needle:
+        query = "SELECT r.id, r.source_path FROM releases r WHERE true"
     if not include_loose_tracks:
         query += " AND r.releasetype <> 'loosetrack'"
     query += " ORDER BY r.source_path"

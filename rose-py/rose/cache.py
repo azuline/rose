@@ -910,6 +910,11 @@ def _update_cache_for_releases_executor(
                 track.tracktotal = tracktotal
                 track_ids_to_insert.add(track.id)
 
+        # A track's metahash and templated names include its release's metadata, so when the release
+        # changes, tracks whose own files were untouched must be refreshed too.
+        if release_dirty:
+            track_ids_to_insert.update(t.id for t in tracks)
+
         # And now perform directory/file renames if configured.
         if c.rename_source_files:
             if release_dirty:

@@ -347,7 +347,8 @@ class MetadataRelease:
             descriptors=d["descriptors"],
             labels=d["labels"],
             catalognumber=d["catalognumber"] or None,
-            media=d["media"] or None,
+            # Resume files written before the media field existed do not have this key.
+            media=d.get("media") or None,
             edition=d["edition"] or None,
             artists=[MetadataArtist(name=a["name"], role=a["role"]) for a in d["artists"]],
             tracks={

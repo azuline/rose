@@ -1974,3 +1974,23 @@ def test_unpack() -> None:
         ("Jennie", "vocal"),
     ]
     assert list(_unpack("", "")) == []
+
+
+def test_update_cache_releases_release_change_refreshes_untouched_tracks(config: Config) -> None:
+    """A release tag changed on one track must refresh the metahash of the release's other tracks."""
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
+    update_cache_for_releases(config, [release_dir])
+    with connect(config) as conn:
+        before = {Path(r["source_path"]).name: r["metahash"] for r in conn.execute("SELECT * FROM tracks")}
+
+    af = AudioTags.from_file(release_dir / "01.m4a")
+    af.media = "Vinyl"
+    af.flush(config)
+    update_cache_for_releases(config, [release_dir])
+
+    with connect(config) as conn:
+        assert conn.execute("SELECT media FROM releases").fetchone()["media"] == "Vinyl"
+        after = {Path(r["source_path"]).name: r["metahash"] for r in conn.execute("SELECT * FROM tracks")}
+    assert after["01.m4a"] != before["01.m4a"]
+    assert after["02.m4a"] != before["02.m4a"]

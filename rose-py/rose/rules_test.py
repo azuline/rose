@@ -544,3 +544,28 @@ def test_artist_matcher_on_trackartist_only(config: Config, source_dir: Path) ->
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.trackartists.main == [Artist("BIGBANG"), Artist("2NE1")]
+
+
+def test_rules_match_empty_value(config: Config, source_dir: Path) -> None:
+    # An unset tag has no tokens in the FTS index, so the fast search must not filter it out.
+    rule = Rule.parse("media:^$", ["media/replace:CD"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.media == "CD"
+    # And a track which already had a value is left alone.
+    rule = Rule.parse("releasetitle:Love Blackpink", ["media/replace:Vinyl"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    rule = Rule.parse("media:^$", ["media/replace:Cassette"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.media == "Vinyl"
+
+
+@pytest.mark.usefixtures("seeded_cache")
+def test_fast_search_for_matching_releases_empty_value(config: Config) -> None:
+    matcher = Matcher.parse("media:^$")
+    fsresults = fast_search_for_matching_releases(config, matcher)
+    releases = filter_release_false_positives_using_read_cache(
+        matcher, list_releases(config, [r.id for r in fsresults])
+    )
+    assert {r.id for r in releases} == {"r1", "r3", "r4"}
