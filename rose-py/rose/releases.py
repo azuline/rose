@@ -235,12 +235,19 @@ def delete_release_cover_art(c: Config, release_id: str) -> None:
     update_cache_for_releases(c, [release.source_path])
 
 
-def _sniff_image_extension(data: bytes) -> str | None:
+def _cover_art_filename(c: Config, data: bytes) -> str | None:
+    """Return a filename that the cache recognizes as a cover art for the given image, if one exists."""
     if data.startswith(b"\xff\xd8\xff"):
-        return "jpg"
-    if data.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "png"
-    return None
+        exts = ["jpg", "jpeg"]
+    elif data.startswith(b"\x89PNG\r\n\x1a\n"):
+        exts = ["png"]
+    else:
+        return None
+    ext = next((e for e in exts if e in c.valid_art_exts), None)
+    if ext is None or not c.cover_art_stems:
+        return None
+    stem = "cover" if "cover" in c.cover_art_stems else c.cover_art_stems[0]
+    return f"{stem}.{ext}"
 
 
 def extract_release_cover_art(c: Config, release_id: str, *, dry_run: bool = False) -> None:
@@ -248,10 +255,10 @@ def extract_release_cover_art(c: Config, release_id: str, *, dry_run: bool = Fal
     This function moves the cover art embedded in a release's tracks into an external cover art
     file. Images are compared byte-for-byte.
 
-    If the release has no external cover art, the first embedded cover (ordered by track path) is
-    written to `cover.{ext}`. Embedded images that are identical to the external cover art are then
-    removed from the tracks. Embedded images that differ from the external cover art are left alone,
-    with a warning.
+    If the release has no external cover art, the first embedded cover (ordered by track path) that
+    can be written as a valid cover art file is written to `cover.{ext}`. Embedded images that are
+    identical to the external cover art are then removed from the tracks. Embedded images that
+    differ from the external cover art are left alone, with a warning.
     """
     release = get_release(c, release_id)
     if not release:
@@ -278,24 +285,29 @@ def extract_release_cover_art(c: Config, release_id: str, *, dry_run: bool = Fal
             logger.debug(f"No-Op: No embedded cover arts found in release {release_logtext}")
             return
 
-        external_paths = sorted(f for f in release.source_path.iterdir() if f.name.lower() in c.valid_cover_arts)
-        externals = [f.read_bytes() for f in external_paths]
+        externals = {f.read_bytes() for f in release.source_path.iterdir() if f.name.lower() in c.valid_cover_arts}
+        if len(externals) > 1:
+            # We cannot tell which of the files is the release's cover art.
+            logger.warning(
+                f"Skipped extracting the embedded cover arts of release {release_logtext}: "
+                "the release has multiple external cover arts that differ from each other"
+            )
+            return
         if not externals:
-            cover = embedded[0][1][0]
-            ext = _sniff_image_extension(cover)
-            if ext is None or ext not in c.valid_art_exts:
+            # Only the first image, the track's cover, is considered for extraction.
+            extractable = [(arts[0], name) for _, arts in embedded if (name := _cover_art_filename(c, arts[0]))]
+            if not extractable:
                 logger.warning(
-                    f"Skipped extracting the embedded cover art of release {release_logtext}: "
-                    f"the image in {embedded[0][0].name} is not a {'/'.join(c.valid_art_exts)} file"
+                    f"Skipped extracting the embedded cover arts of release {release_logtext}: none of them "
+                    "can be written as a cover art file with the configured cover_art_stems and valid_art_exts"
                 )
                 return
-            stem = "cover" if "cover" in c.cover_art_stems or not c.cover_art_stems else c.cover_art_stems[0]
-            cover_path = release.source_path / f"{stem}.{ext}"
+            cover, cover_name = extractable[0]
             if not dry_run:
-                with cover_path.open("wb") as fp:
+                with (release.source_path / cover_name).open("wb") as fp:
                     fp.write(cover)
-            logger.info(f"{prefix}Extracted the embedded cover art of release {release_logtext} to {cover_path.name}")
-            externals = [cover]
+            logger.info(f"{prefix}Extracted the embedded cover art of release {release_logtext} to {cover_name}")
+            externals = {cover}
 
         for path, arts in embedded:
             # Only the first image, the track's cover, is compared against the external cover art.

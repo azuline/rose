@@ -1,3 +1,4 @@
+import dataclasses
 import re
 import shutil
 import tomllib
@@ -250,6 +251,69 @@ def test_extract_release_cover_art_unsupported_image(config: Config, caplog: pyt
     assert "Skipped extracting" in caplog.text
     assert read_embedded_arts(release_dir / "01.m4a") == [b"GIF89a a gif"]
     assert len(list(release_dir.iterdir())) == 4
+
+
+def test_extract_release_cover_art_skips_unsupported_image(config: Config) -> None:
+    release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
+    embed_art(release_dir / "01.m4a", b"GIF89a a gif")
+    embed_art(release_dir / "02.m4a", JPEG)
+    update_cache(config)
+
+    extract_release_cover_art(config, _release_id(config))
+    assert (release_dir / "cover.jpg").read_bytes() == JPEG
+    assert read_embedded_arts(release_dir / "01.m4a") == [b"GIF89a a gif"]
+    assert read_embedded_arts(release_dir / "02.m4a") == []
+
+
+def test_extract_release_cover_art_differing_external_covers(config: Config, caplog: pytest.LogCaptureFixture) -> None:
+    release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
+    (release_dir / "cover.jpg").write_bytes(JPEG)
+    (release_dir / "folder.png").write_bytes(PNG)
+    embed_art(release_dir / "01.m4a", JPEG)
+    embed_art(release_dir / "02.m4a", PNG)
+    update_cache(config)
+
+    extract_release_cover_art(config, _release_id(config))
+    assert "multiple external cover arts" in caplog.text
+    assert read_embedded_arts(release_dir / "01.m4a") == [JPEG]
+    assert read_embedded_arts(release_dir / "02.m4a") == [PNG]
+
+
+def test_extract_release_cover_art_identical_external_covers(config: Config) -> None:
+    release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
+    (release_dir / "cover.jpg").write_bytes(JPEG)
+    (release_dir / "folder.jpg").write_bytes(JPEG)
+    embed_art(release_dir / "01.m4a", JPEG)
+    update_cache(config)
+
+    extract_release_cover_art(config, _release_id(config))
+    assert read_embedded_arts(release_dir / "01.m4a") == []
+
+
+def test_extract_release_cover_art_no_cover_art_stems(config: Config, caplog: pytest.LogCaptureFixture) -> None:
+    config = dataclasses.replace(config, cover_art_stems=[])
+    release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
+    embed_art(release_dir / "01.m4a", JPEG)
+    update_cache(config)
+
+    extract_release_cover_art(config, _release_id(config))
+    assert "Skipped extracting" in caplog.text
+    assert read_embedded_arts(release_dir / "01.m4a") == [JPEG]
+    assert len(list(release_dir.iterdir())) == 4
+
+
+def test_extract_release_cover_art_configured_stems_and_exts(config: Config) -> None:
+    config = dataclasses.replace(config, cover_art_stems=["front"], valid_art_exts=["jpeg"])
+    release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
+    embed_art(release_dir / "01.m4a", JPEG)
+    update_cache(config)
+
+    extract_release_cover_art(config, _release_id(config))
+    assert (release_dir / "front.jpeg").read_bytes() == JPEG
+    assert read_embedded_arts(release_dir / "01.m4a") == []
+    release = get_release(config, _release_id(config))
+    assert release is not None
+    assert release.cover_image_path == release_dir / "front.jpeg"
 
 
 def test_extract_all_release_cover_arts(config: Config) -> None:

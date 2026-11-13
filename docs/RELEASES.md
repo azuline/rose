@@ -205,14 +205,18 @@ cover art file. It never runs on its own: cache updates do not extract cover art
 For each release:
 
 - If the release has no external cover art, the embedded cover art of the first track (ordered by
-  file path) that has one is written to `cover.{ext}`. A track's embedded cover art is its front
-  cover image, or its first embedded image if none is marked as the front cover.
+  file path) that has an extractable one is written to `cover.{ext}`. A track's embedded cover art
+  is its front cover image, or its first embedded image if none is marked as the front cover.
 - Embedded cover arts that are identical to the external cover art are then removed from the tracks.
 - Embedded cover arts that differ from the external cover art are left alone, and a warning is
   logged. Neither the track nor the external cover art is modified.
+- If the release has multiple external cover arts that differ from each other, the release is
+  skipped with a warning.
 
 Images are compared byte-for-byte. A resized or re-encoded copy of the external cover art counts as
-a different image. Only JPEG and PNG images are extracted.
+a different image. Only JPEG and PNG images are extracted, and only if the `cover_art_stems` and
+`valid_art_exts` [configuration](./CONFIGURATION.md) allows a cover art file to be written for them;
+other embedded images are left alone with a warning.
 
 Pass a release to extract the cover art of that release, or no arguments to extract the cover art of
 all releases. Pass `--dry-run` to log the changes without applying them.
