@@ -8,6 +8,8 @@ The first part of this file implements the Rule Engine pipeline, which:
 2. Filters out false positives via tags.
 3. Executes actions to update metadata.
 
+Release tags are matched and acted on once per release; track tags once per track.
+
 The second part of this file provides performant release/track querying entirely from the read
 cache, which is used by other modules to provide release/track filtering capabilities.
 """
@@ -31,7 +33,6 @@ from rose.cache import (
     StoredDataFile,
     Track,
     connect,
-    list_releases,
     list_tracks,
     update_cache_for_releases,
 )
@@ -39,6 +40,7 @@ from rose.common import Artist, RoseError, RoseExpectedError, uniq
 from rose.config import Config
 from rose.rule_parser import (
     RELEASE_TAGS,
+    SINGLE_VALUE_TAGS,
     Action,
     AddAction,
     CopyAction,
@@ -93,6 +95,10 @@ def execute_metadata_rule(
        in-memory. No changes are written to disk.
     4. We then prompt the user to confirm the changes, assuming confirm_yes is True.
     5. We then flush the intended changes to disk.
+
+    Tags are either release tags or track tags. Release tags are matched and acted on once per
+    release, and a change to a release tag is written to every track of the release. Track tags are
+    matched and acted on once per track. See `RuleRelease`.
     """
     # Newline for appearance.
     click.echo()
@@ -117,6 +123,7 @@ def execute_metadata_rule(
         return
 
     matcher_audiotags = filter_track_false_positives_using_tags(
+        c,
         rule.matcher,
         fast_search_results,
         rule.ignore,
@@ -202,145 +209,202 @@ def _convert_matcher_to_fts_query(pattern: Pattern) -> str:
     return f'NEAR("{matchsql}", {max(0, len(pattern.needle) - 2)})'
 
 
+TagValue = str | int | bool | RoseDate | None
+# The value of a multi-value tag is a list of strings.
+AnyTagValue = TagValue | list[str]
+Changes = tuple[str, AnyTagValue, AnyTagValue]
+
+# The release tags that are stored in the release's datafile instead of in the audio files.
+DATAFILE_TAGS: list[Tag] = ["new", "favorite", "rating"]
+DATE_TAGS: list[Tag] = ["releasedate", "originaldate", "compositiondate"]
+ARTIST_TAG_REGEX = re.compile(r"^(trackartist|releaseartist)\[(\w+)\]$")
+
+
+def _get_audiotags_value(tags: AudioTags, tag: Tag) -> AnyTagValue:
+    if m := ARTIST_TAG_REGEX.match(tag):
+        # NOTE: Nothing should be an alias here because we get data from tags.
+        return [a.name for a in getattr(getattr(tags, f"{m[1]}s"), m[2])]
+    value: AnyTagValue = getattr(tags, tag)
+    return list(value) if isinstance(value, list) else value
+
+
+def _set_audiotags_value(tags: AudioTags, tag: Tag, value: AnyTagValue) -> None:
+    if m := ARTIST_TAG_REGEX.match(tag):
+        assert isinstance(value, list)
+        setattr(getattr(tags, f"{m[1]}s"), m[2], [Artist(x) for x in value])
+        return
+    setattr(tags, tag, list(value) if isinstance(value, list) else value)
+
+
+@dataclasses.dataclass(slots=True)
+class RuleRelease:
+    """
+    A release, as the rules engine operates on it.
+
+    The rules engine matches and acts on tracks, but the tags in `RELEASE_TAGS` belong to the
+    release rather than to any one track. They are stored in the release's datafile or redundantly
+    in every audio file of the release. This class makes them a single unit: a release tag is read
+    once per release (from the release's first track by path, which is the track that the read
+    cache treats as the source of truth) and written to every track of the release.
+
+    The audio files and datafile are only read on first access.
+    """
+
+    id: str
+    source_path: Path
+    # The tracks of the release, as a map of track ID to path, ordered by path.
+    track_paths: dict[str, Path]
+    _tags: AudioTags | None = None
+    _datafile: tuple[Path, StoredDataFile] | None = None
+
+    @property
+    def tags(self) -> AudioTags:
+        """The audio tags that hold the release tags. Only the release tags on it are meaningful."""
+        if self._tags is None:
+            self._tags = AudioTags.from_file(next(iter(self.track_paths.values())))
+        return self._tags
+
+    @property
+    def datafile(self) -> StoredDataFile:
+        if self._datafile is None:
+            for f in self.source_path.iterdir():
+                if not STORED_DATA_FILE_REGEX.match(f.name):
+                    continue
+                with f.open("rb") as fp:
+                    self._datafile = (f, StoredDataFile.parse(tomllib.load(fp)))
+                break
+            else:
+                raise RoseError(f"Release data file not found in {self.source_path}. How is it in the library?")
+        return self._datafile[1]
+
+    def write_datafile(self) -> None:
+        assert self._datafile is not None
+        path, datafile = self._datafile
+        with path.open("wb") as fp:
+            tomli_w.dump(datafile.serialize(), fp)
+
+    def get(self, tag: Tag) -> AnyTagValue:
+        assert tag in RELEASE_TAGS
+        if tag in DATAFILE_TAGS:
+            value: AnyTagValue = getattr(self.datafile, tag)
+            return value
+        return _get_audiotags_value(self.tags, tag)
+
+    def set(self, tag: Tag, value: AnyTagValue) -> None:
+        assert tag in RELEASE_TAGS
+        if tag in DATAFILE_TAGS:
+            setattr(self.datafile, tag, value)
+        else:
+            _set_audiotags_value(self.tags, tag, value)
+
+
+def _fetch_releases_of_tracks(c: Config, track_ids: list[str]) -> dict[str, RuleRelease]:
+    """Fetch the releases of the given tracks from the read cache, as a map of track ID to release."""
+    rows_by_release: dict[str, list[tuple[Path, str]]] = {}
+    release_paths: dict[str, Path] = {}
+    with connect(c) as conn:
+        cursor = conn.execute(
+            f"""
+            SELECT t.id AS track_id, t.source_path AS track_path, r.id AS release_id, r.source_path AS release_path
+            FROM tracks t
+            JOIN releases r ON r.id = t.release_id
+            WHERE t.release_id IN (
+                SELECT release_id FROM tracks WHERE id IN ({",".join(["?"] * len(track_ids))})
+            )
+            """,
+            track_ids,
+        )
+        for row in cursor:
+            release_paths[row["release_id"]] = Path(row["release_path"])
+            rows_by_release.setdefault(row["release_id"], []).append((Path(row["track_path"]), row["track_id"]))
+
+    rval: dict[str, RuleRelease] = {}
+    requested = set(track_ids)
+    for release_id, rows in rows_by_release.items():
+        # Sort as paths, like the cache update does, so that we agree with it on the first track.
+        release = RuleRelease(
+            id=release_id,
+            source_path=release_paths[release_id],
+            track_paths={track_id: path for path, track_id in sorted(rows)},
+        )
+        for track_id in release.track_paths:
+            if track_id in requested:
+                rval[track_id] = release
+    return rval
+
+
 def filter_track_false_positives_using_tags(
+    c: Config,
     matcher: Matcher,
     fast_search_results: list[FastSearchResult],
     ignore: list[Matcher],
 ) -> list[AudioTags]:
+    """
+    Read the tags of the tracks returned by the fast search and return the tracks that match the
+    matcher and do not match any of the ignore matchers.
+
+    Release tags are tested once per release: a release that matches on a release tag matches with
+    all of its tracks. Track tags are tested on each track.
+    """
     time_start = time.time()
+    releases = _fetch_releases_of_tracks(c, [x.id for x in fast_search_results])
+    matcher_has_track_tags = any(t not in RELEASE_TAGS for t in matcher.tags)
+    # Map of release ID to whether the release matches the matcher and the ignore matchers.
+    release_matches: dict[str, tuple[bool, bool]] = {}
+
     rval = []
     for fsr in fast_search_results:
+        release = releases[fsr.id]
+        try:
+            matched, ignored = release_matches[release.id]
+        except KeyError:
+            matched = _release_matches(matcher, release)
+            ignored = any(_release_matches(i, release) for i in ignore)
+            release_matches[release.id] = matched, ignored
+        # Avoid reading the track's tags if the release tags have already decided the result.
+        if ignored or (not matched and not matcher_has_track_tags):
+            continue
         tags = AudioTags.from_file(fsr.path)
-        # Cached datafile. As it's an extra disk read, we only read it when necessary.
-        datafile: StoredDataFile | None = None
-        for field in matcher.tags:
-            match = False
-            # fmt: off
-            match = match or (field == "tracktitle" and matches_pattern(matcher.pattern, tags.tracktitle))
-            match = match or (field == "releasedate" and matches_pattern(matcher.pattern, tags.releasedate))
-            match = match or (field == "originaldate" and matches_pattern(matcher.pattern, tags.originaldate))
-            match = match or (field == "compositiondate" and matches_pattern(matcher.pattern, tags.compositiondate))
-            match = match or (field == "edition" and matches_pattern(matcher.pattern, tags.edition))
-            match = match or (field == "catalognumber" and matches_pattern(matcher.pattern, tags.catalognumber))
-            match = match or (field == "tracknumber" and matches_pattern(matcher.pattern, tags.tracknumber))
-            match = match or (field == "tracktotal" and matches_pattern(matcher.pattern, tags.tracktotal))
-            match = match or (field == "discnumber" and matches_pattern(matcher.pattern, tags.discnumber))
-            match = match or (field == "disctotal" and matches_pattern(matcher.pattern, tags.disctotal))
-            match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, tags.releasetitle))
-            match = match or (field == "releasetype" and matches_pattern(matcher.pattern, tags.releasetype))
-            match = match or (field == "genre" and any(matches_pattern(matcher.pattern, x) for x in tags.genre))
-            match = match or (field == "secondarygenre" and any(matches_pattern(matcher.pattern, x) for x in tags.secondarygenre))
-            match = match or (field == "descriptor" and any(matches_pattern(matcher.pattern, x) for x in tags.descriptor))
-            match = match or (field == "label" and any(matches_pattern(matcher.pattern, x) for x in tags.label))
-            match = match or (field == "trackartist[main]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.trackartists.main))
-            match = match or (field == "trackartist[guest]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.trackartists.guest))
-            match = match or (field == "trackartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.trackartists.remixer))
-            match = match or (field == "trackartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.trackartists.producer))
-            match = match or (field == "trackartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.trackartists.composer))
-            match = match or (field == "trackartist[conductor]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.trackartists.conductor))
-            match = match or (field == "trackartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.trackartists.djmixer))
-            match = match or (field == "releaseartist[main]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.main))
-            match = match or (field == "releaseartist[guest]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.guest))
-            match = match or (field == "releaseartist[remixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.remixer))
-            match = match or (field == "releaseartist[producer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.producer))
-            match = match or (field == "releaseartist[composer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.composer))
-            match = match or (field == "releaseartist[conductor]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.conductor))
-            match = match or (field == "releaseartist[djmixer]" and any(matches_pattern(matcher.pattern, x.name) for x in tags.releaseartists.djmixer))
-            # fmt: on
-            # And if necessary, open the datafile to match `new`.
-            if not match and field == "new":
-                if not datafile:
-                    datafile = _get_release_datafile_of_directory(tags.path.parent)
-                match = matches_pattern(matcher.pattern, datafile.new)
-            if not match and field == "favorite":
-                if not datafile:
-                    datafile = _get_release_datafile_of_directory(tags.path.parent)
-                match = matches_pattern(matcher.pattern, datafile.favorite)
-            if not match and field == "rating":
-                if not datafile:
-                    datafile = _get_release_datafile_of_directory(tags.path.parent)
-                match = matches_pattern(matcher.pattern, str(datafile.rating) if datafile.rating is not None else "")
-
-            # If there is a match, check to see if the track is matched by one of the ignore values.
-            # If it is ignored, skip the result entirely.
-            if match and ignore:
-                skip = False
-                for i in ignore:
-                    # fmt: off
-                    skip = skip or (field == "tracktitle" and matches_pattern(i.pattern, tags.tracktitle))
-                    skip = skip or (field == "releasedate" and matches_pattern(i.pattern, tags.releasedate))
-                    skip = skip or (field == "originaldate" and matches_pattern(i.pattern, tags.originaldate))
-                    skip = skip or (field == "compositiondate" and matches_pattern(i.pattern, tags.compositiondate))
-                    skip = skip or (field == "edition" and matches_pattern(i.pattern, tags.edition))
-                    skip = skip or (field == "catalognumber" and matches_pattern(i.pattern, tags.catalognumber))
-                    skip = skip or (field == "tracknumber" and matches_pattern(i.pattern, tags.tracknumber))
-                    skip = skip or (field == "tracktotal" and matches_pattern(i.pattern, tags.tracktotal))
-                    skip = skip or (field == "discnumber" and matches_pattern(i.pattern, tags.discnumber))
-                    skip = skip or (field == "disctotal" and matches_pattern(i.pattern, tags.disctotal))
-                    skip = skip or (field == "releasetitle" and matches_pattern(i.pattern, tags.releasetitle))
-                    skip = skip or (field == "releasetype" and matches_pattern(i.pattern, tags.releasetype))
-                    skip = skip or (field == "genre" and any(matches_pattern(i.pattern, x) for x in tags.genre))
-                    skip = skip or (field == "secondarygenre" and any(matches_pattern(i.pattern, x) for x in tags.secondarygenre))
-                    skip = skip or (field == "descriptor" and any(matches_pattern(i.pattern, x) for x in tags.descriptor))
-                    skip = skip or (field == "label" and any(matches_pattern(i.pattern, x) for x in tags.label))
-                    skip = skip or (field == "trackartist[main]" and any(matches_pattern(i.pattern, x.name) for x in tags.trackartists.main))
-                    skip = skip or (field == "trackartist[guest]" and any(matches_pattern(i.pattern, x.name) for x in tags.trackartists.guest))
-                    skip = skip or (field == "trackartist[remixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.trackartists.remixer))
-                    skip = skip or (field == "trackartist[producer]" and any(matches_pattern(i.pattern, x.name) for x in tags.trackartists.producer))
-                    skip = skip or (field == "trackartist[composer]" and any(matches_pattern(i.pattern, x.name) for x in tags.trackartists.composer))
-                    skip = skip or (field == "trackartist[conductor]" and any(matches_pattern(i.pattern, x.name) for x in tags.trackartists.conductor))
-                    skip = skip or (field == "trackartist[djmixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.trackartists.djmixer))
-                    skip = skip or (field == "releaseartist[main]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.main))
-                    skip = skip or (field == "releaseartist[guest]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.guest))
-                    skip = skip or (field == "releaseartist[remixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.remixer))
-                    skip = skip or (field == "releaseartist[producer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.producer))
-                    skip = skip or (field == "releaseartist[composer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.composer))
-                    skip = skip or (field == "releaseartist[conductor]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.conductor))
-                    skip = skip or (field == "releaseartist[djmixer]" and any(matches_pattern(i.pattern, x.name) for x in tags.releaseartists.djmixer))
-                    # And finally, check the datafile.
-                    if not skip and field == "new":
-                        if not datafile:
-                            datafile = _get_release_datafile_of_directory(tags.path.parent)
-                        match = matches_pattern(i.pattern, datafile.new)
-                    if not skip and field == "favorite":
-                        if not datafile:
-                            datafile = _get_release_datafile_of_directory(tags.path.parent)
-                        match = matches_pattern(i.pattern, datafile.favorite)
-                    if not skip and field == "rating":
-                        if not datafile:
-                            datafile = _get_release_datafile_of_directory(tags.path.parent)
-                        skip = matches_pattern(i.pattern, str(datafile.rating) if datafile.rating is not None else "")
-                    # fmt: on
-                    if skip:
-                        break
-                # Break out of the outer loop too; we don't want to try any more fields if the track
-                # matches an ignore value.
-                if skip:
-                    break
-            if match:
-                rval.append(tags)
-                break
+        if not matched and not _track_matches(matcher, tags):
+            continue
+        if any(_track_matches(i, tags) for i in ignore):
+            continue
+        rval.append(tags)
     logger.debug(
         f"Filtered {len(fast_search_results)} tracks down to {len(rval)} tracks in {time.time() - time_start} seconds"
     )
     return rval
 
 
-def _get_release_datafile_of_directory(d: Path) -> StoredDataFile:
-    for f in d.iterdir():
-        if not STORED_DATA_FILE_REGEX.match(f.name):
-            continue
-        with f.open("rb") as fp:
-            diskdata = tomllib.load(fp)
-        return StoredDataFile.parse(diskdata)
-    raise RoseError(f"Release data file not found in {d}. How is it in the library?")
+def _release_matches(matcher: Matcher, release: RuleRelease) -> bool:
+    """Test the release tags of the matcher."""
+    return any(_value_matches(matcher.pattern, release.get(t)) for t in matcher.tags if t in RELEASE_TAGS)
 
 
-Changes = tuple[
-    str,
-    str | int | bool | RoseDate | None | list[str],
-    str | int | bool | RoseDate | None | list[str],
-]
+def _track_matches(matcher: Matcher, tags: AudioTags) -> bool:
+    """Test the track tags of the matcher."""
+    return any(
+        _value_matches(matcher.pattern, _get_audiotags_value(tags, t)) for t in matcher.tags if t not in RELEASE_TAGS
+    )
+
+
+def _value_matches(pattern: Pattern, value: AnyTagValue) -> bool:
+    if isinstance(value, list):
+        return any(matches_pattern(pattern, x) for x in value)
+    return matches_pattern(pattern, value)
+
+
+@dataclasses.dataclass(slots=True)
+class PlannedReleaseChanges:
+    release: RuleRelease
+    # Changes to the release tags, including the ones in the datafile.
+    release_changes: list[Changes]
+    # Changes to the track tags of each track.
+    track_changes: list[tuple[AudioTags, list[Changes]]]
+    # The tracks to flush to disk: the tracks whose track tags changed, and, if the release tags
+    # changed, every track of the release that does not already have the new release tags.
+    tracks_to_write: list[AudioTags]
+    write_datafile: bool
 
 
 def execute_metadata_actions(
@@ -355,269 +419,83 @@ def execute_metadata_actions(
     """
     This function executes steps 3-5 of the rule executor. See that function's docstring. This is
     split out to enable running actions on known releases/tracks.
+
+    The audiotags are the matched tracks. Actions on track tags apply to each of them. Actions on
+    release tags apply once to each release that has a matched track, and are written to every track
+    of that release, matched or not.
     """
     # === Step 3: Prepare updates on in-memory tags ===
 
-    def names(xs: list[Artist]) -> list[str]:
-        # NOTE: Nothing should be an alias in this fn because we get data from tags.
-        return [x.name for x in xs]
-
-    def artists(xs: list[str]) -> list[Artist]:
-        # NOTE: Nothing should be an alias in this fn because we get data from tags.
-        return [Artist(x) for x in xs]
-
-    # Map from str(audiofile.path.parent) to datafile.
-    opened_datafiles: dict[str, StoredDataFile] = {}
-
-    def open_datafile(path: Path) -> StoredDataFile:
-        try:
-            return opened_datafiles[str(path.parent)]
-        except KeyError:
-            datafile = _get_release_datafile_of_directory(path.parent)
-            opened_datafiles[str(path.parent)] = datafile
-            return datafile
-
-    actionable_audiotags: list[tuple[AudioTags, list[Changes]]] = []
-    # Map from parent directory to tuple.
-    actionable_datafiles: dict[str, tuple[AudioTags, StoredDataFile, list[Changes]]] = {}
-
-    # We loop over audiotags as the main loop since the rules engine operates on tracks. Perhaps in
-    # the future we better arrange this into release-level as well as track-level and make datafile
-    # part of the release loop. We apply the datafile updates as-we-go, so even if we have 12 tracks
-    # updating a datafile, the update should only apply and be shown once.
+    track_ids: list[str] = []
     for tags in audiotags:
-        origtags = copy.deepcopy(tags)
-        potential_audiotag_changes: list[Changes] = []
-        # Load the datafile if we use it. Then we know that we have potential datafile changes for
-        # this datafile.
-        datafile = None
-        potential_datafile_changes: list[Changes] = []
-        for act in actions:
-            fields_to_update = act.tags
-            # For copy actions, resolve the source tag's value once per track. The destination
-            # tag(s) are then overwritten with this value. Datafile source fields require opening
-            # the datafile.
-            copy_source: str | list[str] | None = None
-            if isinstance(act.behavior, CopyAction):
-                if act.behavior.source in ("new", "favorite", "rating"):
-                    datafile = datafile or open_datafile(tags.path)
-                copy_source = _resolve_copy_source_value(act.behavior.source, tags, datafile)
-            for field in fields_to_update:
-                # Datafile actions.
-                # Only read the datafile if it's necessary; we don't want to pay the extra cost
-                # every time for rarer fields. Store the opened datafiles in opened_datafiles.
-                if field == "new":
-                    datafile = datafile or open_datafile(tags.path)
-                    v = execute_single_action(act, copy_source, datafile.new)
-                    if v != "true" and v != "false":
-                        raise InvalidReplacementValueError(
-                            f"Failed to assign new value {v} to new: value must be string `true` or `false`"
-                        )
-                    orig_value = datafile.new
-                    datafile.new = v == "true"
-                    if orig_value != datafile.new:
-                        potential_datafile_changes.append(("new", orig_value, datafile.new))
-                if field == "favorite":
-                    datafile = datafile or open_datafile(tags.path)
-                    v = execute_single_action(act, copy_source, datafile.favorite)
-                    if v != "true" and v != "false":
-                        raise InvalidReplacementValueError(
-                            f"Failed to assign new value {v} to favorite: value must be string `true` or `false`"
-                        )
-                    orig_value = datafile.favorite
-                    datafile.favorite = v == "true"
-                    if orig_value != datafile.favorite:
-                        potential_datafile_changes.append(("favorite", orig_value, datafile.favorite))
-                if field == "rating":
-                    datafile = datafile or open_datafile(tags.path)
-                    v = execute_single_action(
-                        act, copy_source, str(datafile.rating) if datafile.rating is not None else ""
-                    )
-                    if v is None or v == "":
-                        new_rating: int | None = None
-                    else:
-                        try:
-                            new_rating = int(v)
-                        except ValueError as e:
-                            raise InvalidReplacementValueError(
-                                f"Failed to assign new value {v} to rating: value must be an integer 1-100 or empty to clear"
-                            ) from e
-                        if new_rating < 1 or new_rating > 100:
-                            raise InvalidReplacementValueError(
-                                f"Failed to assign new value {v} to rating: value must be between 1 and 100"
-                            )
-                    orig_rating = datafile.rating
-                    datafile.rating = new_rating
-                    if orig_rating != datafile.rating:
-                        potential_datafile_changes.append(("rating", orig_rating, datafile.rating))
+        if tags.id is None:
+            raise RoseError(f"Cannot run actions on track {tags.path}: it is not in the read cache")
+        track_ids.append(tags.id)
+    releases = _fetch_releases_of_tracks(c, track_ids)
 
-                # AudioTag Actions
-                # fmt: off
-                if field == "tracktitle":
-                    tags.tracktitle = execute_single_action(act, copy_source, tags.tracktitle)
-                    potential_audiotag_changes.append(("title", origtags.tracktitle, tags.tracktitle))
-                elif field == "releasedate":
-                    v = execute_single_action(act, copy_source, tags.releasedate)
-                    try:
-                        tags.releasedate = RoseDate.parse(v)
-                    except ValueError as e:
-                        raise InvalidReplacementValueError(
-                            f"Failed to assign new value {v} to releasedate: value must be date string"
-                        ) from e
-                    potential_audiotag_changes.append(("releasedate", origtags.releasedate, tags.releasedate))
-                elif field == "originaldate":
-                    v = execute_single_action(act, copy_source, tags.originaldate)
-                    try:
-                        tags.originaldate = RoseDate.parse(v)
-                    except ValueError as e:
-                        raise InvalidReplacementValueError(
-                            f"Failed to assign new value {v} to originaldate: value must be date string"
-                        ) from e
-                    potential_audiotag_changes.append(("originaldate", origtags.originaldate, tags.originaldate))
-                elif field == "compositiondate":
-                    v = execute_single_action(act, copy_source, tags.compositiondate)
-                    try:
-                        tags.compositiondate = RoseDate.parse(v)
-                    except ValueError as e:
-                        raise InvalidReplacementValueError(
-                            f"Failed to assign new value {v} to compositiondate: value must be date string"
-                        ) from e
-                    potential_audiotag_changes.append(("compositiondate", origtags.compositiondate, tags.compositiondate))
-                elif field == "edition":
-                    tags.edition = execute_single_action(act, copy_source, tags.edition)
-                    potential_audiotag_changes.append(("edition", origtags.edition, tags.edition))
-                elif field == "catalognumber":
-                    tags.catalognumber = execute_single_action(act, copy_source, tags.catalognumber)
-                    potential_audiotag_changes.append(("catalognumber", origtags.catalognumber, tags.catalognumber))
-                elif field == "tracknumber":
-                    tags.tracknumber = execute_single_action(act, copy_source, tags.tracknumber)
-                    potential_audiotag_changes.append(("tracknumber", origtags.tracknumber, tags.tracknumber))
-                elif field == "discnumber":
-                    tags.discnumber = execute_single_action(act, copy_source, tags.discnumber)
-                    potential_audiotag_changes.append(("discnumber", origtags.discnumber, tags.discnumber))
-                elif field == "releasetitle":
-                    tags.releasetitle = execute_single_action(act, copy_source, tags.releasetitle)
-                    potential_audiotag_changes.append(("release", origtags.releasetitle, tags.releasetitle))
-                elif field == "releasetype":
-                    tags.releasetype = execute_single_action(act, copy_source, tags.releasetype) or "unknown"
-                    potential_audiotag_changes.append(("releasetype", origtags.releasetype, tags.releasetype))
-                elif field == "genre":
-                    tags.genre = execute_multi_value_action(act, copy_source, tags.genre)
-                    potential_audiotag_changes.append(("genre", origtags.genre, tags.genre))
-                elif field == "secondarygenre":
-                    tags.secondarygenre = execute_multi_value_action(act, copy_source, tags.secondarygenre)
-                    potential_audiotag_changes.append(("secondarygenre", origtags.secondarygenre, tags.secondarygenre))
-                elif field == "descriptor":
-                    tags.descriptor = execute_multi_value_action(act, copy_source, tags.descriptor)
-                    potential_audiotag_changes.append(("descriptor", origtags.descriptor, tags.descriptor))
-                elif field == "label":
-                    tags.label = execute_multi_value_action(act, copy_source, tags.label)
-                    potential_audiotag_changes.append(("label", origtags.label, tags.label))
-                elif field == "trackartist[main]":
-                    tags.trackartists.main = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.main)))
-                    potential_audiotag_changes.append(("trackartist[main]", names(origtags.trackartists.main), names(tags.trackartists.main)))
-                elif field == "trackartist[guest]":
-                    tags.trackartists.guest = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.guest)))
-                    potential_audiotag_changes.append(("trackartist[guest]", names(origtags.trackartists.guest), names(tags.trackartists.guest)))
-                elif field == "trackartist[remixer]":
-                    tags.trackartists.remixer = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.remixer)))
-                    potential_audiotag_changes.append(("trackartist[remixer]", names(origtags.trackartists.remixer), names(tags.trackartists.remixer)))
-                elif field == "trackartist[producer]":
-                    tags.trackartists.producer = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.producer)))
-                    potential_audiotag_changes.append(("trackartist[producer]", names(origtags.trackartists.producer), names(tags.trackartists.producer)))
-                elif field == "trackartist[composer]":
-                    tags.trackartists.composer = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.composer)))
-                    potential_audiotag_changes.append(("trackartist[composer]", names(origtags.trackartists.composer), names(tags.trackartists.composer)))
-                elif field == "trackartist[conductor]":
-                    tags.trackartists.conductor = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.conductor)))
-                    potential_audiotag_changes.append(("trackartist[conductor]", names(origtags.trackartists.conductor), names(tags.trackartists.conductor)))
-                elif field == "trackartist[djmixer]":
-                    tags.trackartists.djmixer = artists(execute_multi_value_action(act, copy_source, names(tags.trackartists.djmixer)))
-                    potential_audiotag_changes.append(("trackartist[djmixer]", names(origtags.trackartists.djmixer), names(tags.trackartists.djmixer)))
-                elif field == "releaseartist[main]":
-                    tags.releaseartists.main = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.main)))
-                    potential_audiotag_changes.append(("releaseartist[main]", names(origtags.releaseartists.main), names(tags.releaseartists.main)))
-                elif field == "releaseartist[guest]":
-                    tags.releaseartists.guest = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.guest)))
-                    potential_audiotag_changes.append(("releaseartist[guest]", names(origtags.releaseartists.guest), names(tags.releaseartists.guest)))
-                elif field == "releaseartist[remixer]":
-                    tags.releaseartists.remixer = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.remixer)))
-                    potential_audiotag_changes.append(("releaseartist[remixer]", names(origtags.releaseartists.remixer), names(tags.releaseartists.remixer)))
-                elif field == "releaseartist[producer]":
-                    tags.releaseartists.producer = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.producer)))
-                    potential_audiotag_changes.append(("releaseartist[producer]", names(origtags.releaseartists.producer), names(tags.releaseartists.producer)))
-                elif field == "releaseartist[composer]":
-                    tags.releaseartists.composer = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.composer)))
-                    potential_audiotag_changes.append(("releaseartist[composer]", names(origtags.releaseartists.composer), names(tags.releaseartists.composer)))
-                elif field == "releaseartist[conductor]":
-                    tags.releaseartists.conductor = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.conductor)))
-                    potential_audiotag_changes.append(("releaseartist[conductor]", names(origtags.releaseartists.conductor), names(tags.releaseartists.conductor)))
-                elif field == "releaseartist[djmixer]":
-                    tags.releaseartists.djmixer = artists(execute_multi_value_action(act, copy_source, names(tags.releaseartists.djmixer)))
-                    potential_audiotag_changes.append(("releaseartist[djmixer]", names(origtags.releaseartists.djmixer), names(tags.releaseartists.djmixer)))
-                # fmt: on
+    # Group the matched tracks by their release.
+    matched_tracks: dict[str, tuple[RuleRelease, dict[str, AudioTags]]] = {}
+    for track_id, tags in zip(track_ids, audiotags, strict=True):
+        try:
+            release = releases[track_id]
+        except KeyError as e:
+            raise RoseError(f"Cannot run actions on track {tags.path}: it is not in the read cache") from e
+        matched_tracks.setdefault(release.id, (release, {}))[1][track_id] = tags
 
-        # Compute real changes by diffing the tags, and then store.
-        tag_changes = [(x, y, z) for x, y, z in potential_audiotag_changes if y != z]
-        if tag_changes:
-            actionable_audiotags.append((tags, tag_changes))
+    planned: list[PlannedReleaseChanges] = []
+    for release, tracks in sorted(matched_tracks.values(), key=lambda x: x[0].source_path):
+        # Order the matched tracks in the release's track order.
+        tracks = {track_id: tracks[track_id] for track_id in release.track_paths if track_id in tracks}
+        plan = _plan_release_changes(release, tracks, actions)
+        if plan.tracks_to_write or plan.write_datafile:
+            planned.append(plan)
+        else:
+            logger.debug(f"Skipping matched release {release.source_path}: no changes calculated off tags and datafile")
 
-        # We already handled diffing for the datafile above. This moves the inner-track-loop
-        # datafile updates to the outer scope.
-        if datafile and potential_datafile_changes:
-            try:
-                _, _, datafile_changes = actionable_datafiles[str(tags.path.parent)]
-            except KeyError:
-                datafile_changes = []
-                actionable_datafiles[str(tags.path.parent)] = (tags, datafile, datafile_changes)
-            datafile_changes.extend(potential_datafile_changes)
-
-        if not tag_changes and not (datafile and potential_datafile_changes):
-            logger.debug(f"Skipping matched track {tags.path}: no changes calculated off tags and datafile")
-
-    if not actionable_audiotags and not actionable_datafiles:
+    if not planned:
         click.secho("No matching tracks found", dim=True, italic=True)
         click.echo()
         return
 
     # === Step 4: Display changes and ask for user confirmation ===
 
-    # Compute the text to display:
+    # Compute the text to display: the release changes under the release directory, followed by the
+    # track changes under each track.
+    def pathtext(path: Path) -> str:
+        text = str(path).removeprefix(str(c.music_source_dir) + "/")
+        if len(text) >= 120:
+            text = text[:59] + ".." + text[-59:]
+        return text
+
     todisplay: list[tuple[str, list[Changes]]] = []
-    maxpathwidth = 0
-    for tags, tag_changes in actionable_audiotags:
-        pathtext = str(tags.path).removeprefix(str(c.music_source_dir) + "/")
-        if len(pathtext) >= 120:
-            pathtext = pathtext[:59] + ".." + pathtext[-59:]
-        maxpathwidth = max(maxpathwidth, len(pathtext))
-        todisplay.append((pathtext, tag_changes))
-    for path, (_, _, datafile_changes) in actionable_datafiles.items():
-        pathtext = path.removeprefix(str(c.music_source_dir) + "/")
-        if len(pathtext) >= 120:
-            pathtext = pathtext[:59] + ".." + pathtext[-59:]
-        maxpathwidth = max(maxpathwidth, len(pathtext))
-        todisplay.append((pathtext, datafile_changes))
+    for plan in planned:
+        if plan.release_changes:
+            todisplay.append((pathtext(plan.release.source_path), plan.release_changes))
+        for tags, tag_changes in plan.track_changes:
+            todisplay.append((pathtext(tags.path), tag_changes))
 
     # And then display it.
-    for pathtext, tag_changes in todisplay:
-        click.secho(pathtext, underline=True)
+    for text, tag_changes in todisplay:
+        click.secho(text, underline=True)
         for name, old, new in tag_changes:
             click.echo(f"      {name}: ", nl=False)
             click.secho(old, fg="red", nl=False)
             click.echo(" -> ", nl=False)
             click.secho(new, fg="green", bold=True)
 
+    num_tracks = sum(len(plan.tracks_to_write) for plan in planned)
+
     # If we're dry-running, then abort here.
     if dry_run:
         click.echo()
         click.secho(
-            f"This is a dry run, aborting. {len(actionable_audiotags)} tracks would have been modified.",
+            f"This is a dry run, aborting. {num_tracks} tracks would have been modified.",
             dim=True,
         )
         return
 
     # And then let's go for the confirmation.
-    num_changes = len(actionable_audiotags) + len(actionable_datafiles)
+    num_changes = num_tracks + sum(plan.write_datafile for plan in planned)
     if confirm_yes:
         click.echo()
         if num_changes > enter_number_to_confirm_above_count:
@@ -644,29 +522,13 @@ def execute_metadata_actions(
     # === Step 5: Flush writes to disk ===
 
     logger.info(f"Writing tag changes for actions {' '.join([shlex.quote(str(a)) for a in actions])}")
-    changed_release_ids: set[str] = set()
-    for tags, tag_changes in actionable_audiotags:
-        if tags.release_id:
-            changed_release_ids.add(tags.release_id)
-        pathtext = str(tags.path).removeprefix(str(c.music_source_dir) + "/")
-        logger.debug(
-            f"Attempting to write {pathtext} changes: {' //// '.join([str(x) + ' -> ' + str(y) for _, x, y in tag_changes])}"
-        )
-        tags.flush(c)
-        logger.info(f"Wrote tag changes to {pathtext}")
-    for path, (tags, datafile, datafile_changes) in actionable_datafiles.items():
-        if tags.release_id:
-            changed_release_ids.add(tags.release_id)
-        pathtext = path.removeprefix(str(c.music_source_dir) + "/")
-        logger.debug(
-            f"Attempting to write {pathtext} changes: {' //// '.join([str(x) + ' -> ' + str(y) for _, x, y in datafile_changes])}"
-        )
-        for f in Path(path).iterdir():
-            if not STORED_DATA_FILE_REGEX.match(f.name):
-                continue
-            with f.open("wb") as fp:
-                tomli_w.dump(datafile.serialize(), fp)
-        logger.info(f"Wrote datafile changes to {pathtext}")
+    for plan in planned:
+        for tags in plan.tracks_to_write:
+            tags.flush(c)
+            logger.info(f"Wrote tag changes to {pathtext(tags.path)}")
+        if plan.write_datafile:
+            plan.release.write_datafile()
+            logger.info(f"Wrote datafile changes to {pathtext(plan.release.source_path)}")
 
     click.echo()
     click.echo(f"Applied tag changes to {num_changes} tracks!")
@@ -674,11 +536,92 @@ def execute_metadata_actions(
     # == Step 6: Trigger cache update ===
 
     click.echo()
-    source_paths = [r.source_path for r in list_releases(c, list(changed_release_ids))]
-    update_cache_for_releases(c, source_paths)
+    update_cache_for_releases(c, [plan.release.source_path for plan in planned])
 
 
-TagValue = str | int | bool | RoseDate | None
+def _plan_release_changes(
+    release: RuleRelease,
+    matched_tracks: dict[str, AudioTags],
+    actions: list[Action],
+) -> PlannedReleaseChanges:
+    """
+    Run the actions on a release and its matched tracks (a map of track ID to tags, in the release's
+    track order). The actions are applied in-memory; nothing is written to disk.
+    """
+    release_tags = uniq([t for a in actions for t in a.tags if t in RELEASE_TAGS])
+    track_tags = uniq([t for a in actions for t in a.tags if t not in RELEASE_TAGS])
+
+    # If the first track is one of the matched tracks, spare ourselves the second read. Make a copy
+    # so that the release tags are independent from the track.
+    first_track_id = next(iter(release.track_paths))
+    if first_track_id in matched_tracks:
+        release._tags = copy.deepcopy(matched_tracks[first_track_id])
+
+    original_release_values = {t: release.get(t) for t in release_tags}
+    original_track_values = {
+        track_id: {t: _get_audiotags_value(tags, t) for t in track_tags} for track_id, tags in matched_tracks.items()
+    }
+
+    for act in actions:
+        # A copy action reads its source tag once, before any of its destination tags are written.
+        # A release tag cannot be copied from several tracks at once, so when a track tag is copied
+        # to a release tag, the source is read from the first matched track.
+        def copy_source(tags: AudioTags, act: Action = act) -> str | list[str] | None:
+            if not isinstance(act.behavior, CopyAction):
+                return None
+            source = act.behavior.source
+            value = release.get(source) if source in RELEASE_TAGS else _get_audiotags_value(tags, source)
+            return value if isinstance(value, list) else value_to_str(value)
+
+        if act_release_tags := [t for t in act.tags if t in RELEASE_TAGS]:
+            source = copy_source(next(iter(matched_tracks.values())))
+            for tag in act_release_tags:
+                release.set(tag, execute_action(act, tag, source, release.get(tag)))
+        if act_track_tags := [t for t in act.tags if t not in RELEASE_TAGS]:
+            for tags in matched_tracks.values():
+                source = copy_source(tags)
+                for tag in act_track_tags:
+                    _set_audiotags_value(tags, tag, execute_action(act, tag, source, _get_audiotags_value(tags, tag)))
+
+    # Compute real changes by diffing the tags.
+    release_changes: list[Changes] = [
+        (t, original, new) for t, original in original_release_values.items() if (new := release.get(t)) != original
+    ]
+    track_changes: list[tuple[AudioTags, list[Changes]]] = []
+    for track_id, tags in matched_tracks.items():
+        tag_changes: list[Changes] = [
+            (t, original, new)
+            for t, original in original_track_values[track_id].items()
+            if (new := _get_audiotags_value(tags, t)) != original
+        ]
+        if tag_changes:
+            track_changes.append((tags, tag_changes))
+
+    # A changed release tag is written to every track of the release. Unchanged release tags are
+    # left alone, even on the tracks where they differ from the release's value.
+    changed_release_tags = [t for t, original in original_release_values.items() if release.get(t) != original]
+    changed_audio_tags = [t for t in changed_release_tags if t not in DATAFILE_TAGS]
+    tracks_to_write = [tags for tags, _ in track_changes]
+    if changed_audio_tags:
+        tracks_to_write = []
+        for track_id, path in release.track_paths.items():
+            tags = matched_tracks.get(track_id) or AudioTags.from_file(path)
+            dirty = any(tags is x for x, _ in track_changes)
+            for tag in changed_audio_tags:
+                new = release.get(tag)
+                if _get_audiotags_value(tags, tag) != new:
+                    _set_audiotags_value(tags, tag, new)
+                    dirty = True
+            if dirty:
+                tracks_to_write.append(tags)
+
+    return PlannedReleaseChanges(
+        release=release,
+        release_changes=release_changes,
+        track_changes=track_changes,
+        tracks_to_write=tracks_to_write,
+        write_datafile=any(t in DATAFILE_TAGS for t in changed_release_tags),
+    )
 
 
 def value_to_str(value: TagValue) -> str:
@@ -707,88 +650,49 @@ def matches_pattern(pattern: Pattern, value: str | int | bool | RoseDate | None)
     return needle in haystack
 
 
-def _resolve_copy_source_value(
-    field: Tag,
-    tags: AudioTags,
-    datafile: StoredDataFile | None,
-) -> str | list[str]:
-    """
-    Read the natural value of a source tag for a copy action. Single-value tags are returned as a
-    string; multi-value tags are returned as a list of strings.
-    """
-    # Single-value audio tags.
-    if field == "tracktitle":
-        return value_to_str(tags.tracktitle)
-    if field == "releasedate":
-        return value_to_str(tags.releasedate)
-    if field == "originaldate":
-        return value_to_str(tags.originaldate)
-    if field == "compositiondate":
-        return value_to_str(tags.compositiondate)
-    if field == "edition":
-        return value_to_str(tags.edition)
-    if field == "catalognumber":
-        return value_to_str(tags.catalognumber)
-    if field == "tracknumber":
-        return value_to_str(tags.tracknumber)
-    if field == "tracktotal":
-        return value_to_str(tags.tracktotal)
-    if field == "discnumber":
-        return value_to_str(tags.discnumber)
-    if field == "disctotal":
-        return value_to_str(tags.disctotal)
-    if field == "releasetitle":
-        return value_to_str(tags.releasetitle)
-    if field == "releasetype":
-        return value_to_str(tags.releasetype)
-    # Multi-value audio tags.
-    if field == "genre":
-        return list(tags.genre)
-    if field == "secondarygenre":
-        return list(tags.secondarygenre)
-    if field == "descriptor":
-        return list(tags.descriptor)
-    if field == "label":
-        return list(tags.label)
-    if field == "trackartist[main]":
-        return [x.name for x in tags.trackartists.main]
-    if field == "trackartist[guest]":
-        return [x.name for x in tags.trackartists.guest]
-    if field == "trackartist[remixer]":
-        return [x.name for x in tags.trackartists.remixer]
-    if field == "trackartist[producer]":
-        return [x.name for x in tags.trackartists.producer]
-    if field == "trackartist[composer]":
-        return [x.name for x in tags.trackartists.composer]
-    if field == "trackartist[conductor]":
-        return [x.name for x in tags.trackartists.conductor]
-    if field == "trackartist[djmixer]":
-        return [x.name for x in tags.trackartists.djmixer]
-    if field == "releaseartist[main]":
-        return [x.name for x in tags.releaseartists.main]
-    if field == "releaseartist[guest]":
-        return [x.name for x in tags.releaseartists.guest]
-    if field == "releaseartist[remixer]":
-        return [x.name for x in tags.releaseartists.remixer]
-    if field == "releaseartist[producer]":
-        return [x.name for x in tags.releaseartists.producer]
-    if field == "releaseartist[composer]":
-        return [x.name for x in tags.releaseartists.composer]
-    if field == "releaseartist[conductor]":
-        return [x.name for x in tags.releaseartists.conductor]
-    if field == "releaseartist[djmixer]":
-        return [x.name for x in tags.releaseartists.djmixer]
-    # Datafile fields. The caller is responsible for opening the datafile before calling us.
-    if field == "new":
-        assert datafile is not None
-        return value_to_str(datafile.new)
-    if field == "favorite":
-        assert datafile is not None
-        return value_to_str(datafile.favorite)
-    if field == "rating":
-        assert datafile is not None
-        return value_to_str(datafile.rating)
-    raise RoseError(f"Impossible: unknown copy source field {field}")  # pragma: no cover
+def execute_action(
+    action: Action,
+    tag: Tag,
+    copy_source: str | list[str] | None,
+    value: AnyTagValue,
+) -> AnyTagValue:
+    """Execute an action on the value of a tag and return the tag's new value."""
+    if tag not in SINGLE_VALUE_TAGS:
+        assert isinstance(value, list)
+        return execute_multi_value_action(action, copy_source, value)
+
+    assert not isinstance(value, list)
+    v = execute_single_action(action, copy_source, value)
+    if tag in ("new", "favorite"):
+        if v != "true" and v != "false":
+            raise InvalidReplacementValueError(
+                f"Failed to assign new value {v} to {tag}: value must be string `true` or `false`"
+            )
+        return v == "true"
+    if tag == "rating":
+        if v is None or v == "":
+            return None
+        try:
+            rating = int(v)
+        except ValueError as e:
+            raise InvalidReplacementValueError(
+                f"Failed to assign new value {v} to rating: value must be an integer 1-100 or empty to clear"
+            ) from e
+        if rating < 1 or rating > 100:
+            raise InvalidReplacementValueError(
+                f"Failed to assign new value {v} to rating: value must be between 1 and 100"
+            )
+        return rating
+    if tag in DATE_TAGS:
+        try:
+            return RoseDate.parse(v)
+        except ValueError as e:
+            raise InvalidReplacementValueError(
+                f"Failed to assign new value {v} to {tag}: value must be date string"
+            ) from e
+    if tag == "releasetype":
+        return v or "unknown"
+    return v
 
 
 # Factor out the logic for executing an action on a single-value tag and a multi-value tag.

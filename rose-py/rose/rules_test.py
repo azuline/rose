@@ -14,10 +14,11 @@ from rose.cache import (
 )
 from rose.common import Artist
 from rose.config import Config
-from rose.rule_parser import Matcher, Rule
+from rose.rule_parser import Action, Matcher, Rule
 from rose.rules import (
     FastSearchResult,
     TrackTagNotAllowedError,
+    execute_metadata_actions,
     execute_metadata_rule,
     execute_stored_metadata_rules,
     fast_search_for_matching_releases,
@@ -531,3 +532,86 @@ def test_artist_matcher_on_trackartist_only(config: Config, source_dir: Path) ->
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.trackartists.main == [Artist("BIGBANG"), Artist("2NE1")]
+
+
+def test_release_action_is_written_to_all_tracks_of_release(config: Config, source_dir: Path) -> None:
+    # Only the second track matches, but genre is a release tag, so the whole release is updated.
+    rule = Rule.parse("tracktitle:^Track 2$", ["genre/replace:lalala", "tracktitle/replace:hahaha"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af1 = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    af2 = AudioTags.from_file(source_dir / "Test Release 1" / "02.m4a")
+    assert af1.genre == ["lalala"]
+    assert af2.genre == ["lalala"]
+    # While the track tag action only applies to the matched track.
+    assert af1.tracktitle == "Track 1"
+    assert af2.tracktitle == "hahaha"
+    assert af1.release_id is not None
+    release = get_release(config, af1.release_id)
+    assert release is not None
+    assert release.genres == ["lalala"]
+
+
+def test_release_action_on_single_track_is_written_to_all_tracks_of_release(config: Config, source_dir: Path) -> None:
+    af2 = AudioTags.from_file(source_dir / "Test Release 1" / "02.m4a")
+    execute_metadata_actions(config, [Action.parse("releasetitle/replace:lalala")], [af2])
+    for f in ["01.m4a", "02.m4a"]:
+        assert AudioTags.from_file(source_dir / "Test Release 1" / f).releasetitle == "lalala"
+    assert af2.release_id is not None
+    release = get_release(config, af2.release_id)
+    assert release is not None
+    assert release.releasetitle == "lalala"
+
+
+def test_release_tags_are_read_from_first_track(config: Config, source_dir: Path) -> None:
+    # Make the second track disagree with the release on a release tag, behind the cache's back.
+    af2 = AudioTags.from_file(source_dir / "Test Release 1" / "02.m4a")
+    af2.label = ["Stray Label"]
+    af2.flush(config)
+
+    # A release tag action that does not change the release leaves the stray value alone.
+    rule = Rule.parse("releasetitle:^I Love Blackpink$", ["label/add:A Cool Label"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    assert AudioTags.from_file(source_dir / "Test Release 1" / "02.m4a").label == ["Stray Label"]
+
+    # The release matches on its own value with all of its tracks, and a changed release tag is
+    # computed from the release's value and written to every track.
+    rule = Rule.parse("label:^A Cool Label$", ["label/add:Another Label", "tracktitle/replace:lalala"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    for f in ["01.m4a", "02.m4a"]:
+        af = AudioTags.from_file(source_dir / "Test Release 1" / f)
+        assert af.label == ["A Cool Label", "Another Label"]
+        assert af.tracktitle == "lalala"
+
+
+def test_copy_track_tag_to_release_tag_reads_first_matched_track(config: Config, source_dir: Path) -> None:
+    rule = Rule.parse("tracktitle:^Track 2$", ["releasetitle/copy:tracktitle"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    for f in ["01.m4a", "02.m4a"]:
+        assert AudioTags.from_file(source_dir / "Test Release 1" / f).releasetitle == "Track 2"
+
+
+def test_copy_release_tag_to_track_tag(config: Config, source_dir: Path) -> None:
+    # Actions run in order, so the copy reads the release title set by the first action.
+    rule = Rule.parse("tracknumber:^2$", ["releasetitle/replace:lalala", "tracktitle/copy:releasetitle"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    assert AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a").tracktitle == "Track 1"
+    assert AudioTags.from_file(source_dir / "Test Release 1" / "02.m4a").tracktitle == "lalala"
+
+
+@pytest.mark.usefixtures("source_dir")
+def test_release_changes_are_displayed_once_per_release(config: Config, capsys: Any) -> None:
+    rule = Rule.parse("releasetitle:^I Love Blackpink$", ["genre/add:lalala", "new/replace:false"])
+    execute_metadata_rule(config, rule, dry_run=True, confirm_yes=False)
+    out = capsys.readouterr().out
+    assert out.count("genre: ") == 1
+    assert out.count("new: ") == 1
+    assert "Test Release 1\n" in out
+    assert "01.m4a" not in out
+    assert "2 tracks would have been modified" in out
+
+
+def test_ignore_values_on_another_tag(config: Config, source_dir: Path) -> None:
+    rule = Rule.parse("tracktitle:rack", ["replace:lalala"], ["releasetitle:^I Love Blackpink$"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    assert AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a").tracktitle == "Track 1"
+    assert AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a").tracktitle == "lalala"
