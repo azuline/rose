@@ -4,8 +4,9 @@ Rosé supports user-defined templates for configuring the directory and file nam
 the virtual filesystem and for the source directory.
 
 > [!NOTE]
-> The source directory templates are only applied to the source directory if the
-> `rename_source_files` configuration option is true. See [Configuration](./CONFIGURATION.md) for
+> The source directory templates are only applied to the source directory by the
+> `rose releases reflush` command, and by default only if the `rename_source_files` configuration
+> option is true. See [Managing Releases](./RELEASES.md#reflush-tags-and-rename-source-files) for
 > more details.
 
 To customize the templates, define them in your configuration file. The configuration keys for

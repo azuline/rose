@@ -448,26 +448,6 @@ def test_update_cache_releases_delete_nonexistent(config: Config) -> None:
         assert cursor.fetchone()[0] == 0
 
 
-def test_update_cache_releases_enforces_max_len(config: Config) -> None:
-    """Test that an directory with no audio files is skipped."""
-    config = dataclasses.replace(config, rename_source_files=True, max_filename_bytes=15)
-    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "a")
-    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / "b")
-    shutil.copy(TEST_RELEASE_1 / "01.m4a", config.music_source_dir / "b" / "03.m4a")
-    update_cache_for_releases(config)
-    assert set(config.music_source_dir.iterdir()) == {
-        config.music_source_dir / "BLACKPINK - 199",
-        config.music_source_dir / "BLACKPINK - [2]",
-    }
-    # Nondeterministic: Pick the one with the extra file.
-    children_1 = set((config.music_source_dir / "BLACKPINK - 199").iterdir())
-    children_2 = set((config.music_source_dir / "BLACKPINK - [2]").iterdir())
-    files = children_1 if len(children_1) > len(children_2) else children_2
-    release_dir = next(iter(files)).parent
-    assert release_dir / "01. Track 1.m4a" in files
-    assert release_dir / "01. Tra [2].m4a" in files
-
-
 def test_update_cache_releases_skips_empty_directory(config: Config) -> None:
     """Test that an directory with no audio files is skipped."""
     rd = config.music_source_dir / "lalala"
@@ -617,30 +597,19 @@ def test_update_cache_releases_ignores_partially_written_directory(config: Confi
         assert cursor.fetchone()[0] == 1
 
 
-def test_update_cache_rename_source_files(config: Config) -> None:
-    """Test that we properly rename the source directory on cache update."""
+def test_update_cache_does_not_rename_source_files(config: Config) -> None:
+    """Test that the cache update never renames source files, even if rename_source_files is on."""
     config = dataclasses.replace(config, rename_source_files=True)
-    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
-    (config.music_source_dir / TEST_RELEASE_1.name / "cover.jpg").touch()
+    release_dir = config.music_source_dir / TEST_RELEASE_1.name
+    shutil.copytree(TEST_RELEASE_1, release_dir)
     update_cache(config)
+    update_cache(config, force=True)
 
-    expected_dir = config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]"
-    assert expected_dir in list(config.music_source_dir.iterdir())
-
-    files_in_dir = list(expected_dir.iterdir())
-    assert expected_dir / "01. Track 1.m4a" in files_in_dir
-    assert expected_dir / "02. Track 2.m4a" in files_in_dir
-
+    assert [p for p in config.music_source_dir.iterdir() if not p.name.startswith("!")] == [release_dir]
+    assert {f.name for f in release_dir.iterdir() if f.suffix == ".m4a"} == {"01.m4a", "02.m4a"}
     with connect(config) as conn:
-        cursor = conn.execute("SELECT source_path, cover_image_path FROM releases")
-        row = cursor.fetchone()
-        assert Path(row["source_path"]) == expected_dir
-        assert Path(row["cover_image_path"]) == expected_dir / "cover.jpg"
         cursor = conn.execute("SELECT source_path FROM tracks")
-        assert {Path(r[0]) for r in cursor} == {
-            expected_dir / "01. Track 1.m4a",
-            expected_dir / "02. Track 2.m4a",
-        }
+        assert {Path(r[0]) for r in cursor} == {release_dir / "01.m4a", release_dir / "02.m4a"}
 
 
 def test_update_cache_add_cover_art(config: Config) -> None:
@@ -648,10 +617,9 @@ def test_update_cache_add_cover_art(config: Config) -> None:
     Test that adding a cover art (i.e. modifying release w/out modifying tracks) does not affect
     the tracks.
     """
-    config = dataclasses.replace(config, rename_source_files=True)
     shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
     update_cache(config)
-    expected_dir = config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]"
+    expected_dir = config.music_source_dir / TEST_RELEASE_1.name
 
     (expected_dir / "cover.jpg").touch()
     update_cache(config)
@@ -663,75 +631,9 @@ def test_update_cache_add_cover_art(config: Config) -> None:
         assert Path(row["cover_image_path"]) == expected_dir / "cover.jpg"
         cursor = conn.execute("SELECT source_path FROM tracks")
         assert {Path(r[0]) for r in cursor} == {
-            expected_dir / "01. Track 1.m4a",
-            expected_dir / "02. Track 2.m4a",
+            expected_dir / "01.m4a",
+            expected_dir / "02.m4a",
         }
-
-
-def test_update_cache_rename_source_files_nested_file_directories(config: Config) -> None:
-    """Test that we properly rename arbitrarily nested files and clean up the empty dirs."""
-    config = dataclasses.replace(config, rename_source_files=True)
-    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
-    (config.music_source_dir / TEST_RELEASE_1.name / "lala").mkdir()
-    (config.music_source_dir / TEST_RELEASE_1.name / "01.m4a").rename(
-        config.music_source_dir / TEST_RELEASE_1.name / "lala" / "1.m4a"
-    )
-    update_cache(config)
-
-    expected_dir = config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]"
-    assert expected_dir in list(config.music_source_dir.iterdir())
-
-    files_in_dir = list(expected_dir.iterdir())
-    assert expected_dir / "01. Track 1.m4a" in files_in_dir
-    assert expected_dir / "02. Track 2.m4a" in files_in_dir
-    assert expected_dir / "lala" not in files_in_dir
-
-    with connect(config) as conn:
-        cursor = conn.execute("SELECT source_path FROM releases")
-        assert Path(cursor.fetchone()[0]) == expected_dir
-        cursor = conn.execute("SELECT source_path FROM tracks")
-        assert {Path(r[0]) for r in cursor} == {
-            expected_dir / "01. Track 1.m4a",
-            expected_dir / "02. Track 2.m4a",
-        }
-
-
-def test_update_cache_rename_source_files_collisions(config: Config) -> None:
-    """Test that we properly rename arbitrarily nested files and clean up the empty dirs."""
-    config = dataclasses.replace(config, rename_source_files=True)
-    # Three copies of the same directory, and two instances of Track 1.
-    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
-    shutil.copyfile(
-        config.music_source_dir / TEST_RELEASE_1.name / "01.m4a",
-        config.music_source_dir / TEST_RELEASE_1.name / "haha.m4a",
-    )
-    shutil.copytree(config.music_source_dir / TEST_RELEASE_1.name, config.music_source_dir / "Number 2")
-    shutil.copytree(config.music_source_dir / TEST_RELEASE_1.name, config.music_source_dir / "Number 3")
-    update_cache(config)
-
-    release_dirs = list(config.music_source_dir.iterdir())
-    for expected_dir in [
-        config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]",
-        config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW] [2]",
-        config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW] [3]",
-    ]:
-        assert expected_dir in release_dirs
-
-        files_in_dir = list(expected_dir.iterdir())
-        assert expected_dir / "01. Track 1.m4a" in files_in_dir
-        assert expected_dir / "01. Track 1 [2].m4a" in files_in_dir
-        assert expected_dir / "02. Track 2.m4a" in files_in_dir
-
-        with connect(config) as conn:
-            cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(expected_dir),))
-            release_id = cursor.fetchone()[0]
-            assert release_id
-            cursor = conn.execute("SELECT source_path FROM tracks WHERE release_id = ?", (release_id,))
-            assert {Path(r[0]) for r in cursor} == {
-                expected_dir / "01. Track 1.m4a",
-                expected_dir / "01. Track 1 [2].m4a",
-                expected_dir / "02. Track 2.m4a",
-            }
 
 
 def test_update_cache_releases_updates_full_text_search(config: Config) -> None:

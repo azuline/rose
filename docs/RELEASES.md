@@ -28,9 +28,8 @@ favorite = false
 added_at = 2018-10-01 00:00:00-04:00
 ```
 
-The release directories and track files in `$music_source_dir` can be renamed with the
-`rename_source_files` configuration variable. See [Configuration](./CONFIGURATION.md) for more
-details.
+The release directories and track files in `$music_source_dir` can be renamed to match their tags
+with the `rose releases reflush` command. See [Reflush Tags and Rename Source Files](#reflush-tags-and-rename-source-files).
 
 # "New" Releases
 
@@ -307,6 +306,24 @@ Write changes to 1 tracks? [Y/n] y
 [16:40:16] INFO: Wrote tag changes to LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match/04. Chaotic.opus
 
 Applied tag changes to 11 tracks!
+```
+
+## Reflush Tags and Rename Source Files
+
+The cache update only ever writes Rosé's release and track IDs to your audio files, and it never
+moves or renames anything in the source directory. Rewriting every tag in Rosé's canonical format and
+renaming the source directories and files are done on demand with `rose releases reflush`.
+
+The command rewrites the tags of every track in the release. If the `rename_source_files`
+configuration option is true, it then renames the release directory and track files per the
+`path_templates.source.release` and `path_templates.source.track` templates. Pass `--rename` or
+`--no-rename` to override the configuration option. Without a release argument, the command runs on
+every release in the library.
+
+```bash
+$ rose releases reflush "$music_source_dir/LOONA - 2017. Kim Lip"
+
+$ rose releases reflush --rename
 ```
 
 ## Create "Phony" Single Release

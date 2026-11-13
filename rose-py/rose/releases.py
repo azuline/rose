@@ -4,8 +4,8 @@ The releases module provides functions for interacting with releases.
 
 from __future__ import annotations
 
-import dataclasses
 import logging
+import os
 import re
 import shlex
 import shutil
@@ -36,7 +36,14 @@ from rose.cache import (
     update_cache_for_playlists,
     update_cache_for_releases,
 )
-from rose.common import Artist, ArtistMapping, RoseError, RoseExpectedError
+from rose.common import (
+    Artist,
+    ArtistMapping,
+    RoseError,
+    RoseExpectedError,
+    sanitize_dirname,
+    sanitize_filename,
+)
 from rose.config import Config
 from rose.rule_parser import ALL_TAGS, Action, Matcher
 from rose.rules import (
@@ -44,7 +51,7 @@ from rose.rules import (
     fast_search_for_matching_releases,
     filter_release_false_positives_using_read_cache,
 )
-from rose.templates import artistsfmt
+from rose.templates import artistsfmt, evaluate_release_template, evaluate_track_template
 
 logger = logging.getLogger(__name__)
 
@@ -581,6 +588,118 @@ def run_actions_on_release(
     execute_metadata_actions(c, actions, audiotags, dry_run=dry_run, confirm_yes=confirm_yes)
 
 
+def reflush_releases(
+    c: Config,
+    # Leave as None to reflush all releases.
+    release_ids: list[str] | None = None,
+    *,
+    # Leave as None to follow the `rename_source_files` configuration option.
+    rename: bool | None = None,
+) -> None:
+    """
+    Rewrite the tags of every track in the given releases in Rose's canonical tag format, and
+    rename the release directories and track files in the source directory to match the source
+    path templates.
+
+    The cache update never rewrites existing tags or moves files; this function is the only place
+    where those filesystem edits happen in bulk.
+    """
+    if rename is None:
+        rename = c.rename_source_files
+    releases = list_releases(c, release_ids)
+    if release_ids is not None:
+        missing = set(release_ids) - {r.id for r in releases}
+        if missing:
+            raise ReleaseDoesNotExistError(f"Release {', '.join(sorted(missing))} does not exist")
+
+    for release in releases:
+        logtext = make_release_logtext(
+            title=release.releasetitle,
+            releasedate=release.releasedate,
+            artists=release.releaseartists,
+        )
+        with lock(c, release_lock_name(release.id), timeout=900.0):
+            for track in get_tracks_of_release(c, release):
+                AudioTags.from_file(track.source_path).flush(c)
+        logger.info(f"Reflushed tags of release {logtext}")
+    update_cache_for_releases(c, [r.source_path for r in releases])
+    if not rename:
+        return
+
+    # Fetch the releases again: rewriting the tags may have normalized the values that the path
+    # templates are evaluated with.
+    renamed_dirs: list[Path] = []
+    for release in list_releases(c, [r.id for r in releases]):
+        with lock(c, release_lock_name(release.id), timeout=900.0):
+            if _rename_release_source_files(c, release, get_tracks_of_release(c, release)):
+                renamed_dirs.append(release.source_path)
+    if renamed_dirs:
+        update_cache_for_releases(c, renamed_dirs)
+
+
+def _rename_release_source_files(c: Config, release: Release, tracks: list[Track]) -> bool:
+    """
+    Rename the release directory and its track files to match the source path templates. Mutates
+    the passed in release and tracks to contain the new paths. Returns whether anything was renamed.
+    """
+    renamed = False
+    wanted_dirname = evaluate_release_template(c.path_templates.source.release, release)
+    wanted_dirname = sanitize_dirname(c, wanted_dirname, True, sanitize_diacritics=True)
+    # Iterate until we've either:
+    # 1. Realized that the name of the source path matches the desired dirname (which we
+    #    may not realize immediately if there are name conflicts).
+    # 2. Or renamed the source directory to match our desired name.
+    original_wanted_dirname = wanted_dirname
+    collision_no = 2
+    while wanted_dirname != release.source_path.name:
+        new_source_path = release.source_path.with_name(wanted_dirname)
+        # If there is a collision, bump the collision counter and retry.
+        if new_source_path.exists():
+            new_max_len = c.max_filename_bytes - (3 + len(str(collision_no)))
+            wanted_dirname = f"{original_wanted_dirname[:new_max_len]} [{collision_no}]"
+            collision_no += 1
+            continue
+        # If no collision, rename the directory.
+        old_source_path = release.source_path
+        old_source_path.rename(new_source_path)
+        renamed = True
+        logger.info(f"Renamed source release directory {old_source_path.name} to {new_source_path.name}")
+        release.source_path = new_source_path
+        for track in tracks:
+            tracklocalpath = str(track.source_path).removeprefix(f"{old_source_path}/")
+            track.source_path = release.source_path / tracklocalpath
+    for track in tracks:
+        wanted_filename = evaluate_track_template(c.path_templates.source.track, track)
+        wanted_filename = sanitize_filename(c, wanted_filename, True, sanitize_diacritics=True)
+        # And repeat a similar process to the release rename handling. Except: we can have
+        # arbitrarily nested files here, so we need to compare more than the name.
+        original_wanted_stem = Path(wanted_filename).stem
+        original_wanted_suffix = Path(wanted_filename).suffix
+        collision_no = 2
+        while (
+            relpath := str(track.source_path).removeprefix(f"{release.source_path}/")
+        ) and wanted_filename != relpath:
+            new_source_path = release.source_path / wanted_filename
+            if new_source_path.exists():
+                new_max_len = c.max_filename_bytes - (3 + len(str(collision_no)) + len(original_wanted_suffix))
+                wanted_filename = f"{original_wanted_stem[:new_max_len]} [{collision_no}]{original_wanted_suffix}"
+                collision_no += 1
+                continue
+            track.source_path.rename(new_source_path)
+            renamed = True
+            track.source_path = new_source_path
+            logger.info(
+                f"Renamed source file {release.source_path.name}/{relpath} to {release.source_path.name}/{wanted_filename}"
+            )
+            # And clean out any empty directories post-rename.
+            while relpath := os.path.dirname(relpath):
+                relppp = release.source_path / relpath
+                if not relppp.is_dir() or list(relppp.iterdir()):
+                    break
+                relppp.rmdir()
+    return renamed
+
+
 def create_single_release(
     c: Config,
     track_path: Path,
@@ -631,8 +750,7 @@ def create_single_release(
     af.flush(c)
     logger.info(f"Created phony single release {source_path.name}")
     # Step 4: Update the cache!
-    c_tmp = dataclasses.replace(c, rename_source_files=False)
-    update_cache_for_releases(c_tmp, [source_path])
+    update_cache_for_releases(c, [source_path])
     # Step 5: Default extracted singles to not new: if it is new, why are you meddling with it?
     for f in source_path.iterdir():
         if m := STORED_DATA_FILE_REGEX.match(f.name):
