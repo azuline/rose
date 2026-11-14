@@ -202,31 +202,36 @@ def test_extract_release_cover_art(config: Config) -> None:
     assert (release_dir / "cover.png").read_bytes() == PNG
 
 
-def test_extract_release_cover_art_identical_external_cover(config: Config) -> None:
-    release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
-    (release_dir / "folder.jpg").write_bytes(JPEG)
-    embed_art(release_dir / "01.m4a", JPEG)
-    update_cache(config)
-
-    extract_release_cover_art(config, _release_id(config))
-    assert read_embedded_arts(release_dir / "01.m4a") == []
-    assert (release_dir / "folder.jpg").read_bytes() == JPEG
-    assert not (release_dir / "cover.jpg").exists()
-
-
-def test_extract_release_cover_art_differing_external_cover(config: Config, caplog: pytest.LogCaptureFixture) -> None:
+def test_extract_release_cover_art_external_cover(config: Config, caplog: pytest.LogCaptureFixture) -> None:
     release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
     (release_dir / "folder.jpg").write_bytes(JPEG)
     embed_art(release_dir / "01.m4a", PNG)
     embed_art(release_dir / "02.m4a", JPEG)
     update_cache(config)
+    release_id = _release_id(config)
+    files_before = sorted(release_dir.iterdir())
 
-    extract_release_cover_art(config, _release_id(config))
+    # The embed that is identical to the external cover is removed; the one that differs is kept with a warning.
+    extract_release_cover_art(config, release_id)
     assert "differs from the external cover art" in caplog.text
     assert read_embedded_arts(release_dir / "01.m4a") == [PNG]
     assert read_embedded_arts(release_dir / "02.m4a") == []
+    assert sorted(release_dir.iterdir()) == files_before
     assert (release_dir / "folder.jpg").read_bytes() == JPEG
-    assert not (release_dir / "cover.png").exists()
+
+    # A second external cover with the same bytes is not ambiguous.
+    (release_dir / "cover.jpg").write_bytes(JPEG)
+    embed_art(release_dir / "02.m4a", JPEG)
+    extract_release_cover_art(config, release_id)
+    assert read_embedded_arts(release_dir / "02.m4a") == []
+
+    # But external covers that differ from each other are: no embed is touched, even the ones that match one of them.
+    (release_dir / "cover.png").write_bytes(PNG)
+    embed_art(release_dir / "02.m4a", JPEG)
+    extract_release_cover_art(config, release_id)
+    assert "multiple external cover arts" in caplog.text
+    assert read_embedded_arts(release_dir / "01.m4a") == [PNG]
+    assert read_embedded_arts(release_dir / "02.m4a") == [JPEG]
 
 
 def test_extract_release_cover_art_differing_embedded_covers(config: Config, caplog: pytest.LogCaptureFixture) -> None:
@@ -235,6 +240,7 @@ def test_extract_release_cover_art_differing_embedded_covers(config: Config, cap
     embed_art(release_dir / "02.m4a", PNG)
     update_cache(config)
 
+    # The first track by path wins.
     extract_release_cover_art(config, _release_id(config))
     assert "differs from the external cover art" in caplog.text
     assert (release_dir / "cover.jpg").read_bytes() == JPEG
@@ -246,72 +252,43 @@ def test_extract_release_cover_art_unsupported_image(config: Config, caplog: pyt
     release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
     embed_art(release_dir / "01.m4a", b"GIF89a a gif")
     update_cache(config)
+    files_before = sorted(release_dir.iterdir())
+    release_id = _release_id(config)
 
-    extract_release_cover_art(config, _release_id(config))
+    # An image that is not a JPEG or a PNG cannot be extracted.
+    extract_release_cover_art(config, release_id)
     assert "Skipped extracting" in caplog.text
     assert read_embedded_arts(release_dir / "01.m4a") == [b"GIF89a a gif"]
-    assert len(list(release_dir.iterdir())) == 4
+    assert sorted(release_dir.iterdir()) == files_before
 
-
-def test_extract_release_cover_art_skips_unsupported_image(config: Config) -> None:
-    release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
-    embed_art(release_dir / "01.m4a", b"GIF89a a gif")
+    # The first image that can be extracted is, even if it is not on the first track.
     embed_art(release_dir / "02.m4a", JPEG)
-    update_cache(config)
-
-    extract_release_cover_art(config, _release_id(config))
+    extract_release_cover_art(config, release_id)
     assert (release_dir / "cover.jpg").read_bytes() == JPEG
     assert read_embedded_arts(release_dir / "01.m4a") == [b"GIF89a a gif"]
     assert read_embedded_arts(release_dir / "02.m4a") == []
 
 
-def test_extract_release_cover_art_differing_external_covers(config: Config, caplog: pytest.LogCaptureFixture) -> None:
-    release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
-    (release_dir / "cover.jpg").write_bytes(JPEG)
-    (release_dir / "folder.png").write_bytes(PNG)
-    embed_art(release_dir / "01.m4a", JPEG)
-    embed_art(release_dir / "02.m4a", PNG)
-    update_cache(config)
-
-    extract_release_cover_art(config, _release_id(config))
-    assert "multiple external cover arts" in caplog.text
-    assert read_embedded_arts(release_dir / "01.m4a") == [JPEG]
-    assert read_embedded_arts(release_dir / "02.m4a") == [PNG]
-
-
-def test_extract_release_cover_art_identical_external_covers(config: Config) -> None:
-    release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
-    (release_dir / "cover.jpg").write_bytes(JPEG)
-    (release_dir / "folder.jpg").write_bytes(JPEG)
-    embed_art(release_dir / "01.m4a", JPEG)
-    update_cache(config)
-
-    extract_release_cover_art(config, _release_id(config))
-    assert read_embedded_arts(release_dir / "01.m4a") == []
-
-
-def test_extract_release_cover_art_no_cover_art_stems(config: Config, caplog: pytest.LogCaptureFixture) -> None:
+def test_extract_release_cover_art_configured_stems_and_exts(config: Config, caplog: pytest.LogCaptureFixture) -> None:
+    # Without a cover art stem, no file that we could write would be recognized as a cover art.
     config = dataclasses.replace(config, cover_art_stems=[])
     release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
     embed_art(release_dir / "01.m4a", JPEG)
     update_cache(config)
-
-    extract_release_cover_art(config, _release_id(config))
+    files_before = sorted(release_dir.iterdir())
+    release_id = _release_id(config)
+    extract_release_cover_art(config, release_id)
     assert "Skipped extracting" in caplog.text
     assert read_embedded_arts(release_dir / "01.m4a") == [JPEG]
-    assert len(list(release_dir.iterdir())) == 4
+    assert sorted(release_dir.iterdir()) == files_before
 
-
-def test_extract_release_cover_art_configured_stems_and_exts(config: Config) -> None:
+    # The cover art is written with a configured stem and extension.
     config = dataclasses.replace(config, cover_art_stems=["front"], valid_art_exts=["jpeg"])
-    release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
-    embed_art(release_dir / "01.m4a", JPEG)
     update_cache(config)
-
-    extract_release_cover_art(config, _release_id(config))
+    extract_release_cover_art(config, release_id)
     assert (release_dir / "front.jpeg").read_bytes() == JPEG
     assert read_embedded_arts(release_dir / "01.m4a") == []
-    release = get_release(config, _release_id(config))
+    release = get_release(config, release_id)
     assert release is not None
     assert release.cover_image_path == release_dir / "front.jpeg"
 
