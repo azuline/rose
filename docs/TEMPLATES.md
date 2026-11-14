@@ -1,6 +1,6 @@
 # Directory and Filename Templates
 
-Rosé supports user-defined templates for configuring the directory and file names for each view of
+Rose supports user-defined templates for configuring the directory and file names for each view of
 the virtual filesystem and for the source directory.
 
 > [!NOTE]
@@ -80,10 +80,10 @@ If set, the `default.xxx` templates are used as the default values for all other
 
 # Template Language
 
-Rosé uses the Jinja templating language. See [Jinja's Template Designer
+Rose uses the Jinja templating language. See [Jinja's Template Designer
 Documentation](https://jinja.palletsprojects.com/en/3.1.x/templates/).
 
-After evaluating the template, Rosé replaces all adjacent whitespace characters (e.g. space, tab,
+After evaluating the template, Rose replaces all adjacent whitespace characters (e.g. space, tab,
 newline, return, etc.) with a single space. This allows you to freely use multiple lines and
 comments when defining your templates, like so:
 
@@ -97,7 +97,7 @@ default.release = """
 """
 ```
 
-Rosé provides the following template variables for releases:
+Rose provides the following template variables for releases:
 
 ```python
 added_at: str                        # ISO8601 timestamp of when the release was added to the library.
@@ -182,7 +182,7 @@ context.collage: str                 # The current collage being viewed in the V
 context.playlist: str                # The current playlist being viewed in the Virtual Filesystem.
 ```
 
-Rosé also provides the following custom filters:
+Rose also provides the following custom filters:
 
 ```python
 arrayfmt: (list[str]) -> str            # Formats an array of strings as x, y & z.
