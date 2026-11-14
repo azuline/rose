@@ -34,6 +34,8 @@ from rose.cache import (
     Track,
     connect,
     list_tracks,
+    lock,
+    release_lock_name,
     update_cache_for_releases,
 )
 from rose.common import Artist, RoseError, RoseExpectedError, uniq
@@ -536,11 +538,15 @@ def execute_metadata_actions(
 
     logger.info(f"Writing tag changes for actions {' '.join([shlex.quote(str(a)) for a in actions])}")
     for plan in planned:
+        # The lock is short lived, so take it for each write instead of for the whole release.
+        lock_name = release_lock_name(plan.release.id)
         for tags in plan.tracks_to_write:
-            tags.flush(c)
+            with lock(c, lock_name):
+                tags.flush(c)
             logger.info(f"Wrote tag changes to {pathtext(tags.path)}")
         if plan.write_datafile:
-            plan.release.write_datafile()
+            with lock(c, lock_name):
+                plan.release.write_datafile()
             logger.info(f"Wrote datafile changes to {pathtext(plan.release.source_path)}")
 
     click.echo()
