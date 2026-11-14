@@ -27,8 +27,8 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
   - `releases delete`: Remove a release from the library and move its source files to the trash bin.
   - `releases set-cover`: Set the cover art for a release. Replaces any existing cover art.
   - `releases delete-cover`: Set the cover art for a release. Replaces any existing cover art.
-  - `releases extract-covers`: Extract embedded cover arts in all releases into external cover art
-    files.
+  - `releases extract-covers`: Move embedded cover arts into external cover art files, for one
+    release or for all releases.
   - `releases run-rule`: Run one or more metadata actions on all tracks in the release.
   - `releases add-metadata-url`: Associate an external metadata URL to the release.
   - `releases search-metadata-urls`: Search for external metadata URLs to associate with the

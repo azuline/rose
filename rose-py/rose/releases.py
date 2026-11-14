@@ -18,7 +18,7 @@ import click
 import tomli_w
 from send2trash import send2trash
 
-from rose.audiotags import AudioTags, RoseDate
+from rose.audiotags import AudioTags, RoseDate, read_embedded_arts, remove_embedded_arts
 from rose.cache import (
     STORED_DATA_FILE_REGEX,
     Release,
@@ -233,6 +233,102 @@ def delete_release_cover_art(c: Config, release_id: str) -> None:
     else:
         logger.info(f"No-Op: No cover arts found for release {release_logtext}")
     update_cache_for_releases(c, [release.source_path])
+
+
+def _cover_art_filename(c: Config, data: bytes) -> str | None:
+    """Return a filename that the cache recognizes as a cover art for the given image, if one exists."""
+    if data.startswith(b"\xff\xd8\xff"):
+        exts = ["jpg", "jpeg"]
+    elif data.startswith(b"\x89PNG\r\n\x1a\n"):
+        exts = ["png"]
+    else:
+        return None
+    ext = next((e for e in exts if e in c.valid_art_exts), None)
+    if ext is None or not c.cover_art_stems:
+        return None
+    stem = "cover" if "cover" in c.cover_art_stems else c.cover_art_stems[0]
+    return f"{stem}.{ext}"
+
+
+def extract_release_cover_art(c: Config, release_id: str, *, dry_run: bool = False) -> None:
+    """
+    This function moves the cover art embedded in a release's tracks into an external cover art
+    file. Images are compared byte-for-byte.
+
+    If the release has no external cover art, the first embedded cover (ordered by track path) that
+    can be written as a valid cover art file is written to `cover.{ext}`. Embedded images that are
+    identical to the external cover art are then removed from the tracks. Embedded images that
+    differ from the external cover art are left alone, with a warning.
+    """
+    release = get_release(c, release_id)
+    if not release:
+        raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
+
+    release_logtext = make_release_logtext(
+        title=release.releasetitle,
+        releasedate=release.releasedate,
+        artists=release.releaseartists,
+    )
+    prefix = "[DRY RUN] " if dry_run else ""
+
+    with lock(c, release_lock_name(release_id), timeout=60.0):
+        embedded: list[tuple[Path, list[bytes]]] = []
+        for t in sorted(get_tracks_of_release(c, release), key=lambda t: t.source_path):
+            try:
+                arts = read_embedded_arts(t.source_path)
+            except (RoseExpectedError, OSError) as e:
+                logger.warning(f"Failed to read embedded cover art of {t.source_path}: {e}")
+                continue
+            if arts:
+                embedded.append((t.source_path, arts))
+        if not embedded:
+            logger.debug(f"No-Op: No embedded cover arts found in release {release_logtext}")
+            return
+
+        externals = {f.read_bytes() for f in release.source_path.iterdir() if f.name.lower() in c.valid_cover_arts}
+        if len(externals) > 1:
+            # We cannot tell which of the files is the release's cover art.
+            logger.warning(
+                f"Skipped extracting the embedded cover arts of release {release_logtext}: "
+                "the release has multiple external cover arts that differ from each other"
+            )
+            return
+        if not externals:
+            # Only the first image, the track's cover, is considered for extraction.
+            extractable = [(arts[0], name) for _, arts in embedded if (name := _cover_art_filename(c, arts[0]))]
+            if not extractable:
+                logger.warning(
+                    f"Skipped extracting the embedded cover arts of release {release_logtext}: none of them "
+                    "can be written as a cover art file with the configured cover_art_stems and valid_art_exts"
+                )
+                return
+            cover, cover_name = extractable[0]
+            if not dry_run:
+                with (release.source_path / cover_name).open("wb") as fp:
+                    fp.write(cover)
+            logger.info(f"{prefix}Extracted the embedded cover art of release {release_logtext} to {cover_name}")
+            externals = {cover}
+
+        for path, arts in embedded:
+            # Only the first image, the track's cover, is compared against the external cover art.
+            if arts[0] not in externals:
+                logger.warning(
+                    f"The cover art embedded in {path} differs from the external cover art "
+                    f"of release {release_logtext}: leaving both untouched"
+                )
+                continue
+            if not dry_run:
+                remove_embedded_arts(path, [arts[0]])
+            logger.info(f"{prefix}Removed the embedded cover art from {path.name} in release {release_logtext}")
+
+    if not dry_run:
+        update_cache_for_releases(c, [release.source_path])
+
+
+def extract_all_release_cover_arts(c: Config, *, dry_run: bool = False) -> None:
+    """This function runs `extract_release_cover_art` on every release in the library."""
+    for release in list_releases(c):
+        extract_release_cover_art(c, release.id, dry_run=dry_run)
 
 
 @dataclass

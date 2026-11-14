@@ -1,8 +1,13 @@
+import base64
 import shutil
 from dataclasses import replace
 from pathlib import Path
+from typing import no_type_check
 
 import mutagen
+import mutagen.flac
+import mutagen.id3
+import mutagen.mp4
 import pytest
 
 from conftest import TEST_TAGGER
@@ -13,6 +18,8 @@ from rose.audiotags import (
     _split_tag,
     format_artist_string,
     parse_artist_string,
+    read_embedded_arts,
+    remove_embedded_arts,
 )
 from rose.common import Artist, ArtistMapping
 from rose.config import Config
@@ -250,3 +257,53 @@ def test_format_artist_string() -> None:
         )
         == "A pres. B;C feat. D;E"
     )
+
+
+@no_type_check
+def embed_art(path: Path, data: bytes, picture_type: int = 3) -> None:
+    """Embed an image into an audio file, in addition to the images that are already embedded."""
+    m = mutagen.File(path)
+    assert m is not None
+    if path.suffix == ".mp3":
+        desc = str(len(m.tags.getall("APIC")))
+        m.tags.add(mutagen.id3.APIC(encoding=3, mime="image/jpeg", type=picture_type, desc=desc, data=data))
+    elif path.suffix == ".m4a":
+        m.tags["covr"] = [*m.tags.get("covr", []), mutagen.mp4.MP4Cover(data)]
+    else:
+        pic = mutagen.flac.Picture()
+        pic.type = picture_type
+        pic.mime = "image/jpeg"
+        pic.data = data
+        if path.suffix == ".flac":
+            m.add_picture(pic)
+        else:
+            encoded = base64.b64encode(pic.write()).decode("ascii")
+            m.tags["metadata_block_picture"] = [*m.tags.get("metadata_block_picture", []), encoded]
+    m.save()
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["track1.flac", "track2.m4a", "track3.mp3", "track4.vorbis.ogg", "track5.opus.ogg"],
+)
+def test_embedded_arts(isolated_dir: Path, filename: str) -> None:
+    fpath = isolated_dir / filename
+    shutil.copyfile(TEST_TAGGER / filename, fpath)
+    # Some of the test files come with an embedded image.
+    remove_embedded_arts(fpath, read_embedded_arts(fpath))
+    assert read_embedded_arts(fpath) == []
+    assert not remove_embedded_arts(fpath, [b"front"])
+
+    # MP4 has no picture types: the first image is the cover.
+    first, second = (b"front", b"back") if filename.endswith(".m4a") else (b"back", b"front")
+    embed_art(fpath, first, picture_type=3 if first == b"front" else 4)
+    embed_art(fpath, second, picture_type=3 if second == b"front" else 4)
+    assert read_embedded_arts(fpath) == [b"front", b"back"]
+
+    assert not remove_embedded_arts(fpath, [b"other"])
+    assert remove_embedded_arts(fpath, [b"front"])
+    assert read_embedded_arts(fpath) == [b"back"]
+    assert remove_embedded_arts(fpath, [b"back"])
+    assert read_embedded_arts(fpath) == []
+    # The other tags are untouched.
+    assert AudioTags.from_file(fpath).releasetitle == "A Cool Album"

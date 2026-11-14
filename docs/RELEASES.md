@@ -196,6 +196,47 @@ $ tree "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/"
 └── 05. LOOΠΔ ODD EYE CIRCLE - Starlight.opus
 ```
 
+## Extract Embedded Cover Art
+
+Rosé only reads cover art from external files in the release directory, not from the images
+embedded in the audio files. The `extract-covers` command moves embedded cover art into an external
+cover art file. It never runs on its own: cache updates do not extract cover art.
+
+For each release:
+
+- If the release has no external cover art, the embedded cover art of the first track (ordered by
+  file path) that has an extractable one is written to `cover.{ext}`. A track's embedded cover art
+  is its front cover image, or its first embedded image if none is marked as the front cover.
+- Embedded cover arts that are identical to the external cover art are then removed from the tracks.
+- Embedded cover arts that differ from the external cover art are left alone, and a warning is
+  logged. Neither the track nor the external cover art is modified.
+- If the release has multiple external cover arts that differ from each other, the release is
+  skipped with a warning.
+
+Images are compared byte-for-byte. A resized or re-encoded copy of the external cover art counts as
+a different image. Only JPEG and PNG images are extracted, and only if the `cover_art_stems` and
+`valid_art_exts` [configuration](./CONFIGURATION.md) allows a cover art file to be written for them;
+other embedded images are left alone with a warning.
+
+Pass a release to extract the cover art of that release, or no arguments to extract the cover art of
+all releases. Pass `--dry-run` to log the changes without applying them.
+
+This operation is only supported on the command line.
+
+```bash
+$ cd $vfs_mount_dir
+
+$ rose releases extract-covers "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+[02:13:17] INFO: Extracted the embedded cover art of release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match to cover.jpg
+[02:13:17] INFO: Removed the embedded cover art from 01. LOOΠΔ ODD EYE CIRCLE - ODD.opus in release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
+...
+[02:13:17] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
+
+$ rose releases extract-covers --dry-run
+[02:13:20] INFO: [DRY RUN] Extracted the embedded cover art of release BLACKPINK - 2016. SQUARE ONE to cover.jpg
+...
+```
+
 ## Delete a Release
 
 _Deletion will move the release into the trashbin, following the [freedesktop
