@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import json
 import logging
 import os
 import subprocess
@@ -34,8 +33,19 @@ class Genre:
         return f"Genre(name='{self.name}', parents=[{len(self.parents)}], children=[{len(self.children)}])"
 
 
+# The upstream file has three top-level sections: Descriptors, Genres, and Scenes & Movements. Only
+# the Genres section is part of the genre hierarchy.
+GENRES_SECTION = "Genres"
+
+raw_text: list[str] = []
+in_genres_section = False
 with GENRES_FILE.open("r") as fp:
-    raw_text = fp.read().splitlines()
+    for line in fp.read().splitlines():
+        if not line.startswith(" "):
+            in_genres_section = line == GENRES_SECTION
+        elif in_genres_section:
+            raw_text.append(line.removeprefix("    "))
+assert raw_text, f"No {GENRES_SECTION} section found in {GENRES_FILE}"
 
 # A DAG of genres. Genres can have multiple parents; thus, this is not a tree.
 genres: dict[str, Genre] = {}
@@ -150,12 +160,3 @@ TRANSITIVE_CHILD_GENRES: dict[str, list[str]] = {repr(TRANSITIVE_CHILDREN)}
 IMMEDIATE_CHILD_GENRES: dict[str, list[str]] = {repr(IMMEDIATE_CHILDREN)}
 """)
 subprocess.run(["ruff", "format", str(OUT_PATH_PYTHON)])
-
-rust_json = {
-    "transitive_parent_genres": TRANSITIVE_PARENTS,
-    "transitive_child_genres": TRANSITIVE_CHILDREN,
-    "immediate_child_genres": IMMEDIATE_CHILDREN,
-}
-OUT_PATH_RUST = Path(os.environ["ROSE_ROOT"]) / "rose-rs" / "src" / "genre_hierarchy.json"
-with OUT_PATH_RUST.open("w") as fp:
-    json.dump(rust_json, fp)
