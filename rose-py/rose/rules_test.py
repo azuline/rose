@@ -1,11 +1,12 @@
 import dataclasses
+import shutil
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
 import pytest
 
-from rose import rules
+from conftest import TEST_TAGGER
 from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
     get_release,
@@ -17,6 +18,7 @@ from rose.common import Artist
 from rose.config import Config
 from rose.rule_parser import Matcher, Rule
 from rose.rules import (
+    READ_CACHE_FILTER_THRESHOLD,
     FastSearchResult,
     TrackTagNotAllowedError,
     execute_metadata_rule,
@@ -609,20 +611,6 @@ def test_filter_track_noops_keeps_tags_deduplicated_by_cache(config: Config, sou
     assert _noop_filter(config, source_dir, "label:Cool", ["genre:^Shoegaze$/replace:K-Pop"]) == []
 
 
-def test_rules_execution_deduplicates_tags_hidden_by_cache(monkeypatch: Any, config: Config, source_dir: Path) -> None:
-    monkeypatch.setattr(rules, "READ_CACHE_FILTER_THRESHOLD", 0)
-    path = source_dir / "Test Release 1" / "01.m4a"
-    af = AudioTags.from_file(path)
-    af.genre = ["K-Pop", "K-Pop", "Pop"]
-    af.flush(config)
-    assert AudioTags.from_file(path).genre == ["K-Pop", "K-Pop", "Pop"]
-    update_cache(config)
-
-    # The cached genres already contain K-Pop, yet the write must still deduplicate the tag.
-    execute_metadata_rule(config, Rule.parse("label:Cool", ["genre/add:K-Pop"]), confirm_yes=False)
-    assert AudioTags.from_file(path).genre == ["K-Pop", "Pop"]
-
-
 def test_filter_track_noops_ignores_artist_aliases(config: Config, source_dir: Path) -> None:
     config = dataclasses.replace(
         config,
@@ -642,25 +630,29 @@ def test_filter_track_noops_ignores_artist_aliases(config: Config, source_dir: P
     )
 
 
-def test_rules_execution_skips_reading_noop_tracks(monkeypatch: Any, config: Config, source_dir: Path) -> None:
-    monkeypatch.setattr(rules, "READ_CACHE_FILTER_THRESHOLD", 0)
-    # The paths whose tags the rule engine reads from disk.
-    read_paths: list[Path] = []
-    tag_filter = rules.filter_track_false_positives_using_tags
+def test_rules_execution_on_broad_match_writes_only_changes(config: Config, source_dir: Path) -> None:
+    # Above READ_CACHE_FILTER_THRESHOLD matched tracks, the rule engine filters the matches with the
+    # read cache before reading tags. Build a library large enough to take that path.
+    big_release = source_dir / "Big Release"
+    big_release.mkdir()
+    for i in range(READ_CACHE_FILTER_THRESHOLD):
+        shutil.copyfile(TEST_TAGGER / "track5.opus.ogg", big_release / f"{i:03d}.opus")
+    # The cache deduplicates genres, so this duplicate is only visible in the tags.
+    duplicated = source_dir / "Test Release 1" / "01.m4a"
+    af = AudioTags.from_file(duplicated)
+    af.genre = ["K-Pop", "K-Pop", "Pop"]
+    af.flush(config)
+    update_cache(config)
+    big_tags = AudioTags.from_file(big_release / "000.opus")
 
-    def spy(matcher: Matcher, fsrs: list[FastSearchResult], ignore: list[Matcher]) -> list[AudioTags]:
-        read_paths.extend(x.path for x in fsrs)
-        return tag_filter(matcher, fsrs, ignore)
+    # Only Test Release 2 has the genre: it is rewritten, and every other track is left alone.
+    execute_metadata_rule(config, Rule.parse("label:Cool", ["genre:^Dream Pop$/replace:Shoegaze"]), confirm_yes=False)
+    assert AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a").genre == ["Pop", "Shoegaze"]
+    assert AudioTags.from_file(source_dir / "Test Release 2" / "02.m4a").genre == ["Pop", "Shoegaze"]
+    assert AudioTags.from_file(duplicated).genre == ["K-Pop", "K-Pop", "Pop"]
+    assert AudioTags.from_file(big_release / "000.opus") == big_tags
 
-    monkeypatch.setattr(rules, "filter_track_false_positives_using_tags", spy)
-
-    rule = Rule.parse("label:Cool", ["genre:^Dream Pop$/replace:Shoegaze"])
-    execute_metadata_rule(config, rule, confirm_yes=False)
-    assert read_paths == [source_dir / "Test Release 2" / "01.m4a", source_dir / "Test Release 2" / "02.m4a"]
-    af = AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a")
-    assert af.genre == ["Pop", "Shoegaze"]
-
-    # The rule is now a no-op for every track, so no track is read from disk.
-    read_paths.clear()
-    execute_metadata_rule(config, rule, confirm_yes=False)
-    assert read_paths == []
+    # The cached genres are unchanged by this action, yet the write still deduplicates the tags.
+    execute_metadata_rule(config, Rule.parse("label:Cool", ["genre:^K-Pop$/replace:K-Pop"]), confirm_yes=False)
+    assert AudioTags.from_file(duplicated).genre == ["K-Pop", "Pop"]
+    assert AudioTags.from_file(big_release / "000.opus") == big_tags
