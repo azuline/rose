@@ -109,9 +109,9 @@ Rose provides the following template variables for releases:
 added_at: str                        # ISO8601 timestamp of when the release was added to the library.
 releasetitle: str
 releasetype: str                     # The type of the release (e.g. single, ep, etc). One of the enums as defined in TAGGING_CONVENTIONS.md.
-releasedate: RoseDate | None         # The date of this edition of the release.
-originaldate: RoseDate | None        # The date of the first edition of the release.
-compositiondate: RoseDate | None     # The date that the release was composed. Mainly of interest in classical music.
+releasedate: str | None              # The date of this edition of the release.
+originaldate: str | None             # The date of the first edition of the release.
+compositiondate: str | None          # The date that the release was composed. Mainly of interest in classical music.
 new: bool                            # The "new"-ness of the release. See RELEASES.md for documentation on this feature.
 favorite: bool                       # The "favorite" status of the release. See RELEASES.md for documentation on this feature.
 rating: int | None                   # The rating of the release (1-100), or None if unrated. See RELEASES.md for documentation on this feature.
@@ -161,9 +161,9 @@ trackartists.conductor: list[Artist]
 trackartists.djmixer: list[Artist]
 releasetitle: str
 releasetype: str                     # The type of the track's release (e.g. single, ep, etc).
-releasedate: RoseDate | None         # The date of this edition of the release.
-originaldate: RoseDate | None        # The date of the first edition of the release.
-compositiondate: RoseDate | None     # The date that the release was composed. Mainly of interest in classical music.
+releasedate: str | None              # The date of this edition of the release.
+originaldate: str | None             # The date of the first edition of the release.
+compositiondate: str | None          # The date that the release was composed. Mainly of interest in classical music.
 new: bool                            # The "new"-ness of the track's release.
 favorite: bool                       # The "favorite" status of the track's release.
 rating: int | None                   # The rating of the track's release (1-100), or None if unrated.
@@ -192,10 +192,9 @@ context.collage: str                 # The current collage being viewed in the V
 context.playlist: str                # The current playlist being viewed in the Virtual Filesystem.
 ```
 
-The date variables are `RoseDate` objects, not integers. A `RoseDate` has three properties: `year`
-(`int`), `month` (`int | None`), and `day` (`int | None`). Printing a date directly (e.g.
-`{{ releasedate }}`) renders `2017` if only the year is known and `2017-05-23` otherwise; use
-`{{ releasedate.year }}` to always render only the year.
+The date variables render as `YYYY-MM-DD`, or as `YYYY` if only the year is known (e.g. `2017-05-23`
+or `2017`). Each date also exposes its `year`, `month`, and `day` parts, so `{{ releasedate.year }}`
+always renders only the year.
 
 > [!NOTE]
 > The template variables are named differently from the JSON keys printed by the `print` commands.
