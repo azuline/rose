@@ -19,7 +19,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
 
-from rose import Config, Release, list_releases
+from rose import Config, Release, RoseError, list_releases
 from rose.genre_hierarchy import TRANSITIVE_PARENT_GENRES
 
 FIELDS = ["genre", "secondary genre", "descriptor"]
@@ -27,6 +27,10 @@ FIELDS = ["genre", "secondary genre", "descriptor"]
 RYM_FILE = Path(__file__).parent / "rym-genres" / "rym.txt"
 RYM_DESCRIPTORS_SECTION = "Descriptors"
 RYM_DESCRIPTOR_SUFFIX = "::mood"
+
+
+class DescriptorsSectionNotFoundError(RoseError):
+    pass
 
 
 def find_noncompliant_tags(
@@ -70,7 +74,7 @@ def format_report(
     return "\n".join(lines)
 
 
-def read_rym_descriptors(path: Path = RYM_FILE) -> list[str]:
+def read_rym_descriptors(*, path: Path = RYM_FILE) -> list[str]:
     """
     Read the descriptors out of the RYM dump. Descriptors are the `::mood` leaves of its top-level
     Descriptors section; the other lines there are category headings.
@@ -84,7 +88,7 @@ def read_rym_descriptors(path: Path = RYM_FILE) -> list[str]:
             elif in_section and line.endswith(RYM_DESCRIPTOR_SUFFIX):
                 descriptors.add(line.strip().removesuffix(RYM_DESCRIPTOR_SUFFIX))
     if not descriptors:
-        raise ValueError(f"No {RYM_DESCRIPTORS_SECTION} section found in {path}")
+        raise DescriptorsSectionNotFoundError(f"No {RYM_DESCRIPTORS_SECTION} section found in {path}")
     return sorted(descriptors)
 
 

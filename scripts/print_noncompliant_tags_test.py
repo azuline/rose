@@ -77,7 +77,7 @@ Genres
     Ambient
         Ambient::genre
 """)
-    assert read_rym_descriptors(path) == ["Dark", "Gothic", "Warm"]
+    assert read_rym_descriptors(path=path) == ["Dark", "Gothic", "Warm"]
     # The vendored dump parses and contains only descriptors.
     descriptors = read_rym_descriptors()
     assert "Melancholic" in descriptors
