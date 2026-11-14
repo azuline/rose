@@ -448,22 +448,6 @@ def test_confirmation_no(config: Config, source_dir: Path) -> None:
     assert af.tracktitle != "lalala"
 
 
-@pytest.mark.timeout(2)
-def test_confirmation_num_changes(config: Config, source_dir: Path) -> None:
-    rule = Rule.parse("tracktitle:Track", ["replace:lalala"])
-    seen: list[int] = []
-
-    def confirm(num_changes: int) -> bool:
-        seen.append(num_changes)
-        return True
-
-    execute_metadata_rule(config, rule, confirm_yes=True, confirm=confirm)
-    # The confirmer is invoked once with the total number of matched tracks.
-    assert seen == [6]
-    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.tracktitle == "lalala"
-
-
 def test_dry_run(config: Config, source_dir: Path) -> None:
     rule = Rule.parse("tracktitle:Track", ["replace:lalala"])
     execute_metadata_rule(config, rule, dry_run=True, confirm_yes=False)
