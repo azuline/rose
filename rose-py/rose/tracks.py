@@ -17,6 +17,8 @@ from rose.common import RoseExpectedError
 from rose.config import Config
 from rose.rule_parser import ALL_TAGS, Action, Matcher
 from rose.rules import (
+    ChangesConfirmer,
+    ChangesPreviewer,
     execute_metadata_actions,
     fast_search_for_matching_tracks,
     filter_track_false_positives_using_read_cache,
@@ -58,10 +60,14 @@ def run_actions_on_track(
     *,
     dry_run: bool = False,
     confirm_yes: bool = False,
+    preview: ChangesPreviewer | None = None,
+    confirm: ChangesConfirmer | None = None,
 ) -> None:
-    """Run rule engine actions on a release."""
+    """Run rule engine actions on a track."""
     track = get_track(c, track_id)
     if track is None:
         raise TrackDoesNotExistError(f"Track {track_id} does not exist")
     audiotag = AudioTags.from_file(track.source_path)
-    execute_metadata_actions(c, actions, [audiotag], dry_run=dry_run, confirm_yes=confirm_yes)
+    execute_metadata_actions(
+        c, actions, [audiotag], dry_run=dry_run, confirm_yes=confirm_yes, preview=preview, confirm=confirm
+    )

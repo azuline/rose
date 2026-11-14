@@ -260,6 +260,19 @@ $ tree "8. Playlists/Shower/"
 └── 2. LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
 ```
 
+### Without an Editor
+
+For scripts and agent harnesses that cannot drive an interactive `$EDITOR`, `--print` writes the
+same text to stdout, and `--apply` submits the edited text from a file (or from stdin with `-`).
+
+```bash
+$ rose collages edit --print "Road Trip" > road-trip.txt
+# Reorder or delete lines in road-trip.txt, and then:
+$ rose collages edit --apply road-trip.txt "Road Trip"
+
+$ rose playlists edit --print "Shower" | tac | rose playlists edit --apply - "Shower"
+```
+
 ## Deleting a Collage/Playlist
 
 _Deletion will move the collage/playlist into the trashbin, following the [freedesktop

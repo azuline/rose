@@ -116,6 +116,20 @@ artists = [
 ]
 ```
 
+## Without an Editor
+
+For scripts and agent harnesses that cannot drive an interactive `$EDITOR`, the same edit can be
+done in two steps. `--print` writes the release's TOML to stdout, and `--apply` submits an edited
+TOML from a file (or from stdin with `-`).
+
+```bash
+$ rose releases edit --print "018b4ff1-acdf-7ff1-bcd6-67757aea0fed" > release.toml
+# Modify release.toml, and then:
+$ rose releases edit --apply release.toml "018b4ff1-acdf-7ff1-bcd6-67757aea0fed"
+```
+
+The rules engine commands also prompt for confirmation; pass `--yes` to skip the prompt.
+
 # Rules Engine
 
 Rose's rule engine allows you to update metadata in bulk across your library.

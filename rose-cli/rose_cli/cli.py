@@ -13,6 +13,7 @@ import uuid
 from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
+from typing import TextIO
 
 import click
 from rose import (
@@ -21,6 +22,7 @@ from rose import (
     AudioTags,
     Config,
     Matcher,
+    MetadataMutationPlan,
     Rule,
     UnsupportedFiletypeError,
     add_release_to_collage,
@@ -33,9 +35,6 @@ from rose import (
     delete_playlist_cover_art,
     delete_release,
     delete_release_cover_art,
-    edit_collage_in_editor,
-    edit_playlist_in_editor,
-    edit_release,
     execute_metadata_rule,
     execute_stored_metadata_rules,
     maybe_invalidate_cache_database,
@@ -45,12 +44,18 @@ from rose import (
     rename_playlist,
     run_actions_on_release,
     run_actions_on_track,
+    serialize_collage,
+    serialize_playlist,
+    serialize_release_metadata,
     set_playlist_cover_art,
     set_release_cover_art,
     set_release_rating,
     toggle_release_favorite,
     toggle_release_new,
     update_cache,
+    upsert_collage,
+    upsert_playlist,
+    upsert_release_metadata,
 )
 
 from rose_cli.dump import (
@@ -92,6 +97,65 @@ class InvalidTrackArgError(CliExpectedError):
 
 class DaemonAlreadyRunningError(CliExpectedError):
     pass
+
+
+def _preview_changes(plan: MetadataMutationPlan, c: Config) -> None:
+    """Display a colored diff of the metadata changes the rules engine intends to write."""
+    for pathtext, changes in plan.describe(c):
+        click.secho(pathtext, underline=True)
+        for name, old, new in changes:
+            click.echo(f"      {name}: ", nl=False)
+            click.secho(old, fg="red", nl=False)
+            click.echo(" -> ", nl=False)
+            click.secho(new, fg="green", bold=True)
+
+
+def _confirm_changes(num_changes: int, *, enter_number_to_confirm_above_count: int = 25) -> bool:
+    """Prompt the user to confirm writing `num_changes` changes. Returns whether to proceed."""
+    click.echo()
+    if num_changes > enter_number_to_confirm_above_count:
+        while True:
+            userconfirmation = click.prompt(
+                f"Write changes to {num_changes} tracks? Enter {click.style(num_changes, bold=True)} to confirm (or 'no' to abort)"
+            )
+            if userconfirmation == "no":
+                return False
+            if userconfirmation == str(num_changes):
+                click.echo()
+                return True
+    if not click.confirm(
+        f"Write changes to {click.style(num_changes, bold=True)} tracks?",
+        default=True,
+        prompt_suffix="",
+    ):
+        return False
+    click.echo()
+    return True
+
+
+class InvalidEditOptionsError(CliExpectedError):
+    pass
+
+
+def _edit_text(text: str, *, print_only: bool, apply_from: TextIO | None, extension: str = ".txt") -> str | None:
+    """
+    Run one of the three editing workflows on `text` and return the edited text, or None if there
+    is nothing to apply. By default, the text is opened in $EDITOR. For non-interactive use (scripts
+    and agent harnesses), `print_only` writes the text to stdout and `apply_from` reads the edited
+    text from a file or stdin.
+    """
+    if print_only and apply_from is not None:
+        raise InvalidEditOptionsError("--print and --apply are mutually exclusive")
+    if print_only:
+        click.echo(text, nl=not text.endswith("\n"))
+        return None
+    if apply_from is not None:
+        return apply_from.read()
+    return click.edit(text, extension=extension)
+
+
+PRINT_OPTION_HELP = "Print the editable text to stdout instead of opening $EDITOR."
+APPLY_OPTION_HELP = "Apply the edited text from a file (or - for stdin) instead of opening $EDITOR."
 
 
 @dataclass
@@ -243,11 +307,33 @@ def print_all_releases(ctx: Context, matcher: str | None) -> None:
 @releases.command(name="edit")
 @click.argument("release", type=click.Path(), nargs=1)
 @click.option("--resume", "-r", type=click.Path(path_type=Path), nargs=1, help="Resume a failed release edit.")  # fmt: skip
+@click.option("--print", "-p", "print_only", is_flag=True, help=PRINT_OPTION_HELP)
+@click.option("--apply", "-a", "apply_from", type=click.File("r"), help=APPLY_OPTION_HELP)
 @click.pass_obj
-def edit_release_cmd(ctx: Context, release: str, resume: Path | None) -> None:
-    """Edit a release's metadata in $EDITOR. Accepts a release's UUID/path."""
+def edit_release_cmd(
+    ctx: Context,
+    release: str,
+    resume: Path | None,
+    print_only: bool,
+    apply_from: TextIO | None,
+) -> None:
+    """
+    Edit a release's metadata in $EDITOR. Accepts a release's UUID/path.
+
+    For non-interactive use, --print writes the metadata TOML to stdout, and --apply submits an
+    edited TOML from a file or stdin.
+    """
     release = parse_release_argument(release)
-    edit_release(ctx.config, release, resume_file=resume)
+    original_toml = serialize_release_metadata(ctx.config, release, resume_file=resume)
+    toml = _edit_text(original_toml, print_only=print_only, apply_from=apply_from, extension=".toml")
+    if print_only:
+        return
+    if toml is None:
+        toml = original_toml
+    if original_toml == toml and not resume:
+        logger.info("Aborting manual release edit: no metadata change detected.")
+        return
+    upsert_release_metadata(ctx.config, release, toml, resume_file=resume)
 
 
 @releases.command()
@@ -331,6 +417,8 @@ def run_rule(ctx: Context, release: str, actions: list[str], dry_run: bool, yes:
         parsed_actions,
         dry_run=dry_run,
         confirm_yes=not yes,
+        preview=_preview_changes,
+        confirm=_confirm_changes,
     )
 
 
@@ -391,6 +479,8 @@ def run_rule_track(ctx: Context, track: str, actions: list[str], dry_run: bool, 
         parsed_actions,
         dry_run=dry_run,
         confirm_yes=not yes,
+        preview=_preview_changes,
+        confirm=_confirm_changes,
     )
 
 
@@ -446,10 +536,25 @@ def remove_release(ctx: Context, collage: str, release: str) -> None:
 
 @collages.command()
 @click.argument("collage", type=str, nargs=1)
+@click.option("--print", "-p", "print_only", is_flag=True, help=PRINT_OPTION_HELP)
+@click.option("--apply", "-a", "apply_from", type=click.File("r"), help=APPLY_OPTION_HELP)
 @click.pass_obj
-def edit(ctx: Context, collage: str) -> None:
-    """Edit (reorder/remove releases from) a collage in $EDITOR. Accepts a collage's name."""
-    edit_collage_in_editor(ctx.config, collage)
+def edit(ctx: Context, collage: str, print_only: bool, apply_from: TextIO | None) -> None:
+    """
+    Edit (reorder/remove releases from) a collage in $EDITOR. Accepts a collage's name.
+
+    For non-interactive use, --print writes the collage's release lines to stdout, and --apply
+    submits the edited lines from a file or stdin.
+    """
+    edited_descriptions = _edit_text(
+        serialize_collage(ctx.config, collage), print_only=print_only, apply_from=apply_from
+    )
+    if print_only:
+        return
+    if edited_descriptions is None:
+        logger.info("Aborting: metadata file not submitted.")
+        return
+    upsert_collage(ctx.config, collage, edited_descriptions)
 
 
 @collages.command(name="print")
@@ -519,13 +624,26 @@ def remove_track(ctx: Context, playlist: str, track: str) -> None:
 
 @playlists.command(name="edit")
 @click.argument("playlist", type=str, nargs=1)
+@click.option("--print", "-p", "print_only", is_flag=True, help=PRINT_OPTION_HELP)
+@click.option("--apply", "-a", "apply_from", type=click.File("r"), help=APPLY_OPTION_HELP)
 @click.pass_obj
-def edit_playlist(ctx: Context, playlist: str) -> None:
+def edit_playlist(ctx: Context, playlist: str, print_only: bool, apply_from: TextIO | None) -> None:
     """
     Edit a playlist in $EDITOR. Reorder lines to update the ordering of tracks. Delete lines to
     delete tracks from the playlist.
+
+    For non-interactive use, --print writes the playlist's track lines to stdout, and --apply
+    submits the edited lines from a file or stdin.
     """
-    edit_playlist_in_editor(ctx.config, playlist)
+    edited_descriptions = _edit_text(
+        serialize_playlist(ctx.config, playlist), print_only=print_only, apply_from=apply_from
+    )
+    if print_only:
+        return
+    if edited_descriptions is None:
+        logger.info("Aborting: metadata file not submitted.")
+        return
+    upsert_playlist(ctx.config, playlist, edited_descriptions)
 
 
 @playlists.command(name="print")
@@ -667,7 +785,9 @@ def run(
         logger.info("No-Op: No actions passed")
         return
     rule = Rule.parse(matcher, actions, ignore)
-    execute_metadata_rule(ctx.config, rule, dry_run=dry_run, confirm_yes=not yes)
+    execute_metadata_rule(
+        ctx.config, rule, dry_run=dry_run, confirm_yes=not yes, preview=_preview_changes, confirm=_confirm_changes
+    )
 
 
 @rules.command()
@@ -676,7 +796,9 @@ def run(
 @click.pass_obj
 def run_stored(ctx: Context, dry_run: bool, yes: bool) -> None:
     """Run the rules stored in the config."""
-    execute_stored_metadata_rules(ctx.config, dry_run=dry_run, confirm_yes=not yes)
+    execute_stored_metadata_rules(
+        ctx.config, dry_run=dry_run, confirm_yes=not yes, preview=_preview_changes, confirm=_confirm_changes
+    )
 
 
 def parse_release_argument(r: str) -> str:
