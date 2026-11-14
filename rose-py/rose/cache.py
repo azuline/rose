@@ -21,6 +21,9 @@ the overall complexity of the cache update sequence:
 3. **Performance:** We want to minimize file accesses, so we cache heavily and batch operations
    together. This creates a lot of intermediate state that we accumulate throughout the cache
    update.
+4. **Duplicate IDs:** File synchronization tools can leave behind copies of datafiles, release
+   directories, and tracks, so that multiple paths claim the same ID. The alphanumerically first
+   path keeps the ID. We ignore the other paths and log a warning; we never delete them.
 """
 
 from __future__ import annotations
@@ -70,14 +73,6 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 CACHE_SCHEMA_PATH = Path(__file__).resolve().parent / "cache.sql"
-
-
-class DuplicateReleaseError(RoseError):
-    pass
-
-
-class DuplicateTrackError(RoseError):
-    pass
 
 
 @contextlib.contextmanager
@@ -361,6 +356,39 @@ class StoredDataFile:
 STORED_DATA_FILE_REGEX = re.compile(r"^\.rose\.([^.]+)\.toml$")
 
 
+def find_release_datafile(release_dir: Path) -> Path | None:
+    """
+    Return the datafile of a release directory. If the directory has multiple datafiles, the
+    alphanumerically first one is the release's datafile; the cache update ignores the others.
+    """
+    return min((f for f in release_dir.iterdir() if STORED_DATA_FILE_REGEX.match(f.name)), default=None)
+
+
+def _loses_duplicate_id(candidate: Path, holder: Path, holder_exists: bool) -> bool:
+    """
+    When multiple paths on disk claim the same ID, the alphanumerically first path keeps the ID and
+    the others are ignored. `holder` is the path that the ID is currently assigned to.
+    """
+    return holder != candidate and holder < candidate and holder_exists
+
+
+def _release_dir_has_id(release_dir: Path, release_id: str) -> bool:
+    """Whether the release directory still claims the release ID with the datafile it is read by."""
+    try:
+        datafile = find_release_datafile(release_dir)
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    return datafile is not None and datafile.name == f".rose.{release_id}.toml"
+
+
+def _track_file_has_id(track_path: Path, track_id: str) -> bool:
+    """Whether the track file still claims the track ID in its tags."""
+    try:
+        return AudioTags.from_file(track_path).id == track_id
+    except (FileNotFoundError, RoseError):
+        return False
+
+
 def update_cache(
     c: Config,
     force: bool = False,
@@ -503,23 +531,49 @@ def _update_cache_for_releases_executor(
     # Path Basename -> (Release ID if exists, filenames).
     dir_scan_start = time.time()
     dir_tree: list[tuple[Path, str | None, list[Path]]] = []
-    release_uuids: list[str] = []
     for rd in release_dirs:
         release_id = None
         files: list[Path] = []
+        datafiles: list[Path] = []
         if not rd.is_dir():
             logger.debug(f"Skipping scanning {rd} because it is not a directory")
             continue
         for root, _, subfiles in os.walk(str(rd)):
             for sf in subfiles:
-                if m := STORED_DATA_FILE_REGEX.match(sf):
-                    release_id = m[1]
+                if STORED_DATA_FILE_REGEX.match(sf):
+                    datafiles.append(Path(root) / sf)
                 files.append(Path(root) / sf)
         # Force a deterministic file sort order.
         files.sort()
+        # If the directory has multiple datafiles, the alphanumerically first one wins. Datafiles
+        # at the root of the release directory precede nested ones.
+        if datafiles:
+            datafiles.sort(key=lambda d: (len(d.parts), d))
+            m = STORED_DATA_FILE_REGEX.match(datafiles[0].name)
+            assert m is not None
+            release_id = m[1]
+            if len(datafiles) > 1:
+                logger.warning(
+                    f"Release {rd} has multiple datafiles: using {datafiles[0].name} and ignoring "
+                    f"{', '.join(d.name for d in datafiles[1:])}"
+                )
         dir_tree.append((rd.resolve(), release_id, files))
-        if release_id is not None:
-            release_uuids.append(release_id)
+    # If multiple directories have the same release ID, the alphanumerically first directory wins.
+    # We process the directories in sorted order so that the first path to claim an ID keeps it.
+    dir_tree.sort(key=lambda x: x[0])
+    release_dirs_by_id: dict[str, Path] = {}
+    deduplicated_dir_tree: list[tuple[Path, str | None, list[Path]]] = []
+    for source_path, release_id, files in dir_tree:
+        if release_id is not None and any(f.suffix.lower() in SUPPORTED_AUDIO_EXTENSIONS for f in files):
+            if winner := release_dirs_by_id.get(release_id):
+                logger.warning(
+                    f"Ignoring release directory {source_path}: its release ID {release_id} is already used by {winner}"
+                )
+                continue
+            release_dirs_by_id[release_id] = source_path
+        deduplicated_dir_tree.append((source_path, release_id, files))
+    dir_tree = deduplicated_dir_tree
+    release_uuids = [release_id for _, release_id, _ in dir_tree if release_id is not None]
     logger.debug(f"Release update source dir scan time {time.time() - dir_scan_start=}")
 
     cache_read_start = time.time()
@@ -580,6 +634,11 @@ def _update_cache_for_releases_executor(
     upd_track_args: list[list[Any]] = []
     upd_track_ids: list[str] = []
     upd_track_artist_args: list[list[Any]] = []
+    # The first track path to claim a track ID in this run. Later paths with the same ID are ignored.
+    track_paths_by_id: dict[str, Path] = {}
+    # Lazily opened; used to check whether the IDs of newly discovered tracks are already taken.
+    track_lookup_conn = contextlib.ExitStack()
+    track_lookup: sqlite3.Connection | None = None
     for source_path, preexisting_release_id, files in dir_tree:
         logger.debug(f"Scanning release {source_path.name}")
         # Check to see if we should even process the directory. If the directory does not have
@@ -635,6 +694,19 @@ def _update_cache_for_releases_executor(
                 metahash="",
             )
             cached_tracks = {}
+
+        # If another directory with this release ID is in the cache, the alphanumerically first
+        # directory keeps the release ID and the other one is ignored.
+        if _loses_duplicate_id(
+            source_path,
+            release.source_path,
+            source_path != release.source_path and _release_dir_has_id(release.source_path, release.id),
+        ):
+            logger.warning(
+                f"Ignoring release directory {source_path}: its release ID {release.id} is already "
+                f"used by {release.source_path}"
+            )
+            continue
 
         # Handle source path change; if it's changed, update the release.
         if source_path != release.source_path:
@@ -758,6 +830,13 @@ def _update_cache_for_releases_executor(
                 # Skip re-read if we can reuse a cached entry.
                 if cached_track and track_mtime == cached_track.source_mtime and not force:
                     logger.debug(f"Track cache hit (mtime) for {os.path.basename(f)}, reusing cached data")
+                    if winner := track_paths_by_id.get(cached_track.id):
+                        logger.warning(
+                            f"Ignoring track {f}: its track ID {cached_track.id} is already used by {winner}"
+                        )
+                        unknown_cached_tracks.add(str(f))
+                        continue
+                    track_paths_by_id[cached_track.id] = f
                     tracks.append(cached_track)
                     totals_ctr[cached_track.discnumber] += 1
                     continue
@@ -768,6 +847,25 @@ def _update_cache_for_releases_executor(
             except FileNotFoundError:
                 logger.warning(f"Skipping track update for {os.path.basename(f)}: file no longer exists")
                 continue
+
+            # If another file has the same track ID, the alphanumerically first file keeps the
+            # track ID and the other one is ignored.
+            if tags.id:
+                winner = track_paths_by_id.get(tags.id)
+                if not winner and not (cached_track and cached_track.id == tags.id):
+                    if track_lookup is None:
+                        track_lookup = track_lookup_conn.enter_context(connect(c))
+                    row = track_lookup.execute("SELECT source_path FROM tracks WHERE id = ?", (tags.id,)).fetchone()
+                    if row and _loses_duplicate_id(
+                        f, Path(row["source_path"]), _track_file_has_id(Path(row["source_path"]), tags.id)
+                    ):
+                        winner = Path(row["source_path"])
+                if winner:
+                    logger.warning(f"Ignoring track {f}: its track ID {tags.id} is already used by {winner}")
+                    if cached_track:
+                        unknown_cached_tracks.add(str(f))
+                    continue
+                track_paths_by_id[tags.id] = f
 
             # Now that we're here, pull the release tags. We also need them to compute the
             # formatted artist string.
@@ -883,8 +981,7 @@ def _update_cache_for_releases_executor(
                 release=release,
             )
             tracks.append(track)
-            if track.id in track_ids_to_insert:
-                raise DuplicateTrackError(f"Duplicate track found at {f}")
+            track_paths_by_id[track.id] = f
             track_ids_to_insert.add(track.id)
             totals_ctr[track.discnumber] += 1
 
@@ -998,8 +1095,6 @@ def _update_cache_for_releases_executor(
                 release.rating,
                 sha256_dataclass(release),
             ])
-            if release.id in upd_release_ids:
-                raise DuplicateReleaseError(f"Duplicate release found at {release.source_path}")
             upd_release_ids.append(release.id)
             for pos, genre in enumerate(release.genres):
                 upd_release_genre_args.append([release.id, genre, pos])
@@ -1038,6 +1133,7 @@ def _update_cache_for_releases_executor(
                     for art in artists:
                         upd_track_artist_args.append([track.id, art.name, role, pos])
                         pos += 1
+    track_lookup_conn.close()
     logger.debug(f"Release update scheduling loop time {time.time() - loop_start=}")
 
     exec_start = time.time()
@@ -1046,6 +1142,67 @@ def _update_cache_for_releases_executor(
     update_collages = None
     update_playlists = None
     with connect(c) as conn:
+        # Another process may have written the same release and track IDs for other paths while we
+        # were scanning. Hold the write lock while we compare against the cache, upsert, and update
+        # the full text search index, so that the alphanumerically first path wins no matter which
+        # process writes first.
+        has_writes = bool(
+            upd_delete_source_paths or upd_unknown_cached_tracks_args or upd_release_args or upd_track_args
+        )
+        if has_writes:
+            conn.execute("BEGIN IMMEDIATE")
+        new_release_paths = {a[0]: Path(a[1]) for a in upd_release_args}
+        new_track_paths = {a[0]: Path(a[1]) for a in upd_track_args}
+        lost_release_ids: set[str] = set()
+        for row in conn.execute(
+            f"SELECT id, source_path FROM releases WHERE id IN ({','.join(['?'] * len(upd_release_ids))})",
+            upd_release_ids,
+        ).fetchall():
+            new_path = new_release_paths[row["id"]]
+            old_path = Path(row["source_path"])
+            if old_path == new_path or not _release_dir_has_id(old_path, row["id"]):
+                continue
+            if _loses_duplicate_id(new_path, old_path, True):
+                logger.warning(
+                    f"Ignoring release directory {new_path}: its release ID {row['id']} is already used by {old_path}"
+                )
+                lost_release_ids.add(row["id"])
+                continue
+            # We take over the release ID from the other directory, so evict its tracks.
+            stale = [
+                t["id"]
+                for t in conn.execute("SELECT id, source_path FROM tracks WHERE release_id = ?", (row["id"],))
+                if not Path(t["source_path"]).is_relative_to(new_path)
+            ]
+            conn.execute(f"DELETE FROM tracks WHERE id IN ({','.join(['?'] * len(stale))})", stale)
+        lost_track_ids = {a[0] for a in upd_track_args if a[4] in lost_release_ids}
+        for row in conn.execute(
+            f"SELECT id, source_path FROM tracks WHERE id IN ({','.join(['?'] * len(upd_track_ids))})",
+            upd_track_ids,
+        ).fetchall():
+            if row["id"] in lost_track_ids:
+                continue
+            new_path = new_track_paths[row["id"]]
+            old_path = Path(row["source_path"])
+            if _loses_duplicate_id(new_path, old_path, _track_file_has_id(old_path, row["id"])):
+                logger.warning(f"Ignoring track {new_path}: its track ID {row['id']} is already used by {old_path}")
+                lost_track_ids.add(row["id"])
+        if lost_release_ids:
+            upd_unknown_cached_tracks_args = [a for a in upd_unknown_cached_tracks_args if a[0] not in lost_release_ids]
+            upd_release_args = [a for a in upd_release_args if a[0] not in lost_release_ids]
+            upd_release_ids = [x for x in upd_release_ids if x not in lost_release_ids]
+            upd_release_artist_args = [a for a in upd_release_artist_args if a[0] not in lost_release_ids]
+            upd_release_genre_args = [a for a in upd_release_genre_args if a[0] not in lost_release_ids]
+            upd_release_secondary_genre_args = [
+                a for a in upd_release_secondary_genre_args if a[0] not in lost_release_ids
+            ]
+            upd_release_descriptor_args = [a for a in upd_release_descriptor_args if a[0] not in lost_release_ids]
+            upd_release_label_args = [a for a in upd_release_label_args if a[0] not in lost_release_ids]
+        if lost_track_ids:
+            upd_track_args = [a for a in upd_track_args if a[0] not in lost_track_ids]
+            upd_track_ids = [x for x in upd_track_ids if x not in lost_track_ids]
+            upd_track_artist_args = [a for a in upd_track_artist_args if a[0] not in lost_track_ids]
+
         if upd_delete_source_paths:
             conn.execute(
                 f"DELETE FROM releases WHERE source_path IN ({','.join(['?'] * len(upd_delete_source_paths))})",
@@ -1305,6 +1462,9 @@ def _update_cache_for_releases_executor(
                 """,
                 [*upd_track_ids, *upd_release_ids],
             )
+
+        if has_writes:
+            conn.execute("COMMIT")
 
         # Schedule collage/playlist updates in order to update description_meta. We simply update
         # collages and playlists if any of their members have changed--we do not try to be precise

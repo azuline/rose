@@ -24,6 +24,7 @@ from rose.cache import (
     Release,
     Track,
     filter_releases,
+    find_release_datafile,
     get_release,
     get_tracks_of_release,
     list_releases,
@@ -103,9 +104,7 @@ def toggle_release_new(c: Config, release_id: str) -> None:
         artists=release.releaseartists,
     )
 
-    for f in release.source_path.iterdir():
-        if not STORED_DATA_FILE_REGEX.match(f.name):
-            continue
+    if f := find_release_datafile(release.source_path):
         with lock(c, release_lock_name(release_id)):
             with f.open("rb") as fp:
                 data = tomllib.load(fp)
@@ -128,9 +127,7 @@ def toggle_release_favorite(c: Config, release_id: str) -> None:
         title=release.releasetitle, releasedate=release.releasedate, artists=release.releaseartists
     )
 
-    for f in release.source_path.iterdir():
-        if not STORED_DATA_FILE_REGEX.match(f.name):
-            continue
+    if f := find_release_datafile(release.source_path):
         with lock(c, release_lock_name(release_id)):
             with f.open("rb") as fp:
                 data = tomllib.load(fp)
@@ -156,9 +153,7 @@ def set_release_rating(c: Config, release_id: str, rating: int | None) -> None:
         title=release.releasetitle, releasedate=release.releasedate, artists=release.releaseartists
     )
 
-    for f in release.source_path.iterdir():
-        if not STORED_DATA_FILE_REGEX.match(f.name):
-            continue
+    if f := find_release_datafile(release.source_path):
         with lock(c, release_lock_name(release_id)):
             with f.open("rb") as fp:
                 data = tomllib.load(fp)
@@ -634,10 +629,9 @@ def create_single_release(
     c_tmp = dataclasses.replace(c, rename_source_files=False)
     update_cache_for_releases(c_tmp, [source_path])
     # Step 5: Default extracted singles to not new: if it is new, why are you meddling with it?
-    for f in source_path.iterdir():
-        if m := STORED_DATA_FILE_REGEX.match(f.name):
-            release_id = m[1]
-            break
+    datafile = find_release_datafile(source_path)
+    if datafile and (m := STORED_DATA_FILE_REGEX.match(datafile.name)):
+        release_id = m[1]
     else:
         raise RoseError(f"Impossible: Failed to parse release ID from newly created single directory {source_path}")
     toggle_release_new(c, release_id)

@@ -47,6 +47,21 @@ Rose provides the `rose cache watch` command, which runs a watcher that listens 
 events in the source directory. This watcher will trigger a cache update whenever a file in the
 source directory changes.
 
+# Duplicate IDs
+
+Rosé identifies releases and tracks by the IDs stored in the `.rose.{uuid}.toml` datafile and in
+the audio tags. Tools that copy or synchronize the source directory can leave behind duplicates, so
+that the same ID appears at multiple paths:
+
+1. A release directory with multiple `.rose.{uuid}.toml` datafiles.
+2. Multiple release directories with the same release ID.
+3. Multiple track files with the same track ID.
+
+In each case, the alphanumerically first path keeps the ID. Rosé ignores the other paths, leaving
+them out of the cache, and logs a warning that names the ignored path and the path that kept the ID.
+Rosé never deletes or modifies the ignored files. To resolve a warning, remove the unwanted copy
+from the source directory.
+
 # Cache Resets
 
 When Rose detects that:

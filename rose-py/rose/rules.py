@@ -28,11 +28,11 @@ import tomli_w
 
 from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
-    STORED_DATA_FILE_REGEX,
     Release,
     StoredDataFile,
     Track,
     connect,
+    find_release_datafile,
     list_releases,
     list_tracks,
     lock,
@@ -331,9 +331,7 @@ def filter_track_false_positives_using_tags(
 
 
 def _get_release_datafile_of_directory(d: Path) -> StoredDataFile:
-    for f in d.iterdir():
-        if not STORED_DATA_FILE_REGEX.match(f.name):
-            continue
+    if f := find_release_datafile(d):
         with f.open("rb") as fp:
             diskdata = tomllib.load(fp)
         return StoredDataFile.parse(diskdata)
@@ -666,9 +664,7 @@ def execute_metadata_actions(
         logger.debug(
             f"Attempting to write {pathtext} changes: {' //// '.join([str(x) + ' -> ' + str(y) for _, x, y in datafile_changes])}"
         )
-        for f in Path(path).iterdir():
-            if not STORED_DATA_FILE_REGEX.match(f.name):
-                continue
+        if f := find_release_datafile(Path(path)):
             with _maybe_release_lock(c, tags.release_id), f.open("wb") as fp:
                 tomli_w.dump(datafile.serialize(), fp)
         logger.info(f"Wrote datafile changes to {pathtext}")
