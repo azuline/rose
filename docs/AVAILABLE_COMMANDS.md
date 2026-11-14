@@ -35,6 +35,8 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
     release.
   - `releases download-metadata`: Download metadata from associated URLs and suggest metadata
     improvements.
+  - `releases reflush`: Rewrite the tags of a release (or all releases) and rename its source
+    directory and files per the source path templates.
   - `releases create-single`: Create a "phony" single release from a track and copy the track into
     the new release.
 - tracks/

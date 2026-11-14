@@ -56,14 +56,12 @@ from rose.common import (
     ArtistMapping,
     RoseError,
     flatten,
-    sanitize_dirname,
-    sanitize_filename,
     sha256_dataclass,
     uniq,
 )
 from rose.config import Config
 from rose.genre_hierarchy import TRANSITIVE_CHILD_GENRES, TRANSITIVE_PARENT_GENRES
-from rose.templates import artistsfmt, evaluate_release_template, evaluate_track_template
+from rose.templates import artistsfmt
 
 logger = logging.getLogger(__name__)
 
@@ -901,73 +899,6 @@ def _update_cache_for_releases_executor(
                 logger.debug(f"Track tracktotal change detected for {track.source_path}, updating")
                 track.tracktotal = tracktotal
                 track_ids_to_insert.add(track.id)
-
-        # And now perform directory/file renames if configured.
-        if c.rename_source_files:
-            if release_dirty:
-                wanted_dirname = evaluate_release_template(c.path_templates.source.release, release)
-                wanted_dirname = sanitize_dirname(c, wanted_dirname, True, sanitize_diacritics=True)
-                # Iterate until we've either:
-                # 1. Realized that the name of the source path matches the desired dirname (which we
-                #    may not realize immediately if there are name conflicts).
-                # 2. Or renamed the source directory to match our desired name.
-                original_wanted_dirname = wanted_dirname
-                collision_no = 2
-                while not _compare_strs(wanted_dirname, release.source_path.name):
-                    new_source_path = release.source_path.with_name(wanted_dirname)
-                    # If there is a collision, bump the collision counter and retry.
-                    if new_source_path.exists():
-                        new_max_len = c.max_filename_bytes - (3 + len(str(collision_no)))
-                        wanted_dirname = f"{original_wanted_dirname[:new_max_len]} [{collision_no}]"
-                        collision_no += 1
-                        continue
-                    # If no collision, rename the directory.
-                    old_source_path = release.source_path
-                    old_source_path.rename(new_source_path)
-                    logger.info(f"Renamed source release directory {old_source_path.name} to {new_source_path.name}")
-                    release.source_path = new_source_path
-                    # Update the cached cover image path.
-                    if release.cover_image_path:
-                        coverlocalpath = str(release.cover_image_path).removeprefix(f"{old_source_path}/")
-                        release.cover_image_path = release.source_path / coverlocalpath
-                    # Update the cached track paths and schedule them for database insertions.
-                    for track in tracks:
-                        tracklocalpath = str(track.source_path).removeprefix(f"{old_source_path}/")
-                        track.source_path = release.source_path / tracklocalpath
-                        track.source_mtime = str(os.stat(track.source_path).st_mtime)
-                        track_ids_to_insert.add(track.id)
-            for track in [t for t in tracks if t.id in track_ids_to_insert]:
-                wanted_filename = evaluate_track_template(c.path_templates.source.track, track)
-                wanted_filename = sanitize_filename(c, wanted_filename, True, sanitize_diacritics=True)
-                # And repeat a similar process to the release rename handling. Except: we can have
-                # arbitrarily nested files here, so we need to compare more than the name.
-                original_wanted_stem = Path(wanted_filename).stem
-                original_wanted_suffix = Path(wanted_filename).suffix
-                collision_no = 2
-                while (relpath := str(track.source_path).removeprefix(f"{release.source_path}/")) and not _compare_strs(
-                    wanted_filename, relpath
-                ):
-                    new_source_path = release.source_path / wanted_filename
-                    if new_source_path.exists():
-                        new_max_len = c.max_filename_bytes - (3 + len(str(collision_no)) + len(original_wanted_suffix))
-                        wanted_filename = (
-                            f"{original_wanted_stem[:new_max_len]} [{collision_no}]{original_wanted_suffix}"
-                        )
-                        collision_no += 1
-                        continue
-                    old_source_path = track.source_path
-                    old_source_path.rename(new_source_path)
-                    track.source_path = new_source_path
-                    track.source_mtime = str(os.stat(track.source_path).st_mtime)
-                    logger.info(
-                        f"Renamed source file {release.source_path.name}/{relpath} to {release.source_path.name}/{wanted_filename}"
-                    )
-                    # And clean out any empty directories post-rename.
-                    while relpath := os.path.dirname(relpath):
-                        relppp = release.source_path / relpath
-                        if not relppp.is_dir() or list(relppp.iterdir()):
-                            break
-                        relppp.rmdir()
 
         # Schedule database executions.
         if unknown_cached_tracks or release_dirty or track_ids_to_insert:
@@ -2557,16 +2488,3 @@ def process_string_for_fts(x: str) -> str:
     # In order to have performant substring search, we use FTS and hack it such that every character
     # is a token. We use "¬" as our separator character, hoping that it is not used in any metadata.
     return "¬".join(str(x)) if x else x
-
-
-def _compare_strs(a: str, b: str) -> bool:
-    """
-    Unicode normalize strings before comparison; there can be comparison failures when a
-    library is ported across operating systems otherwise.
-
-    Use for guarding significant mutations (cache updates are insignificant).
-
-    Tmp: Try without normalizing, see if the churn was due to another problem.
-    """
-    return a == b
-    # return unicodedata.normalize("NFC", a) == unicodedata.normalize("NFC", b)

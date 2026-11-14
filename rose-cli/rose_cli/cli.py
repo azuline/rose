@@ -39,6 +39,7 @@ from rose import (
     execute_metadata_rule,
     execute_stored_metadata_rules,
     maybe_invalidate_cache_database,
+    reflush_releases,
     remove_release_from_collage,
     remove_track_from_playlist,
     rename_collage,
@@ -294,6 +295,20 @@ def delete_release_cmd(ctx: Context, release: str) -> None:
     """
     release = parse_release_argument(release)
     delete_release(ctx.config, release)
+
+
+@releases.command()
+@click.argument("release", type=click.Path(), nargs=1, required=False)
+@click.option("--rename/--no-rename", default=None, help="Rename the source directories and files per the source path templates (default: the rename_source_files configuration option).")  # fmt: skip
+@click.pass_obj
+def reflush(ctx: Context, release: str | None, rename: bool | None) -> None:
+    """
+    Rewrite the tags of a release's tracks in Rose's canonical format and rename its source directory
+    and files per the source path templates. Accepts a release's UUID/path. If no release is
+    specified, all releases are reflushed.
+    """
+    release_ids = [parse_release_argument(release)] if release else None
+    reflush_releases(ctx.config, release_ids, rename=rename)
 
 
 @releases.command()
