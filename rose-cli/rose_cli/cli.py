@@ -183,7 +183,7 @@ def version() -> None:
 
 @cli.group()
 def config() -> None:
-    """Utilites for configuring Rosé."""
+    """Utilites for configuring Rose."""
 
 
 @config.command()

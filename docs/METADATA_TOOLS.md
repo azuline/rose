@@ -1,19 +1,19 @@
 # Improving Your Music Metadata
 
-Rosé relies on the metadata embedded in your music files to organize your music into a useful
+Rose relies on the metadata embedded in your music files to organize your music into a useful
 virtual filesystem. This means that the quality of the music tags is important for getting the most
-out of Rosé.
+out of Rose.
 
-Therefore, Rosé also provides a text-based interface for manually modifying metadata and a rules
+Therefore, Rose also provides a text-based interface for manually modifying metadata and a rules
 engine for bulk updating metadata to improve the tags of your music library.
 
 > [!NOTE]
-> Rosé has opinionated conventions for how metadata is stored in audio tags. See
+> Rose has opinionated conventions for how metadata is stored in audio tags. See
 > [Tagging Conventions](./TAGGING_CONVENTIONS.md) for documentation.
 
 # Text-Based Release Editing
 
-Rosé supports editing a release's metadata as a text file via the `rose releases edit` command. This
+Rose supports editing a release's metadata as a text file via the `rose releases edit` command. This
 command accepts a Release ID or a Release's virtual filesystem directory name.
 
 So for example:
@@ -132,7 +132,7 @@ The rules engine commands also prompt for confirmation; pass `--yes` to skip the
 
 # Rules Engine
 
-Rosé's rule engine allows you to update metadata in bulk across your library.
+Rose's rule engine allows you to update metadata in bulk across your library.
 
 Rules consist of a _track matcher_, which matches against tracks in your library, and one or more
 _actions_, which modify the metadata of the matched tracks. The 5 available actions let you
@@ -155,7 +155,7 @@ matcher = "genre:^Kpop$"  # An example track matcher.
 actions = ["replace:K-Pop"]  # Example actions.
 ```
 
-The `rose rules run-stored` command runs all stored rules. Note that Rosé runs rules and actions in
+The `rose rules run-stored` command runs all stored rules. Note that Rose runs rules and actions in
 the order they're defined in. So if multiple rules would modify one track, the earliest defined rule
 will be applied first, and later rules applied on the output of the first rule.
 
@@ -474,7 +474,7 @@ There are three additional mechanics affecting multi-value tags:
 
 ## Rule Language
 
-Rosé provides a Domain Specific Language (DSL) for defining rules. The DSL is the only way to
+Rose provides a Domain Specific Language (DSL) for defining rules. The DSL is the only way to
 specify a rule.
 
 Matchers are specified as `tags:pattern`. `tags` is a comma-delimited array of tags, and `pattern`
@@ -505,7 +505,7 @@ escaped by doubling them. For example: `sed:::://` replaces the `:` character wi
 
 > [!NOTE]
 > When writing sed rules in the Shell and in TOML, carefully escape your backslashes. You may need
-> to double-escape them, once for the shell/TOML, and another time for Rosé's sed.
+> to double-escape them, once for the shell/TOML, and another time for Rose's sed.
 
 The formal syntax is defined by the following grammar:
 

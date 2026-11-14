@@ -1,8 +1,8 @@
 # Available Commands
 
-This document enumerates the commands available in Rosé's CLI.
+This document enumerates the commands available in Rose's CLI.
 
-First, a quick note on the structure: Rosé primarily organizes commands by the
+First, a quick note on the structure: Rose primarily organizes commands by the
 resource they effect. Most commands are of the structure `rose {resource} {action}`.
 
 - fs/ _(see [Browsing with the Virtual Filesystem](./VIRTUAL_FILESYSTEM.md))_
@@ -15,7 +15,7 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
     that have been modified.
   - `cache unwatch`: Kill the running cache watcher process.
 - config/ _(See [Configuration](./CONFIGURATION.md))_
-  - `config generate-completion`: Print a shell completion script for Rosé to stdout.
+  - `config generate-completion`: Print a shell completion script for Rose to stdout.
   - `config preview-templates`: Preview your configured path templates with sample data.
 - releases/ _(see [Managing Releases](./RELEASES.md))_
   - `releases print`: Print a single release's metadata in JSON.
