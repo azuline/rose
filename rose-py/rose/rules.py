@@ -107,12 +107,16 @@ def execute_metadata_rule(
         return
     # If there are more than 400 tracks matched, first filter the matched tracks using the cache,
     # has a sublinear time complexity (but higher baseline). Only then run the tag filter, which has
-    # linear time complexity.
-    if len(fast_search_results) > 400:
+    # linear time complexity. We also emulate the actions on the cached values and drop the tracks
+    # that the actions would not change, so that a broad matcher with a specific action does not
+    # read every matched file from disk. This assumes that the cache is up to date; the tracks that
+    # remain are still verified against their on-disk tags before anything is written.
+    if len(fast_search_results) > READ_CACHE_FILTER_THRESHOLD:
         time_start = time.time()
         tracks = list_tracks(c, [t.id for t in fast_search_results])
         logger.debug(f"Fetched tracks from cache for filtering in {time.time() - time_start} seconds")
         tracks = filter_track_false_positives_using_read_cache(rule.matcher, tracks)
+        tracks = filter_track_noops_using_read_cache(rule.actions, tracks)
         track_ids = {x.id for x in tracks}
         fast_search_results = [t for t in fast_search_results if t.id in track_ids]
     if not fast_search_results:
@@ -141,6 +145,10 @@ def execute_metadata_rule(
 
 
 TAG_ROLE_REGEX = re.compile(r"\[[^\]]+\]$")
+
+# The number of matched tracks above which the read cache is used to filter out false positives and
+# no-ops before reading tags from disk.
+READ_CACHE_FILTER_THRESHOLD = 400
 
 
 @dataclasses.dataclass(slots=True)
@@ -1038,3 +1046,124 @@ def filter_release_false_positives_using_read_cache(
         f"Filtered {len(releases)} releases down to {len(rval)} releases in {time.time() - time_start} seconds"
     )
     return rval
+
+
+# Tags whose cached value is normalized on the way into the cache (defaulted when missing, dots
+# stripped), so the cached value cannot stand in for the on-disk value when emulating an action.
+_CACHE_NORMALIZED_TAGS: set[Tag] = {"tracknumber", "tracktotal", "discnumber", "disctotal"}
+# Titles are only defaulted when missing: the cached value is trustworthy unless it is the default.
+_CACHE_DEFAULT_TITLES: dict[Tag, str] = {"tracktitle": "Unknown Title", "releasetitle": "Unknown Release"}
+# Tags whose duplicate values are dropped on the way into the cache. The actions deduplicate the
+# values they touch, so an action that touches one of these tags may rewrite duplicated on-disk
+# values even if the cached values come out unchanged.
+_CACHE_DEDUPLICATED_TAGS: set[Tag] = {"genre", "secondarygenre", "descriptor", "label"}
+
+
+def filter_track_noops_using_read_cache(
+    actions: list[Action],
+    tracks: list[Track],
+) -> list[Track]:
+    """
+    Emulate the actions on the cached values of each track and drop the tracks that the actions
+    would leave unchanged. This assumes that the read cache is up to date. Tracks whose outcome
+    cannot be determined from the cache are kept.
+    """
+    time_start = time.time()
+    rval = [t for t in tracks if _actions_may_change_cached_track(actions, t)]
+    logger.debug(
+        f"Filtered {len(tracks)} tracks down to {len(rval)} tracks with changes in {time.time() - time_start} seconds"
+    )
+    return rval
+
+
+def _cached_tag_values(t: Track) -> dict[Tag, str | list[str]]:
+    def names(xs: list[Artist]) -> list[str]:
+        return [x.name for x in xs if not x.alias]
+
+    r = t.release
+    return {
+        "tracktitle": t.tracktitle,
+        "tracknumber": t.tracknumber,
+        "tracktotal": value_to_str(t.tracktotal),
+        "discnumber": t.discnumber,
+        "disctotal": value_to_str(r.disctotal),
+        "releasetitle": r.releasetitle,
+        "releasetype": r.releasetype,
+        "releasedate": value_to_str(r.releasedate),
+        "originaldate": value_to_str(r.originaldate),
+        "compositiondate": value_to_str(r.compositiondate),
+        "edition": value_to_str(r.edition),
+        "catalognumber": value_to_str(r.catalognumber),
+        "new": value_to_str(r.new),
+        "favorite": value_to_str(r.favorite),
+        "rating": str(r.rating) if r.rating is not None else "",
+        "genre": list(r.genres),
+        "secondarygenre": list(r.secondary_genres),
+        "descriptor": list(r.descriptors),
+        "label": list(r.labels),
+        "trackartist[main]": names(t.trackartists.main),
+        "trackartist[guest]": names(t.trackartists.guest),
+        "trackartist[remixer]": names(t.trackartists.remixer),
+        "trackartist[producer]": names(t.trackartists.producer),
+        "trackartist[composer]": names(t.trackartists.composer),
+        "trackartist[conductor]": names(t.trackartists.conductor),
+        "trackartist[djmixer]": names(t.trackartists.djmixer),
+        "releaseartist[main]": names(r.releaseartists.main),
+        "releaseartist[guest]": names(r.releaseartists.guest),
+        "releaseartist[remixer]": names(r.releaseartists.remixer),
+        "releaseartist[producer]": names(r.releaseartists.producer),
+        "releaseartist[composer]": names(r.releaseartists.composer),
+        "releaseartist[conductor]": names(r.releaseartists.conductor),
+        "releaseartist[djmixer]": names(r.releaseartists.djmixer),
+    }
+
+
+def _action_touches_values(action: Action, values: list[str]) -> bool:
+    """Whether execute_multi_value_action rewrites the values instead of returning them as they are."""
+    if isinstance(action.behavior, CopyAction) or not action.pattern:
+        return True
+    return any(matches_pattern(action.pattern, v) for v in values)
+
+
+def _actions_may_change_cached_track(actions: list[Action], t: Track) -> bool:
+    """
+    Mirror execute_metadata_actions on the cached values. Returns False only if the actions are
+    known to leave every tag unchanged.
+    """
+    values = _cached_tag_values(t)
+
+    def trustworthy(field: Tag) -> bool:
+        return field not in _CACHE_NORMALIZED_TAGS and values[field] != _CACHE_DEFAULT_TITLES.get(field)
+
+    for act in actions:
+        copy_source: str | list[str] | None = None
+        if isinstance(act.behavior, CopyAction):
+            if not trustworthy(act.behavior.source):
+                return True
+            copy_source = values[act.behavior.source]
+        for field in act.tags:
+            if not trustworthy(field):
+                return True
+            old = values[field]
+            new: str | list[str]
+            if isinstance(old, list):
+                if field in _CACHE_DEDUPLICATED_TAGS and _action_touches_values(act, old):
+                    return True
+                new = execute_multi_value_action(act, copy_source, old)
+            else:
+                v = execute_single_action(act, copy_source, old)
+                if field in ("new", "favorite"):
+                    # An invalid value fails the rule: keep the track so that the executor raises.
+                    if v != "true" and v != "false":
+                        return True
+                elif field == "rating":
+                    if v and not (v.isdecimal() and 1 <= int(v) <= 100):
+                        return True
+                elif field in ("releasedate", "originaldate", "compositiondate"):
+                    v = value_to_str(RoseDate.parse(v))
+                elif field == "releasetype":
+                    v = v or "unknown"
+                new = v or ""
+            if new != old:
+                return True
+    return False

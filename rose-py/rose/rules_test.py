@@ -1,10 +1,12 @@
 import dataclasses
+import shutil
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
 import pytest
 
+from conftest import TEST_TAGGER
 from rose.audiotags import AudioTags, RoseDate
 from rose.cache import (
     get_release,
@@ -16,6 +18,7 @@ from rose.common import Artist
 from rose.config import Config
 from rose.rule_parser import Matcher, Rule
 from rose.rules import (
+    READ_CACHE_FILTER_THRESHOLD,
     FastSearchResult,
     TrackTagNotAllowedError,
     execute_metadata_rule,
@@ -24,6 +27,7 @@ from rose.rules import (
     fast_search_for_matching_tracks,
     filter_release_false_positives_using_read_cache,
     filter_track_false_positives_using_read_cache,
+    filter_track_noops_using_read_cache,
 )
 
 
@@ -531,3 +535,124 @@ def test_artist_matcher_on_trackartist_only(config: Config, source_dir: Path) ->
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.trackartists.main == [Artist("BIGBANG"), Artist("2NE1")]
+
+
+def _noop_filter(config: Config, source_dir: Path, matcher: str, actions: list[str]) -> list[str]:
+    rule = Rule.parse(matcher, actions)
+    tracks = filter_track_noops_using_read_cache(rule.actions, list_tracks(config))
+    return [str(t.source_path.relative_to(source_dir)) for t in tracks]
+
+
+def test_filter_track_noops_with_read_cache(config: Config, source_dir: Path) -> None:
+    all_tracks = [f"Test Release {r}/0{t}.m4a" for r in [1, 2, 3] for t in [1, 2]]
+    r1 = ["Test Release 1/01.m4a", "Test Release 1/02.m4a"]
+    r2 = ["Test Release 2/01.m4a", "Test Release 2/02.m4a"]
+    r3 = ["Test Release 3/01.m4a", "Test Release 3/02.m4a"]
+
+    # Single-value tags.
+    assert _noop_filter(config, source_dir, "label:Cool", ["tracktitle/replace:Track 1"]) == [
+        "Test Release 1/02.m4a",
+        "Test Release 2/02.m4a",
+        "Test Release 3/02.m4a",
+    ]
+    assert _noop_filter(config, source_dir, "label:Cool", ["releasetitle:Carly/sed:Carly:Carly"]) == []
+    assert _noop_filter(config, source_dir, "label:Cool", ["releasetitle:Carly/sed:Carly:Rae"]) == r2
+    assert _noop_filter(config, source_dir, "label:Cool", ["releasedate/replace:1990-02-05"]) == []
+    assert _noop_filter(config, source_dir, "label:Cool", ["releasedate/replace:1990"]) == all_tracks
+    assert _noop_filter(config, source_dir, "label:Cool", ["releasetype/replace:album"]) == []
+    assert _noop_filter(config, source_dir, "label:Cool", ["edition/delete"]) == []
+    # Multi-value tags.
+    assert _noop_filter(config, source_dir, "label:Cool", ["genre:^Dream Pop$/delete"]) == r2
+    assert _noop_filter(config, source_dir, "label:Cool", ["genre:^R&B$/replace:Rhythm;Blues"]) == r3
+    assert _noop_filter(config, source_dir, "label:Cool", ["genre:^Shoegaze$/replace:Dream Pop"]) == []
+    assert _noop_filter(config, source_dir, "label:Cool", ["trackartist[main]/add:BLACKPINK"]) == [*r2, *r3]
+    assert _noop_filter(config, source_dir, "label:Cool", ["trackartist/split: & "]) == []
+    assert _noop_filter(config, source_dir, "label:Cool", ["trackartist:^BLACKPINK$/replace:BP"]) == r1
+    # Datafile tags.
+    assert _noop_filter(config, source_dir, "label:Cool", ["new/replace:false"]) == r1
+    assert _noop_filter(config, source_dir, "label:Cool", ["rating/delete"]) == []
+    assert _noop_filter(config, source_dir, "label:Cool", ["rating/replace:5"]) == all_tracks
+    # Copy actions.
+    assert _noop_filter(config, source_dir, "label:Cool", ["tracktitle/copy:tracktitle"]) == []
+    assert _noop_filter(config, source_dir, "label:Cool", ["trackartist[main]/copy:trackartist[main]"]) == []
+    assert _noop_filter(config, source_dir, "label:Cool", ["descriptor/copy:genre"]) == all_tracks
+    # If any action in a chain changes a tag, the track is kept.
+    assert _noop_filter(config, source_dir, "label:Cool", ["genre:^Dream Pop$/delete", "new/replace:false"]) == [
+        *r1,
+        *r2,
+    ]
+
+
+def test_filter_track_noops_with_read_cache_keeps_undeterminable(config: Config, source_dir: Path) -> None:
+    all_tracks = [f"Test Release {r}/0{t}.m4a" for r in [1, 2, 3] for t in [1, 2]]
+    # The cache normalizes track and disc numbers, so they cannot be compared against the tags.
+    assert _noop_filter(config, source_dir, "label:Cool", ["discnumber/replace:1"]) == all_tracks
+    assert _noop_filter(config, source_dir, "label:Cool", ["tracktitle/copy:tracknumber"]) == all_tracks
+    # Invalid values are kept so that the executor raises on them.
+    assert _noop_filter(config, source_dir, "label:Cool", ["new/replace:lalala"]) == all_tracks
+    assert _noop_filter(config, source_dir, "label:Cool", ["rating/replace:lalala"]) == all_tracks
+    # A missing title is cached as a default value.
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    af.tracktitle = None
+    af.flush(config)
+    update_cache(config)
+    assert _noop_filter(config, source_dir, "label:Cool", ["tracktitle/replace:Unknown Title"]) == all_tracks
+
+
+def test_filter_track_noops_keeps_tags_deduplicated_by_cache(config: Config, source_dir: Path) -> None:
+    all_tracks = [f"Test Release {r}/0{t}.m4a" for r in [1, 2, 3] for t in [1, 2]]
+    r2 = ["Test Release 2/01.m4a", "Test Release 2/02.m4a"]
+    # The cache drops duplicate values, so it cannot prove that an action which rewrites one of
+    # these tags leaves the on-disk values unchanged.
+    assert _noop_filter(config, source_dir, "label:Cool", ["genre/add:K-Pop"]) == all_tracks
+    assert _noop_filter(config, source_dir, "label:Cool", ["genre:^Dream Pop$/replace:Dream Pop"]) == r2
+    assert _noop_filter(config, source_dir, "label:Cool", ["label/copy:label"]) == all_tracks
+    # An action whose pattern matches none of the values returns them untouched, duplicates included.
+    assert _noop_filter(config, source_dir, "label:Cool", ["genre:^Shoegaze$/replace:K-Pop"]) == []
+
+
+def test_filter_track_noops_ignores_artist_aliases(config: Config, source_dir: Path) -> None:
+    config = dataclasses.replace(
+        config,
+        artist_aliases_map={"BLACKPINK": ["JISOO"]},
+        artist_aliases_parents_map={"JISOO": ["BLACKPINK"]},
+    )
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    af.trackartists.main = [Artist("JISOO")]
+    af.flush(config)
+    update_cache(config)
+    # BLACKPINK is only present as an alias of JISOO on this track, so adding it is a change.
+    assert "Test Release 1/01.m4a" in _noop_filter(
+        config, source_dir, "label:Cool", ["trackartist[main]/add:BLACKPINK"]
+    )
+    assert "Test Release 1/02.m4a" not in _noop_filter(
+        config, source_dir, "label:Cool", ["trackartist[main]/add:BLACKPINK"]
+    )
+
+
+def test_rules_execution_on_broad_match_writes_only_changes(config: Config, source_dir: Path) -> None:
+    # Above READ_CACHE_FILTER_THRESHOLD matched tracks, the rule engine filters the matches with the
+    # read cache before reading tags. Build a library large enough to take that path.
+    big_release = source_dir / "Big Release"
+    big_release.mkdir()
+    for i in range(READ_CACHE_FILTER_THRESHOLD):
+        shutil.copyfile(TEST_TAGGER / "track5.opus.ogg", big_release / f"{i:03d}.opus")
+    # The cache deduplicates genres, so this duplicate is only visible in the tags.
+    duplicated = source_dir / "Test Release 1" / "01.m4a"
+    af = AudioTags.from_file(duplicated)
+    af.genre = ["K-Pop", "K-Pop", "Pop"]
+    af.flush(config)
+    update_cache(config)
+    big_tags = AudioTags.from_file(big_release / "000.opus")
+
+    # Only Test Release 2 has the genre: it is rewritten, and every other track is left alone.
+    execute_metadata_rule(config, Rule.parse("label:Cool", ["genre:^Dream Pop$/replace:Shoegaze"]), confirm_yes=False)
+    assert AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a").genre == ["Pop", "Shoegaze"]
+    assert AudioTags.from_file(source_dir / "Test Release 2" / "02.m4a").genre == ["Pop", "Shoegaze"]
+    assert AudioTags.from_file(duplicated).genre == ["K-Pop", "K-Pop", "Pop"]
+    assert AudioTags.from_file(big_release / "000.opus") == big_tags
+
+    # The cached genres are unchanged by this action, yet the write still deduplicates the tags.
+    execute_metadata_rule(config, Rule.parse("label:Cool", ["genre:^K-Pop$/replace:K-Pop"]), confirm_yes=False)
+    assert AudioTags.from_file(duplicated).genre == ["K-Pop", "Pop"]
+    assert AudioTags.from_file(big_release / "000.opus") == big_tags
