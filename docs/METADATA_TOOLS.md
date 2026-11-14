@@ -157,21 +157,18 @@ but the first is tagged as `CHUU`, and the second as `Chuu`. I want to normalize
 ```bash
 $ rose rules run 'artist:^CHUU$' 'replace:Chuu'
 
+CHUU - 2023. Howl
+      releaseartist[main]: ['CHUU'] -> ['Chuu']
 CHUU - 2023. Howl/01. Howl.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      releaseartist[main]: ['CHUU'] -> ['Chuu']
 CHUU - 2023. Howl/02. Underwater.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      releaseartist[main]: ['CHUU'] -> ['Chuu']
 CHUU - 2023. Howl/03. My Palace.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      releaseartist[main]: ['CHUU'] -> ['Chuu']
 CHUU - 2023. Howl/04. Aliens.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      releaseartist[main]: ['CHUU'] -> ['Chuu']
 CHUU - 2023. Howl/05. Hitchhiker.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
-      releaseartist[main]: ['CHUU'] -> ['Chuu']
 
 Write changes to 5 tracks?  [Y/n] y
 
@@ -185,7 +182,9 @@ Write changes to 5 tracks?  [Y/n] y
 Applied tag changes to 5 tracks!
 ```
 
-And we now have only one Chuu in our library!
+And we now have only one Chuu in our library! Notice that the release artist, which is a tag of the
+release, was changed once for the release and written to all of its tracks, while the track artist
+was changed on each track.
 
 Let's go through one more example. I want all of Chuu's releases to have the K-Pop genre. The
 following rule expresses that: for all releases with the releaseartist `Chuu`, add the `K-Pop` genre
@@ -194,19 +193,9 @@ tag.
 ```bash
 $ rose rules run 'releaseartist:^Chuu$' 'genre/add:K-Pop'
 
-CHUU - 2023. Howl/01. Howl.opus
+CHUU - 2023. Howl
       genre: [] -> ['K-Pop']
-CHUU - 2023. Howl/02. Underwater.opus
-      genre: [] -> ['K-Pop']
-CHUU - 2023. Howl/03. My Palace.opus
-      genre: [] -> ['K-Pop']
-CHUU - 2023. Howl/04. Aliens.opus
-      genre: [] -> ['K-Pop']
-CHUU - 2023. Howl/05. Hitchhiker.opus
-      genre: [] -> ['K-Pop']
-LOOΠΔ - 2017. Chuu/01. Heart Attack.opus
-      genre: ['Kpop'] -> ['Kpop', 'K-Pop']
-LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
+LOOΠΔ - 2017. Chuu
       genre: ['Kpop'] -> ['Kpop', 'K-Pop']
 
 Write changes to 7 tracks? [Y/n] y
@@ -229,23 +218,9 @@ Success! However, notice that one of Chuu's releases has the genre tag `Kpop`. L
 ```bash
 $ rose rules run 'genre:^Kpop$' 'replace:K-Pop'
 
-G‐Dragon - 2012. ONE OF A KIND/01. One Of A Kind.opus
+G‐Dragon - 2012. ONE OF A KIND
       genre: ['Kpop'] -> ['K-Pop']
-G‐Dragon - 2012. ONE OF A KIND/02. 크레용 (Crayon).opus
-      genre: ['Kpop'] -> ['K-Pop']
-G‐Dragon - 2012. ONE OF A KIND/03. 결국.opus
-      genre: ['Kpop'] -> ['K-Pop']
-G‐Dragon - 2012. ONE OF A KIND/04. 그 XX.opus
-      genre: ['Kpop'] -> ['K-Pop']
-G‐Dragon - 2012. ONE OF A KIND/05. Missing You.opus
-      genre: ['Kpop'] -> ['K-Pop']
-G‐Dragon - 2012. ONE OF A KIND/06. Today.opus
-      genre: ['Kpop'] -> ['K-Pop']
-G‐Dragon - 2012. ONE OF A KIND/07. 불 붙여봐라.opus
-      genre: ['Kpop'] -> ['K-Pop']
-LOOΠΔ - 2017. Chuu/01. Heart Attack.opus
-      genre: ['Kpop', 'K-Pop'] -> ['K-Pop']
-LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
+LOOΠΔ - 2017. Chuu
       genre: ['Kpop', 'K-Pop'] -> ['K-Pop']
 
 Write changes to 9 tracks? [Y/n] y
@@ -261,7 +236,7 @@ Write changes to 9 tracks? [Y/n] y
 [14:47:26] INFO: Wrote tag changes to LOOΠΔ - 2017. Chuu/01. Heart Attack.opus
 [14:47:26] INFO: Wrote tag changes to LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
 
-Applied tag changes to 7 tracks!
+Applied tag changes to 9 tracks!
 ```
 
 And we also normalized a G-Dragon release on the way!
@@ -291,6 +266,22 @@ Now that we've seen a bit of what the rules engine is capable of, let's explore 
 The rules engine runs in two steps: it first _matches_ tracks, and then _actions_ on those tracks.
 Each rule has one single track matcher and one or more actions. If multiple actions are specified,
 they are run in order of specification.
+
+Tags belong either to a track or to a release. The _release tags_ are the `releasetitle`,
+`releaseartist[*]`, `releasetype`, `releasedate`, `originaldate`, `compositiondate`, `edition`,
+`catalognumber`, `genre`, `secondarygenre`, `descriptor`, `label`, `disctotal`, `new`, `favorite`,
+and `rating` tags. All other tags are _track tags_. The rules engine treats the two differently:
+
+- A release tag is matched once per release. If a release matches, all of its tracks match.
+- An action on a release tag runs once per release, for every release that has at least one matched
+  track. The change is written to every track of that release, including tracks that did not match.
+- A track tag is matched on each track, and an action on a track tag runs on each matched track.
+
+For example, `tracktitle:^Intro$ genre/add:Ambient` adds the `Ambient` genre to every track of the
+releases that contain a track titled `Intro`, because a genre is a property of the release.
+
+Audio files store a release's tags redundantly in each track. The value of a release tag is read
+from the first track of the release, ordered by file path.
 
 ### Tags
 
@@ -434,6 +425,10 @@ values (the values being copied) rather than the destination values. For example
 semantics as the standalone `sed` action (including `;`-splitting and empty-value removal for
 multi-value destinations).
 
+When a track tag is copied into a release tag (e.g. `releasetitle/copy:tracktitle`), the release has
+many candidate sources, so the source is read from the first matched track of the release, ordered
+by file path.
+
 ### Multi-Value Tags
 
 Single-valued tags are pretty straightforward: if the tag value matches, either replace the value,
@@ -545,19 +540,9 @@ You can preview a rule's changes with the `--dry-run` flag. For example:
 ```bash
 $ rose rules run --dry-run 'releaseartist:^Chuu$' 'genre/add:K-Pop'
 
-CHUU - 2023. Howl/01. Howl.opus
+CHUU - 2023. Howl
       genre: [] -> ['K-Pop']
-CHUU - 2023. Howl/02. Underwater.opus
-      genre: [] -> ['K-Pop']
-CHUU - 2023. Howl/03. My Palace.opus
-      genre: [] -> ['K-Pop']
-CHUU - 2023. Howl/04. Aliens.opus
-      genre: [] -> ['K-Pop']
-CHUU - 2023. Howl/05. Hitchhiker.opus
-      genre: [] -> ['K-Pop']
-LOOΠΔ - 2017. Chuu/01. Heart Attack.opus
-      genre: ['Kpop'] -> ['Kpop', 'K-Pop']
-LOOΠΔ - 2017. Chuu/02. Girl's Talk.opus
+LOOΠΔ - 2017. Chuu
       genre: ['Kpop'] -> ['Kpop', 'K-Pop']
 
 This is a dry run, aborting. 7 tracks would have been modified.
