@@ -1,11 +1,11 @@
 import dataclasses
 import re
 import shutil
-import time
 import tomllib
 from pathlib import Path
 from typing import Any
 
+import mutagen
 import pytest
 
 from conftest import TEST_RELEASE_1
@@ -601,23 +601,35 @@ def test_reflush_releases_rename_source_files_collisions(config: Config) -> None
 
 
 def test_reflush_releases_rewrites_tags(config: Config) -> None:
-    """Test that reflush rewrites the tags of every track and does not rename by default."""
+    """Test that reflush rewrites tags in Rose's canonical format and does not rename by default."""
     release_dir = config.music_source_dir / TEST_RELEASE_1.name
     shutil.copytree(TEST_RELEASE_1, release_dir)
     update_cache(config)
     release_id = next(r.id for r in list_releases(config))
-    mtimes = {f: f.stat().st_mtime_ns for f in release_dir.iterdir() if f.suffix == ".m4a"}
-    time.sleep(0.01)
+    # Tag a producer in a role-specific field, as an external tagger would. The cache update reads
+    # it but leaves the file's tags alone.
+    m = mutagen.File(release_dir / "01.m4a")  # type: ignore
+    m.tags["----:com.apple.iTunes:PRODUCER"] = b"Teddy"
+    m.save()
+    update_cache(config)
+    assert "----:com.apple.iTunes:PRODUCER" in mutagen.File(release_dir / "01.m4a").tags  # type: ignore
 
     reflush_releases(config, [release_id])
 
+    # The producer is now encoded in the main artist tag and the role-specific field is gone.
+    m = mutagen.File(release_dir / "01.m4a")  # type: ignore
+    assert "----:com.apple.iTunes:PRODUCER" not in m.tags
+    assert m.tags["\xa9ART"] == ["BLACKPINK produced by Teddy"]
+    expected_artists = ArtistMapping(main=[Artist("BLACKPINK")], producer=[Artist("Teddy")])
+    assert AudioTags.from_file(release_dir / "01.m4a").trackartists == expected_artists
+    # And nothing was renamed.
     assert {f.name for f in release_dir.iterdir() if f.suffix == ".m4a"} == {"01.m4a", "02.m4a"}
-    for f, mtime in mtimes.items():
-        assert f.stat().st_mtime_ns > mtime
     release = get_release(config, release_id)
     assert release is not None
     assert release.source_path == release_dir
-    assert {t.source_path for t in get_tracks_of_release(config, release)} == set(mtimes)
+    tracks = get_tracks_of_release(config, release)
+    assert {t.source_path for t in tracks} == {release_dir / "01.m4a", release_dir / "02.m4a"}
+    assert next(t for t in tracks if t.source_path.name == "01.m4a").trackartists == expected_artists
 
 
 def test_reflush_releases_rename_flag_overrides_config(config: Config) -> None:

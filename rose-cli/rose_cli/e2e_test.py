@@ -129,6 +129,13 @@ def test_releases(rose: Rose, isolated_dir: Path) -> None:
     rose("releases", "create-single", release["tracks"][0]["source_path"])
     assert len(_json(rose("releases", "print-all", "releasetype:single"))) == 1
 
+    # Renames happen only on an explicit reflush.
+    assert Path(rpath).name == TEST_RELEASE_1.name
+    rose("releases", "reflush", "--rename", rid)
+    rpath = _json(rose("releases", "print", rid))["source_path"]
+    assert Path(rpath).name == "BLACKPINK - 1990. I Love Rose [FAVORITE]"
+    assert Path(rpath).is_dir()
+
     rose("releases", "delete", rid)
     assert not Path(rpath).exists()
     assert len(_json(rose("releases", "print-all"))) == 3
