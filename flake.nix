@@ -1,5 +1,5 @@
 {
-  description = "rose";
+  description = "music";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -17,7 +17,7 @@
       let
         pkgs = import nixpkgs { inherit system; };
         python-pin = pkgs.python313;
-        version = nixpkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./rose-py/rose/.version);
+        version = nixpkgs.lib.strings.removeSuffix "\n" (builtins.readFile ./music-py/music/.version);
         uuid6 = python-pin.pkgs.buildPythonPackage {
           pname = "uuid6-python";
           version = "2023.5.2";
@@ -65,15 +65,15 @@
               done
               echo "$path"
             }
-            export ROSE_ROOT="$(find-up flake.nix)"
-            export PYTHONPATH="$ROSE_ROOT/rose-py:''${PYTHONPATH:-}"
-            export PYTHONPATH="$ROSE_ROOT/rose-watch:$PYTHONPATH"
-            export PYTHONPATH="$ROSE_ROOT/rose-vfs:$PYTHONPATH"
-            export PYTHONPATH="$ROSE_ROOT/rose-cli:$PYTHONPATH"
+            export MUSIC_ROOT="$(find-up flake.nix)"
+            export PYTHONPATH="$MUSIC_ROOT/music-py:''${PYTHONPATH:-}"
+            export PYTHONPATH="$MUSIC_ROOT/music-watch:$PYTHONPATH"
+            export PYTHONPATH="$MUSIC_ROOT/music-vfs:$PYTHONPATH"
+            export PYTHONPATH="$MUSIC_ROOT/music-cli:$PYTHONPATH"
           '';
           buildInputs = [
             (pkgs.buildEnv {
-              name = "rose-devshell";
+              name = "music-devshell";
               paths = [
                 pkgs.ruff
                 pkgs.nodePackages.prettier
@@ -93,40 +93,40 @@
           ];
         };
         packages = rec {
-          rose-py = pkgs.callPackage ./rose-py { inherit version python-pin py-deps; };
-          rose-watch = pkgs.callPackage ./rose-watch {
+          music-py = pkgs.callPackage ./music-py { inherit version python-pin py-deps; };
+          music-watch = pkgs.callPackage ./music-watch {
             inherit
               version
               python-pin
               py-deps
-              rose-py
+              music-py
               ;
           };
-          rose-vfs = pkgs.callPackage ./rose-vfs {
+          music-vfs = pkgs.callPackage ./music-vfs {
             inherit
               version
               python-pin
               py-deps
-              rose-py
+              music-py
               ;
           };
-          rose-cli = pkgs.callPackage ./rose-cli {
+          music-cli = pkgs.callPackage ./music-cli {
             inherit
               version
               python-pin
               py-deps
-              rose-py
-              rose-vfs
-              rose-watch
+              music-py
+              music-vfs
+              music-watch
               ;
           };
           all = pkgs.buildEnv {
-            name = "rose-all";
+            name = "music-all";
             paths = [
-              rose-py
-              rose-watch
-              rose-vfs
-              rose-cli
+              music-py
+              music-watch
+              music-vfs
+              music-cli
             ];
           };
         };

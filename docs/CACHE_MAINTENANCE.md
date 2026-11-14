@@ -10,54 +10,54 @@ write directly to the source files and then trigger the cache update sequence. T
 sequence updates the cache to match the source directory's state.
 
 > [!NOTE]
-> To better understand how the read cache fits into Rose, we recommend reading
+> To better understand how the read cache fits into Music, we recommend reading
 > [Architecture](./ARCHITECTURE.md).
 
 # Cache Drift
 
-Assuming you only modify your music library through Rose, the cache will always remain up to date,
-since Rose triggers a cache update whenever it is aware of an update to the source directory.
+Assuming you only modify your music library through Music, the cache will always remain up to date,
+since Music triggers a cache update whenever it is aware of an update to the source directory.
 
 However, that assumption does not hold. If changes are made directly to the source directory, and
-Rose is not "informed," Rose's cache will contain the previous state of the source directory. We
+Music is not "informed," Music's cache will contain the previous state of the source directory. We
 call this a _cache drift_.
 
-This is problematic because Rose may attempt to read files that no longer exist or display old
-metadata. Thus, we should inform Rose whenever a change is made to the source directory.
+This is problematic because Music may attempt to read files that no longer exist or display old
+metadata. Thus, we should inform Music whenever a change is made to the source directory.
 
 # Updating the Cache
 
-A cache update can be performed manually with the `rose cache update` command. In this command, Rose
+A cache update can be performed manually with the `music cache update` command. In this command, Music
 will identify any files that changed and update the read cache accordingly. In other words, this
-command informs Rose that something changed in the source directory.
+command informs Music that something changed in the source directory.
 
-For performance reasons, the `rose cache update` command only checks files with a different Last
+For performance reasons, the `music cache update` command only checks files with a different Last
 Modified (mtime) from the last cache update. To disable this behavior and recheck every file, pass
 the `--force/-f` flag.
 
-It would be annoying if you had to run `rose cache upate` by hand after each metadata change. Rose
-thus automatically updates the cache in response to changes made _through_ Rose. Any updates made
+It would be annoying if you had to run `music cache upate` by hand after each metadata change. Music
+thus automatically updates the cache in response to changes made _through_ Music. Any updates made
 through the virtual filesystem or command line automatically trigger a cache update for the changed
-files. Rose will also update the cache when the virtual filesystem is mounted.
+files. Music will also update the cache when the virtual filesystem is mounted.
 
 However, even with that improvement, if you directly change the source directory with a tool that
-isn't Rose, the cache will not automatically update in response. If you make all edits through Rose,
+isn't Music, the cache will not automatically update in response. If you make all edits through Music,
 then this isn't a problem! But for users with other tools that directly edit the source directory,
-Rose provides the `rose cache watch` command, which runs a watcher that listens for file update
+Music provides the `music cache watch` command, which runs a watcher that listens for file update
 events in the source directory. This watcher will trigger a cache update whenever a file in the
 source directory changes.
 
 # Cache Resets
 
-When Rose detects that:
+When Music detects that:
 
-1. Rose has been upgraded to a new version,
+1. Music has been upgraded to a new version,
 2. Cache-relevant configuration options have changed,
 3. Or the cache database schema has changed,
 
-Rose will delete the read cache and rebuild it from scratch. A full cache rebuild is fairly
+Music will delete the read cache and rebuild it from scratch. A full cache rebuild is fairly
 performant, though an order of magnitude slower than a cache scan that results in no changes.
 
 Deleting the read cache does not result in any loss of data and is a viable solution if your cache
-ends up in a really bad state that `rose cache update --force` does not resolve. This should not be
+ends up in a really bad state that `music cache update --force` does not resolve. This should not be
 necessary normally, but may occur from a surprise bug.

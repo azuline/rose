@@ -1,26 +1,26 @@
 # Improving Your Music Metadata
 
-Rose relies on the metadata embedded in your music files to organize your music into a useful
+Music relies on the metadata embedded in your music files to organize your music into a useful
 virtual filesystem. This means that the quality of the music tags is important for getting the most
-out of Rose.
+out of Music.
 
-Therefore, Rose also provides a text-based interface for manually modifying metadata and a rules
+Therefore, Music also provides a text-based interface for manually modifying metadata and a rules
 engine for bulk updating metadata to improve the tags of your music library.
 
 > [!NOTE]
-> Rose has opinionated conventions for how metadata is stored in audio tags. See
+> Music has opinionated conventions for how metadata is stored in audio tags. See
 > [Tagging Conventions](./TAGGING_CONVENTIONS.md) for documentation.
 
 # Text-Based Release Editing
 
-Rose supports editing a release's metadata as a text file via the `rose releases edit` command. This
+Music supports editing a release's metadata as a text file via the `music releases edit` command. This
 command accepts a Release ID or a Release's virtual filesystem directory name.
 
 So for example:
 
 ```bash
-$ rose releases edit "$vfs_mount_dir/1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
-$ rose releases edit "018b4ff1-acdf-7ff1-bcd6-67757aea0fed"
+$ music releases edit "$vfs_mount_dir/1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+$ music releases edit "018b4ff1-acdf-7ff1-bcd6-67757aea0fed"
 ```
 
 This command opens up a TOML representation of the release's metadata in your `$EDITOR`. Upon save
@@ -118,7 +118,7 @@ artists = [
 
 # Rules Engine
 
-Rose's rule engine allows you to update metadata in bulk across your library.
+Music's rule engine allows you to update metadata in bulk across your library.
 
 Rules consist of a _track matcher_, which matches against tracks in your library, and one or more
 _actions_, which modify the metadata of the matched tracks. The 5 available actions let you
@@ -129,7 +129,7 @@ To run an ad hoc rule from the command line, use the following command:
 
 ```bash
 # Accepts one or more actions.
-$ rose rules run [trackmatcher] [action]...
+$ music rules run [trackmatcher] [action]...
 ```
 
 Rules can also be stored in the configuration file to be ran on future additions to the library. Add
@@ -141,7 +141,7 @@ matcher = "genre:^Kpop$"  # An example track matcher.
 actions = ["replace:K-Pop"]  # Example actions.
 ```
 
-The `rose rules run-stored` command runs all stored rules. Note that Rose runs rules and actions in
+The `music rules run-stored` command runs all stored rules. Note that Music runs rules and actions in
 the order they're defined in. So if multiple rules would modify one track, the earliest defined rule
 will be applied first, and later rules applied on the output of the first rule.
 
@@ -155,7 +155,7 @@ but the first is tagged as `CHUU`, and the second as `Chuu`. I want to normalize
 `Chuu`. The following rule expresses this change:
 
 ```bash
-$ rose rules run 'artist:^CHUU$' 'replace:Chuu'
+$ music rules run 'artist:^CHUU$' 'replace:Chuu'
 
 CHUU - 2023. Howl/01. Howl.opus
       trackartist[main]: ['CHUU'] -> ['Chuu']
@@ -192,7 +192,7 @@ following rule expresses that: for all releases with the releaseartist `Chuu`, a
 tag.
 
 ```bash
-$ rose rules run 'releaseartist:^Chuu$' 'genre/add:K-Pop'
+$ music rules run 'releaseartist:^Chuu$' 'genre/add:K-Pop'
 
 CHUU - 2023. Howl/01. Howl.opus
       genre: [] -> ['K-Pop']
@@ -227,7 +227,7 @@ Success! However, notice that one of Chuu's releases has the genre tag `Kpop`. L
 `Kpop` tag to `K-Pop`, across the board.
 
 ```bash
-$ rose rules run 'genre:^Kpop$' 'replace:K-Pop'
+$ music rules run 'genre:^Kpop$' 'replace:K-Pop'
 
 G‐Dragon - 2012. ONE OF A KIND/01. One Of A Kind.opus
       genre: ['Kpop'] -> ['K-Pop']
@@ -281,7 +281,7 @@ matcher = "genre:^Kpop$"
 actions = ["replace:K-Pop"]
 ```
 
-The `rose rules run-stored` command will run the above three rules, along with any other rules I
+The `music rules run-stored` command will run the above three rules, along with any other rules I
 have in my configuration file, on the entire library.
 
 ## Mechanics
@@ -460,7 +460,7 @@ There are three additional mechanics affecting multi-value tags:
 
 ## Rule Language
 
-Rose provides a Domain Specific Language (DSL) for defining rules. The DSL is the only way to
+Music provides a Domain Specific Language (DSL) for defining rules. The DSL is the only way to
 specify a rule.
 
 Matchers are specified as `tags:pattern`. `tags` is a comma-delimited array of tags, and `pattern`
@@ -491,7 +491,7 @@ escaped by doubling them. For example: `sed:::://` replaces the `:` character wi
 
 > [!NOTE]
 > When writing sed rules in the Shell and in TOML, carefully escape your backslashes. You may need
-> to double-escape them, once for the shell/TOML, and another time for Rose's sed.
+> to double-escape them, once for the shell/TOML, and another time for Music's sed.
 
 The formal syntax is defined by the following grammar:
 
@@ -520,9 +520,9 @@ ignore matcher are excluded from the rule even if they match the track matcher.
 On the command line, ignore matchers may be specified via the `--ignore/-i` option:
 
 ```bash
-$ rose rules run 'artist: & ' 'split: & ' --ignore 'artist:^Eli & Fur$'
+$ music rules run 'artist: & ' 'split: & ' --ignore 'artist:^Eli & Fur$'
 # Multiple matchers may be specified by passing multiple --ignore/-i arguments.
-$ rose rules run 'artist: & ' 'split: & ' --ignore 'artist:^Eli & Fur$' --ignore 'artist:^Above & Beyond$'
+$ music rules run 'artist: & ' 'split: & ' --ignore 'artist:^Eli & Fur$' --ignore 'artist:^Above & Beyond$'
 ```
 
 And in stored rules, ignore matchers may be specified with the `ignore` key:
@@ -543,7 +543,7 @@ _TODO_
 You can preview a rule's changes with the `--dry-run` flag. For example:
 
 ```bash
-$ rose rules run --dry-run 'releaseartist:^Chuu$' 'genre/add:K-Pop'
+$ music rules run --dry-run 'releaseartist:^Chuu$' 'genre/add:K-Pop'
 
 CHUU - 2023. Howl/01. Howl.opus
       genre: [] -> ['K-Pop']

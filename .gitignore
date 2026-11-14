@@ -19,6 +19,6 @@ htmlcov
 zig-cache
 zig-out
 
-rose-rs/target/
+music-rs/target/
 # Temporary
 py-impl-reference
