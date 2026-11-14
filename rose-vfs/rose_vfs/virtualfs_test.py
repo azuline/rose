@@ -253,10 +253,8 @@ def test_virtual_filesystem_write_files(
         assert af.tracktitle == "Hahahaha!!"
 
 
-def test_virtual_filesystem_close_duplicated_fd_of_unfinished_write(
-    config: Config,
-    source_dir: Path,  # noqa: ARG001
-) -> None:
+@pytest.mark.usefixtures("source_dir")
+def test_virtual_filesystem_close_duplicated_fd_of_unfinished_write(config: Config) -> None:
     """Assert that closing one duplicate of a file descriptor mid-write does not fail."""
     root = config.vfs.mount_dir
     path = root / "1. Releases" / "BLACKPINK - 1990. I Love Blackpink [NEW]" / "01. Track 1.m4a"
