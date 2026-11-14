@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
-from rose import AudioTags, Config, get_release
+from rose import AudioTags, Config, ReleaseEditFailedError, get_release
 from rose_vfs.virtualfs_test import start_virtual_fs
 
 from rose_cli.cli import (
@@ -195,3 +195,7 @@ def test_edit_release_print_and_apply(config: Config, source_dir: Path) -> None:
     # The printed TOML round-trips.
     res = runner.invoke(edit_release_cmd, ["--print", release_id], obj=ctx)
     assert res.stdout == edited
+
+    # An empty submission is rejected rather than treated as "no change".
+    res = runner.invoke(edit_release_cmd, ["--apply", "-", release_id], obj=ctx, input="")
+    assert isinstance(res.exception, ReleaseEditFailedError)
