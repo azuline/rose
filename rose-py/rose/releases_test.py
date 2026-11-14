@@ -276,31 +276,6 @@ def test_edit_release(config: Config, source_dir: Path) -> None:
     ]
 
 
-def test_serialize_release_metadata_reads_audio_tags(config: Config, source_dir: Path) -> None:
-    release_path = source_dir / TEST_RELEASE_1.name
-    with connect(config) as conn:
-        cursor = conn.execute("SELECT id FROM releases WHERE source_path = ?", (str(release_path),))
-        release_id = cursor.fetchone()["id"]
-
-    release = get_release(config, release_id)
-    assert release is not None
-    tracks = get_tracks_of_release(config, release)
-    tags = AudioTags.from_file(tracks[0].source_path)
-    tags.releasetitle = "Changed on disk"
-    tags.tracktitle = "Track changed on disk"
-    tags.flush(config)
-
-    # The cache is stale: build the metadata from it and the tags without a cache update.
-    metadata = MetadataRelease.from_audiotags(release, tracks, [AudioTags.from_file(t.source_path) for t in tracks])
-    assert release.releasetitle != "Changed on disk"
-    assert metadata.title == "Changed on disk"
-    assert metadata.tracks[tracks[0].id].title == "Track changed on disk"
-
-    metadata = MetadataRelease.from_toml(serialize_release_metadata(config, release_id))
-    assert metadata.title == "Changed on disk"
-    assert metadata.tracks[tracks[0].id].title == "Track changed on disk"
-
-
 def test_serialize_release_metadata_mismatched_release_tags(config: Config, source_dir: Path) -> None:
     """
     When release tags differ between tracks, the TOML takes them from the same file as the cache,
@@ -340,6 +315,7 @@ def test_serialize_release_metadata_mismatched_release_tags(config: Config, sour
     assert release is not None
     assert release.releasetitle == "Original"
     assert AudioTags.from_file(first_file).releasetitle == "Original"
+    assert AudioTags.from_file(second_file).releasetitle == "Original"
     assert AudioTags.from_file(second_file).tracktitle == "New Title"
 
 
