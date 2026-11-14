@@ -55,6 +55,7 @@ from rose.cache import (
 )
 from rose.common import VERSION, Artist, ArtistMapping
 from rose.config import Config
+from rose.templates import PathTemplate
 
 
 def test_schema(config: Config) -> None:
@@ -1096,6 +1097,7 @@ def test_list_releases(config: Config) -> None:
             releasetype="album",
             compositiondate=None,
             catalognumber=None,
+            media=None,
             releasedate=RoseDate(2023),
             disctotal=1,
             new=False,
@@ -1134,6 +1136,7 @@ def test_list_releases(config: Config) -> None:
             releasedate=RoseDate(2021),
             compositiondate=None,
             catalognumber="DG-001",
+            media="CD",
             disctotal=1,
             new=True,
             favorite=False,
@@ -1163,6 +1166,7 @@ def test_list_releases(config: Config) -> None:
             releasedate=RoseDate(2021, 4, 20),
             compositiondate=RoseDate(1780),
             catalognumber="DG-002",
+            media=None,
             disctotal=1,
             new=False,
             favorite=False,
@@ -1189,6 +1193,7 @@ def test_list_releases(config: Config) -> None:
             releasedate=RoseDate(2021, 4, 20),
             compositiondate=RoseDate(1780),
             catalognumber="DG-002",
+            media=None,
             disctotal=1,
             new=False,
             favorite=False,
@@ -1225,6 +1230,7 @@ def test_get_release_and_associated_tracks(config: Config) -> None:
         releasedate=RoseDate(2023),
         compositiondate=None,
         catalognumber=None,
+        media=None,
         disctotal=1,
         new=False,
         favorite=True,
@@ -1344,6 +1350,7 @@ def test_list_tracks(config: Config) -> None:
                 releasedate=RoseDate(2023),
                 compositiondate=None,
                 catalognumber=None,
+                media=None,
                 disctotal=1,
                 new=False,
                 favorite=True,
@@ -1393,6 +1400,7 @@ def test_list_tracks(config: Config) -> None:
                 releasedate=RoseDate(2023),
                 compositiondate=None,
                 catalognumber=None,
+                media=None,
                 disctotal=1,
                 new=False,
                 favorite=True,
@@ -1442,6 +1450,7 @@ def test_list_tracks(config: Config) -> None:
                 releasedate=RoseDate(2021),
                 compositiondate=None,
                 catalognumber="DG-001",
+                media="CD",
                 new=True,
                 favorite=False,
                 rating=None,
@@ -1483,6 +1492,7 @@ def test_list_tracks(config: Config) -> None:
                 releasedate=RoseDate(2021, 4, 20),
                 compositiondate=RoseDate(1780),
                 catalognumber="DG-002",
+                media=None,
                 new=False,
                 favorite=False,
                 rating=None,
@@ -1521,6 +1531,7 @@ def test_list_tracks(config: Config) -> None:
                 releasedate=RoseDate(2021, 4, 20),
                 compositiondate=RoseDate(1780),
                 catalognumber="DG-002",
+                media=None,
                 new=False,
                 favorite=False,
                 rating=None,
@@ -1567,6 +1578,7 @@ def test_get_track(config: Config) -> None:
             releasedate=RoseDate(2023),
             compositiondate=None,
             catalognumber=None,
+            media=None,
             disctotal=1,
             new=False,
             favorite=True,
@@ -1698,6 +1710,7 @@ def test_get_collage(config: Config) -> None:
             releasedate=RoseDate(2023),
             compositiondate=None,
             catalognumber=None,
+            media=None,
             new=False,
             favorite=True,
             rating=None,
@@ -1735,6 +1748,7 @@ def test_get_collage(config: Config) -> None:
             releasedate=RoseDate(2021),
             compositiondate=None,
             catalognumber="DG-001",
+            media="CD",
             new=True,
             favorite=False,
             rating=None,
@@ -1798,6 +1812,7 @@ def test_get_playlist(config: Config) -> None:
                 releasedate=RoseDate(2023),
                 compositiondate=None,
                 catalognumber=None,
+                media=None,
                 disctotal=1,
                 new=False,
                 favorite=True,
@@ -1847,6 +1862,7 @@ def test_get_playlist(config: Config) -> None:
                 releasedate=RoseDate(2021),
                 compositiondate=None,
                 catalognumber="DG-001",
+                media="CD",
                 new=True,
                 favorite=False,
                 rating=None,
@@ -1959,3 +1975,31 @@ def test_unpack() -> None:
         ("Jennie", "vocal"),
     ]
     assert list(_unpack("", "")) == []
+
+
+def test_update_cache_rename_source_files_release_tag_change(config: Config) -> None:
+    """A release tag changed in one track's file renames the release's other tracks too."""
+    track_template = PathTemplate("{{ tracknumber }}. {{ tracktitle }}{% if media %} [{{ media }}]{% endif %}")
+    source = dataclasses.replace(config.path_templates.source, track=track_template)
+    config = dataclasses.replace(
+        config,
+        rename_source_files=True,
+        path_templates=dataclasses.replace(config.path_templates, source=source),
+    )
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    update_cache(config)
+    release_dir = config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]"
+    assert {f.name for f in release_dir.glob("*.m4a")} == {"1. Track 1.m4a", "2. Track 2.m4a"}
+
+    af = AudioTags.from_file(release_dir / "1. Track 1.m4a")
+    af.media = "Vinyl"
+    af.flush(config)
+    update_cache(config)
+
+    assert {f.name for f in release_dir.glob("*.m4a")} == {"1. Track 1 [Vinyl].m4a", "2. Track 2 [Vinyl].m4a"}
+    with connect(config) as conn:
+        cursor = conn.execute("SELECT source_path FROM tracks")
+        assert {Path(r[0]) for r in cursor} == {
+            release_dir / "1. Track 1 [Vinyl].m4a",
+            release_dir / "2. Track 2 [Vinyl].m4a",
+        }

@@ -281,6 +281,7 @@ class MetadataRelease:
     artists: list[MetadataArtist]
     edition: str | None
     catalognumber: str | None
+    media: str | None
     labels: list[str]
     genres: list[str]
     secondary_genres: list[str]
@@ -300,6 +301,7 @@ class MetadataRelease:
             compositiondate=release.compositiondate,
             edition=release.edition,
             catalognumber=release.catalognumber,
+            media=release.media,
             labels=release.labels,
             genres=release.genres,
             secondary_genres=release.secondary_genres,
@@ -324,6 +326,7 @@ class MetadataRelease:
         data["compositiondate"] = str(self.compositiondate) if self.compositiondate else ""
         data["edition"] = self.edition or ""
         data["catalognumber"] = self.catalognumber or ""
+        data["media"] = self.media or ""
         data["rating"] = self.rating if self.rating is not None else -1
         return tomli_w.dumps(data)
 
@@ -344,6 +347,8 @@ class MetadataRelease:
             descriptors=d["descriptors"],
             labels=d["labels"],
             catalognumber=d["catalognumber"] or None,
+            # Resume files written before the media field existed do not have this key.
+            media=d.get("media") or None,
             edition=d["edition"] or None,
             artists=[MetadataArtist(name=a["name"], role=a["role"]) for a in d["artists"]],
             tracks={
@@ -458,6 +463,10 @@ def edit_release(
                     tags.catalognumber = release_meta.catalognumber
                     dirty = True
                     logger.debug(f"Modified tag detected for {t.source_path}: catalognumber")
+                if tags.media != release_meta.media:
+                    tags.media = release_meta.media
+                    dirty = True
+                    logger.debug(f"Modified tag detected for {t.source_path}: media")
                 if tags.genre != release_meta.genres:
                     tags.genre = release_meta.genres
                     dirty = True

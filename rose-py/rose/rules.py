@@ -179,6 +179,10 @@ def fast_search_for_matching_tracks(
         WHERE rules_engine_fts MATCH '{ftsquery}'
         ORDER BY t.source_path
     """
+    # An empty needle (e.g. `^$`, which matches unset tags) has no tokens to search for, so the FTS
+    # index cannot narrow it down. Fetch every track and let the false positive filters do the work.
+    if not matcher.pattern.needle:
+        query = "SELECT t.id, t.source_path FROM tracks t ORDER BY t.source_path"
     logger.debug(f"Constructed matching query {query}")
     # And then execute the SQL query. Note that we don't pull the tag values here. This query is
     # only used to identify the matching tracks. Afterwards, we will read each track's tags from
@@ -226,6 +230,7 @@ def filter_track_false_positives_using_tags(
             match = match or (field == "compositiondate" and matches_pattern(matcher.pattern, tags.compositiondate))
             match = match or (field == "edition" and matches_pattern(matcher.pattern, tags.edition))
             match = match or (field == "catalognumber" and matches_pattern(matcher.pattern, tags.catalognumber))
+            match = match or (field == "media" and matches_pattern(matcher.pattern, tags.media))
             match = match or (field == "tracknumber" and matches_pattern(matcher.pattern, tags.tracknumber))
             match = match or (field == "tracktotal" and matches_pattern(matcher.pattern, tags.tracktotal))
             match = match or (field == "discnumber" and matches_pattern(matcher.pattern, tags.discnumber))
@@ -277,6 +282,7 @@ def filter_track_false_positives_using_tags(
                     skip = skip or (field == "compositiondate" and matches_pattern(i.pattern, tags.compositiondate))
                     skip = skip or (field == "edition" and matches_pattern(i.pattern, tags.edition))
                     skip = skip or (field == "catalognumber" and matches_pattern(i.pattern, tags.catalognumber))
+                    skip = skip or (field == "media" and matches_pattern(i.pattern, tags.media))
                     skip = skip or (field == "tracknumber" and matches_pattern(i.pattern, tags.tracknumber))
                     skip = skip or (field == "tracktotal" and matches_pattern(i.pattern, tags.tracktotal))
                     skip = skip or (field == "discnumber" and matches_pattern(i.pattern, tags.discnumber))
@@ -493,6 +499,9 @@ def execute_metadata_actions(
                 elif field == "catalognumber":
                     tags.catalognumber = execute_single_action(act, copy_source, tags.catalognumber)
                     potential_audiotag_changes.append(("catalognumber", origtags.catalognumber, tags.catalognumber))
+                elif field == "media":
+                    tags.media = execute_single_action(act, copy_source, tags.media)
+                    potential_audiotag_changes.append(("media", origtags.media, tags.media))
                 elif field == "tracknumber":
                     tags.tracknumber = execute_single_action(act, copy_source, tags.tracknumber)
                     potential_audiotag_changes.append(("tracknumber", origtags.tracknumber, tags.tracknumber))
@@ -744,6 +753,8 @@ def _resolve_copy_source_value(
         return value_to_str(tags.edition)
     if field == "catalognumber":
         return value_to_str(tags.catalognumber)
+    if field == "media":
+        return value_to_str(tags.media)
     if field == "tracknumber":
         return value_to_str(tags.tracknumber)
     if field == "tracktotal":
@@ -931,6 +942,8 @@ def fast_search_for_matching_releases(
         JOIN releases r ON r.id = t.release_id
         WHERE rules_engine_fts MATCH '{ftsquery}'
     """
+    if not matcher.pattern.needle:
+        query = "SELECT r.id, r.source_path FROM releases r WHERE true"
     if not include_loose_tracks:
         query += " AND r.releasetype <> 'loosetrack'"
     query += " ORDER BY r.source_path"
@@ -959,6 +972,7 @@ def filter_track_false_positives_using_read_cache(
             match = match or (field == "compositiondate" and matches_pattern(matcher.pattern, t.release.compositiondate))
             match = match or (field == "edition" and matches_pattern(matcher.pattern, t.release.edition))
             match = match or (field == "catalognumber" and matches_pattern(matcher.pattern, t.release.catalognumber))
+            match = match or (field == "media" and matches_pattern(matcher.pattern, t.release.media))
             match = match or (field == "tracknumber" and matches_pattern(matcher.pattern, t.tracknumber))
             match = match or (field == "tracktotal" and matches_pattern(matcher.pattern, t.tracktotal))
             match = match or (field == "discnumber" and matches_pattern(matcher.pattern, t.discnumber))
@@ -1014,6 +1028,7 @@ def filter_release_false_positives_using_read_cache(
             match = match or (field == "compositiondate" and matches_pattern(matcher.pattern, r.compositiondate))
             match = match or (field == "edition" and matches_pattern(matcher.pattern, r.edition))
             match = match or (field == "catalognumber" and matches_pattern(matcher.pattern, r.catalognumber))
+            match = match or (field == "media" and matches_pattern(matcher.pattern, r.media))
             match = match or (field == "releasetitle" and matches_pattern(matcher.pattern, r.releasetitle))
             match = match or (field == "releasetype" and matches_pattern(matcher.pattern, r.releasetype))
             match = match or (field == "new" and matches_pattern(matcher.pattern, r.new))

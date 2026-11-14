@@ -121,6 +121,7 @@ world, Rose will support reading from additional fields.
 | Label            | `TPUB`                  |                                                                                                                        |
 | Catalog Number   | `TXXX:CATALOGNUMBER`    |                                                                                                                        |
 | Edition          | `TXXX:EDITION`          |                                                                                                                        |
+| Media            | `TMED`                  |                                                                                                                        |
 | Track Title      | `TIT2`                  |                                                                                                                        |
 | Track Artists    | `TPE1`                  | `TPE4` (Remixer), `TCOM` (Composer), `TPE3` (Conductor), `TIPL,IPLS/producer` (producer), `TIPL,IPLS/DJ-mix` (djmixer) |
 | Track Number     | `TRCK`                  |                                                                                                                        |
@@ -144,6 +145,7 @@ world, Rose will support reading from additional fields.
 | Label            | `----:com.apple.iTunes:LABEL`              |                                                                                                                                                                                                        |
 | Catalog Number   | `----:com.apple.iTunes:CATALOGNUMBER`      |                                                                                                                                                                                                        |
 | Edition          | `----:net.sunsetglow.rose:EDITION`         |                                                                                                                                                                                                        |
+| Media            | `----:com.apple.iTunes:MEDIA`              |                                                                                                                                                                                                        |
 | Track Title      | `\xa9nam`                                  |                                                                                                                                                                                                        |
 | Track Artists    | `\xa9ART`                                  | `----:com.apple.iTunes:REMIXER` (Remixer), `\xa9wrt` (Composer), `----:com.apple.iTunes:CONDUCTOR` (Conductor), `----:com.apple.iTunes:PRODUCER` (producer), `----:com.apple.iTunes:DJMIXER` (djmixer) |
 | Track Number     | `trkn`                                     |                                                                                                                                                                                                        |
@@ -167,6 +169,7 @@ world, Rose will support reading from additional fields.
 | Label            | `label`           | `organization`, `recordlabel`                                                                                   |
 | Catalog Number   | `catalognumber`   |                                                                                                                 |
 | Edition          | `edition`         |                                                                                                                 |
+| Media            | `media`           |                                                                                                                 |
 | Track Title      | `title`           |                                                                                                                 |
 | Track Artists    | `artist`          | `remixer` (Remixer), `composer` (Composer), `conductor` (Conductor), `producer` (producer), `djmixer` (djmixer) |
 | Track Number     | `tracknumber`     |                                                                                                                 |
