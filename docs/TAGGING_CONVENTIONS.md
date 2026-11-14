@@ -12,15 +12,22 @@ Rose manages the following tags:
   - Title
   - Release Artists
   - Release Year
+  - Original Year
   - Composition Year (for Classical)
   - Release Type (e.g. Album, EP, Single)
   - Genre
+  - Secondary Genre
+  - Descriptor
   - Label
+  - Catalog Number
+  - Edition
+  - Rose Release ID
 - Track Tags:
   - Title
   - Artists
   - Track Number
   - Disc Number
+  - Rose ID
 
 Rose does not care about any other tags and does not do anything with them.
 
@@ -38,6 +45,21 @@ When reading tags, Rose is more relaxed in the delimiters it accepts. For the Ge
 and Release Artists tags, Rose will attempt to split a single tag into multiple tags by the
 following delimiters: <code>&nbsp;\\\\&nbsp;</code>, <code>&nbsp;/&nbsp;</code>, <code>;</code>, and
 <code>&nbsp;vs.&nbsp;</code>.
+
+## Parent Genres
+
+If the `write_parent_genres` configuration option is enabled (it is disabled by default; see
+[Configuration](./CONFIGURATION.md)), Rose also writes the transitive parent genres of a release's
+genres into the Genre and Secondary Genre tags. The parent genres are sorted and appended after a
+`\\PARENTS:\\` marker. For example, a release tagged with the genre `Deep House` is written as:
+
+```
+genre=Deep House\\PARENTS:\\Dance;Electronic;Electronic Dance Music;House
+```
+
+This makes the parent genres visible to other programs that read the tags. When reading tags, Rose
+discards everything after the `\\PARENTS:\\` marker, so the parent genres are never treated as
+genres that were explicitly assigned to the release.
 
 # Artist Tags
 
@@ -107,26 +129,26 @@ world, Rose will support reading from additional fields.
 
 ## MP3
 
-| Tag              | Field Name              | Will Ingest These Fields                                                                                               |
-| ---------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Release Title    | `TALB`                  |                                                                                                                        |
-| Release Artists  | `TPE2`                  |                                                                                                                        |
-| Release Type     | `TXXX:RELEASETYPE`      | `TXXX:MusicBrainz Album Type`                                                                                          |
-| Release Year     | `TDRC`                  | `TYER`, `TDAT`                                                                                                         |
-| Original Year    | `TDOR`                  | `TORY`                                                                                                                 |
-| Composition Year | `TXXX:COMPOSITIONDATE ` |                                                                                                                        |
-| Genre            | `TCON`                  |                                                                                                                        |
-| Secondary Genre  | `TXXX:SECONDARYGENRE`   |                                                                                                                        |
-| Descriptor       | `TXXX:DESCRIPTOR`       |                                                                                                                        |
-| Label            | `TPUB`                  |                                                                                                                        |
-| Catalog Number   | `TXXX:CATALOGNUMBER`    |                                                                                                                        |
-| Edition          | `TXXX:EDITION`          |                                                                                                                        |
-| Track Title      | `TIT2`                  |                                                                                                                        |
-| Track Artists    | `TPE1`                  | `TPE4` (Remixer), `TCOM` (Composer), `TPE3` (Conductor), `TIPL,IPLS/producer` (producer), `TIPL,IPLS/DJ-mix` (djmixer) |
-| Track Number     | `TRCK`                  |                                                                                                                        |
-| Disc Number      | `TPOS`                  |                                                                                                                        |
-| Rose ID          | `TXXX:ROSEID`           |                                                                                                                        |
-| Rose Release ID  | `TXXX:ROSERELEASEID`    |                                                                                                                        |
+| Tag              | Field Name             | Will Ingest These Fields                                                                                               |
+| ---------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Release Title    | `TALB`                 |                                                                                                                        |
+| Release Artists  | `TPE2`                 |                                                                                                                        |
+| Release Type     | `TXXX:RELEASETYPE`     | `TXXX:MusicBrainz Album Type`                                                                                          |
+| Release Year     | `TDRC`                 | `TYER`, `TDAT`                                                                                                         |
+| Original Year    | `TDOR`                 | `TORY`                                                                                                                 |
+| Composition Year | `TXXX:COMPOSITIONDATE` |                                                                                                                        |
+| Genre            | `TCON`                 |                                                                                                                        |
+| Secondary Genre  | `TXXX:SECONDARYGENRE`  |                                                                                                                        |
+| Descriptor       | `TXXX:DESCRIPTOR`      |                                                                                                                        |
+| Label            | `TPUB`                 |                                                                                                                        |
+| Catalog Number   | `TXXX:CATALOGNUMBER`   |                                                                                                                        |
+| Edition          | `TXXX:EDITION`         |                                                                                                                        |
+| Track Title      | `TIT2`                 |                                                                                                                        |
+| Track Artists    | `TPE1`                 | `TPE4` (Remixer), `TCOM` (Composer), `TPE3` (Conductor), `TIPL,IPLS/producer` (producer), `TIPL,IPLS/DJ-mix` (djmixer) |
+| Track Number     | `TRCK`                 |                                                                                                                        |
+| Disc Number      | `TPOS`                 |                                                                                                                        |
+| Rose ID          | `TXXX:ROSEID`          |                                                                                                                        |
+| Rose Release ID  | `TXXX:ROSERELEASEID`   |                                                                                                                        |
 
 ## MP4
 
@@ -155,7 +177,7 @@ world, Rose will support reading from additional fields.
 
 | Tag              | Field Name        | Will Ingest These Fields                                                                                        |
 | ---------------- | ----------------- | --------------------------------------------------------------------------------------------------------------- |
-| Release Title    | `release`         |                                                                                                                 |
+| Release Title    | `album`           |                                                                                                                 |
 | Release Artists  | `albumartist`     |                                                                                                                 |
 | Release Type     | `releasetype`     |                                                                                                                 |
 | Release Year     | `date`            | `year`                                                                                                          |

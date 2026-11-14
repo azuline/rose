@@ -115,9 +115,9 @@ def test_releases(rose: Rose, isolated_dir: Path) -> None:
 
     cover = isolated_dir / "art.jpg"
     cover.touch()
-    rose("releases", "set-cover-release", rid, str(cover))
+    rose("releases", "set-cover", rid, str(cover))
     assert _json(rose("releases", "print", rid))["cover_image_path"] == str(Path(rpath) / "cover.jpg")
-    rose("releases", "delete-cover-release", rid)
+    rose("releases", "delete-cover", rid)
     assert _json(rose("releases", "print", rid))["cover_image_path"] is None
 
     rose("releases", "run-rule", "--dry-run", rid, "releasetitle/replace:Dry Run")

@@ -5,7 +5,7 @@ This document enumerates the commands available in Rose's CLI.
 First, a quick note on the structure: Rose primarily organizes commands by the
 resource they effect. Most commands are of the structure `rose {resource} {action}`.
 
-- fs/ _(see [Browsing with the Virtual Filesystem](./VIRTUAL_FILESYSTEM.md))_
+- fs/ _(see [Browsing the Virtual Filesystem](./VIRTUAL_FILESYSTEM.md))_
   - `fs mount`: Mount the virtual filesystem onto the configured `$vfs_mount_dir`.
   - `fs unmount`: Unmount the virtual filesystem by invoking `umount`.
 - cache/ _(see [Maintaining the Cache](./CACHE_MAINTENANCE.md))_
@@ -21,22 +21,17 @@ resource they effect. Most commands are of the structure `rose {resource} {actio
   - `releases print`: Print a single release's metadata in JSON.
   - `releases print-all`: Print all releases' metadata in JSON, with an optional matcher rule to
     filter out releases.
-  - `releases import`: Import a release directory into the managed source directory.
   - `releases edit`: Edit a release's metadata as a text file in your `$EDITOR`.
   - `releases toggle-new`: Toggle the "new"-ness of a release.
+  - `releases toggle-favorite`: Toggle the "favorite" status of a release.
+  - `releases set-rating`: Set a release's rating (1-100), or clear it with `--clear`.
   - `releases delete`: Remove a release from the library and move its source files to the trash bin.
   - `releases set-cover`: Set the cover art for a release. Replaces any existing cover art.
-  - `releases delete-cover`: Set the cover art for a release. Replaces any existing cover art.
-  - `releases extract-covers`: Extract embedded cover arts in all releases into external cover art
-    files.
+  - `releases delete-cover`: Remove the cover art of a release.
   - `releases run-rule`: Run one or more metadata actions on all tracks in the release.
-  - `releases add-metadata-url`: Associate an external metadata URL to the release.
-  - `releases search-metadata-urls`: Search for external metadata URLs to associate with the
-    release.
-  - `releases download-metadata`: Download metadata from associated URLs and suggest metadata
-    improvements.
   - `releases create-single`: Create a "phony" single release from a track and copy the track into
-    the new release.
+    the new release. `--loose-track` creates a loose track instead of a single, and
+    `--update-references` repoints playlists at the new track.
 - tracks/
   - `tracks print`: Print a single track's metadata in JSON.
   - `tracks print-all`: Print all tracks' metadata in JSON, with an optional matcher rule to filter

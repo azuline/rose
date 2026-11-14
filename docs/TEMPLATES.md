@@ -46,11 +46,17 @@ descriptors.all_tracks = "..."
 labels.release = "..."
 labels.track = "..."
 labels.all_tracks = "..."
+loose_tracks.release = "..."
+loose_tracks.track = "..."
+loose_tracks.all_tracks = "..."
 collages.release = "..."
 collages.track = "..."
 collages.all_tracks = "..."
 playlists = "..."
 ```
+
+The `xxx.all_tracks` templates name the tracks inside the flat `!All Tracks` directories of the
+virtual filesystem. See [Browsing the Virtual Filesystem](./VIRTUAL_FILESYSTEM.md).
 
 If set, the `default.xxx` templates are used as the default values for all other unset templates
 (except playlist). Otherwise the templates default to:
@@ -59,7 +65,7 @@ If set, the `default.xxx` templates are used as the default values for all other
 {# "Default Default" Release Template #}
 
 {{ releaseartists | artistsfmt }} -
-{% if releasedate %}{{ releasedate }}.{% endif %}
+{% if releasedate %}{{ releasedate.year }}.{% endif %}
 {{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 {% if favorite %} [FAVORITE]{% endif %}{% if new %} [NEW]{% endif %}
@@ -91,7 +97,7 @@ comments when defining your templates, like so:
 [path_templates]
 default.release = """
   {{ releaseartists | artistsfmt }} -
-  {% if releasedate %}{{ releasedate }}.{% endif %}         {# Hi! This is a comment! #}
+  {% if releasedate %}{{ releasedate.year }}.{% endif %}    {# Hi! This is a comment! #}
   {{ releasetitle }}
   {% if new %}[NEW]{% endif %}
 """
@@ -103,20 +109,22 @@ Rose provides the following template variables for releases:
 added_at: str                        # ISO8601 timestamp of when the release was added to the library.
 releasetitle: str
 releasetype: str                     # The type of the release (e.g. single, ep, etc). One of the enums as defined in TAGGING_CONVENTIONS.md.
-releasedate: int | None              # The year of this edition of the release.
-originaldate: int | None             # The year of the first edition of the release.
-compositiondate: int | None          # The year that the release was composed. Mainly of interest in classical music.
+releasedate: str | None              # The date of this edition of the release.
+originaldate: str | None             # The date of the first edition of the release.
+compositiondate: str | None          # The date that the release was composed. Mainly of interest in classical music.
 new: bool                            # The "new"-ness of the release. See RELEASES.md for documentation on this feature.
 favorite: bool                       # The "favorite" status of the release. See RELEASES.md for documentation on this feature.
+rating: int | None                   # The rating of the release (1-100), or None if unrated. See RELEASES.md for documentation on this feature.
 disctotal: int                       # The number of discs in the release.
 genres: list[str]
-parent_genres: list[str]             # The parent genres of `genres`, excluding `genres`.
-secondary_genres: list[str]          # The secondary/minor genres.
-parent_secondary_genres: list[str]   # The parent genres of `secondary_genres`, excluding `secondary_genres`.
+parentgenres: list[str]              # The parent genres of `genres`, excluding `genres`.
+secondarygenres: list[str]           # The secondary/minor genres.
+parentsecondarygenres: list[str]     # The parent genres of `secondarygenres`, excluding `secondarygenres`.
+descriptors: list[str]
 labels: list[str]
 catalognumber: str | None
 edition: str | None                  # The title of this edition of the release.
-releaseartists: ArtistMapping        # All release artists: an object with 6 properties, each corresponding to one role.
+releaseartists: ArtistMapping        # All release artists: an object with 7 properties, each corresponding to one role.
 releaseartists.main: list[Artist]    # The Artist object has a `name` property with the artist name.
 releaseartists.guest: list[Artist]
 releaseartists.remixer: list[Artist]
@@ -126,6 +134,7 @@ releaseartists.conductor: list[Artist]
 releaseartists.djmixer: list[Artist]
 position: str                        # If in a collage context, the zero-padded position of the release in the collage.
 context.genre: str                   # The current genre being viewed in the Virtual Filesystem.
+context.descriptor: str              # The current descriptor being viewed in the Virtual Filesystem.
 context.label: str                   # The current label being viewed in the Virtual Filesystem.
 context.artist: str                  # The current artist being viewed in the Virtual Filesystem.
 context.collage: str                 # The current collage being viewed in the Virtual Filesystem.
@@ -142,7 +151,7 @@ tracktotal: int                      # The number of tracks on this disc.
 discnumber: str
 disctotal: int                       # The number of discs in the release.
 duration_seconds: int
-trackartists: ArtistMapping          # All track artists: an object with 6 properties, each corresponding to one role.
+trackartists: ArtistMapping          # All track artists: an object with 7 properties, each corresponding to one role.
 trackartists.main: list[Artist]      # The Artist object has a `name` property with the artist name.
 trackartists.guest: list[Artist]
 trackartists.remixer: list[Artist]
@@ -152,19 +161,21 @@ trackartists.conductor: list[Artist]
 trackartists.djmixer: list[Artist]
 releasetitle: str
 releasetype: str                     # The type of the track's release (e.g. single, ep, etc).
-releasedate: int | None
-originaldate: int | None             # The year of the first edition of the release.
-compositiondate: int | None          # The year that the release was composed. Mainly of interest in classical music.
+releasedate: str | None              # The date of this edition of the release.
+originaldate: str | None             # The date of the first edition of the release.
+compositiondate: str | None          # The date that the release was composed. Mainly of interest in classical music.
 new: bool                            # The "new"-ness of the track's release.
 favorite: bool                       # The "favorite" status of the track's release.
+rating: int | None                   # The rating of the track's release (1-100), or None if unrated.
 genres: list[str]
-parent_genres: list[str]             # The parent genres of `genres`, excluding `genres`.
-secondary_genres: list[str]          # The secondary/minor genres.
-parent_secondary_genres: list[str]   # The parent genres of `secondary_genres`, excluding `secondary_genres`.
+parentgenres: list[str]              # The parent genres of `genres`, excluding `genres`.
+secondarygenres: list[str]           # The secondary/minor genres.
+parentsecondarygenres: list[str]     # The parent genres of `secondarygenres`, excluding `secondarygenres`.
+descriptors: list[str]
 labels: list[str]
 catalognumber: str | None
 edition: str | None                  # The title of this edition of the release.
-releaseartists: ArtistMapping        # All release artists: an object with 6 properties, each corresponding to one role.
+releaseartists: ArtistMapping        # All release artists: an object with 7 properties, each corresponding to one role.
 releaseartists.main: list[Artist]    # The Artist object has a `name` property with the artist name.
 releaseartists.guest: list[Artist]
 releaseartists.remixer: list[Artist]
@@ -174,11 +185,22 @@ releaseartists.conductor: list[Artist]
 releaseartists.djmixer: list[Artist]
 position: str                        # If in a playlist context, the zero-padded position of the track in the playlist.
 context.genre: str                   # The current genre being viewed in the Virtual Filesystem.
+context.descriptor: str              # The current descriptor being viewed in the Virtual Filesystem.
 context.label: str                   # The current label being viewed in the Virtual Filesystem.
 context.artist: str                  # The current artist being viewed in the Virtual Filesystem.
 context.collage: str                 # The current collage being viewed in the Virtual Filesystem.
 context.playlist: str                # The current playlist being viewed in the Virtual Filesystem.
 ```
+
+The date variables render as `YYYY-MM-DD`, or as `YYYY` if only the year is known (e.g. `2017-05-23`
+or `2017`). Each date also exposes its `year`, `month`, and `day` parts, so `{{ releasedate.year }}`
+always renders only the year.
+
+> [!NOTE]
+> The template variables are named differently from the JSON keys printed by the `print` commands.
+> For example, the templates use `parentgenres` and `secondarygenres`, while the JSON output uses
+> `parent_genres` and `secondary_genres`. An undefined variable renders as an empty string, so a
+> misspelled variable silently drops that piece of the name.
 
 Rose also provides the following custom filters:
 

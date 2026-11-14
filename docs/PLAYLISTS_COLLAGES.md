@@ -90,8 +90,13 @@ and playlists via the command line and the virtual filesystem. In the rest of th
 demonstrate the supported operations.
 
 Note: Rose supports passing playlists and collages by both their name and their path. The path of
-their source `.toml` file and the path of their virtual directory are both supported. All views in
-the virtual directory are supported as well.
+their source `.toml` file and the path of their virtual directory are both supported. For example, the following commands are equivalent:
+
+```bash
+$ rose collages print "Long Flight"
+$ rose collages print "$music_source_dir/!collages/Long Flight.toml"
+$ rose collages print "$vfs_mount_dir/7. Collages/Long Flight"
+```
 
 ## Creating a Collage/Playlist
 
@@ -273,7 +278,7 @@ $ rose collages delete "Morning"
 [18:23:44] INFO: Deleted collage Morning from source directory
 [18:23:44] INFO: Evicted collage Morning from cache
 
-$ rose playlists create "Evening"
+$ rose playlists delete "Evening"
 [18:26:38] INFO: Deleted playlist Evening from source directory
 [18:26:38] INFO: Evicted playlist Evening from cache
 ```
@@ -335,7 +340,7 @@ $ tree "7. Collages/"
 7. Collages/
 └── Long Flight/...
 
-$ mv "8. Playlists/Shower" "8. Playlsits/Meal Prep"
+$ mv "8. Playlists/Shower" "8. Playlists/Meal Prep"
 
 $ tree "8. Playlists/"
 8. Playlists/
@@ -372,7 +377,7 @@ filenames. The valid cover art filenames are controlled by and documented in
 [Configuration](./CONFIGURATION.md)._
 
 ```bash
-$ cd $vfsvfs_t_dir
+$ cd $vfs_mount_dir
 
 $ mv ~/downloads/cover.jpg "8. Playlists/Shower/cover.jpg"
 

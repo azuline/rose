@@ -88,7 +88,7 @@ Commands:
 
 Great! Next, we'll (1) configure Rose, (2) mount the virtual filesystem, and finally (3) play music!
 
-1. Rose requires a configuration file. On Linux, the configuration file is located at `$XDG_CONFIG_HOME/rose/config.toml`, which is typically `~/.config/rose/.config.toml`. On MacOS, the configuration file is located at `~/Library/Preferences/rose/config.toml`.
+1. Rose requires a configuration file. On Linux, the configuration file is located at `$XDG_CONFIG_HOME/rose/config.toml`, which is typically `~/.config/rose/config.toml`. On MacOS, the configuration file is located at `~/Library/Preferences/rose/config.toml`.
 
    Only two configuration options are required:
 
@@ -126,11 +126,15 @@ Great! Next, we'll (1) configure Rose, (2) mount the virtual filesystem, and fin
 
    $ ls -1
    '1. Releases'
-   '2. Releases - New'
-   '3. Releases - Recently Added'
-   '4. Artists'
-   '5. Genres'
-   '6. Labels'
+   '1. Releases - New'
+   '1. Releases - Favorites'
+   '1. Releases - Added On'
+   '1. Releases - Released On'
+   '2. Artists'
+   '3. Genres'
+   '4. Descriptors'
+   '5. Labels'
+   '6. Loose Tracks'
    '7. Collages'
    '8. Playlists'
 
@@ -174,7 +178,6 @@ For additional documentation, please refer to the following files:
 - [Improving Your Music Metadata](./docs/METADATA_TOOLS.md)
 - [Maintaining the Cache](./docs/CACHE_MAINTENANCE.md)
 - [Directory & Filename Templates](./docs/TEMPLATES.md)
-- [Shell Scripting](./docs/SHELL_SCRIPTING.md)
 - [Tagging Conventions](./docs/TAGGING_CONVENTIONS.md)
 - [Architecture](./docs/ARCHITECTURE.md)
 

@@ -42,6 +42,16 @@ vfs.mount_dir = "~/music"
 # This option false by default.
 rename_source_files = false
 
+# If true, Rose appends the (transitive) parent genres of a release's genres to
+# the genre and secondary genre tags that it writes to audio files. This lets
+# other music software see the parent genres. The parent genres are written
+# after a `\\PARENTS:\\` marker, e.g. `Deep House\\PARENTS:\\Dance;Electronic;Electronic Dance Music;House`.
+# Rose strips them back out when reading tags, so they never become genres of
+# the release. See TAGGING_CONVENTIONS.md for more details.
+#
+# This option is false by default.
+write_parent_genres = false
+
 # Artist aliases: Grouping multiple names for the same artist together.
 #
 # Artists will sometimes release under multiple names. This is fine, but
@@ -155,15 +165,15 @@ max_proc = 4
 # details.
 [path_templates]
 default.release = """
-{{ artists | artistsfmt }} -
-{% if releasedate %}{{ releasedate }}.{% endif %}
-{{ title }}
+{{ releaseartists | artistsfmt }} -
+{% if releasedate %}{{ releasedate.year }}.{% endif %}
+{{ releasetitle }}
 {% if releasetype == "single" %}- {{ releasetype | releasetypefmt }}{% endif %}
 """
 default.track = """
 {% if disctotal > 1 %}{{ discnumber.rjust(2, '0') }}-{% endif %}{{ tracknumber.rjust(2, '0') }}.
-{{ title }}
-{% if artists.guest %}(feat. {{ artists.guest | artistsarrayfmt }}){% endif %}
+{{ tracktitle }}
+{% if trackartists.guest %}(feat. {{ trackartists.guest | artistsarrayfmt }}){% endif %}
 """
 
 # Stored metadata rules to be repeatedly ran in the future. See
@@ -187,11 +197,11 @@ commands enable shell completion:
 ```bash
 # Bash
 $ rose config generate-completion bash > ~/.config/rose/completion.bash
-$ echo ". ~/.config/rose/.completion.bash" >> ~/.bashrc
+$ echo ". ~/.config/rose/completion.bash" >> ~/.bashrc
 
 # Zsh
 $ rose config generate-completion zsh > ~/.config/rose/completion.zsh
-$ echo ". ~/.config/rose/.completion.zsh" >> ~/.zshrc
+$ echo ". ~/.config/rose/completion.zsh" >> ~/.zshrc
 
 # Fish
 $ rose config generate-completion fish > ~/.config/fish/completions/rose.fish

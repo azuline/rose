@@ -22,6 +22,9 @@ tags. The format of this file is:
 new = false
 # Release "favorite" status.
 favorite = false
+# The rating of the release: an integer between 1 and 100. If the release is
+# unrated, this key is either -1 or absent.
+rating = 90
 # The timestamp that the release was "added" to the library. Rose uses the
 # timestamp when the `.rose.{uuid}.toml` file was created, as that is
 # equivalent to the first time Rose scanned the release.
@@ -50,6 +53,17 @@ the `1. Releases - Favorites` top-level directory.
 
 Releases are not favorited by default. Favorite status can be toggled manually via the CLI or
 metadata editor. This feature is designed to allow you to quickly access your most valued releases.
+
+# Release Ratings
+
+Rose supports rating releases. A rating is an integer between 1 and 100 (inclusive). Releases are
+unrated by default.
+
+The rating is stored in the release's `.rose.{uuid}.toml` file, not in the audio tags. It is part of
+the release's JSON output (`rating`, which is `null` if the release is unrated), is available as the
+`rating` variable in path templates, can be matched and modified with the `rating` tag in the rules
+engine, and can be edited as the `rating` field in the text-based release editor (where `-1` means
+unrated).
 
 # Printing Metadata
 
@@ -130,6 +144,31 @@ $ rose releases toggle-favorite "1. Releases/NewJeans - 2022. Ditto - Single [FA
 $ tree "1. Releases - Favorites/"
 1. Releases - Favorites/
 ```
+
+## Set Release Rating
+
+Command line:
+
+```bash
+$ cd $vfs_mount_dir
+
+$ rose releases set-rating "1. Releases/NewJeans - 2022. Ditto - Single" 90
+
+$ rose releases print "1. Releases/NewJeans - 2022. Ditto - Single" | jq .rating
+90
+
+$ rose releases set-rating "1. Releases/NewJeans - 2022. Ditto - Single" --clear
+
+$ rose releases print "1. Releases/NewJeans - 2022. Ditto - Single" | jq .rating
+null
+```
+
+The rating must be between 1 and 100. Pass `--clear` instead of a rating to make the release unrated
+again.
+
+Virtual filesystem:
+
+_Not supported._
 
 ## Set Release Cover Art
 
@@ -241,6 +280,10 @@ $ tree "1. Releases/"
 
 See the "Text-Based Release Editing" section in [Improving Your Music Metadata](./METADATA_TOOLS.md).
 
+If an edit fails to apply, the edited TOML is saved to the cache directory and can be reopened with
+`rose releases edit --resume PATH RELEASE` (or `-r`). See "Resuming a Failed Edit" in the same
+document.
+
 ## Run Rule Engine Action on Release
 
 Rose allows you to run an action from the rule engine on all tracks in a release. With this command,
@@ -322,7 +365,7 @@ To demonstrate:
 ```bash
 $ cd $vfs_mount_dir
 
-$ rose releases create-single "1. Releases/ITZY - 2022. CHECKMATE/01.\ SNEAKERS.opus"
+$ rose releases create-single "1. Releases/ITZY - 2022. CHECKMATE/01. SNEAKERS.opus"
 [12:16:06] INFO: Created phony single release ITZY - 2022. SNEAKERS
 [12:16:06] INFO: Updating cache for release ITZY - 2022. SNEAKERS
 [12:16:06] INFO: Toggled "new"-ness of release /home/blissful/.music-source/ITZY - 2022. SNEAKERS to False
@@ -346,4 +389,17 @@ releasetype = "single"
 releaseartists = $trackartists
 tracknumber = 1
 discnumber = 1
+```
+
+The command accepts two optional flags:
+
+- `--loose-track/-l`: Set the release type of the new release to `loosetrack` instead of `single`.
+  Loose tracks are hidden from the standard release views and are listed in the Loose Tracks view
+  instead. See [Browsing the Virtual Filesystem](./VIRTUAL_FILESYSTEM.md).
+- `--update-references/-u`: Update every playlist that contains the original track to point to the
+  new copy of the track instead. This is useful if you plan to delete the original release, as the
+  playlists would otherwise lose the track.
+
+```bash
+$ rose releases create-single --loose-track --update-references "1. Releases/ITZY - 2022. CHECKMATE/01. SNEAKERS.opus"
 ```
