@@ -2,7 +2,7 @@
 
 # Release & Track Identifiers
 
-Rosé assigns a UUID to each release and track in order to identify them across cache updates. The
+Rose assigns a UUID to each release and track in order to identify them across cache updates. The
 UUIDs are also used to track membership in collages and playlists.
 
 These UUIDs are persisted to the source files on first scan:
@@ -22,9 +22,9 @@ tags. The format of this file is:
 new = false
 # Release "favorite" status.
 favorite = false
-# The timestamp that the release was "added" to the library. Rosé uses the
+# The timestamp that the release was "added" to the library. Rose uses the
 # timestamp when the `.rose.{uuid}.toml` file was created, as that is
-# equivalent to the first time Rosé scanned the release.
+# equivalent to the first time Rose scanned the release.
 added_at = 2018-10-01 00:00:00-04:00
 ```
 
@@ -34,7 +34,7 @@ details.
 
 # "New" Releases
 
-Rosé supports flagging releases as "new." "New"-ness has no effects besides suffixing the release's
+Rose supports flagging releases as "new." "New"-ness has no effects besides suffixing the release's
 virtual filesystem name with ` [NEW]` (with the default release template) and adding the release to
 the `1. Releases - New` top-level directory.
 
@@ -44,7 +44,7 @@ and music you're planning on listening to.
 
 # "Favorite" Releases
 
-Rosé supports marking releases as "favorite." Favoriting has no effects besides suffixing the release's
+Rose supports marking releases as "favorite." Favoriting has no effects besides suffixing the release's
 virtual filesystem name with ` [FAVORITE]` (with the default release template) and adding the release to
 the `1. Releases - Favorites` top-level directory.
 
@@ -53,8 +53,8 @@ metadata editor. This feature is designed to allow you to quickly access your mo
 
 # Printing Metadata
 
-Rosé supports printing release and track metadata from the command line in JSON format, which can be
-used in scripts and to compose your own commands. Rosé provides four commands:
+Rose supports printing release and track metadata from the command line in JSON format, which can be
+used in scripts and to compose your own commands. Rose provides four commands:
 
 ```
 $ rose releases print 'UUID/Path'
@@ -74,10 +74,10 @@ be used in the matcher (i.e. no tracktitle, tracknumber, etc.).
 
 # Operations
 
-Rosé allows you to manage releases via the command line and the virtual filesystem. In the rest of
+Rose allows you to manage releases via the command line and the virtual filesystem. In the rest of
 this document, we'll demonstrate the supported operations.
 
-Note: Rosé supports passing releases and tracks by both their UUIDs and by path. Paths in the source
+Note: Rose supports passing releases and tracks by both their UUIDs and by path. Paths in the source
 directory and paths in the virtual directory are both supported. All views in the virtual directory
 are supported as well.
 
@@ -243,7 +243,7 @@ See the "Text-Based Release Editing" section in [Improving Your Music Metadata](
 
 ## Run Rule Engine Action on Release
 
-Rosé allows you to run an action from the rule engine on all tracks in a release. With this command,
+Rose allows you to run an action from the rule engine on all tracks in a release. With this command,
 you do not need to specify a matcher; this command auto-matches all tracks in the release.
 
 See [Improving Your Music Metadata](./METADATA_TOOLS.md) for documentation on the rules engine.
@@ -293,7 +293,7 @@ Applied tag changes to 11 tracks!
 
 ## Run Rule Engine Action on Track
 
-Similar to how you can run a rule engine action on a release, Rosé also allows you to run an action
+Similar to how you can run a rule engine action on a release, Rose also allows you to run an action
 on a single track.
 
 ```bash
@@ -314,7 +314,7 @@ Applied tag changes to 11 tracks!
 Let's say that you did not enjoy a release, and want to delete it from your library, but you did
 enjoy one standout track and wish to keep only that track.
 
-Rosé allows you to create a new, "phony," single release for that track alone, so that you can get
+Rose allows you to create a new, "phony," single release for that track alone, so that you can get
 rid of the release while keeping the track(s) you liked.
 
 To demonstrate:

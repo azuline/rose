@@ -12,6 +12,7 @@ The second part of this file provides performant release/track querying entirely
 cache, which is used by other modules to provide release/track filtering capabilities.
 """
 
+import contextlib
 import copy
 import dataclasses
 import logging
@@ -19,6 +20,7 @@ import re
 import shlex
 import time
 import tomllib
+from collections.abc import Iterator
 from pathlib import Path
 
 import click
@@ -33,6 +35,8 @@ from rose.cache import (
     find_release_datafile,
     list_releases,
     list_tracks,
+    lock,
+    release_lock_name,
     update_cache_for_releases,
 )
 from rose.common import Artist, RoseError, RoseExpectedError, uniq
@@ -650,7 +654,8 @@ def execute_metadata_actions(
         logger.debug(
             f"Attempting to write {pathtext} changes: {' //// '.join([str(x) + ' -> ' + str(y) for _, x, y in tag_changes])}"
         )
-        tags.flush(c)
+        with _maybe_release_lock(c, tags.release_id):
+            tags.flush(c)
         logger.info(f"Wrote tag changes to {pathtext}")
     for path, (tags, datafile, datafile_changes) in actionable_datafiles.items():
         if tags.release_id:
@@ -660,7 +665,7 @@ def execute_metadata_actions(
             f"Attempting to write {pathtext} changes: {' //// '.join([str(x) + ' -> ' + str(y) for _, x, y in datafile_changes])}"
         )
         if f := find_release_datafile(Path(path)):
-            with f.open("wb") as fp:
+            with _maybe_release_lock(c, tags.release_id), f.open("wb") as fp:
                 tomli_w.dump(datafile.serialize(), fp)
         logger.info(f"Wrote datafile changes to {pathtext}")
 
@@ -672,6 +677,16 @@ def execute_metadata_actions(
     click.echo()
     source_paths = [r.source_path for r in list_releases(c, list(changed_release_ids))]
     update_cache_for_releases(c, source_paths)
+
+
+@contextlib.contextmanager
+def _maybe_release_lock(c: Config, release_id: str | None) -> Iterator[None]:
+    # Tracks that have not yet been assigned a release ID have no release to lock.
+    if release_id is None:
+        yield
+        return
+    with lock(c, release_lock_name(release_id)):
+        yield
 
 
 TagValue = str | int | bool | RoseDate | None
