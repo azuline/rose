@@ -55,6 +55,7 @@ from rose.cache import (
 )
 from rose.common import VERSION, Artist, ArtistMapping
 from rose.config import Config
+from rose.templates import PathTemplate
 
 
 def test_schema(config: Config) -> None:
@@ -1976,21 +1977,29 @@ def test_unpack() -> None:
     assert list(_unpack("", "")) == []
 
 
-def test_update_cache_releases_release_change_refreshes_untouched_tracks(config: Config) -> None:
-    """A release tag changed on one track must refresh the metahash of the release's other tracks."""
-    release_dir = config.music_source_dir / TEST_RELEASE_1.name
-    shutil.copytree(TEST_RELEASE_1, release_dir)
-    update_cache_for_releases(config, [release_dir])
-    with connect(config) as conn:
-        before = {Path(r["source_path"]).name: r["metahash"] for r in conn.execute("SELECT * FROM tracks")}
+def test_update_cache_rename_source_files_release_tag_change(config: Config) -> None:
+    """A release tag changed in one track's file renames the release's other tracks too."""
+    track_template = PathTemplate("{{ tracknumber }}. {{ tracktitle }}{% if media %} [{{ media }}]{% endif %}")
+    source = dataclasses.replace(config.path_templates.source, track=track_template)
+    config = dataclasses.replace(
+        config,
+        rename_source_files=True,
+        path_templates=dataclasses.replace(config.path_templates, source=source),
+    )
+    shutil.copytree(TEST_RELEASE_1, config.music_source_dir / TEST_RELEASE_1.name)
+    update_cache(config)
+    release_dir = config.music_source_dir / "BLACKPINK - 1990. I Love Blackpink [NEW]"
+    assert {f.name for f in release_dir.glob("*.m4a")} == {"1. Track 1.m4a", "2. Track 2.m4a"}
 
-    af = AudioTags.from_file(release_dir / "01.m4a")
+    af = AudioTags.from_file(release_dir / "1. Track 1.m4a")
     af.media = "Vinyl"
     af.flush(config)
-    update_cache_for_releases(config, [release_dir])
+    update_cache(config)
 
+    assert {f.name for f in release_dir.glob("*.m4a")} == {"1. Track 1 [Vinyl].m4a", "2. Track 2 [Vinyl].m4a"}
     with connect(config) as conn:
-        assert conn.execute("SELECT media FROM releases").fetchone()["media"] == "Vinyl"
-        after = {Path(r["source_path"]).name: r["metahash"] for r in conn.execute("SELECT * FROM tracks")}
-    assert after["01.m4a"] != before["01.m4a"]
-    assert after["02.m4a"] != before["02.m4a"]
+        cursor = conn.execute("SELECT source_path FROM tracks")
+        assert {Path(r[0]) for r in cursor} == {
+            release_dir / "1. Track 1 [Vinyl].m4a",
+            release_dir / "2. Track 2 [Vinyl].m4a",
+        }

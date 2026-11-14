@@ -165,6 +165,14 @@ def test_rules_fields_media(config: Config, source_dir: Path) -> None:
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.media == "CD"
 
+    # An unset tag has no tokens in the full-text index; `^$` must still match it and nothing else.
+    rule = Rule.parse("media:^$", ["media/replace:Cassette"])
+    execute_metadata_rule(config, rule, confirm_yes=False)
+    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
+    assert af.media == "CD"
+    af = AudioTags.from_file(source_dir / "Test Release 2" / "01.m4a")
+    assert af.media == "Cassette"
+
     rule = Rule.parse("media:^CD$", ["media/replace:Vinyl"])
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
@@ -544,21 +552,6 @@ def test_artist_matcher_on_trackartist_only(config: Config, source_dir: Path) ->
     execute_metadata_rule(config, rule, confirm_yes=False)
     af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
     assert af.trackartists.main == [Artist("BIGBANG"), Artist("2NE1")]
-
-
-def test_rules_match_empty_value(config: Config, source_dir: Path) -> None:
-    # An unset tag has no tokens in the FTS index, so the fast search must not filter it out.
-    rule = Rule.parse("media:^$", ["media/replace:CD"])
-    execute_metadata_rule(config, rule, confirm_yes=False)
-    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.media == "CD"
-    # And a track which already had a value is left alone.
-    rule = Rule.parse("releasetitle:Love Blackpink", ["media/replace:Vinyl"])
-    execute_metadata_rule(config, rule, confirm_yes=False)
-    rule = Rule.parse("media:^$", ["media/replace:Cassette"])
-    execute_metadata_rule(config, rule, confirm_yes=False)
-    af = AudioTags.from_file(source_dir / "Test Release 1" / "01.m4a")
-    assert af.media == "Vinyl"
 
 
 @pytest.mark.usefixtures("seeded_cache")
