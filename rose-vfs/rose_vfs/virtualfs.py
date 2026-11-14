@@ -1591,10 +1591,11 @@ class RoseLogicalCore:
                     del self.file_creation_special_ops[fh]
                     return
             raise RoseError(f"Impossible: unknown file creation special op: {operation=} {ident=}")
-        self._update_cache_for_written_fh(fh, "release")
-        self.update_release_on_fh_close.pop(fh, None)
-        fh = self.fhandler.unwrap_host(fh)
-        os.close(fh)
+        try:
+            self._update_cache_for_written_fh(fh, "release")
+        finally:
+            self.update_release_on_fh_close.pop(fh, None)
+            os.close(self.fhandler.unwrap_host(fh))
 
 
 class INodeMapper:
