@@ -6,9 +6,8 @@ known vocabulary, along with the releases that use them.
 
 Genres and secondary genres are checked against the RYM genre hierarchy in
 rose/genre_hierarchy.py. Descriptors are checked against the Descriptors section of the vendored
-RYM dump in scripts/rym-genres/rym.txt, or against a file of known descriptors (one per line)
-passed with --descriptors. Comparison is exact: a tag that differs from a known value only by case
-is noncompliant, and the known spelling is printed beside it.
+RYM dump in scripts/rym-genres/rym.txt. Comparison is exact: a tag that differs from a known value
+only by case is noncompliant, and the known spelling is printed beside it.
 
 This reads the cache as-is; run `rose cache update` first if the cache may be stale.
 """
@@ -92,24 +91,14 @@ def read_rym_descriptors(*, path: Path = RYM_FILE) -> list[str]:
     return sorted(descriptors)
 
 
-def read_descriptors_file(path: Path) -> list[str]:
-    with path.open("r") as fp:
-        return [x for x in (line.strip() for line in fp) if x and not x.startswith("#")]
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", "-c", type=Path, help="Override the config file location.")
-    parser.add_argument(
-        "--descriptors",
-        type=Path,
-        help="File of known descriptors, one per line. Defaults to the descriptors in the vendored RYM dump.",
-    )
     args = parser.parse_args()
 
     config = Config.parse(config_path_override=args.config)
     known_genres = list(TRANSITIVE_PARENT_GENRES)
-    known_descriptors = read_descriptors_file(args.descriptors) if args.descriptors else read_rym_descriptors()
+    known_descriptors = read_rym_descriptors()
 
     noncompliant = find_noncompliant_tags(list_releases(config), known_genres, known_descriptors)
     print(format_report(noncompliant, known_genres, known_descriptors), end="")

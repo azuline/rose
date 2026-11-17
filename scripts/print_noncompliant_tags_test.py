@@ -6,7 +6,6 @@ from rose import Config, list_releases
 from scripts.print_noncompliant_tags import (
     find_noncompliant_tags,
     format_report,
-    read_descriptors_file,
     read_rym_descriptors,
 )
 
@@ -83,9 +82,3 @@ Genres
     assert "Melancholic" in descriptors
     assert "Atmosphere" not in descriptors
     assert "Ambient Americana" not in descriptors
-
-
-def test_read_descriptors_file(tmp_path: Path) -> None:
-    path = tmp_path / "descriptors.txt"
-    path.write_text("# comment\nwarm\n\n  melancholic  \n")
-    assert read_descriptors_file(path) == ["warm", "melancholic"]
