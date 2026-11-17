@@ -33,19 +33,21 @@ class Genre:
         return f"Genre(name='{self.name}', parents=[{len(self.parents)}], children=[{len(self.children)}])"
 
 
-# The upstream file has three top-level sections: Descriptors, Genres, and Scenes & Movements. Only
-# the Genres section is part of the genre hierarchy.
-GENRES_SECTION = "Genres"
+# The upstream file has three top-level sections: Descriptors, Genres, and Scenes & Movements. The
+# genre hierarchy is built from Genres and Scenes & Movements: RYM tags releases with scenes the same
+# way as genres, and scenes were part of the genre tree before RYM split them out. The section
+# headers themselves are not genres.
+GENRE_SECTIONS = {"Genres", "Scenes & Movements"}
 
 raw_text: list[str] = []
-in_genres_section = False
+in_genre_section = False
 with GENRES_FILE.open("r") as fp:
     for line in fp.read().splitlines():
         if not line.startswith(" "):
-            in_genres_section = line == GENRES_SECTION
-        elif in_genres_section:
+            in_genre_section = line in GENRE_SECTIONS
+        elif in_genre_section:
             raw_text.append(line.removeprefix("    "))
-assert raw_text, f"No {GENRES_SECTION} section found in {GENRES_FILE}"
+assert raw_text, f"No genre sections found in {GENRES_FILE}"
 
 # A DAG of genres. Genres can have multiple parents; thus, this is not a tree.
 genres: dict[str, Genre] = {}
