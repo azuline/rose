@@ -331,7 +331,7 @@ class MetadataRelease:
         return tomli_w.dumps(data)
 
     @classmethod
-    def from_toml(cls, toml: str) -> MetadataRelease:
+    def from_toml(cls, toml: str, *, current_media: str | None = None) -> MetadataRelease:
         d = tomllib.loads(toml)
         return MetadataRelease(
             title=d["title"],
@@ -347,8 +347,9 @@ class MetadataRelease:
             descriptors=d["descriptors"],
             labels=d["labels"],
             catalognumber=d["catalognumber"] or None,
-            # Resume files written before the media field existed do not have this key.
-            media=d.get("media") or None,
+            # Resume files written before the media field existed do not have this key. A missing key
+            # leaves the release's media as it is; only an explicit empty string clears it.
+            media=(d["media"] or None) if "media" in d else current_media,
             edition=d["edition"] or None,
             artists=[MetadataArtist(name=a["name"], role=a["role"]) for a in d["artists"]],
             tracks={
@@ -406,7 +407,7 @@ def edit_release(
 
         try:
             try:
-                release_meta = MetadataRelease.from_toml(toml)
+                release_meta = MetadataRelease.from_toml(toml, current_media=release.media)
             except (tomllib.TOMLDecodeError, KeyError) as e:
                 raise ReleaseEditFailedError("Failed to decode TOML file.") from e
             for t in tracks:

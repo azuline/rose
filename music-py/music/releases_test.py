@@ -287,6 +287,13 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
         track_ids = [r["id"] for r in cursor]
         assert len(track_ids) == 2
 
+    # The release has a media tag, written by another tagger before the field existed here.
+    for f in release_path.glob("*.m4a"):
+        af = AudioTags.from_file(f)
+        af.media = "CD"
+        af.flush(config)
+    update_cache(config)
+
     # Notice the bullshit releasetype.
     bad_toml = f"""
         title = "I Really Love Blackpink"
@@ -301,7 +308,6 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
             {{ name = "JISOO", role = "main" }},
         ]
         catalognumber = ""
-        media = ""
         edition = ""
         labels = [
             "YG Entertainment",
@@ -338,7 +344,8 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
     assert match is not None
     resume_file = Path(match[1])
 
-    # The corrected TOML omits `media`: resume files from before the field existed must still load.
+    # The corrected TOML omits `media`: resume files from before the field existed must still load,
+    # and must leave the release's media tag untouched.
     correct_toml = f"""
         title = "I Really Love Blackpink"
         new = false
@@ -404,7 +411,7 @@ def test_edit_release_failure_and_resume(monkeypatch: Any, config: Config, sourc
         originaldate=None,
         compositiondate=None,
         catalognumber=None,
-        media=None,
+        media="CD",
         edition=None,
         new=False,
         favorite=False,
