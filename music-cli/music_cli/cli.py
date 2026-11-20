@@ -688,7 +688,7 @@ def parse_release_argument(r: str) -> str:
     # ID from that file.
     with contextlib.suppress(FileNotFoundError, NotADirectoryError):
         p = Path(r).resolve()
-        for f in p.iterdir():
+        for f in sorted(p.iterdir()):
             if m := STORED_DATA_FILE_REGEX.match(f.name):
                 logger.debug(f"Parsed release ID {m[1]} from release argument {r}")
                 return m[1]
