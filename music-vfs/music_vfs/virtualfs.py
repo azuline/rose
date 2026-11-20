@@ -877,14 +877,14 @@ class MusicLogicalCore:
         #    cover art filenames is written, it replaces the existing cover art.
         #
         # In order to be able to inspect the written bytes, we must store state across several
-        # syscalls (open, write, release). So the process goes:
+        # syscalls (open, write, flush, release). So the process goes:
         #
         # 1. Upon file open, if the syscall matches one of the supported file creation operations,
         #    store the file descriptor in this map instead.
         # 2. On subsequent write requests to the same path and sentinel file descriptor, take the
         #    bytes-to-write and store them in the map.
-        # 3. On release, process the written bytes and execute the real operation against the music
-        #    library.
+        # 3. On flush, process the written bytes and execute the real operation against the music
+        #    library. Release retries if that failed, and drops the state.
         #
         # The state is a mapping of fh -> (operation, identifier, ext, bytes). Identifier is typed
         # based on the operation, and is used to identify the playlist/release being modified.
@@ -898,10 +898,11 @@ class MusicLogicalCore:
         # complete before returning from close(), whereas release is sent asynchronously. Updating
         # in release means that the caller can observe the stale cache after closing the file.
         self.update_release_on_fh_close: dict[int, str] = {}
-        # The file handles in the above map that have not had a cache update since they were opened
-        # or last written to. Flush is called once per close() of a duplicated file descriptor, and
-        # may not be called at all, so release updates the cache for the handles that remain here.
-        self.fhs_pending_cache_update: set[int] = set()
+        # The file handles in the above two maps whose writes have not been handled (by a cache update
+        # or by the file creation special op) since they were opened or last written to. Flush is
+        # called once per close() of a duplicated file descriptor, and may not be called at all, so
+        # release handles the ones that remain here.
+        self.fhs_with_pending_writes: set[int] = set()
         super().__init__()
 
     @staticmethod
@@ -1414,7 +1415,7 @@ class MusicLogicalCore:
                 fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
                 if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
                     self.update_release_on_fh_close[fh] = track.release.id
-                    self.fhs_pending_cache_update.add(fh)
+                    self.fhs_with_pending_writes.add(fh)
                 return fh
             raise llfuse.FUSEError(err)
         if (
@@ -1428,7 +1429,7 @@ class MusicLogicalCore:
                 fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
                 if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
                     self.update_release_on_fh_close[fh] = release.id
-                    self.fhs_pending_cache_update.add(fh)
+                    self.fhs_with_pending_writes.add(fh)
                 return fh
             # If the file is the datafile, pass it through.
             if p.file == f".rose.{release.id}.toml":
@@ -1492,7 +1493,7 @@ class MusicLogicalCore:
                 fh = self.fhandler.wrap_host(os.open(str(track.source_path), flags))
                 if flags & os.O_WRONLY == os.O_WRONLY or flags & os.O_RDWR == os.O_RDWR:
                     self.update_release_on_fh_close[fh] = track.release.id
-                    self.fhs_pending_cache_update.add(fh)
+                    self.fhs_with_pending_writes.add(fh)
                 return fh
             if playlist.cover_path and f"cover{playlist.cover_path.suffix}" == p.file:
                 return self.fhandler.wrap_host(os.open(playlist.cover_path, flags))
@@ -1517,9 +1518,10 @@ class MusicLogicalCore:
             _, _, _, b = sop
             del b[offset:]
             b.extend(data)
+            self.fhs_with_pending_writes.add(fh)
             return len(data)
         if fh in self.update_release_on_fh_close:
-            self.fhs_pending_cache_update.add(fh)
+            self.fhs_with_pending_writes.add(fh)
         fh = self.fhandler.unwrap_host(fh)
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, data)
@@ -1528,74 +1530,78 @@ class MusicLogicalCore:
         logger.debug(f"LOGICAL: Received flush for {fh=}")
         # Flush can arrive while another duplicate of the file descriptor is still writing, in which
         # case the file may not be parseable yet. Failing here would fail the caller's close(), so
-        # leave the update pending for a later flush or the release.
+        # leave the writes pending for a later flush or the release.
         try:
-            self._update_cache_for_written_fh(fh, "flush")
+            self._handle_pending_writes(fh, "flush")
         except Exception as e:
-            logger.debug(f"LOGICAL: Deferring cache update for {fh=} after failure on flush: {e}")
-            self.fhs_pending_cache_update.add(fh)
+            logger.debug(f"LOGICAL: Deferring handling of writes to {fh=} after failure on flush: {e}")
+            self.fhs_with_pending_writes.add(fh)
 
-    def _update_cache_for_written_fh(self, fh: int, syscall: str) -> None:
-        if fh not in self.fhs_pending_cache_update:
+    def _handle_pending_writes(self, fh: int, syscall: str) -> None:
+        if fh not in self.fhs_with_pending_writes:
             return
-        self.fhs_pending_cache_update.discard(fh)
+        self.fhs_with_pending_writes.discard(fh)
+        if sop := self.file_creation_special_ops.get(fh, None):
+            logger.debug(f"LOGICAL: Matched {syscall} to a file creation special op")
+            self._run_file_creation_special_op(fh, *sop)
+            return
         release_id = self.update_release_on_fh_close[fh]
         logger.debug(f"LOGICAL: Triggering cache update for release {release_id} after {syscall} syscall")
         if release := get_release(self.config, release_id):
             update_cache_for_releases(self.config, [release.source_path])
 
-    def release(self, fh: int) -> None:
-        logger.debug(f"LOGICAL: Received release for {fh=}")
-        if sop := self.file_creation_special_ops.get(fh, None):
-            logger.debug("LOGICAL: Matched release to a file creation special op")
-            operation, ident, ext, b = sop
-            if not b:
-                logger.debug("LOGICAL: Aborting file creation special oprelease: no bytes to write")
+    def _run_file_creation_special_op(
+        self,
+        fh: int,
+        operation: FileCreationSpecialOp,
+        ident: Any,
+        ext: str,
+        b: bytearray,
+    ) -> None:
+        if not b:
+            logger.debug("LOGICAL: Skipping file creation special op: no bytes to write")
+            return
+        if operation == "add-track-to-playlist":
+            logger.debug("LOGICAL: Narrowed file creation special op to add track to playlist")
+            playlist = ident
+            with tempfile.TemporaryDirectory() as tmpdir:
+                audiopath = Path(tmpdir) / f"f{ext}"
+                with audiopath.open("wb") as fp:
+                    fp.write(b)
+                audiofile = AudioTags.from_file(audiopath)
+                track_id = audiofile.id
+            if not track_id:
+                logger.warning(
+                    "LOGICAL: Failed to parse track_id from file in playlist addition "
+                    f"operation sequence: {track_id=} {fh=} {playlist=} {audiofile}"
+                )
                 return
-            if operation == "add-track-to-playlist":
-                logger.debug("LOGICAL: Narrowed file creation special op to add track to playlist")
-                playlist = ident
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    audiopath = Path(tmpdir) / f"f{ext}"
-                    with audiopath.open("wb") as fp:
-                        fp.write(b)
-                    audiofile = AudioTags.from_file(audiopath)
-                    track_id = audiofile.id
-                if not track_id:
-                    logger.warning(
-                        "LOGICAL: Failed to parse track_id from file in playlist addition "
-                        f"operation sequence: {track_id=} {fh=} {playlist=} {audiofile}"
-                    )
-                    return
-                add_track_to_playlist(self.config, playlist, track_id)
-                del self.file_creation_special_ops[fh]
-                return
-            if operation == "new-cover-art":
-                entity_type, entity_id = ident
+            add_track_to_playlist(self.config, playlist, track_id)
+            return
+        if operation == "new-cover-art":
+            entity_type, entity_id = ident
+            with tempfile.TemporaryDirectory() as tmpdir:
+                imagepath = Path(tmpdir) / f"f{ext}"
+                with imagepath.open("wb") as fp:
+                    fp.write(b)
                 if entity_type == "release":
                     logger.debug("LOGICAL: Narrowed file creation special op to write release cover art")
-                    with tempfile.TemporaryDirectory() as tmpdir:
-                        imagepath = Path(tmpdir) / f"f{ext}"
-                        with imagepath.open("wb") as fp:
-                            fp.write(b)
-                        set_release_cover_art(self.config, entity_id, imagepath)
-                    del self.file_creation_special_ops[fh]
+                    set_release_cover_art(self.config, entity_id, imagepath)
                     return
                 if entity_type == "playlist":
                     logger.debug("LOGICAL: Narrowed file creation special op to write playlist cover art")
-                    with tempfile.TemporaryDirectory() as tmpdir:
-                        imagepath = Path(tmpdir) / f"f{ext}"
-                        with imagepath.open("wb") as fp:
-                            fp.write(b)
-                        set_playlist_cover_art(self.config, entity_id, imagepath)
-                    del self.file_creation_special_ops[fh]
+                    set_playlist_cover_art(self.config, entity_id, imagepath)
                     return
-            raise MusicError(f"Impossible: unknown file creation special op: {operation=} {ident=}")
+        raise MusicError(f"Impossible: unknown file creation special op: {operation=} {ident=}")
+
+    def release(self, fh: int) -> None:
+        logger.debug(f"LOGICAL: Received release for {fh=}")
         try:
-            self._update_cache_for_written_fh(fh, "release")
+            self._handle_pending_writes(fh, "release")
         finally:
-            self.update_release_on_fh_close.pop(fh, None)
-            os.close(self.fhandler.unwrap_host(fh))
+            if self.file_creation_special_ops.pop(fh, None) is None:
+                self.update_release_on_fh_close.pop(fh, None)
+                os.close(self.fhandler.unwrap_host(fh))
 
 
 class INodeMapper:
