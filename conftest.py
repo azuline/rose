@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from rose.cache import CACHE_SCHEMA_PATH, process_string_for_fts, update_cache
-from rose.common import VERSION, initialize_logging
-from rose.config import Config, VirtualFSConfig
-from rose.templates import PathTemplateConfig
+from music.cache import CACHE_SCHEMA_PATH, process_string_for_fts, update_cache
+from music.common import VERSION, initialize_logging
+from music.config import Config, VirtualFSConfig
+from music.templates import PathTemplateConfig
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def multiprocessing_set_start_method() -> None:
     # watchdog watcher, which must use spawn on macOS — see watcher_test.start_watcher) do not
     # inherit imported modules, so code that detects tests via `"pytest" in sys.modules` needs this
     # environment variable (which spawned children do inherit) to know it is running under a test.
-    os.environ["ROSE_IN_TEST"] = "1"
+    os.environ["MUSIC_IN_TEST"] = "1"
 
 
 @pytest.fixture(autouse=True)
