@@ -5,11 +5,11 @@ Print the genres, secondary genres, and descriptors in the read cache that are n
 known vocabulary, along with the releases that use them.
 
 Genres and secondary genres are checked against the RYM genre hierarchy in
-rose/genre_hierarchy.py. Descriptors are checked against the Descriptors section of the vendored
+music/genre_hierarchy.py. Descriptors are checked against the Descriptors section of the vendored
 RYM dump in scripts/rym-genres/rym.txt. Comparison is exact: a tag that differs from a known value
 only by case is noncompliant, and the known spelling is printed beside it.
 
-This reads the cache as-is; run `rose cache update` first if the cache may be stale.
+This reads the cache as-is; run `music cache update` first if the cache may be stale.
 """
 
 import argparse
@@ -18,8 +18,8 @@ from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
 
-from rose import Config, Release, RoseError, list_releases
-from rose.genre_hierarchy import TRANSITIVE_PARENT_GENRES
+from music import Config, MusicError, Release, list_releases
+from music.genre_hierarchy import TRANSITIVE_PARENT_GENRES
 
 FIELDS = ["genre", "secondary genre", "descriptor"]
 
@@ -28,7 +28,7 @@ RYM_DESCRIPTORS_SECTION = "Descriptors"
 RYM_DESCRIPTOR_SUFFIX = "::mood"
 
 
-class DescriptorsSectionNotFoundError(RoseError):
+class DescriptorsSectionNotFoundError(MusicError):
     pass
 
 

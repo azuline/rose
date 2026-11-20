@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from rose import Config, list_releases
+from music import Config, list_releases
 
 from scripts.print_noncompliant_tags import (
     find_noncompliant_tags,
