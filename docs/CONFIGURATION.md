@@ -32,9 +32,11 @@ vfs.mount_dir = "~/music"
 # === Optional values ===
 # =======================
 
-# If true, the directory and files in the source directory will be renamed
-# based on their tags. The rename will occur automatically during Music's cache
-# update (aka as soon as Music becomes aware of a potential rename).
+# If true, the `music releases reflush` command renames the directories and
+# files in the source directory based on their tags. Music never renames source
+# files at any other time; the cache update does not move anything. This
+# option only sets the command's default: pass `--rename` or `--no-rename` to
+# override it for one run.
 #
 # The source files will be renamed per the # `path_templates.source.release`
 # and `path_templates.source.track` configuration options.
