@@ -444,7 +444,7 @@ def get_sample_music(
         rating=None,
         disctotal=1,
         genres=["K-Pop", "Dance-Pop", "Contemporary R&B"],
-        parent_genres=["Pop", "R&B"],
+        parent_genres=["Pop", "R&B / Soul / Funk"],
         secondary_genres=["Synth Funk", "Synthpop", "Future Bass"],
         parent_secondary_genres=["Funk", "Pop"],
         descriptors=[
