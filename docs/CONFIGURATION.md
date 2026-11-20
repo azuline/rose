@@ -1,6 +1,6 @@
 # Configuration
 
-Rose is configured by a TOML file.
+Music is configured by a TOML file.
 
 The configuration, by default, is located at `${XDG_CONFIG_HOME:-$HOME/.config}/rose/config.toml` on
 Linux and `~/Library/Preferences/rose/config.toml` on MacOS. The `--config/-c` flag can be specified
@@ -13,15 +13,15 @@ The configuration parameters, with examples, are:
 # === Required values ===
 # =======================
 
-# The directory containing the music to manage. Rose has strong expectations
+# The directory containing the music to manage. Music has strong expectations
 # towards the organization of this directory.
 #
 # All releases must be immediate child directories of the music_source_dir. And
-# Rose expects that all tracks belong to a "release" (meaning an album, single,
+# Music expects that all tracks belong to a "release" (meaning an album, single,
 # EP, etc.). Therefore, loose audio files at the top-level of the source
 # directory will be ignored.
 #
-# Rose also writes collages and playlists to this directory, as `!collages` and
+# Music also writes collages and playlists to this directory, as `!collages` and
 # `!playlists` subdirectories.
 music_source_dir = "~/.music-source"
 
@@ -33,8 +33,8 @@ vfs.mount_dir = "~/music"
 # =======================
 
 # If true, the directory and files in the source directory will be renamed
-# based on their tags. The rename will occur automatically during Rose's cache
-# update (aka as soon as Rose becomes aware of a potential rename).
+# based on their tags. The rename will occur automatically during Music's cache
+# update (aka as soon as Music becomes aware of a potential rename).
 #
 # The source files will be renamed per the # `path_templates.source.release`
 # and `path_templates.source.track` configuration options.
@@ -104,18 +104,18 @@ vfs.hide_genres_with_only_new_releases = true
 vfs.hide_descriptors_with_only_new_releases = true
 vfs.hide_labels_with_only_new_releases = true
 
-# When Rose scans a release directory, it looks for cover art that matches:
+# When Music scans a release directory, it looks for cover art that matches:
 #
 # 1. A supported file "stem" (the filename excluding the extension).
 # 2. A supported file "extension" (the file type basically).
 #
-# And when Rose scans the playlists directory, it looks for art files that
+# And when Music scans the playlists directory, it looks for art files that
 # match a supported file extension (but not the name, as the name should match
 # the playlist name).
 #
-# By default, Rose matches the stems "folder", "cover", "art", and "front"; and
+# By default, Music matches the stems "folder", "cover", "art", and "front"; and
 # the extensions "jpg", "jpeg", and "png". Comparisons are case insensitive,
-# meaning Rose will also match FOLDER.PNG.
+# meaning Music will also match FOLDER.PNG.
 #
 # If you wish to recognize additional file stems and/or extensions, you can set
 # the below two variables.
@@ -128,10 +128,10 @@ valid_art_exts = [ "jpg", "jpeg", "png" ]
 max_filename_bytes = 180
 
 # You may have some directories in your music source directory that should not
-# be treated like releases. You can make Rose ignore them by adding the
+# be treated like releases. You can make Music ignore them by adding the
 # directory names to this configuration variable. For example, if you use
 # Syncthing versioning, the `.stversions` directory will contain music files,
-# but Rose should not scan them.
+# but Music should not scan them.
 #
 # By default, `!collages` and # `!playlists` are ignored. You do not need to
 # add them to your ignore list: they will be ignored regardless of this
@@ -143,9 +143,9 @@ ignore_release_directories = [ ".stversions" ]
 # - MacOS: `~/Library/Caches/rose`
 cache_dir = "~/.cache/rose"
 
-# Maximum parallel processes that Rose can spawn. Defaults to # $(nproc)/2.
+# Maximum parallel processes that Music can spawn. Defaults to # $(nproc)/2.
 #
-# Rose uses this value to limit the max parallelization of read cache updates
+# Music uses this value to limit the max parallelization of read cache updates
 # and the number of works that the virtual filesystem can spin up to handle a
 # request.
 max_proc = 4
@@ -175,44 +175,44 @@ actions = ["replace:K-Pop"]
 
 # Reloading
 
-After changing the configuration file, you may need to restart the active Rose processes. If you
+After changing the configuration file, you may need to restart the active Music processes. If you
 have a running Virtual Filesystem or Cache Watcher, they will not use the new configuration file
 until they are restarted.
 
 # Shell Completion
 
-Rose supports optional shell completion for the `bash`, `zsh`, and `fish` shells. The following
+Music supports optional shell completion for the `bash`, `zsh`, and `fish` shells. The following
 commands enable shell completion:
 
 ```bash
 # Bash
-$ rose config generate-completion bash > ~/.config/rose/completion.bash
+$ music config generate-completion bash > ~/.config/rose/completion.bash
 $ echo ". ~/.config/rose/.completion.bash" >> ~/.bashrc
 
 # Zsh
-$ rose config generate-completion zsh > ~/.config/rose/completion.zsh
+$ music config generate-completion zsh > ~/.config/rose/completion.zsh
 $ echo ". ~/.config/rose/.completion.zsh" >> ~/.zshrc
 
 # Fish
-$ rose config generate-completion fish > ~/.config/fish/completions/rose.fish
+$ music config generate-completion fish > ~/.config/fish/completions/music.fish
 ```
 
 # Systemd
 
-By default, the `rose fs mount` and `rose cache watch` commands spawn daemons that run in the
+By default, the `music fs mount` and `music cache watch` commands spawn daemons that run in the
 background.
 
 However, these daemons do not recover from failure or start on boot. If you would like them to, you
-can manage Rose's processes with a service manager such as systemd.
+can manage Music's processes with a service manager such as systemd.
 
-A sample systemd service file for managing Rose is:
+A sample systemd service file for managing Music is:
 
 ```ini
 [Install]
 WantedBy=graphical-session.target
 
 [Service]
-ExecStart=/path/to/rose fs mount --foreground
+ExecStart=/path/to/music fs mount --foreground
 Restart=always
 
 [Unit]
@@ -223,12 +223,12 @@ PartOf=graphical-session.target
 Or, as a Nix Home-Manager configuration:
 
 ```nix
-systemd.user.services.rose = {
+systemd.user.services.music = {
   Install = {
     WantedBy = [ "graphical-session.target" ];
   };
   Service = {
-    ExecStart = "${pkgs.rose}/bin/rose fs mount --foreground";
+    ExecStart = "${pkgs.music}/bin/music fs mount --foreground";
     Restart = "always";
   };
   Unit = {
