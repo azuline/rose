@@ -1,11 +1,11 @@
 # Directory and Filename Templates
 
-Rose supports user-defined templates for configuring the directory and file names for each view of
+Music supports user-defined templates for configuring the directory and file names for each view of
 the virtual filesystem and for the source directory.
 
 > [!NOTE]
 > The source directory templates are only applied to the source directory by the
-> `rose releases reflush` command, and by default only if the `rename_source_files` configuration
+> `music releases reflush` command, and by default only if the `rename_source_files` configuration
 > option is true. See [Managing Releases](./RELEASES.md#reflush-tags-and-rename-source-files) for
 > more details.
 
@@ -81,10 +81,10 @@ If set, the `default.xxx` templates are used as the default values for all other
 
 # Template Language
 
-Rose uses the Jinja templating language. See [Jinja's Template Designer
+Music uses the Jinja templating language. See [Jinja's Template Designer
 Documentation](https://jinja.palletsprojects.com/en/3.1.x/templates/).
 
-After evaluating the template, Rose replaces all adjacent whitespace characters (e.g. space, tab,
+After evaluating the template, Music replaces all adjacent whitespace characters (e.g. space, tab,
 newline, return, etc.) with a single space. This allows you to freely use multiple lines and
 comments when defining your templates, like so:
 
@@ -98,7 +98,7 @@ default.release = """
 """
 ```
 
-Rose provides the following template variables for releases:
+Music provides the following template variables for releases:
 
 ```python
 added_at: str                        # ISO8601 timestamp of when the release was added to the library.
@@ -181,7 +181,7 @@ context.collage: str                 # The current collage being viewed in the V
 context.playlist: str                # The current playlist being viewed in the Virtual Filesystem.
 ```
 
-Rose also provides the following custom filters:
+Music also provides the following custom filters:
 
 ```python
 arrayfmt: (list[str]) -> str            # Formats an array of strings as x, y & z.
@@ -198,7 +198,7 @@ You can preview your templates with the following command. It will evaluate all 
 sample data.
 
 ```bash
-$ rose config preview-templates
+$ music config preview-templates
 Preview for template Source Directory - Release:
   Sample 1: Kim Lip - 2017. Kim Lip
   Sample 2: BTS - 2016. Young Forever (花樣年華)
