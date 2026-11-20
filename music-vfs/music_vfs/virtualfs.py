@@ -2062,7 +2062,7 @@ class VirtualFS(llfuse.Operations):  # type: ignore
             logger.debug(f"FUSE: Matched {fh=} to /dev/null sentinel")
             return
         try:
-            self.rose.flush(fh)
+            self.music.flush(fh)
         except OSError as e:
             raise llfuse.FUSEError(e.errno) from e
 
