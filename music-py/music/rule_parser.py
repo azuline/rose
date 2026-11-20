@@ -35,12 +35,23 @@ class RuleSyntaxError(InvalidRuleError):
         super().__init__(str(self))
 
     def __str__(self) -> str:
+        return self._format(caret="^", feedback=self.feedback)
+
+    @property
+    def str_click(self) -> str:
+        """The same error message as `str(self)`, but with click styling for CLI display."""
+        return self._format(
+            caret=click.style("^", fg="red"),
+            feedback=click.style(self.feedback, bold=True),
+        )
+
+    def _format(self, *, caret: str, feedback: str) -> str:
         return f"""\
 Failed to parse {self.rule_name}, invalid syntax:
 
     {self.rule}
-    {" " * self.index}{click.style("^", fg="red")}
-    {" " * self.index}{click.style(self.feedback, bold=True)}
+    {" " * self.index}{caret}
+    {" " * self.index}{feedback}
 """
 
 
