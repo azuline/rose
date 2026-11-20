@@ -289,31 +289,39 @@ class MetadataRelease:
     tracks: dict[str, MetadataTrack]
 
     @classmethod
-    def from_cache(cls, release: Release, tracks: list[Track]) -> MetadataRelease:
+    def from_audiotags(cls, release: Release, tracks: list[Track], audiotags: list[AudioTags]) -> MetadataRelease:
+        """
+        Build the editable metadata from the audio tags on disk. Release-level tags are read from
+        the first audio file in source path order, which is the file that the cache update reads
+        them from. `tracks` is ordered by disc and track number, so its first element may be a
+        different file. `new`, `favorite`, and `rating` live in the datafile rather than in the
+        tags, so they are taken from `release`.
+        """
+        _, first_tags = min(zip(tracks, audiotags, strict=True), key=lambda x: x[0].source_path)
         return MetadataRelease(
-            title=release.releasetitle,
+            title=first_tags.releasetitle or "",
             new=release.new,
             favorite=release.favorite,
             rating=release.rating,
-            releasetype=release.releasetype,
-            releasedate=release.releasedate,
-            originaldate=release.originaldate,
-            compositiondate=release.compositiondate,
-            edition=release.edition,
-            catalognumber=release.catalognumber,
-            labels=release.labels,
-            genres=release.genres,
-            secondary_genres=release.secondary_genres,
-            descriptors=release.descriptors,
-            artists=MetadataArtist.from_mapping(release.releaseartists),
+            releasetype=first_tags.releasetype,
+            releasedate=first_tags.releasedate,
+            originaldate=first_tags.originaldate,
+            compositiondate=first_tags.compositiondate,
+            edition=first_tags.edition,
+            catalognumber=first_tags.catalognumber,
+            labels=first_tags.label,
+            genres=first_tags.genre,
+            secondary_genres=first_tags.secondarygenre,
+            descriptors=first_tags.descriptor,
+            artists=MetadataArtist.from_mapping(first_tags.releaseartists),
             tracks={
                 t.id: MetadataTrack(
-                    discnumber=t.discnumber,
-                    tracknumber=t.tracknumber,
-                    title=t.tracktitle,
-                    artists=MetadataArtist.from_mapping(t.trackartists),
+                    discnumber=tags.discnumber or "1",
+                    tracknumber=tags.tracknumber or "1",
+                    title=tags.tracktitle or "",
+                    artists=MetadataArtist.from_mapping(tags.trackartists),
                 )
-                for t in tracks
+                for t, tags in zip(tracks, audiotags, strict=True)
             },
         )
 
@@ -366,7 +374,7 @@ def serialize_release_metadata(
     c: Config,
     release_id: str,
     *,
-    # If provided, read the starting TOML from this file instead of the read cache.
+    # If provided, read the starting TOML from this file instead of the audio tags.
     resume_file: Path | None = None,
 ) -> str:
     """
@@ -388,13 +396,16 @@ def serialize_release_metadata(
         with resume_file.open("r") as fp:
             return fp.read()
 
-    # Trigger a quick cache update to ensure we are reading the liveliest data.
-    update_cache_for_releases(c, [release.source_path])
+    # Refresh the cache so that the source paths are current. The update is forced so that the
+    # cache rereads the release tags from the same file that we read them from below. An unforced
+    # update takes them from the first file whose mtime changed.
+    update_cache_for_releases(c, [release.source_path], force=True)
     # Reload release in case any source paths changed.
     release = get_release(c, release_id)
     assert release is not None
     tracks = get_tracks_of_release(c, release)
-    return MetadataRelease.from_cache(release, tracks).serialize()
+    audiotags = [AudioTags.from_file(t.source_path) for t in tracks]
+    return MetadataRelease.from_audiotags(release, tracks, audiotags).serialize()
 
 
 def upsert_release_metadata(
