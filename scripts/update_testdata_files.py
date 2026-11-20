@@ -27,7 +27,7 @@ def write_tag_with_description(f: Any, name: str, value: str | None) -> None:
         f.tags.add(x)
 
 
-os.chdir(os.environ["ROSE_ROOT"] + "/testdata/Tagger")
+os.chdir(os.environ["MUSIC_ROOT"] + "/testdata/Tagger")
 
 f = mutagen.File("track1.flac")  # type: ignore
 f.tags["originaldate"] = "1990"
