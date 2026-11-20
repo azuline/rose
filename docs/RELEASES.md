@@ -2,7 +2,7 @@
 
 # Release & Track Identifiers
 
-Rose assigns a UUID to each release and track in order to identify them across cache updates. The
+Music assigns a UUID to each release and track in order to identify them across cache updates. The
 UUIDs are also used to track membership in collages and playlists.
 
 These UUIDs are persisted to the source files on first scan:
@@ -22,9 +22,9 @@ tags. The format of this file is:
 new = false
 # Release "favorite" status.
 favorite = false
-# The timestamp that the release was "added" to the library. Rose uses the
+# The timestamp that the release was "added" to the library. Music uses the
 # timestamp when the `.rose.{uuid}.toml` file was created, as that is
-# equivalent to the first time Rose scanned the release.
+# equivalent to the first time Music scanned the release.
 added_at = 2018-10-01 00:00:00-04:00
 ```
 
@@ -34,7 +34,7 @@ details.
 
 # "New" Releases
 
-Rose supports flagging releases as "new." "New"-ness has no effects besides suffixing the release's
+Music supports flagging releases as "new." "New"-ness has no effects besides suffixing the release's
 virtual filesystem name with ` [NEW]` (with the default release template) and adding the release to
 the `1. Releases - New` top-level directory.
 
@@ -44,7 +44,7 @@ and music you're planning on listening to.
 
 # "Favorite" Releases
 
-Rose supports marking releases as "favorite." Favoriting has no effects besides suffixing the release's
+Music supports marking releases as "favorite." Favoriting has no effects besides suffixing the release's
 virtual filesystem name with ` [FAVORITE]` (with the default release template) and adding the release to
 the `1. Releases - Favorites` top-level directory.
 
@@ -53,14 +53,14 @@ metadata editor. This feature is designed to allow you to quickly access your mo
 
 # Printing Metadata
 
-Rose supports printing release and track metadata from the command line in JSON format, which can be
-used in scripts and to compose your own commands. Rose provides four commands:
+Music supports printing release and track metadata from the command line in JSON format, which can be
+used in scripts and to compose your own commands. Music provides four commands:
 
 ```
-$ rose releases print 'UUID/Path'
-$ rose releases print-all [matcher?]
-$ rose tracks print 'UUID/Path'
-$ rose tracks print-all [matcher?]
+$ music releases print 'UUID/Path'
+$ music releases print-all [matcher?]
+$ music tracks print 'UUID/Path'
+$ music tracks print-all [matcher?]
 ```
 
 The `print` commands print a single JSON object representing one release/track. The release objects
@@ -74,10 +74,10 @@ be used in the matcher (i.e. no tracktitle, tracknumber, etc.).
 
 # Operations
 
-Rose allows you to manage releases via the command line and the virtual filesystem. In the rest of
+Music allows you to manage releases via the command line and the virtual filesystem. In the rest of
 this document, we'll demonstrate the supported operations.
 
-Note: Rose supports passing releases and tracks by both their UUIDs and by path. Paths in the source
+Note: Music supports passing releases and tracks by both their UUIDs and by path. Paths in the source
 directory and paths in the virtual directory are both supported. All views in the virtual directory
 are supported as well.
 
@@ -88,7 +88,7 @@ This operation is only supported on the command line.
 ```bash
 $ cd $vfs_mount_dir
 
-$ rose releases toggle-new "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+$ music releases toggle-new "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [21:47:52] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [21:47:52] INFO: Updating release descriptions for Long Flight
 [21:47:52] INFO: Updating cache for collage Long Flight
@@ -98,7 +98,7 @@ $ tree "1. Releases - New/"
 ├── LOOΠΔ - 2017. Kim Lip - Single [NEW]/...
 └── LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [NEW]/...
 
-$ rose releases toggle-new "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [NEW]"
+$ music releases toggle-new "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP [NEW]"
 [21:49:36] INFO: Updating cache updates for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [21:49:36] INFO: Updating release descriptions for Long Flight
 [21:49:36] INFO: Updating cache for collage Long Flight
@@ -115,7 +115,7 @@ This operation is only supported on the command line.
 ```bash
 $ cd $vfs_mount_dir
 
-$ rose releases toggle-favorite "1. Releases/NewJeans - 2022. Ditto - Single"
+$ music releases toggle-favorite "1. Releases/NewJeans - 2022. Ditto - Single"
 [21:47:52] INFO: Toggled "favorite"-ness of release NewJeans - 2022. Ditto to True
 [21:47:52] INFO: Updating cache for release NewJeans - 2022. Ditto
 
@@ -123,7 +123,7 @@ $ tree "1. Releases - Favorites/"
 1. Releases - Favorites/
 └── NewJeans - 2022. Ditto - Single [FAVORITE]/...
 
-$ rose releases toggle-favorite "1. Releases/NewJeans - 2022. Ditto - Single [FAVORITE]"
+$ music releases toggle-favorite "1. Releases/NewJeans - 2022. Ditto - Single [FAVORITE]"
 [21:49:36] INFO: Toggled "favorite"-ness of release NewJeans - 2022. Ditto to False
 [21:49:36] INFO: Updating cache for release NewJeans - 2022. Ditto
 
@@ -141,7 +141,7 @@ Command line:
 ```bash
 $ cd $vfs_mount_dir
 
-$ rose releases set-cover "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP" ./cover.jpg
+$ music releases set-cover "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP" ./cover.jpg
 [20:43:50] INFO: Set the cover of release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match to cover.jpg
 [20:43:50] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 
@@ -183,7 +183,7 @@ This operation is only supported on the command line.
 ```bash
 $ cd $vfs_mount_dir
 
-$ rose releases delete-cover "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+$ music releases delete-cover "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [02:13:17] INFO: Deleted cover arts of release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 [02:13:17] INFO: Updating cache for release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match
 
@@ -207,7 +207,7 @@ Command line:
 ```bash
 $ cd $vfs_mount_dir
 
-$ rose releases delete "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+$ music releases delete "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [21:56:25] INFO: Trashed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP
 [21:56:25] INFO: Evicted release /home/blissful/demo/source/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match from cache
 [21:56:25] INFO: Marking missing release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP as missing in collage Long Flight
@@ -243,13 +243,13 @@ See the "Text-Based Release Editing" section in [Improving Your Music Metadata](
 
 ## Run Rule Engine Action on Release
 
-Rose allows you to run an action from the rule engine on all tracks in a release. With this command,
+Music allows you to run an action from the rule engine on all tracks in a release. With this command,
 you do not need to specify a matcher; this command auto-matches all tracks in the release.
 
 See [Improving Your Music Metadata](./METADATA_TOOLS.md) for documentation on the rules engine.
 
 ```bash
-$ rose releases run-rule 'The Strokes - 2001. Is This It' 'genre/add:Indie Rock'
+$ music releases run-rule 'The Strokes - 2001. Is This It' 'genre/add:Indie Rock'
 The Strokes - 2001. Is This It/01. Is This It.opus
       genre: [] -> ['Indie Rock']
 The Strokes - 2001. Is This It/02. The Modern Age.opus
@@ -293,11 +293,11 @@ Applied tag changes to 11 tracks!
 
 ## Run Rule Engine Action on Track
 
-Similar to how you can run a rule engine action on a release, Rose also allows you to run an action
+Similar to how you can run a rule engine action on a release, Music also allows you to run an action
 on a single track.
 
 ```bash
-$ rose tracks run-rule '018b6514-6fb7-7cc6-9d23-8eaf0b1beee8' 'tracktitle/replace:Certified Banger'
+$ music tracks run-rule '018b6514-6fb7-7cc6-9d23-8eaf0b1beee8' 'tracktitle/replace:Certified Banger'
 LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match/04. Chaotic.opus
       title: Chaotic -> Certified Banger
 
@@ -314,7 +314,7 @@ Applied tag changes to 11 tracks!
 Let's say that you did not enjoy a release, and want to delete it from your library, but you did
 enjoy one standout track and wish to keep only that track.
 
-Rose allows you to create a new, "phony," single release for that track alone, so that you can get
+Music allows you to create a new, "phony," single release for that track alone, so that you can get
 rid of the release while keeping the track(s) you liked.
 
 To demonstrate:
@@ -322,7 +322,7 @@ To demonstrate:
 ```bash
 $ cd $vfs_mount_dir
 
-$ rose releases create-single "1. Releases/ITZY - 2022. CHECKMATE/01.\ SNEAKERS.opus"
+$ music releases create-single "1. Releases/ITZY - 2022. CHECKMATE/01.\ SNEAKERS.opus"
 [12:16:06] INFO: Created phony single release ITZY - 2022. SNEAKERS
 [12:16:06] INFO: Updating cache for release ITZY - 2022. SNEAKERS
 [12:16:06] INFO: Toggled "new"-ness of release /home/blissful/.music-source/ITZY - 2022. SNEAKERS to False
