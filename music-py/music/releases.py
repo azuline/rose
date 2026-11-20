@@ -414,6 +414,11 @@ def upsert_release_metadata(
     if not release:
         raise ReleaseDoesNotExistError(f"Release {release_id} does not exist")
 
+    # The TOML may have been serialized long ago (a resume file, or a non-interactive apply), so
+    # refresh the cache to pick up any track paths that changed since.
+    update_cache_for_releases(c, [release.source_path])
+    release = get_release(c, release_id)
+
     with lock(c, release_lock_name(release_id)):
         assert release is not None
         tracks = get_tracks_of_release(c, release)
