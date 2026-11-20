@@ -213,6 +213,9 @@ For each release:
 - If the release has multiple external cover arts that differ from each other, the release is
   skipped with a warning.
 
+Cover art files in the release's subdirectories count as external cover arts, as they do for the
+cache.
+
 Images are compared byte-for-byte. A resized or re-encoded copy of the external cover art counts as
 a different image. Only JPEG and PNG images are extracted, and only if the `cover_art_stems` and
 `valid_art_exts` [configuration](./CONFIGURATION.md) allows a cover art file to be written for them;

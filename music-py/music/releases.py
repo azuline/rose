@@ -285,7 +285,12 @@ def extract_release_cover_art(c: Config, release_id: str, *, dry_run: bool = Fal
             logger.debug(f"No-Op: No embedded cover arts found in release {release_logtext}")
             return
 
-        externals = {f.read_bytes() for f in release.source_path.iterdir() if f.name.lower() in c.valid_cover_arts}
+        # The cache looks for cover arts in the release's subdirectories too.
+        externals = {
+            f.read_bytes()
+            for f in release.source_path.rglob("*")
+            if f.is_file() and f.name.lower() in c.valid_cover_arts
+        }
         if len(externals) > 1:
             # We cannot tell which of the files is the release's cover art.
             logger.warning(

@@ -203,21 +203,23 @@ def test_extract_release_cover_art(config: Config) -> None:
 
 
 def test_extract_release_cover_art_external_cover(config: Config, caplog: pytest.LogCaptureFixture) -> None:
+    # The cache finds cover arts in the release's subdirectories too, so they count as external covers.
     release_dir = _copy_release_without_arts(config, TEST_RELEASE_1)
-    (release_dir / "folder.jpg").write_bytes(JPEG)
+    (release_dir / "Scans").mkdir()
+    (release_dir / "Scans" / "folder.jpg").write_bytes(JPEG)
     embed_art(release_dir / "01.m4a", PNG)
     embed_art(release_dir / "02.m4a", JPEG)
     update_cache(config)
     release_id = _release_id(config)
-    files_before = sorted(release_dir.iterdir())
+    files_before = sorted(release_dir.rglob("*"))
 
     # The embed that is identical to the external cover is removed; the one that differs is kept with a warning.
     extract_release_cover_art(config, release_id)
     assert "differs from the external cover art" in caplog.text
     assert read_embedded_arts(release_dir / "01.m4a") == [PNG]
     assert read_embedded_arts(release_dir / "02.m4a") == []
-    assert sorted(release_dir.iterdir()) == files_before
-    assert (release_dir / "folder.jpg").read_bytes() == JPEG
+    assert sorted(release_dir.rglob("*")) == files_before
+    assert (release_dir / "Scans" / "folder.jpg").read_bytes() == JPEG
 
     # A second external cover with the same bytes is not ambiguous.
     (release_dir / "cover.jpg").write_bytes(JPEG)
