@@ -3,5 +3,5 @@ Hierarchy.txt`, copied verbatim to `rym.txt`). The script here transforms its `G
 Movements` sections into a Python data structure:
 
 ```bash
-ROSE_ROOT="$(git rev-parse --show-toplevel)" scripts/rym-genres/generate.py
+MUSIC_ROOT="$(git rev-parse --show-toplevel)" scripts/rym-genres/generate.py
 ```

@@ -1,12 +1,12 @@
 # Tagging Conventions
 
-This document describes how Rose reads and writes tags from files. Rose applies fairly rigid
+This document describes how Music reads and writes tags from files. Music applies fairly rigid
 conventions in the tags it writes, and applies a relaxed version of those conventions when ingesting
 tags from audio files.
 
 # Managed Tags
 
-Rose manages the following tags:
+Music manages the following tags:
 
 - Release Tags:
   - Title
@@ -22,26 +22,26 @@ Rose manages the following tags:
   - Track Number
   - Disc Number
 
-Rose does not care about any other tags and does not do anything with them.
+Music does not care about any other tags and does not do anything with them.
 
-For documentation on the specific field names that Rose uses for each tag container format, please
+For documentation on the specific field names that Music uses for each tag container format, please
 see [Tag Field Mappings](#tag-field-mappings).
 
 # Multi-Valued Tags
 
-Rose supports multiple values for the artists, genres, and labels tags. Rose writes a single tag
+Music supports multiple values for the artists, genres, and labels tags. Music writes a single tag
 field and with fields concatenated together with a `;` delimiter. For example, `genre=Deep
-House;Techno`. Rose does not write multiple frames for a single tag (where each value gets one
+House;Techno`. Music does not write multiple frames for a single tag (where each value gets one
 frame) due to inconsistent support by other useful programs.
 
-When reading tags, Rose is more relaxed in the delimiters it accepts. For the Genre, Label, Artists,
-and Release Artists tags, Rose will attempt to split a single tag into multiple tags by the
+When reading tags, Music is more relaxed in the delimiters it accepts. For the Genre, Label, Artists,
+and Release Artists tags, Music will attempt to split a single tag into multiple tags by the
 following delimiters: <code>&nbsp;\\\\&nbsp;</code>, <code>&nbsp;/&nbsp;</code>, <code>;</code>, and
 <code>&nbsp;vs.&nbsp;</code>.
 
 # Artist Tags
 
-Rose preserves the artists' role in the artist tag by using specialized delimiters. An example
+Music preserves the artists' role in the artist tag by using specialized delimiters. An example
 artist tag is: `Pyotr Ilyich Tchaikovsky performed by André Previn;London Symphony Orchestra feat.
 Barack Obama`.
 
@@ -59,7 +59,7 @@ The artist tag is described by the following grammar:
 <name>       ::= string ';' <name> | string
 ```
 
-Rose supports the following artist roles:
+Music supports the following artist roles:
 
 - `main`
 - `guest`
@@ -69,13 +69,13 @@ Rose supports the following artist roles:
 - `remixer`
 - `djmixer`
 
-Rose writes a single tag value into the _Track Artists_ and _Release Artists_ tags. Though some
-conventions exist for writing each role into its own tag, Rose does not follow them, due to
+Music writes a single tag value into the _Track Artists_ and _Release Artists_ tags. Though some
+conventions exist for writing each role into its own tag, Music does not follow them, due to
 inconsistent (mainly nonexistent) support by other useful programs.
 
 # Release Type Tags
 
-Rose supports tagging the release _type_. The supported values are:
+Music supports tagging the release _type_. The supported values are:
 
 - `album`
 - `single`
@@ -95,15 +95,15 @@ Rose supports tagging the release _type_. The supported values are:
 
 # Tag Field Mappings
 
-Rose supports three tag container formats:
+Music supports three tag container formats:
 
 - ID3: `.mp3` files
 - MP4: `.m4a` files
 - Vorbis: `.ogg`, `.opus`, and `.flac` files
 
-In this section, we list out the per-container field names that we read/write. Rose will only write
+In this section, we list out the per-container field names that we read/write. Music will only write
 to a single field for each tag; however, for tags with multiple conventions out in the rest of the
-world, Rose will support reading from additional fields.
+world, Music will support reading from additional fields.
 
 ## MP3
 
@@ -125,8 +125,8 @@ world, Rose will support reading from additional fields.
 | Track Artists    | `TPE1`                  | `TPE4` (Remixer), `TCOM` (Composer), `TPE3` (Conductor), `TIPL,IPLS/producer` (producer), `TIPL,IPLS/DJ-mix` (djmixer) |
 | Track Number     | `TRCK`                  |                                                                                                                        |
 | Disc Number      | `TPOS`                  |                                                                                                                        |
-| Rose ID          | `TXXX:ROSEID`           |                                                                                                                        |
-| Rose Release ID  | `TXXX:ROSERELEASEID`    |                                                                                                                        |
+| Music ID         | `TXXX:ROSEID`           |                                                                                                                        |
+| Music Release ID | `TXXX:ROSERELEASEID`    |                                                                                                                        |
 
 ## MP4
 
@@ -148,8 +148,8 @@ world, Rose will support reading from additional fields.
 | Track Artists    | `\xa9ART`                                  | `----:com.apple.iTunes:REMIXER` (Remixer), `\xa9wrt` (Composer), `----:com.apple.iTunes:CONDUCTOR` (Conductor), `----:com.apple.iTunes:PRODUCER` (producer), `----:com.apple.iTunes:DJMIXER` (djmixer) |
 | Track Number     | `trkn`                                     |                                                                                                                                                                                                        |
 | Disc Number      | `disk`                                     |                                                                                                                                                                                                        |
-| Rose ID          | `----:net.sunsetglow.rose:ID`              |                                                                                                                                                                                                        |
-| Rose Release ID  | `----:net.sunsetglow.rose:RELEASEID`       |                                                                                                                                                                                                        |
+| Music ID         | `----:net.sunsetglow.rose:ID`              |                                                                                                                                                                                                        |
+| Music Release ID | `----:net.sunsetglow.rose:RELEASEID`       |                                                                                                                                                                                                        |
 
 ## Vorbis
 
@@ -171,5 +171,5 @@ world, Rose will support reading from additional fields.
 | Track Artists    | `artist`          | `remixer` (Remixer), `composer` (Composer), `conductor` (Conductor), `producer` (producer), `djmixer` (djmixer) |
 | Track Number     | `tracknumber`     |                                                                                                                 |
 | Disc Number      | `discnumber`      |                                                                                                                 |
-| Rose ID          | `roseid`          |                                                                                                                 |
-| Rose Release ID  | `rosereleaseid`   |                                                                                                                 |
+| Music ID         | `roseid`          |                                                                                                                 |
+| Music Release ID | `rosereleaseid`   |                                                                                                                 |

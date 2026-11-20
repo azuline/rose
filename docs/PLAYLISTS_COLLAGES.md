@@ -1,9 +1,9 @@
 # Managing Playlists & Collages
 
-Rose supports the creation and management of collages (lists of releases) and playlists (lists of
+Music supports the creation and management of collages (lists of releases) and playlists (lists of
 tracks).
 
-As Rose implements playlists and collages in almost the same way, except that one tracks releases
+As Music implements playlists and collages in almost the same way, except that one tracks releases
 and the other tracks tracks, we discuss both collages and playlists together.
 
 # Storage Format
@@ -46,10 +46,10 @@ uuid = "018b6514-72e7-7321-832d-1a524dbf1a3b"
 description_meta = "BLACKPINK - PLAYING WITH FIRE.opus"
 ```
 
-These files contain the UUIDs assigned to each release/track by Rose. Since UUIDs are not
+These files contain the UUIDs assigned to each release/track by Music. Since UUIDs are not
 meaningful, the files also contain a `description_meta` field. The `description_meta` field is set
 to the virtual directory/file name. The `description_meta` field is updated to the latest values
-during Rose's cache update, so that they remain meaningful.
+during Music's cache update, so that they remain meaningful.
 
 The ordering of the releases/tracks is meaningful: they represent the ordering of releases/tracks in
 the collage/playlist.
@@ -59,10 +59,10 @@ example, `Shower.toml`'s cover art would be located at `Shower.jpg` (or `.png`).
 treat as images are configurable. See [Configuration](./CONFIGURATION.md).
 
 > [!NOTE]
-> When a release or track is deleted from the source directory, Rose does not autoremove that
-> release/track from the collages and playlists that it belongs to. Rose instead flags the
+> When a release or track is deleted from the source directory, Music does not autoremove that
+> release/track from the collages and playlists that it belongs to. Music instead flags the
 > release/track as "missing," which prevents it from appearing in the virtual filesystem. If the
-> release/track is re-added to the source directory, Rose will remove the missing flag, and the
+> release/track is re-added to the source directory, Music will remove the missing flag, and the
 > release/track will "regain" its lost position in the collage/playlist.
 >
 > We do this because we do not know if a missing release or a missing track is transient or not. For
@@ -70,26 +70,26 @@ treat as images are configurable. See [Configuration](./CONFIGURATION.md).
 
 # Printing Metadata
 
-Rose supports printing collage and playlist metadata from the command line in JSON format, which can
-be used in scripts and to compose your own commands. Rose provides four commands:
+Music supports printing collage and playlist metadata from the command line in JSON format, which can
+be used in scripts and to compose your own commands. Music provides four commands:
 
 ```
-$ rose collages print 'Collage Name'
-$ rose collages print-all
-$ rose playlists print 'Playlist Name'
-$ rose playlists print-all
+$ music collages print 'Collage Name'
+$ music collages print-all
+$ music playlists print 'Playlist Name'
+$ music playlists print-all
 ```
 
 The `print` commands print a single JSON object representing one playlist/collage. The `print-all`
-commands print an array of JSON objects, one per collage/playlist tracked by Rose.
+commands print an array of JSON objects, one per collage/playlist tracked by Music.
 
 # Operations
 
-However, working with this file directly is quite annoying, so Rose allows you to manage collages
+However, working with this file directly is quite annoying, so Music allows you to manage collages
 and playlists via the command line and the virtual filesystem. In the rest of this document, we'll
 demonstrate the supported operations.
 
-Note: Rose supports passing playlists and collages by both their name and their path. The path of
+Note: Music supports passing playlists and collages by both their name and their path. The path of
 their source `.toml` file and the path of their virtual directory are both supported. All views in
 the virtual directory are supported as well.
 
@@ -98,11 +98,11 @@ the virtual directory are supported as well.
 Command line:
 
 ```bash
-$ rose collages create "Morning"
+$ music collages create "Morning"
 [17:51:22] INFO: Creating collage Morning in source directory
 [17:51:22] INFO: Updating cache for collage Morning
 
-$ rose playlists create "Evening"
+$ music playlists create "Evening"
 [17:51:47] INFO: Creating playlist Evening in source directory
 [17:51:47] INFO: Updating cache for playlist Evening
 ```
@@ -131,25 +131,25 @@ $ tree "8. Playlists/"
 
 Command line:
 
-_Releases and tracks can be added by UUID or path. Rose accepts both source directory paths and
+_Releases and tracks can be added by UUID or path. Music accepts both source directory paths and
 virtual filesystem paths._
 
 ```bash
 $ cd $vfs_mount_dir
 
-$ rose collages add-release "Morning" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+$ music collages add-release "Morning" "1. Releases/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [17:59:38] INFO: Added release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP to collage Morning
 [17:59:38] INFO: Updating cache for collage Morning
 
-$ rose collages add-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
+$ music collages add-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
 [17:59:44] INFO: Added release BLACKPINK - 2016. SQUARE TWO - Single to collage Morning
 [17:59:44] INFO: Updating cache for collage Morning
 
-$ rose playlists add-track "Morning" "1. Releases/NewJeans - 2022. Ditto - Single/01. NewJeans - Ditto.opus"
+$ music playlists add-track "Morning" "1. Releases/NewJeans - 2022. Ditto - Single/01. NewJeans - Ditto.opus"
 [18:02:10] INFO: Added track NewJeans - Ditto.opus to playlist Evening
 [18:02:10] INFO: Updating cache for playlist Evening
 
-$ rose playlists add-track "Evening" "018b6514-6fb7-7cc6-9d23-8eaf0b1beee8"
+$ music playlists add-track "Evening" "018b6514-6fb7-7cc6-9d23-8eaf0b1beee8"
 [18:02:21] INFO: Added track LOOΠΔ ODD EYE CIRCLE - Chaotic.opus to playlist Evening
 [18:02:21] INFO: Updating cache for playlist Evening
 ```
@@ -177,24 +177,24 @@ $ tree "8. Playlists/Evening/"
 
 Command line:
 
-_Releases and tracks can be removed by UUID or path. Rose accepts both source directory paths and
+_Releases and tracks can be removed by UUID or path. Music accepts both source directory paths and
 virtual filesystem paths._
 
 ```bash
 $ cd $vfs_mount_dir
-$ rose collages remove-release "Morning" "7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
+$ music collages remove-release "Morning" "7. Collages/Morning/LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP"
 [18:11:43] INFO: Removed release LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP from collage Morning
 [18:11:43] INFO: Updating cache for collage Morning
 
-$ rose collages remove-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
+$ music collages remove-release "Morning" "018b268e-ef68-7180-a01e-19bc3fdf970e"
 [18:12:03] INFO: Removed release BLACKPINK - 2016. SQUARE TWO - Single from collage Morning
 [18:12:03] INFO: Updating cache for collage Morning
 
-$ rose playlists remove-track "Evening" "8. Playlists/Evening/01. NewJeans - Ditto.opus"
+$ music playlists remove-track "Evening" "8. Playlists/Evening/01. NewJeans - Ditto.opus"
 [18:12:10] INFO: Removed track NewJeans - Ditto.opus from playlist Evening
 [18:12:10] INFO: Updating cache for playlist Evening
 
-$ rose playlists remove-track "Evening" "018b6514-6fb7-7cc6-9d23-8eaf0b1beee8"
+$ music playlists remove-track "Evening" "018b6514-6fb7-7cc6-9d23-8eaf0b1beee8"
 [18:12:22] INFO: Removed track LOOΠΔ ODD EYE CIRCLE - Chaotic.opus from playlist Evening
 [18:12:22] INFO: Updating cache for playlist Evening
 ```
@@ -225,7 +225,7 @@ _Releases and tracks can also be removed from the collage or playlist by deletin
 from the text file._
 
 ```bash
-$ rose collages edit "Road Trip"
+$ music collages edit "Road Trip"
 # Opens the following text in $EDITOR:
 BLACKPINK - 2016. SQUARE TWO - Single
 LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP
@@ -241,7 +241,7 @@ $ tree "7. Collages/Road Trip/"
 ├── 1. LOOΠΔ ODD EYE CIRCLE - 2017. Mix & Match - EP/...
 └── 2. BLACKPINK - 2016. SQUARE TWO - Single/...
 
-$ rose playlists edit "Shower"
+$ music playlists edit "Shower"
 # Opens the following text in $EDITOR:
 LOOΠΔ ODD EYE CIRCLE - Chaotic.opus
 NewJeans - Ditto.opus
@@ -269,11 +269,11 @@ later if the deletion was accidental._
 Command line:
 
 ```bash
-$ rose collages delete "Morning"
+$ music collages delete "Morning"
 [18:23:44] INFO: Deleted collage Morning from source directory
 [18:23:44] INFO: Evicted collage Morning from cache
 
-$ rose playlists create "Evening"
+$ music playlists create "Evening"
 [18:26:38] INFO: Deleted playlist Evening from source directory
 [18:26:38] INFO: Evicted playlist Evening from cache
 ```
@@ -305,7 +305,7 @@ For example, `Shower.toml` and `Shower.jpg`._
 Command line:
 
 ```bash
-$ rose collages rename "Road Trip" "Long Flight"
+$ music collages rename "Road Trip" "Long Flight"
 [18:29:08] INFO: Renamed collage Road Trip to Long Flight
 [18:29:08] INFO: Updating cache for collage Long Flight
 [18:29:08] INFO: Evicted collage Road Trip from cache
@@ -314,7 +314,7 @@ $ tree "7. Collages/"
 7. Collages/
 └── Long Flight/...
 
-$ rose playlists rename "Shower" "Meal Prep"
+$ music playlists rename "Shower" "Meal Prep"
 [18:30:17] INFO: Renamed playlist Shower to Meal Prep
 [18:30:17] INFO: Updating cache for playlist Meal Prep
 [18:30:17] INFO: Evicted playlist Shower from cache
@@ -354,7 +354,7 @@ Command line:
 ```bash
 $ cd $vfs_mount_dir
 
-$ rose playlists set-cover "Shower" ./cover.jpg
+$ music playlists set-cover "Shower" ./cover.jpg
 [20:51:59] INFO: Set the cover of playlist Shower to cover.jpg
 [20:51:59] INFO: Updating cache for playlist Shower
 
@@ -392,7 +392,7 @@ Command line:
 ```bash
 $ cd $vfs_mount_dir
 
-$ rose playlists delete-cover "Shower"
+$ music playlists delete-cover "Shower"
 [02:10:34] INFO: Deleted cover arts of playlist Lounge
 [02:10:34] INFO: Updating cache for playlist Lounge
 
