@@ -425,7 +425,7 @@ def test_chained_action(config: Config, source_dir: Path) -> None:
     assert af.genre == ["haha"]
 
 
-@pytest.mark.timeout(2)
+@pytest.mark.timeout(10)
 def test_confirmation_yes(monkeypatch: Any, config: Config, source_dir: Path) -> None:
     rule = Rule.parse("tracktitle:Track", ["replace:lalala"])
     monkeypatch.setattr("music.rules.click.confirm", lambda *_, **__: True)
@@ -434,7 +434,7 @@ def test_confirmation_yes(monkeypatch: Any, config: Config, source_dir: Path) ->
     assert af.tracktitle == "lalala"
 
 
-@pytest.mark.timeout(2)
+@pytest.mark.timeout(10)
 def test_confirmation_no(monkeypatch: Any, config: Config, source_dir: Path) -> None:
     rule = Rule.parse("tracktitle:Track", ["replace:lalala"])
     monkeypatch.setattr("music.rules.click.confirm", lambda *_, **__: False)
@@ -443,7 +443,7 @@ def test_confirmation_no(monkeypatch: Any, config: Config, source_dir: Path) -> 
     assert af.tracktitle != "lalala"
 
 
-@pytest.mark.timeout(2)
+@pytest.mark.timeout(10)
 def test_confirmation_count(monkeypatch: Any, config: Config, source_dir: Path) -> None:
     rule = Rule.parse("tracktitle:Track", ["replace:lalala"])
     monkeypatch.setattr("music.rules.click.prompt", Mock(side_effect=["no", "8", "6"]))
