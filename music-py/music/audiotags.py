@@ -124,6 +124,7 @@ class AudioTags:
     edition: str | None
     label: list[str]
     catalognumber: str | None
+    media: str | None
     releaseartists: ArtistMapping
 
     duration_sec: int
@@ -189,6 +190,7 @@ class AudioTags:
                 descriptor=_split_tag(_get_tag(m.tags, ["TXXX:DESCRIPTOR"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["TPUB"], split=True)),
                 catalognumber=_get_tag(m.tags, ["TXXX:CATALOGNUMBER"], first=True),
+                media=_get_tag(m.tags, ["TMED"]),
                 edition=_get_tag(m.tags, ["TXXX:EDITION"], first=True),
                 releasetype=_normalize_rtype(
                     _get_tag(m.tags, ["TXXX:RELEASETYPE", "TXXX:MusicBrainz Album Type"], first=True)
@@ -242,6 +244,7 @@ class AudioTags:
                 descriptor=_split_tag(_get_tag(m.tags, ["----:net.sunsetglow.rose:DESCRIPTOR"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["----:com.apple.iTunes:LABEL"], split=True)),
                 catalognumber=_get_tag(m.tags, ["----:com.apple.iTunes:CATALOGNUMBER"]),
+                media=_get_tag(m.tags, ["----:com.apple.iTunes:MEDIA"]),
                 edition=_get_tag(m.tags, ["----:net.sunsetglow.rose:EDITION"]),
                 releasetype=_normalize_rtype(
                     _get_tag(
@@ -283,6 +286,7 @@ class AudioTags:
                 descriptor=_split_tag(_get_tag(m.tags, ["descriptor"], split=True)),
                 label=_split_tag(_get_tag(m.tags, ["label", "organization", "recordlabel"], split=True)),
                 catalognumber=_get_tag(m.tags, ["catalognumber"]),
+                media=_get_tag(m.tags, ["media"]),
                 edition=_get_tag(m.tags, ["edition"]),
                 releasetype=_normalize_rtype(_get_tag(m.tags, ["releasetype"], first=True)),
                 releaseartists=parse_artist_string(main=_get_tag(m.tags, ["albumartist"], split=True)),
@@ -357,6 +361,7 @@ class AudioTags:
             _write_tag_with_description("TXXX:DESCRIPTOR", ";".join(self.descriptor))
             _write_standard_tag("TPUB", ";".join(self.label))
             _write_tag_with_description("TXXX:CATALOGNUMBER", self.catalognumber)
+            _write_standard_tag("TMED", self.media)
             _write_tag_with_description("TXXX:EDITION", self.edition)
             _write_tag_with_description("TXXX:RELEASETYPE", self.releasetype)
             _write_standard_tag("TPE2", format_artist_string(self.releaseartists))
@@ -386,6 +391,7 @@ class AudioTags:
             m.tags["----:net.sunsetglow.rose:DESCRIPTOR"] = ";".join(self.descriptor).encode()
             m.tags["----:com.apple.iTunes:LABEL"] = ";".join(self.label).encode()
             m.tags["----:com.apple.iTunes:CATALOGNUMBER"] = (self.catalognumber or "").encode()
+            m.tags["----:com.apple.iTunes:MEDIA"] = (self.media or "").encode()
             m.tags["----:net.sunsetglow.rose:EDITION"] = (self.edition or "").encode()
             m.tags["----:com.apple.iTunes:RELEASETYPE"] = self.releasetype.encode()
             m.tags["aART"] = format_artist_string(self.releaseartists)
@@ -453,6 +459,7 @@ class AudioTags:
             m.tags["descriptor"] = ";".join(self.descriptor)
             m.tags["label"] = ";".join(self.label)
             m.tags["catalognumber"] = self.catalognumber or ""
+            m.tags["media"] = self.media or ""
             m.tags["edition"] = self.edition or ""
             m.tags["releasetype"] = self.releasetype
             m.tags["albumartist"] = format_artist_string(self.releaseartists)

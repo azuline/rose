@@ -26,6 +26,7 @@ EMPTY_CACHED_RELEASE = Release(
     compositiondate=None,
     edition=None,
     catalognumber=None,
+    media=None,
     new=False,
     favorite=False,
     rating=None,

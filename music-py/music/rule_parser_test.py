@@ -67,7 +67,7 @@ Failed to parse matcher, invalid syntax:
 
     tracknumber^Track$
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, tracktotal, discnumber, disctotal, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, genre, secondarygenre, descriptor, label, new, favorite, rating, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, tracktotal, discnumber, disctotal, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, media, genre, secondarygenre, descriptor, label, new, favorite, rating, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -266,7 +266,7 @@ Failed to parse action 1, invalid syntax:
 
     haha/delete
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, genre, secondarygenre, descriptor, label, new, favorite, rating, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, media, genre, secondarygenre, descriptor, label, new, favorite, rating, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -277,7 +277,7 @@ Failed to parse action 1, invalid syntax:
 
     tracktitler/delete
     ^
-    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, genre, secondarygenre, descriptor, label, new, favorite, rating, artist}. The next character after a tag must be ':' or ','.
+    Invalid tag: must be one of {tracktitle, trackartist, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, discnumber, releasetitle, releaseartist, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, media, genre, secondarygenre, descriptor, label, new, favorite, rating, artist}. The next character after a tag must be ':' or ','.
 """,
     )
 
@@ -500,7 +500,7 @@ Failed to parse action 1, invalid syntax:
 
     genre/copy:bogus
                     ^
-                    Invalid source tag: must be one of {tracktitle, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, tracktotal, discnumber, disctotal, releasetitle, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, genre, secondarygenre, descriptor, label, new, favorite, rating}.
+                    Invalid source tag: must be one of {tracktitle, trackartist[main], trackartist[guest], trackartist[remixer], trackartist[producer], trackartist[composer], trackartist[conductor], trackartist[djmixer], tracknumber, tracktotal, discnumber, disctotal, releasetitle, releaseartist[main], releaseartist[guest], releaseartist[remixer], releaseartist[producer], releaseartist[composer], releaseartist[conductor], releaseartist[djmixer], releasetype, releasedate, originaldate, compositiondate, edition, catalognumber, media, genre, secondarygenre, descriptor, label, new, favorite, rating}.
 """,
     )
 

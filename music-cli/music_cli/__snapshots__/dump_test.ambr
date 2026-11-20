@@ -43,6 +43,7 @@
           'labels': list([
             'Silk Music',
           ]),
+          'media': None,
           'new': False,
           'originaldate': None,
           'parent_genres': list([
@@ -145,6 +146,7 @@
             'labels': list([
               'Silk Music',
             ]),
+            'media': None,
             'new': False,
             'originaldate': None,
             'parent_genres': list([
@@ -235,6 +237,7 @@
             'labels': list([
               'Native State',
             ]),
+            'media': 'CD',
             'new': True,
             'originaldate': '2019',
             'parent_genres': list([
@@ -330,6 +333,7 @@
             'labels': list([
               'Silk Music',
             ]),
+            'media': None,
             'new': False,
             'originaldate': None,
             'parent_genres': list([
@@ -422,6 +426,7 @@
             'labels': list([
               'Native State',
             ]),
+            'media': 'CD',
             'new': True,
             'originaldate': '2019',
             'parent_genres': list([
@@ -509,6 +514,7 @@
         'labels': list([
           'Silk Music',
         ]),
+        'media': None,
         'new': False,
         'originaldate': None,
         'parent_genres': list([
@@ -583,6 +589,7 @@
         'labels': list([
           'Native State',
         ]),
+        'media': 'CD',
         'new': True,
         'originaldate': '2019',
         'parent_genres': list([
@@ -666,6 +673,7 @@
           'labels': list([
             'Silk Music',
           ]),
+          'media': None,
           'new': False,
           'originaldate': None,
           'parent_genres': list([
@@ -740,6 +748,7 @@
           'labels': list([
             'Native State',
           ]),
+          'media': 'CD',
           'new': True,
           'originaldate': '2019',
           'parent_genres': list([
@@ -828,6 +837,7 @@
         'labels': list([
           'Silk Music',
         ]),
+        'media': None,
         'new': False,
         'originaldate': None,
         'parent_genres': list([
@@ -917,6 +927,7 @@
           'labels': list([
             'Silk Music',
           ]),
+          'media': None,
           'new': False,
           'originaldate': None,
           'parent_genres': list([
@@ -1003,6 +1014,7 @@
           'labels': list([
             'Silk Music',
           ]),
+          'media': None,
           'new': False,
           'originaldate': None,
           'parent_genres': list([
@@ -1082,6 +1094,7 @@
           'labels': list([
             'Native State',
           ]),
+          'media': 'CD',
           'new': True,
           'originaldate': '2019',
           'parent_genres': list([
@@ -1164,6 +1177,7 @@
         'labels': list([
           'Silk Music',
         ]),
+        'media': None,
         'new': False,
         'originaldate': None,
         'parent_genres': list([
@@ -1253,6 +1267,7 @@
           'labels': list([
             'Silk Music',
           ]),
+          'media': None,
           'new': False,
           'originaldate': None,
           'parent_genres': list([
@@ -1339,6 +1354,7 @@
           'labels': list([
             'Silk Music',
           ]),
+          'media': None,
           'new': False,
           'originaldate': None,
           'parent_genres': list([
@@ -1425,6 +1441,7 @@
           'labels': list([
             'Silk Music',
           ]),
+          'media': None,
           'new': False,
           'originaldate': None,
           'parent_genres': list([
@@ -1511,6 +1528,7 @@
           'labels': list([
             'Silk Music',
           ]),
+          'media': None,
           'new': False,
           'originaldate': None,
           'parent_genres': list([
@@ -1597,6 +1615,7 @@
           'labels': list([
             'Silk Music',
           ]),
+          'media': None,
           'new': False,
           'originaldate': None,
           'parent_genres': list([
@@ -1676,6 +1695,7 @@
           'labels': list([
             'Native State',
           ]),
+          'media': 'CD',
           'new': True,
           'originaldate': '2019',
           'parent_genres': list([
@@ -1749,6 +1769,7 @@
           'labels': list([
             'Native State',
           ]),
+          'media': 'CD',
           'new': True,
           'originaldate': '2019',
           'parent_genres': list([
@@ -1822,6 +1843,7 @@
           'labels': list([
             'Native State',
           ]),
+          'media': 'CD',
           'new': True,
           'originaldate': '2019',
           'parent_genres': list([
@@ -1902,6 +1924,7 @@
           'labels': list([
             'Silk Music',
           ]),
+          'media': None,
           'new': False,
           'originaldate': None,
           'parent_genres': list([
@@ -1990,6 +2013,7 @@
         'labels': list([
           'Silk Music',
         ]),
+        'media': None,
         'new': False,
         'originaldate': None,
         'parent_genres': list([
@@ -2072,6 +2096,7 @@
           'labels': list([
             'Native State',
           ]),
+          'media': 'CD',
           'new': True,
           'originaldate': '2019',
           'parent_genres': list([
@@ -2152,6 +2177,7 @@
           'labels': list([
             'Silk Music',
           ]),
+          'media': None,
           'new': False,
           'originaldate': None,
           'parent_genres': list([
@@ -2231,6 +2257,7 @@
         'labels': list([
           'Silk Music',
         ]),
+        'media': None,
         'new': False,
         'originaldate': None,
         'parent_genres': list([
@@ -2328,6 +2355,7 @@
         'labels': list([
           'Native State',
         ]),
+        'media': 'CD',
         'new': True,
         'originaldate': '2019',
         'parent_genres': list([
@@ -2430,6 +2458,7 @@
           'labels': list([
             'Silk Music',
           ]),
+          'media': None,
           'new': False,
           'originaldate': None,
           'parent_genres': list([
@@ -2527,6 +2556,7 @@
           'labels': list([
             'Native State',
           ]),
+          'media': 'CD',
           'new': True,
           'originaldate': '2019',
           'parent_genres': list([
@@ -2641,6 +2671,7 @@
     'labels': list([
       'Silk Music',
     ]),
+    'media': None,
     'new': False,
     'originaldate': None,
     'parent_genres': list([
@@ -2792,6 +2823,7 @@
       'labels': list([
         'Silk Music',
       ]),
+      'media': None,
       'new': False,
       'originaldate': None,
       'parent_genres': list([
@@ -2933,6 +2965,7 @@
       'labels': list([
         'Native State',
       ]),
+      'media': 'CD',
       'new': True,
       'originaldate': '2019',
       'parent_genres': list([
@@ -3028,6 +3061,7 @@
       'id': 'r3',
       'labels': list([
       ]),
+      'media': None,
       'new': False,
       'originaldate': None,
       'parent_genres': list([
@@ -3102,6 +3136,7 @@
       'id': 'r4',
       'labels': list([
       ]),
+      'media': None,
       'new': False,
       'originaldate': None,
       'parent_genres': list([
@@ -3187,6 +3222,7 @@
       'labels': list([
         'Native State',
       ]),
+      'media': 'CD',
       'new': True,
       'originaldate': '2019',
       'parent_genres': list([
@@ -3289,6 +3325,7 @@
     'labels': list([
       'Silk Music',
     ]),
+    'media': None,
     'new': False,
     'originaldate': None,
     'parent_genres': list([
@@ -3390,6 +3427,7 @@
       'labels': list([
         'Silk Music',
       ]),
+      'media': None,
       'new': False,
       'originaldate': None,
       'parent_genres': list([
@@ -3488,6 +3526,7 @@
       'labels': list([
         'Silk Music',
       ]),
+      'media': None,
       'new': False,
       'originaldate': None,
       'parent_genres': list([
@@ -3584,6 +3623,7 @@
       'labels': list([
         'Native State',
       ]),
+      'media': 'CD',
       'new': True,
       'originaldate': '2019',
       'parent_genres': list([
@@ -3671,6 +3711,7 @@
       'id': 't4',
       'labels': list([
       ]),
+      'media': None,
       'new': False,
       'originaldate': None,
       'parent_genres': list([
@@ -3737,6 +3778,7 @@
       'id': 't5',
       'labels': list([
       ]),
+      'media': None,
       'new': False,
       'originaldate': None,
       'parent_genres': list([
@@ -3812,6 +3854,7 @@
       'labels': list([
         'Silk Music',
       ]),
+      'media': None,
       'new': False,
       'originaldate': None,
       'parent_genres': list([
@@ -3910,6 +3953,7 @@
       'labels': list([
         'Silk Music',
       ]),
+      'media': None,
       'new': False,
       'originaldate': None,
       'parent_genres': list([

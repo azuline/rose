@@ -19,6 +19,7 @@ CREATE TABLE releases (
     compositiondate TEXT,
     edition TEXT,
     catalognumber TEXT,
+    media TEXT,
     disctotal INTEGER NOT NULL,
     -- A sha256 of the release object, which can be used as a performant cache key.
     metahash TEXT NOT NULL UNIQUE,
@@ -181,6 +182,7 @@ CREATE VIRTUAL TABLE rules_engine_fts USING fts5 (
   , compositiondate
   , edition
   , catalognumber
+  , media
   , genre
   , secondarygenre
   , descriptor
@@ -245,6 +247,7 @@ CREATE VIEW releases_view AS
       , r.compositiondate
       , r.edition
       , r.catalognumber
+      , r.media
       , r.disctotal
       , r.new
       , r.favorite

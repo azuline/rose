@@ -34,6 +34,7 @@ f.tags["originaldate"] = "1990"
 f.tags["secondarygenre"] = "Minimal;Ambient"
 f.tags["descriptor"] = "Lush;Warm"
 f.tags["edition"] = "Japan"
+f.tags["media"] = "CD"
 f.save()
 
 f = mutagen.File("track2.m4a")  # type: ignore
@@ -41,6 +42,7 @@ f.tags["----:net.sunsetglow.rose:ORIGINALDATE"] = b"1990"
 f.tags["----:net.sunsetglow.rose:SECONDARYGENRE"] = b"Minimal;Ambient"
 f.tags["----:net.sunsetglow.rose:DESCRIPTOR"] = b"Lush;Warm"
 f.tags["----:net.sunsetglow.rose:EDITION"] = b"Japan"
+f.tags["----:com.apple.iTunes:MEDIA"] = b"CD"
 f.save()
 
 f = mutagen.File("track3.mp3")  # type: ignore
@@ -48,6 +50,7 @@ write_standard_tag(f, "TDOR", "1990")
 write_tag_with_description(f, "TXXX:SECONDARYGENRE", "Minimal;Ambient")
 write_tag_with_description(f, "TXXX:DESCRIPTOR", "Lush;Warm")
 write_tag_with_description(f, "TXXX:EDITION", "Japan")
+write_standard_tag(f, "TMED", "CD")
 f.save()
 
 f = mutagen.File("track4.vorbis.ogg")  # type: ignore
@@ -55,6 +58,7 @@ f.tags["originaldate"] = "1990"
 f.tags["secondarygenre"] = "Minimal;Ambient"
 f.tags["descriptor"] = "Lush;Warm"
 f.tags["edition"] = "Japan"
+f.tags["media"] = "CD"
 f.save()
 
 f = mutagen.File("track5.opus.ogg")  # type: ignore
@@ -62,4 +66,5 @@ f.tags["originaldate"] = "1990"
 f.tags["secondarygenre"] = "Minimal;Ambient"
 f.tags["descriptor"] = "Lush;Warm"
 f.tags["edition"] = "Japan"
+f.tags["media"] = "CD"
 f.save()
