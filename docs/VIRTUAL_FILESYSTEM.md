@@ -38,9 +38,33 @@ intentional ordering.
 
 The only one that may not be intuitive is Loose Tracks. These are releases with the release type set
 to `loosetrack`. Releases with the release type `loosetrack` are excluded from the standard release
-views; they are only visible in the Loose Tracks view. This feature is intended to allow storing
-random one-off tracks for the sake of playlisting without polluting the releases list with many
-small entries.
+views' release directory listings; as releases, they are only listed in the Loose Tracks view. This
+feature is intended to allow storing random one-off tracks for the sake of playlisting without
+polluting the releases list with many small entries.
+
+Loose tracks can still be added to playlists and collages, and their tracks still appear in the flat
+`!All Tracks` directories described below (for example, `1. Releases/!All Tracks`).
+
+## All Tracks
+
+Every release view, every individual artist, genre, descriptor, and label, the Loose Tracks view,
+and every collage contains a special `!All Tracks` directory. This directory contains all the tracks
+of the releases in that view, flattened into a single directory. This is useful for shuffling
+everything by an artist or in a genre without descending into each release. For example:
+
+```bash
+$ cd $vfs_mount_dir
+
+$ ls -1 "2. Artists/LOOΠΔ/!All Tracks/"
+'LOOΠΔ - 2017. Kim Lip - Eclipse.opus'
+'LOOΠΔ - 2017. Kim Lip - Twilight.opus'
+...
+
+$ mpv --shuffle "3. Genres/K-Pop/!All Tracks/"
+```
+
+The names of the tracks in an `!All Tracks` directory are configured by the `xxx.all_tracks` path
+templates.
 
 # Directory and File Names
 

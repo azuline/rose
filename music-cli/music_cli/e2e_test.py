@@ -115,9 +115,9 @@ def test_releases(music: Music, isolated_dir: Path) -> None:
 
     cover = isolated_dir / "art.jpg"
     cover.touch()
-    music("releases", "set-cover-release", rid, str(cover))
+    music("releases", "set-cover", rid, str(cover))
     assert _json(music("releases", "print", rid))["cover_image_path"] == str(Path(rpath) / "cover.jpg")
-    music("releases", "delete-cover-release", rid)
+    music("releases", "delete-cover", rid)
     assert _json(music("releases", "print", rid))["cover_image_path"] is None
 
     music("releases", "run-rule", "--dry-run", rid, "releasetitle/replace:Dry Run")

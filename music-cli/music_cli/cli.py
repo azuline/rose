@@ -296,7 +296,7 @@ def delete_release_cmd(ctx: Context, release: str) -> None:
     delete_release(ctx.config, release)
 
 
-@releases.command()
+@releases.command(name="set-cover")
 @click.argument("release", type=click.Path(), nargs=1)
 @click.argument("cover", type=click.Path(path_type=Path), nargs=1)
 @click.pass_obj
@@ -306,11 +306,11 @@ def set_cover_release(ctx: Context, release: str, cover: Path) -> None:
     set_release_cover_art(ctx.config, release, cover)
 
 
-@releases.command()
+@releases.command(name="delete-cover")
 @click.argument("release", type=click.Path(), nargs=1)
 @click.pass_obj
 def delete_cover_release(ctx: Context, release: str) -> None:
-    """Delete the cover art of a release."""
+    """Delete the cover art of a release. Accepts a release's UUID/path."""
     release = parse_release_argument(release)
     delete_release_cover_art(ctx.config, release)
 
@@ -412,7 +412,8 @@ def create(ctx: Context, name: str) -> None:
 @click.argument("new_name", type=str, nargs=1)
 @click.pass_obj
 def rename(ctx: Context, old_name: str, new_name: str) -> None:
-    """Rename a collage."""
+    """Rename a collage. Accepts a collage's name/path."""
+    old_name = parse_collage_argument(old_name)
     rename_collage(ctx.config, old_name, new_name)
 
 
@@ -420,7 +421,8 @@ def rename(ctx: Context, old_name: str, new_name: str) -> None:
 @click.argument("collage", type=str, nargs=1)
 @click.pass_obj
 def delete(ctx: Context, collage: str) -> None:
-    """Delete a collage."""
+    """Delete a collage. Accepts a collage's name/path."""
+    collage = parse_collage_argument(collage)
     delete_collage(ctx.config, collage)
 
 
@@ -429,7 +431,8 @@ def delete(ctx: Context, collage: str) -> None:
 @click.argument("release", type=str, nargs=1)
 @click.pass_obj
 def add_release(ctx: Context, collage: str, release: str) -> None:
-    """Add a release to a collage. Accepts a collage's name and a release's UUID/path."""
+    """Add a release to a collage. Accepts a collage's name/path and a release's UUID/path."""
+    collage = parse_collage_argument(collage)
     release = parse_release_argument(release)
     add_release_to_collage(ctx.config, collage, release)
 
@@ -439,7 +442,8 @@ def add_release(ctx: Context, collage: str, release: str) -> None:
 @click.argument("release", type=str, nargs=1)
 @click.pass_obj
 def remove_release(ctx: Context, collage: str, release: str) -> None:
-    """Remove a release from a collage. Accepts a collage's name and a release's UUID/path."""
+    """Remove a release from a collage. Accepts a collage's name/path and a release's UUID/path."""
+    collage = parse_collage_argument(collage)
     release = parse_release_argument(release)
     remove_release_from_collage(ctx.config, collage, release)
 
@@ -448,7 +452,8 @@ def remove_release(ctx: Context, collage: str, release: str) -> None:
 @click.argument("collage", type=str, nargs=1)
 @click.pass_obj
 def edit(ctx: Context, collage: str) -> None:
-    """Edit (reorder/remove releases from) a collage in $EDITOR. Accepts a collage's name."""
+    """Edit (reorder/remove releases from) a collage in $EDITOR. Accepts a collage's name/path."""
+    collage = parse_collage_argument(collage)
     edit_collage_in_editor(ctx.config, collage)
 
 
@@ -456,7 +461,8 @@ def edit(ctx: Context, collage: str) -> None:
 @click.argument("collage", type=str, nargs=1)
 @click.pass_obj
 def print_collage(ctx: Context, collage: str) -> None:
-    """Print a collage (in JSON). Accepts a collage's name."""
+    """Print a collage (in JSON). Accepts a collage's name/path."""
+    collage = parse_collage_argument(collage)
     click.echo(dump_collage(ctx.config, collage))
 
 
@@ -485,7 +491,8 @@ def create_playlist_cmd(ctx: Context, name: str) -> None:
 @click.argument("new_name", type=str, nargs=1)
 @click.pass_obj
 def rename_playlist_cmd(ctx: Context, old_name: str, new_name: str) -> None:
-    """Rename a playlist. Accepts a playlist's name."""
+    """Rename a playlist. Accepts a playlist's name/path."""
+    old_name = parse_playlist_argument(old_name)
     rename_playlist(ctx.config, old_name, new_name)
 
 
@@ -493,7 +500,8 @@ def rename_playlist_cmd(ctx: Context, old_name: str, new_name: str) -> None:
 @click.argument("playlist", type=str, nargs=1)
 @click.pass_obj
 def delete_playlist_cmd(ctx: Context, playlist: str) -> None:
-    """Delete a playlist. Accepts a playlist's name."""
+    """Delete a playlist. Accepts a playlist's name/path."""
+    playlist = parse_playlist_argument(playlist)
     delete_playlist(ctx.config, playlist)
 
 
@@ -502,7 +510,8 @@ def delete_playlist_cmd(ctx: Context, playlist: str) -> None:
 @click.argument("track", type=str, nargs=1)
 @click.pass_obj
 def add_track(ctx: Context, playlist: str, track: str) -> None:
-    """Add a track to a playlist. Accepts a playlist name and a track's UUID/path."""
+    """Add a track to a playlist. Accepts a playlist's name/path and a track's UUID/path."""
+    playlist = parse_playlist_argument(playlist)
     track = parse_track_argument(track)
     add_track_to_playlist(ctx.config, playlist, track)
 
@@ -512,7 +521,8 @@ def add_track(ctx: Context, playlist: str, track: str) -> None:
 @click.argument("track", type=str, nargs=1)
 @click.pass_obj
 def remove_track(ctx: Context, playlist: str, track: str) -> None:
-    """Remove a track from a playlist. Accepts a playlist name and a track's UUID/path."""
+    """Remove a track from a playlist. Accepts a playlist's name/path and a track's UUID/path."""
+    playlist = parse_playlist_argument(playlist)
     track = parse_track_argument(track)
     remove_track_from_playlist(ctx.config, playlist, track)
 
@@ -525,6 +535,7 @@ def edit_playlist(ctx: Context, playlist: str) -> None:
     Edit a playlist in $EDITOR. Reorder lines to update the ordering of tracks. Delete lines to
     delete tracks from the playlist.
     """
+    playlist = parse_playlist_argument(playlist)
     edit_playlist_in_editor(ctx.config, playlist)
 
 
@@ -532,7 +543,8 @@ def edit_playlist(ctx: Context, playlist: str) -> None:
 @click.argument("playlist", type=str, nargs=1)
 @click.pass_obj
 def print_playlist(ctx: Context, playlist: str) -> None:
-    """Print a playlist (in JSON). Accepts a playlist's name."""
+    """Print a playlist (in JSON). Accepts a playlist's name/path."""
+    playlist = parse_playlist_argument(playlist)
     click.echo(dump_playlist(ctx.config, playlist))
 
 
@@ -549,8 +561,9 @@ def print_all_playlists(ctx: Context) -> None:
 @click.pass_obj
 def set_cover_playlist(ctx: Context, playlist: str, cover: Path) -> None:
     """
-    Set the cover art of a playlist. Accepts a playlist name and a path to an image.
+    Set the cover art of a playlist. Accepts a playlist's name/path and a path to an image.
     """
+    playlist = parse_playlist_argument(playlist)
     set_playlist_cover_art(ctx.config, playlist, cover)
 
 
@@ -558,7 +571,8 @@ def set_cover_playlist(ctx: Context, playlist: str, cover: Path) -> None:
 @click.argument("playlist", type=str, nargs=1)
 @click.pass_obj
 def delete_cover_playlist(ctx: Context, playlist: str) -> None:
-    """Delete the cover art of a playlist. Accepts a playlist name."""
+    """Delete the cover art of a playlist. Accepts a playlist's name/path."""
+    playlist = parse_playlist_argument(playlist)
     delete_playlist_cover_art(ctx.config, playlist)
 
 
@@ -734,10 +748,12 @@ Track arguments must be one of:
 
 
 def parse_collage_argument(c: str) -> str:
-    """Takes in a collage argument and normalizes it to the collage ID."""
+    """Takes in a collage argument and normalizes it to the collage name."""
     path = Path(c).resolve()
-    # Handle the case where the argument is a path to a directory.
-    if path.exists() and path.is_dir():
+    # Handle the case where the argument is a path to a directory in the virtual filesystem. Other
+    # directories are not accepted, so that a path to something else is never mistaken for a
+    # collage that happens to have the same name.
+    if path.exists() and path.is_dir() and path.parent.name == "7. Collages":
         return path.name
     # Then handle the case where the argument is a path to the TOML file.
     if path.exists() and path.is_file() and path.parent.name == "!collages":
@@ -747,15 +763,17 @@ def parse_collage_argument(c: str) -> str:
 
 
 def parse_playlist_argument(p: str) -> str:
-    """Takes in a collage argument and normalizes it to the collage ID."""
+    """Takes in a playlist argument and normalizes it to the playlist name."""
     path = Path(p).resolve()
-    # Handle the case where the argument is a path to a directory.
-    if path.exists() and path.is_dir():
+    # Handle the case where the argument is a path to a directory in the virtual filesystem. Other
+    # directories are not accepted, so that a path to something else is never mistaken for a
+    # playlist that happens to have the same name.
+    if path.exists() and path.is_dir() and path.parent.name == "8. Playlists":
         return path.name
     # Then handle the case where the argument is a path to the TOML file.
     if path.exists() and path.is_file() and path.parent.name == "!playlists":
         return path.stem
-    # Then handle the case where the argument is a collage name (aka everything else).
+    # Then handle the case where the argument is a playlist name (aka everything else).
     return p
 
 

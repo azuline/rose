@@ -10,7 +10,7 @@ For more detailed documentation, please visit the following files:
 - [Improving Your Music Metadata](./METADATA_TOOLS.md)
 - [Maintaining the Cache](./CACHE_MAINTENANCE.md)
 - [Directory & Filename Templates](./TEMPLATES.md)
-- [Tagging Conventions](./docs/TAGGING_CONVENTIONS.md)
+- [Tagging Conventions](./TAGGING_CONVENTIONS.md)
 - [Architecture](./ARCHITECTURE.md)
 
 The code is also commented somewhat decently, if you'd like to read the source.
